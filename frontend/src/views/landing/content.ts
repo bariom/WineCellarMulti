@@ -1,7 +1,12 @@
 import type { Locale } from "../../types";
 
 export type LandingCopy = {
-  nav: { product: string; maturity: string; sommelier: string; insights: string; pricing: string };
+  nav: { product: string; dashboard: string; maturity: string; sommelier: string; insights: string; pricing: string };
+  dashboard: {
+    eyebrow: string; title: string; body: string; action: string; note: string;
+    steps: Array<{ title: string; body: string }>;
+    preview: string; name: string; welcome: string; ready: string; memories: string; memory: string; caption: string;
+  };
   header: { login: string; register: string; menu: string; close: string; language: string };
   hero: {
     eyebrow: string;
@@ -99,7 +104,22 @@ export type LandingCopy = {
 
 export const landingCopy: Record<Locale, LandingCopy> = {
   it: {
-    nav: { product: "Prodotto", maturity: "Finestra di beva", sommelier: "Sommelier", insights: "Analisi", pricing: "Accesso" },
+    nav: { product: "Prodotto", dashboard: "La tua dashboard", maturity: "Finestra di beva", sommelier: "Sommelier", insights: "Analisi", pricing: "Accesso" },
+    dashboard: {
+      eyebrow: "La dashboard personalizzabile",
+      title: "La tua cantina, a modo tuo.",
+      body: "C’è chi parte dalle bottiglie da aprire, chi dal valore della collezione, chi dai ricordi di una bella serata. Dai spazio a ciò che conta per te.",
+      action: "Provala nella demo",
+      note: "Nella demo apri «La mia dashboard» e scegli Personalizza. Le modifiche durano fino al ricaricamento della pagina.",
+      steps: [
+        { title: "Scegli cosa vedere", body: "Aggiungi i riquadri che ti interessano e rimuovi gli altri." },
+        { title: "Trova il tuo ordine", body: "Sposta i riquadri e scegli la loro larghezza, per dare risalto alle tue priorità." },
+        { title: "Sentiti a casa", body: "Salva la composizione e impostala come vista iniziale della tua cantina." },
+      ],
+      preview: "Esempio di composizione", name: "La mia dashboard", welcome: "Una collezione, una passione.",
+      ready: "Da bere adesso", memories: "Ultime degustazioni", memory: "Una cena, un vino, una bella storia.",
+      caption: "Vini pronti, panoramica e ricordi: uno dei tanti modi di comporre la tua dashboard.",
+    },
     header: { login: "Accedi", register: "Inizia", menu: "Apri menu", close: "Chiudi menu", language: "Lingua" },
     hero: {
       eyebrow: "L’app per i vini che possiedi",
@@ -108,7 +128,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       primary: "Crea la tua cantina",
       secondary: "Scopri come funziona",
       demo: "Prova la cantina demo",
-      demoNote: "Senza registrazione · Cantina dimostrativa in sola lettura",
+      demoNote: "Senza registrazione · Prova anche la dashboard personalizzabile",
       previewCaption: "Dalla demo: i vini da bere oggi",
       previewAlt: "Schermata reale della demo Vinaris: selezione di vini pronti da bere con finestre di beva",
       signal: "Gratis con tutte le funzioni private fino a 15 etichette attive",
@@ -214,7 +234,22 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     meta: { title: "Vinaris | Cantina digitale e sommelier AI per collezionisti", description: "Gestisci bottiglie, finestre di beva, valore, consegne, wishlist e memoria degustativa in una cantina privata e intelligente." },
   },
   en: {
-    nav: { product: "Product", maturity: "Drinking window", sommelier: "Sommelier", insights: "Insights", pricing: "Access" },
+    nav: { product: "Product", dashboard: "Your dashboard", maturity: "Drinking window", sommelier: "Sommelier", insights: "Insights", pricing: "Access" },
+    dashboard: {
+      eyebrow: "The customisable dashboard",
+      title: "Your cellar. Your way.",
+      body: "Some start with bottles to open, others with the value of their collection or memories of a wonderful evening. Make room for what matters to you.",
+      action: "Try it in the demo",
+      note: "In the demo, open “My dashboard” and choose Customize. Changes last until you reload the page.",
+      steps: [
+        { title: "Choose what you see", body: "Add the widgets you care about and remove the others." },
+        { title: "Find your own order", body: "Move widgets and choose their width to give your priorities more room." },
+        { title: "Make yourself at home", body: "Save your layout and make it the starting view for your cellar." },
+      ],
+      preview: "Illustrative layout", name: "My dashboard", welcome: "A collection, a passion.",
+      ready: "Drink now", memories: "Latest tastings", memory: "A dinner, a wine, a story to remember.",
+      caption: "Ready wines, an overview and memories: one of many ways to arrange your dashboard.",
+    },
     header: { login: "Log in", register: "Get started", menu: "Open menu", close: "Close menu", language: "Language" },
     hero: {
       eyebrow: "The app for the wines you own",
@@ -223,7 +258,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       primary: "Build your cellar",
       secondary: "See how it works",
       demo: "Try the demo cellar",
-      demoNote: "No sign-up · Read-only demo cellar",
+      demoNote: "No sign-up · Try the customisable dashboard too",
       previewCaption: "From the demo: wines to drink today",
       previewAlt: "Real Vinaris demo screenshot: wines ready to drink with their drinking windows",
       signal: "Free with every private feature for up to 15 active labels",

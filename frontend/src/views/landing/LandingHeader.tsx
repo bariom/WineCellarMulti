@@ -57,6 +57,7 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
 
   const navItems = [
     ["#product", copy.nav.product],
+    ["#dashboard", copy.nav.dashboard],
     ["#maturity", copy.nav.maturity],
     ["#sommelier", copy.nav.sommelier],
     ["#insights", copy.nav.insights],
@@ -67,7 +68,7 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
     <header ref={headerRef} className={`marketing-header${scrolled ? " is-scrolled" : ""}`}>
       <a className="marketing-brand" href="#top" aria-label="Vinaris">
         <img src="/icons/icon-192.png" alt="" width="42" height="42" fetchPriority="high" />
-        <span><strong>Vinaris</strong><small>Vinaris - Private Cellar Intelligence</small></span>
+        <span><strong>Vinaris</strong><small>Private Cellar Intelligence</small></span>
       </a>
       {showMobileLogin ? <button type="button" className="marketing-button secondary compact marketing-mobile-login" onClick={onLogin}>{copy.header.login}</button> : null}
       <button

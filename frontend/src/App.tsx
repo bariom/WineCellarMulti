@@ -2257,6 +2257,10 @@ export function App() {
     setPrimaryDashboardFocus(nextFocus);
     setDashboardFocus(nextFocus);
     if (!session?.authenticated || offlineMode) return;
+    if (session.is_demo) {
+      setSession(current => current?.is_demo ? { ...current, dashboard_focus: nextFocus } : current);
+      return;
+    }
     try {
       const nextSession = await api<Session>("/api/v1/auth/preferences", {
         method: "PATCH",
@@ -2272,6 +2276,10 @@ export function App() {
   }
 
   async function savePersonalDashboard(widgets: PersonalDashboardWidget[]) {
+    if (session?.is_demo) {
+      setSession(current => current?.is_demo ? { ...current, personal_dashboard_widgets: widgets } : current);
+      return;
+    }
     const nextSession = await api<Session>("/api/v1/auth/preferences", {
       method: "PATCH",
       body: JSON.stringify({ personal_dashboard_widgets: widgets }),
@@ -10798,7 +10806,8 @@ export function App() {
                 key={`${session?.user_email}:${session?.active_household_id}`}
                 locale={locale}
                 widgets={session?.personal_dashboard_widgets}
-                readOnly={Boolean(session?.is_demo || offlineMode)}
+                readOnly={offlineMode}
+                isDemo={Boolean(session?.is_demo)}
                 isDefault={primaryDashboardFocus === "personal"}
                 onSave={savePersonalDashboard}
                 onMakeDefault={() => changePrimaryDashboardFocus("personal")}

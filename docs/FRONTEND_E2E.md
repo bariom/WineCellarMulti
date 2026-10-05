@@ -30,6 +30,7 @@ Shared deterministic data and helpers live in `e2e/fixtures/app.ts`.
 
 | Scope | Command from `frontend/` |
 | --- | --- |
+| Public landing, dashboard presentation and demo entry (IT/EN, mobile/desktop) | `npx playwright test e2e/landing.spec.ts` |
 | Wine Detail, sensory signature, detail geometry and baseline | `npm run test:e2e:wine-detail` |
 | Collector composition, summaries, insights and scrolling | `npm run test:e2e:collector` |
 | Personal dashboard widgets, editor and drill-downs | `npm run test:e2e:personal-dashboard` |
@@ -184,6 +185,12 @@ npm run test:e2e:wine-detail -- --grep "matches the compact visual baseline" --u
 Do not update snapshots as a way to hide an unexpected UI regression.
 
 ## Scope-aware test selection
+
+La demo permette di personalizzare «La mia dashboard»: selezione, ordine,
+larghezza dei widget e scelta come dashboard iniziale. Le modifiche restano
+nel browser fino al ricaricamento e non vengono salvate sul conto demo condiviso.
+Verifica mirata: `npm run test:e2e:personal-dashboard -- -g "demo can customize"`
+(360, 390, 430 e 1440 px, navigazione, ripristino e assenza di scritture API).
 
 Il widget personale «Una bottiglia per stasera» mostra un vino alla volta e,
 con più candidati, un contatore e «Prossima proposta». La selezione scorre

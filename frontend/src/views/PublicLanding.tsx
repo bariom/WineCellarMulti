@@ -207,6 +207,30 @@ export default function PublicLanding({
           ))}
         </section>
 
+        <section id="dashboard" className="marketing-section marketing-dashboard-section" aria-labelledby="dashboard-title">
+          <div className="marketing-section-copy">
+            <p className="marketing-kicker">{copy.dashboard.eyebrow}</p>
+            <h2 id="dashboard-title">{copy.dashboard.title}</h2>
+            <p className="marketing-dashboard-intro">{copy.dashboard.body}</p>
+            <ol className="marketing-dashboard-steps">
+              {copy.dashboard.steps.map((step) => <li key={step.title}><h3>{step.title}</h3><p>{step.body}</p></li>)}
+            </ol>
+            <div className="marketing-actions">
+              <button type="button" className="marketing-button primary" onClick={onDemo} disabled={demoLoading} aria-describedby="dashboard-demo-note">{demoLoading ? openingLabel : copy.dashboard.action}</button>
+            </div>
+            <small id="dashboard-demo-note" className="marketing-demo-note">{copy.dashboard.note}</small>
+          </div>
+          <figure className="marketing-dashboard-preview">
+            <div className="marketing-dashboard-cover"><span>{copy.dashboard.welcome}</span><h3>{copy.dashboard.name}</h3></div>
+            <div className="marketing-dashboard-composition">
+              <article className="marketing-dashboard-ready"><span className="marketing-dashboard-label">01 · {copy.dashboard.ready}</span><h4>Barbaresco<br /><em>Basarin, 2023</em></h4><span className="marketing-dashboard-status">{copy.sommelier.ready}</span><div className="marketing-dashboard-window" aria-hidden="true" /></article>
+              <article className="marketing-dashboard-count"><span className="marketing-dashboard-label">02 · {copy.insights.bottles}</span><strong>128</strong><span>Piemonte · Toscana · Bordeaux</span></article>
+              <article className="marketing-dashboard-memory"><span className="marketing-dashboard-label">03 · {copy.dashboard.memories}</span><p>{copy.dashboard.memory}</p></article>
+            </div>
+            <figcaption><span>{copy.dashboard.preview}</span>{copy.dashboard.caption}</figcaption>
+          </figure>
+        </section>
+
         <section id="product" className="marketing-section marketing-origin-section">
           <div className="marketing-origin-copy" data-reveal>
             <p className="marketing-kicker">{copy.origin.eyebrow}</p>

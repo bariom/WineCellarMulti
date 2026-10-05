@@ -13,10 +13,11 @@ const initialLayout: PersonalDashboardWidget[] = [
   { id: "regions", width: "full" }, { id: "maturity", width: "full" },
 ];
 
-export function PersonalDashboard({ locale, widgets, readOnly, isDefault, onSave, onMakeDefault, renderWidget }: {
+export function PersonalDashboard({ locale, widgets, readOnly, isDemo = false, isDefault, onSave, onMakeDefault, renderWidget }: {
   locale: Locale;
   widgets: PersonalDashboardWidget[] | null | undefined;
   readOnly: boolean;
+  isDemo?: boolean;
   isDefault: boolean;
   onSave: (widgets: PersonalDashboardWidget[]) => Promise<void>;
   onMakeDefault: () => Promise<void>;
@@ -96,6 +97,7 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDefault, onSave
       </div>
     </header>
     {readOnly && <p>{it ? "La personalizzazione richiede un account personale e una connessione attiva." : "Customization requires a personal account and an active connection."}</p>}
+    {isDemo && !readOnly && <p>{it ? "Prova liberamente: le modifiche alla dashboard sono temporanee. Ricaricando la demo riparti dalla versione iniziale." : "Try it freely: dashboard changes are temporary. Reloading the demo restores the initial layout."}</p>}
     {notice && <p role="status">{notice}</p>}
     {error && <p role="alert">{error}</p>}
     {editing && <fieldset className="personal-widget-picker" disabled={saving}>

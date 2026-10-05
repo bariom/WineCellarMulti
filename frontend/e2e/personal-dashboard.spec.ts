@@ -463,12 +463,44 @@ test("personal dashboard widgets fit mobile and desktop and can become the defau
   await page.getByRole("group", { name: "Scegli i tuoi widget" }).screenshot({ path: testInfo.outputPath("personal-editor-390.png") });
 });
 
-test("personal dashboard demo stays read-only", async ({ page }) => {
-  await mockApi(page, [], false, memberships, [wine], { ...session, is_demo: true });
-  await page.goto("/");
-  await page.getByRole("tab", { name: "La mia dashboard", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Personalizza", exact: true })).toBeDisabled();
-});
+for (const width of [360, 390, 430, 1440]) {
+  test(`personal dashboard demo can customize locally ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    const preferenceWrites: string[] = [];
+    page.on("request", request => {
+      if (request.url().includes("/auth/preferences") && request.method() === "PATCH") preferenceWrites.push(request.postData() || "");
+    });
+    await mockApi(page, [], false, memberships, [wine], { ...session, is_demo: true, dashboard_focus: "collector", personal_dashboard_widgets: [{ id: "overview", width: "full" }, { id: "recent", width: "full" }] });
+    await page.goto("/");
+    await page.getByRole("tab", { name: /^La mia dashboard/ }).click();
+    const dashboard = page.getByRole("region", { name: "La mia dashboard", exact: true });
+    await expect(dashboard).toContainText("le modifiche alla dashboard sono temporanee");
+    await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
+    await dashboard.getByRole("button", { name: "Rimuovi: La cantina in numeri", exact: true }).click();
+    await dashboard.getByRole("checkbox", { name: /^Da bere adesso/ }).check();
+    await dashboard.getByLabel("Larghezza: Ultimi vini aggiunti", { exact: true }).selectOption("half");
+    await dashboard.getByRole("button", { name: "Sposta su: Da bere adesso", exact: true }).click();
+    await dashboard.getByRole("button", { name: "Salva dashboard", exact: true }).click();
+    await expect(dashboard.locator("[data-widget-id]").first()).toHaveAttribute("data-widget-id", "ready");
+    await expect(dashboard.locator('[data-widget-id="recent"]')).toHaveClass(/personal-widget-half/);
+    await expect(dashboard.locator('[data-widget-id="overview"]')).toHaveCount(0);
+    await expect(dashboard.locator('[data-widget-id="ready"]')).toHaveCount(1);
+    await dashboard.getByRole("button", { name: "Usa come iniziale", exact: true }).click();
+    await expect(dashboard.getByText("Dashboard iniziale", { exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: /^Focus collezionista/ }).click();
+    await page.getByRole("tab", { name: /^La mia dashboard/ }).click();
+    await expect(dashboard.locator('[data-widget-id="ready"]')).toHaveCount(1);
+    expect(preferenceWrites).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await dashboard.screenshot({ path: testInfo.outputPath(`demo-custom-dashboard-${width}.png`), animations: "disabled" });
+    await page.reload();
+    await expect(page.getByRole("tab", { name: /^Focus collezionista/ })).toHaveAttribute("aria-selected", "true");
+    await page.getByRole("tab", { name: /^La mia dashboard/ }).click();
+    await expect(dashboard.locator('[data-widget-id="overview"]')).toHaveCount(1);
+    await expect(dashboard.locator('[data-widget-id="ready"]')).toHaveCount(0);
+    expect(preferenceWrites).toEqual([]);
+  });
+}
 
 test("personal dashboard supports every widget at half width", async ({ page }, testInfo) => {
   const ids = personalDashboardCatalogue.map(widget => widget.id);

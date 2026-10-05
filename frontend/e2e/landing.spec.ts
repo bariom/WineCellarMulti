@@ -56,7 +56,40 @@ for (const locale of ["it", "en"] as const) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       if (width === 390 || width === 1440) await knowledge.screenshot({ path: testInfo.outputPath(`regions-${locale}-${width}.png`) });
     }
-    // Delay the demo response to verify immediate feedback and prevent repeated requests.
+    const dashboard = page.getByRole("region", { name: locale === "it" ? "La tua cantina, a modo tuo." : "Your cellar. Your way." });
+    const dashboardDemo = dashboard.getByRole("button", { name: locale === "it" ? "Provala nella demo" : "Try it in the demo" });
+    for (const width of [360, 390, 430, 1200, 1440]) {
+      await page.setViewportSize({ width, height: width >= 1200 ? 1000 : 844 });
+      await page.evaluate(() => window.scrollTo(0, 0));
+      if (width < 1161) await page.getByRole("button", { name: locale === "it" ? "Apri menu" : "Open menu" }).click();
+      await page.getByRole("link", { name: locale === "it" ? "La tua dashboard" : "Your dashboard", exact: true }).click();
+      await expect(page).toHaveURL(/#dashboard$/);
+      await expect(dashboard.getByRole("listitem")).toHaveCount(3);
+      const preview = dashboard.getByRole("figure");
+      const heading = (await dashboard.getByRole("heading", { level: 2 }).boundingBox())!;
+      const previewBox = (await preview.boundingBox())!;
+      if (width >= 1200) expect(previewBox.x).toBeGreaterThan(heading.x + heading.width);
+      else {
+        const note = (await dashboard.getByText(/Le modifiche durano|Changes last/).boundingBox())!;
+        expect(previewBox.y).toBeGreaterThan(note.y + note.height);
+      }
+      const cards = await preview.getByRole("article").all();
+      const boxes = await Promise.all(cards.map(card => card.boundingBox()));
+      for (const box of boxes) {
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      }
+      for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i]!, b = boxes[j]!;
+        expect(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y).toBe(true);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      if (width === 390 || width === 1440) {
+        await dashboard.screenshot({ path: testInfo.outputPath(`dashboard-${locale}-${width}.png`) });
+        await page.screenshot({ path: testInfo.outputPath(`full-landing-${locale}-${width}.png`), fullPage: true });
+      }
+    }
+    // Both entry points share loading feedback; the new section opens the demo.
     let release!: () => void;
     const pending = new Promise<void>(resolve => { release = resolve; });
     await page.route("**/api/v1/auth/demo?**", async route => {
@@ -64,11 +97,13 @@ for (const locale of ["it", "en"] as const) {
       await route.fulfill({ status: 503, json: { detail: "Demo temporarily unavailable" } });
     });
     const request = page.waitForRequest("**/api/v1/auth/demo?**");
-    await demo.click();
+    await dashboardDemo.click();
     expect((await request).method()).toBe("POST");
     await expect(hero.getByRole("button", { name: /Apertura|Opening/ })).toBeDisabled();
+    await expect(dashboard.getByRole("button", { name: /Apertura|Opening/ })).toBeDisabled();
     release();
     await expect(demo).toBeEnabled();
+    await expect(dashboardDemo).toBeEnabled();
     await hero.getByRole("button", { name: locale === "it" ? /Crea la tua cantina/ : /Build your cellar/ }).click();
     await expect(page.getByRole("textbox", { name: locale === "it" ? "Conferma password" : "Confirm password", exact: true })).toBeVisible();
   });
