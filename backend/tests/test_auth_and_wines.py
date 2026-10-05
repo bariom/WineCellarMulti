@@ -5814,6 +5814,73 @@ def test_tasting_archive_reads_paginated_normalized_entries():
     assert period_page.json()["profile"][0]["count"] == 1
 
 
+def test_tasting_archive_includes_cellar_photo_and_exact_shared_catalog_photo(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "wine_photo_storage_dir", str(tmp_path))
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={"name": "Memory Wine", "producer": "Memory Estate", "quantity": 1},
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+    assert client.post(f"/api/v1/wines/{wine_id}/consume", json={}).status_code == 200
+    with TestingSessionLocal() as db:
+        cellar_wine = db.scalar(
+            select(Wine).where(
+                Wine.id == uuid.UUID(wine_id),
+                Wine.household_id == uuid.UUID(created.json()["household_id"]),
+            )
+        )
+        assert cellar_wine is not None
+        cellar_wine.photo_version = "own-photo"
+        photo = WinePhotoLibraryEntry(
+            name="Memory Wine", producer="Memory Estate",
+            normalized_name="memory wine", normalized_producer="memory estate",
+            photo_version="catalog-photo",
+        )
+        db.add(photo)
+        db.commit()
+        photo_id = photo.id
+        thumbnail = library_photo_path(photo, "thumbnail")
+        thumbnail.parent.mkdir(parents=True)
+        thumbnail.write_bytes(b"catalog-thumbnail")
+
+    external = client.post(
+        "/api/v1/wishlist/tastings",
+        json={"name": "MEMORY  Wine", "producer": "Memory Estate", "vintage": "2020"},
+    )
+    assert external.status_code == 201
+    unmatched = client.post(
+        "/api/v1/wishlist/tastings", json={"name": "Memory Wine", "producer": "Another Estate"},
+    )
+    assert unmatched.status_code == 201
+    archive = client.get("/api/v1/wines/tasting-archive").json()
+    cellar = next(item for item in archive["items"] if item["source"] != "external_tasting")
+    assert cellar["wine_photo_thumbnail_url"] == f"/api/v1/wines/{wine_id}/photo/thumbnail?v=own-photo"
+    outside = next(item for item in archive["items"] if item["tasting_id"] == external.json()["id"])
+    assert outside["wine_photo_thumbnail_url"] == f"/api/v1/wines/photo/library/{photo_id}/thumbnail?v=catalog-photo"
+    assert client.get(outside["wine_photo_thumbnail_url"]).status_code == 200
+    other_producer = next(item for item in archive["items"] if item["tasting_id"] == unmatched.json()["id"])
+    assert other_producer["wine_photo_thumbnail_url"] == ""
+    with TestingSessionLocal() as db:
+        cellar_wine = db.scalar(
+            select(Wine).where(
+                Wine.id == uuid.UUID(wine_id),
+                Wine.household_id == uuid.UUID(created.json()["household_id"]),
+            )
+        )
+        assert cellar_wine is not None
+        cellar_wine.photo_version = ""
+        db.commit()
+    assert client.get("/api/v1/wines/tasting-archive?origin=cellar").json()["items"][0]["wine_photo_thumbnail_url"] == outside["wine_photo_thumbnail_url"]
+    thumbnail.unlink()
+    assert all(
+        item["wine_photo_thumbnail_url"] == ""
+        for item in client.get("/api/v1/wines/tasting-archive?origin=external").json()["items"]
+    )
+
+
 def test_user_can_create_and_switch_to_second_household():
     client = TestClient(app)
     assert register(client).status_code == 201

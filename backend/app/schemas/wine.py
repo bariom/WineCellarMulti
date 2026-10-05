@@ -135,6 +135,7 @@ class WineTastingEntryResponse(BaseModel):
 class TastingArchiveItemResponse(BaseModel):
     memory_photo_location: dict[str, float] | None = None
     memory_photo_url: str = ""
+    wine_photo_thumbnail_url: str = ""
     wine_id: UUID
     wine_name: str
     wine_producer: str = ""

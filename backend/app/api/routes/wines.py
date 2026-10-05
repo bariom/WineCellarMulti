@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, tuple_
 from sqlalchemy.orm import Session, defer, object_session
 from starlette.concurrency import run_in_threadpool
 
@@ -514,6 +514,7 @@ def tasting_archive_entry_matches(entry: dict, wine: Wine, query: str) -> bool:
 
 def tasting_archive_entry(entry: WineTastingEntry, wine: Wine) -> TastingArchiveItemResponse:
     return TastingArchiveItemResponse(
+        wine_photo_thumbnail_url=photo_urls(wine)["photo_thumbnail_url"],
         wine_id=wine.id,
         wine_name=wine.name,
         wine_producer=wine.producer,
@@ -900,6 +901,37 @@ def list_tasting_archive(
         reverse=True,
     )
     visible_items = archive_items[offset : offset + limit]
+    missing_photo_identities = {
+        (normalize_photo_identity(item.wine_name), normalize_photo_identity(item.wine_producer))
+        for item in visible_items
+        if not item.wine_photo_thumbnail_url
+        and item.wine_name.strip()
+        and item.wine_producer.strip()
+    }
+    if missing_photo_identities:
+        # These are shared catalog photos, independent of private cellar records.
+        library_photos = db.scalars(
+            select(WinePhotoLibraryEntry)
+            .where(
+                tuple_(
+                    WinePhotoLibraryEntry.normalized_name,
+                    WinePhotoLibraryEntry.normalized_producer,
+                ).in_(sorted(missing_photo_identities))
+            )
+            .order_by(WinePhotoLibraryEntry.created_at.desc(), WinePhotoLibraryEntry.id.desc())
+        )
+        thumbnails: dict[tuple[str, str], str] = {}
+        for photo in library_photos:
+            identity = (photo.normalized_name, photo.normalized_producer)
+            if identity not in thumbnails and library_photo_path(photo, "thumbnail").is_file():
+                thumbnails[identity] = photo_suggestion_response(photo)["thumbnail_url"]
+        for item in visible_items:
+            if not item.wine_photo_thumbnail_url:
+                identity = (
+                    normalize_photo_identity(item.wine_name),
+                    normalize_photo_identity(item.wine_producer),
+                )
+                item.wine_photo_thumbnail_url = thumbnails.get(identity, "")
 
     return TastingArchivePageResponse(
         total=len(archive_items),

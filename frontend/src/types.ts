@@ -380,6 +380,7 @@ export type WineShareOffer = {
 export type TastingArchiveApiItem = {
   memory_photo_location?: { latitude: number; longitude: number } | null;
   memory_photo_url?: string;
+  wine_photo_thumbnail_url?: string;
   tasting_id: string;
   wine_id: string;
   wine_name: string;
