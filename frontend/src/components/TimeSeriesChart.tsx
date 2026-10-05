@@ -219,8 +219,20 @@ export default function TimeSeriesChart({
             }
             const left = chart.valToPos(timestamps[index], "x");
             const top = chart.valToPos(Math.max(values[index], secondaryValues[index] ?? values[index]), "y");
-            tooltip.style.left = `${Math.max(48, Math.min(chart.over.clientWidth - 48, left))}px`;
-            tooltip.style.top = `${Math.max(34, top)}px`;
+            const hostBounds = chartHost.getBoundingClientRect();
+            const plotBounds = chart.over.getBoundingClientRect();
+            // The host clips its contents; constrain the measured tooltip to it,
+            // translating host bounds into the plot's positioning coordinates.
+            const inset = 4;
+            tooltip.style.maxWidth = `${Math.max(0, chartHost.clientWidth - inset * 2)}px`;
+            const minLeft = hostBounds.left - plotBounds.left + inset;
+            const minTop = hostBounds.top - plotBounds.top + inset;
+            const maxLeft = minLeft + chartHost.clientWidth - inset * 2 - tooltip.offsetWidth;
+            const maxTop = minTop + chartHost.clientHeight - inset * 2 - tooltip.offsetHeight;
+            const above = top - tooltip.offsetHeight - 10;
+            const preferredTop = above >= minTop ? above : top + 10;
+            tooltip.style.left = `${Math.max(minLeft, Math.min(maxLeft, left - tooltip.offsetWidth / 2))}px`;
+            tooltip.style.top = `${Math.max(minTop, Math.min(maxTop, preferredTop))}px`;
             tooltip.classList.add("visible");
           },
         ],

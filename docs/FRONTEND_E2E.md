@@ -237,6 +237,10 @@ geometria e assenza di overflow a 360, 390, 430 e 1440 px. La baseline
 della sezione si nascondono le barre fisse globali per evitare che coprano il
 contenuto durante lo screenshot dell'intero elemento.
 `collector-evolution-compact.png` protegge i grafici popolati con dati deterministici.
+I tooltip delle valutazioni restano entro il grafico, con data, etichetta e valore
+leggibili anche sui punti iniziali e finali. Verifica mirata:
+`npm run test:e2e:collector -- -g "collector evolution uses recorded data"`
+(360, 390, 430 e 1440 px, mouse e tastiera).
 I test attendono la comparsa del grafico nel viewport prima della cattura,
 rispettando l'animazione di ingresso esistente.
 

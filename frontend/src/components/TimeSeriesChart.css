@@ -27,7 +27,9 @@
   z-index: 3;
   display: grid;
   gap: 2px;
-  min-width: max-content;
+  width: max-content;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
   padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -37,14 +39,13 @@
   font-size: 0.68rem;
   pointer-events: none;
   opacity: 0;
-  transform: translate(-50%, -120%);
   transition: opacity 0.14s ease;
 }
 
 .time-series-tooltip strong { color: var(--text); font-size: 0.78rem; }
 .time-series-tooltip > span:not(:first-child) { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
-.time-series-tooltip > span:not(:first-child) > span { color: var(--text-muted); }
-.time-series-tooltip > span:not(:first-child) > strong { font-variant-numeric: tabular-nums; }
+.time-series-tooltip > span:not(:first-child) > span { min-width: 0; color: var(--text-muted); }
+.time-series-tooltip > span:not(:first-child) > strong { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .time-series-tooltip.visible { opacity: 1; }
 
 @keyframes chart-fade-in { from { opacity: 0; } to { opacity: 1; } }

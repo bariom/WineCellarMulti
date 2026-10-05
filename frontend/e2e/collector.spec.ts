@@ -537,6 +537,28 @@ for (const width of [360, 390, 430, 1440]) {
     await evolution.screenshot({ path: testInfo.outputPath(`evolution-${width}.png`), animations: "disabled" });
     if (width === 390) await expect(evolution).toHaveScreenshot("collector-evolution-compact.png");
     await snapshotChrome(page, true);
+    const chart = evolution.getByRole("img", { name: /^Andamento delle valutazioni\./ });
+    const plot = chart.locator(".u-over");
+    const tooltip = chart.getByRole("status");
+    const plotBounds = (await plot.boundingBox())!;
+    for (const newest of [false, true]) {
+      await page.mouse.move(plotBounds.x + (newest ? plotBounds.width - 1 : 1), plotBounds.y + 10);
+      await expect(tooltip).toContainText(newest ? "CHF 140" : "CHF 100");
+      await expect(tooltip).toContainText(newest ? "01 set 2026" : "01 gen 2026");
+      const chartBounds = (await chart.boundingBox())!;
+      const tipBounds = (await tooltip.boundingBox())!;
+      expect(tipBounds.x).toBeGreaterThanOrEqual(chartBounds.x);
+      expect(tipBounds.x + tipBounds.width).toBeLessThanOrEqual(chartBounds.x + chartBounds.width);
+      expect(tipBounds.y).toBeGreaterThanOrEqual(chartBounds.y);
+      expect(tipBounds.y + tipBounds.height).toBeLessThanOrEqual(chartBounds.y + chartBounds.height);
+      expect(await tooltip.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      if (newest && [390, 1440].includes(width)) await chart.screenshot({ path: testInfo.outputPath(`valuation-tooltip-${width}-review.png`) });
+    }
+    await chart.focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(tooltip).toContainText("CHF 100");
+    await page.keyboard.press("ArrowRight");
+    await expect(tooltip).toContainText("CHF 140");
     await evolution.getByRole("button", { name: "2031+: 4 bottiglie", exact: true }).click();
     await expect(evolution.locator(".collector-wine-list button")).toHaveCount(1);
     await evolution.getByLabel("Valuta dello storico").selectOption("EUR");
