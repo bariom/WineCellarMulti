@@ -1,0 +1,15 @@
+﻿.memory-atlas { min-width: 0; }
+.memory-atlas-summary, .memory-atlas-hint { font-size: .75rem; line-height: 1.4; color: #887669; margin: 8px 0; }
+.memory-atlas-summary { color: #6b7058; letter-spacing: .02em; }
+.memory-atlas-map { width: 100%; height: min(30dvh, 300px); min-height: 200px; border: 1px solid #ddd8ca; border-radius: 16px; background: #e7ede6; box-shadow: 0 5px 18px #4d30230a; }
+.memory-atlas-map .leaflet-tile-pane { filter: saturate(.55); }
+.memory-atlas-marker { display: grid; place-items: center; border-radius: 50%; border: 3px solid #fffaf2; background: #762d43; color: #fffaf2; font: 600 14px system-ui, sans-serif; box-shadow: 0 0 0 6px #762d4318, 0 3px 12px #24121835; }
+.memory-atlas-marker:focus-visible { outline: 2px solid #a0804e; outline-offset: 5px; }
+.memory-atlas-map .leaflet-control-zoom { border: 1px solid #ddd8ca; border-radius: 10px; overflow: hidden; box-shadow: 0 3px 10px #4d302315; }
+.memory-atlas-map .leaflet-control-zoom a { width: 44px; height: 44px; line-height: 44px; background: #fffdf8; color: #762d43; border-color: #e4d9cc; }
+.memory-atlas-map .leaflet-control-attribution { background: #fffdf8dd; font-size: 10px; }
+.memory-atlas-previews { display: flex; gap: 10px; overflow-x: auto; padding: 4px 0; scroll-snap-type: x proximity; }
+.memory-book .memory-atlas-previews button { flex: 0 0 148px; display: grid; gap: 5px; padding: 6px; border: 1px solid #e4d9cc; border-radius: 12px; text-align: left; scroll-snap-align: start; white-space: normal; background: #fffdf8; }
+.memory-atlas-previews img { display: block; width: 100%; height: 72px; object-fit: cover; border-radius: 7px; }
+.memory-atlas-previews span { font-family: Georgia, serif; font-weight: 500; font-size: .9rem; line-height: 1.3; overflow-wrap: anywhere; color: #3e272b; }
+.memory-atlas-previews time { font-size: .7rem; font-weight: 400; color: #a0804e; }

@@ -1,48 +1,82 @@
-.memory-book {
+﻿.memory-book {
+  --memory-ink: #3e272b;
+  --memory-wine: #762d43;
+  --memory-gold: #a0804e;
+  --memory-line: #e4d9cc;
   width: min(720px, calc(100vw - 24px));
   max-width: calc(100vw - 24px);
   max-height: calc(100dvh - 24px);
   box-sizing: border-box;
-  padding: 16px;
-  border: 1px solid #d9c9bd;
+  padding: 18px;
+  border: 1px solid #fffaf2;
   border-radius: 24px;
-  background: radial-gradient(ellipse at top, #fffaf3, #eee3d8);
-  color: #49232c;
-  box-shadow: 0 24px 80px #24121855;
+  background: radial-gradient(ellipse at top left, #fffdf8, #f3ede4 80%);
+  color: var(--memory-ink);
+  box-shadow: 0 32px 100px #1e151966, inset 0 0 0 1px #e4d9cc80;
   overflow-y: auto;
 }
-.memory-book::backdrop { background: #23131ccc; }
+.memory-book::backdrop { background: #21171cd9; backdrop-filter: blur(6px); }
 .memory-book-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.memory-book-top > span { font-size: .8rem; letter-spacing: .08em; }
-.memory-book button { min-height: 44px; min-width: 44px; background: #fffaf5; color: #641d32; border: 1px solid #d9c9bd; }
-.memory-book header { text-align: center; margin: 8px 0 12px; }
-.memory-book h2 { font-family: Georgia, serif; font-size: clamp(1.3rem, 3vw, 1.8rem); line-height: 1.15; margin: 0 0 6px; color: #641d32; }
-.memory-book header p { color: #79685f; font-size: .8rem; line-height: 1.4; margin: 0 auto; max-width: 420px; }
+.memory-book-top > span { display: inline-flex; align-items: center; gap: 8px; font-size: .65rem; text-transform: uppercase; letter-spacing: .16em; color: var(--memory-gold); font-weight: 600; }
+.memory-book button { min-height: 44px; min-width: 44px; border: 1px solid var(--memory-line); border-radius: 12px; background: #fffdf8; color: var(--memory-wine); font-size: .8rem; font-weight: 600; box-shadow: none; transition: background .15s, border-color .15s; }
+.memory-book button:hover:not(:disabled) { background: #f1e8de; border-color: #bd9e83; box-shadow: none; transform: none; }
+.memory-book button:focus-visible { outline: 2px solid var(--memory-wine); outline-offset: 3px; }
+.memory-book button:disabled { opacity: .4; }
+.memory-book header { text-align: left; width: min(100%, 460px); margin: 10px auto 12px; }
+.memory-book h2 { font-family: Georgia, serif; font-size: clamp(1.4rem, 3vw, 1.9rem); font-weight: 500; line-height: 1.12; letter-spacing: -.035em; margin: 0 0 6px; color: var(--memory-ink); }
+.memory-book header p { color: #887669; font-size: .75rem; line-height: 1.4; margin: 0; max-width: 420px; }
 .memory-book-search { display: grid; gap: 6px; width: min(100%, 460px); margin: 0 auto 12px; }
-.memory-book-search-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-.memory-book-search input { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; border: 1px solid #d9c9bd; border-radius: 8px; background: #fffaf5; color: #49232c; padding: 8px; font-size: .85rem; }
-.memory-book-search-results { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: .85rem; color: #79685f; }
-.memory-book-page { width: min(100%, 460px); margin: 0 auto; border-radius: 16px; background: #fffaf5; box-shadow: 5px 5px 0 #e2d4c6, 10px 10px 0 #eee4da, 0 12px 30px #49232c22; overflow: hidden; }
-.memory-book button.memory-book-photo-open { display: block; width: 100%; padding: 0; border: 0; border-radius: 0; background: #e6d9cd; cursor: zoom-in; }
-.memory-book-photo-open:focus-visible { outline: 3px solid #641d32; outline-offset: -3px; }
-.memory-book-photo-open > img { display: block; width: 100%; height: auto; max-height: min(30dvh, 260px); object-fit: contain; background: #e6d9cd; }
+.memory-book-search-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.memory-book-query-field { display: flex; align-items: center; gap: 8px; min-width: 0; padding-left: 12px; border: 1px solid var(--memory-line); border-radius: 12px; background: #fffdf8; color: #a18d7b; }
+.memory-book-query-field:focus-within { border-color: var(--memory-wine); box-shadow: 0 0 0 2px #762d4310; }
+.memory-book-search input { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; border: 1px solid var(--memory-line); border-radius: 12px; background: #fffdf8; color: var(--memory-ink); padding: 8px; font-size: .82rem; }
+.memory-book-query-field input { border: 0; background: transparent; padding-left: 0; outline: none; box-shadow: none; }
+.memory-book-query-field > .app-icon { flex-shrink: 0; }
+.memory-book-search input::placeholder { color: #a18d7b; }
+.memory-book-search button[type="submit"] { background: var(--memory-wine); color: #fffaf2; border-color: var(--memory-wine); padding-inline: 18px; }
+.memory-book-search button[type="submit"]:hover { background: #5b2033; border-color: #5b2033; }
+.memory-book-period { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.memory-book-period label { font-size: .65rem; text-transform: uppercase; letter-spacing: .1em; color: #887669; }
+.memory-book-view-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.memory-book-view-toggle[aria-pressed="true"] { background: #f1e4e8; border-color: #c5a4ad; }
+.memory-book-search-results { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; color: #887669; font-size: .75rem; }
+.memory-book-search-results button { font-size: .75rem; background: transparent; border-color: transparent; padding: 6px 8px; text-decoration: underline; text-underline-offset: 4px; }
+.memory-book-page { width: min(100%, 460px); margin: 0 auto; border: 1px solid #fffdf8; border-radius: 18px; background: #fffdf8; box-shadow: 0 12px 35px #4d302315, 0 2px 5px #4d30230a; overflow: hidden; }
+.memory-book button.memory-book-photo-open { position: relative; display: block; width: 100%; padding: 0; border: 0; border-radius: 0; background: #29382e; cursor: zoom-in; }
+.memory-book button.memory-book-photo-open:hover { background: #29382e; }
+.memory-book-photo-open:focus-visible { outline: 3px solid #fffaf2; outline-offset: -4px; }
+.memory-book-photo-open > img { display: block; width: 100%; height: auto; max-height: min(24dvh, 210px); object-fit: contain; background: #29382e; }
+.memory-book-photo-hint { position: absolute; right: 10px; bottom: 10px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #fffdf8e8; color: var(--memory-wine); box-shadow: 0 2px 8px #0002; pointer-events: none; }
 .memory-book-caption { padding: 16px; overflow-wrap: anywhere; }
-.memory-book-identity.has-bottle-photo { display: grid; grid-template-columns: minmax(0, 1fr) clamp(76px, 22vw, 120px); align-items: center; gap: 16px; }
+.memory-book-identity.has-bottle-photo { display: grid; grid-template-columns: minmax(0, 1fr) clamp(76px, 22vw, 110px); align-items: center; gap: 16px; }
 .memory-book-wine-text { min-width: 0; }
-.memory-book-bottle-photo { display: block; width: 100%; height: 132px; object-fit: contain; }
-.memory-book-caption time, .memory-book-caption small { color: #79685f; font-size: .85rem; }
-.memory-book-caption h3 { font-family: Georgia, serif; font-size: 1.5rem; line-height: 1.3; margin: 8px 0; }
-.memory-book-caption p { line-height: 1.6; margin: 8px 0; white-space: pre-line; }
-.memory-book-note { border-top: 1px solid #e6d9cd; padding-top: 12px; }
-.memory-book-navigation { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 10px; }
-.memory-book-navigation button { border-radius: 50%; font-size: 1.2rem; padding: 6px 10px; }
-.memory-book-empty { padding: 28px 0; text-align: center; line-height: 1.6; }
+.memory-book-bottle-frame { border-radius: 14px; background: linear-gradient(145deg, #f6f2e9, #eee5d8); padding: 6px; }
+.memory-book-bottle-photo { display: block; width: 100%; height: 120px; object-fit: contain; }
+.memory-book-caption time { color: var(--memory-gold); font-size: .72rem; letter-spacing: .04em; }
+.memory-book-caption small { color: #887669; font-size: .78rem; }
+.memory-book-caption h3 { font-family: Georgia, serif; font-size: 1.4rem; font-weight: 500; line-height: 1.2; letter-spacing: -.02em; margin: 6px 0; }
+.memory-book-caption p { font-size: .85rem; line-height: 1.5; margin: 8px 0; white-space: pre-line; }
+.memory-book-note { border-top: 1px solid var(--memory-line); padding-top: 10px; color: #6c5b51; font-style: italic; }
+.memory-book-caption .memory-book-companions { display: flex; align-items: flex-start; gap: 7px; color: #887669; font-size: .78rem; }
+.memory-book-companions > .app-icon { flex-shrink: 0; margin-top: 1px; color: var(--memory-gold); }
+.memory-book-caption .memory-location { margin-top: 8px; }
+.memory-book-caption .memory-location > button { display: inline-flex; background: #f4efe6; color: #6b7058; border-color: transparent; font-size: .75rem; }
+.memory-book-navigation { display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 10px; }
+.memory-book-navigation button { display: grid; place-items: center; border-radius: 50%; width: 44px; padding: 0; }
+.memory-book-navigation > span { font-size: .75rem; color: #887669; font-variant-numeric: tabular-nums; letter-spacing: .1em; }
+.memory-book-empty { padding: 28px 16px; text-align: center; line-height: 1.6; color: #887669; }
+.memory-book-empty h3 { font-family: Georgia, serif; color: var(--memory-ink); font-weight: 500; }
 .memory-location { min-width: 0; margin-top: 12px; }
 @media (max-width: 480px) {
-  .memory-book { padding: 12px; border-radius: 18px; }
-  .memory-book-caption { padding: 12px; }
+  .memory-book { padding: 12px; border-radius: 20px; }
+  .memory-book-caption { padding: 14px; }
   .memory-book-photo-open > img { max-height: 22dvh; }
-  .memory-book-bottle-photo { height: 104px; }
+  .memory-book-bottle-photo { height: 92px; }
+  .memory-book-view-label { display: none; }
+  .memory-book-view-toggle { width: 44px; padding: 0; }
+}
+@media (max-width: 480px) and (max-height: 820px) {
+  .memory-book-photo-open > img { max-height: 16dvh; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .memory-book-page { animation: memory-page-in .25s ease-out; }

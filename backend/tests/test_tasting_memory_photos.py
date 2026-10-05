@@ -91,6 +91,35 @@ def test_cellar_photo_is_atomic_scoped_editable_and_deleted_with_tasting():
     assert client.get(url).status_code == 404
 
 
+@pytest.mark.parametrize("source", ["cellar", "external"])
+def test_memory_period_filters_both_sources_inclusively_before_pagination(source):
+    client = TestClient(app)
+    assert harness.register(client).status_code == 201
+    wine = client.post("/api/v1/wines", json={"name": "Period memory", "quantity": 4}).json()
+    for consumed_at in ["2026-09-30", "2026-10-01", "2026-10-31", "2026-11-01"]:
+        payload = {"consumed_at": consumed_at, "note": "Friends", "memory_photo": photo()}
+        if source == "cellar":
+            response = client.post(f"/api/v1/wines/{wine['id']}/consume", json=payload)
+            assert response.status_code == 200, response.text
+        else:
+            response = client.post(
+                "/api/v1/wishlist/tastings", json={**payload, "name": "Period memory"}
+            )
+            assert response.status_code == 201, response.text
+    url = (
+        "/api/v1/wines/tasting-archive?photos_only=true"
+        "&from_date=2026-10-01&to_date=2026-10-31&q=friends&limit=1"
+    )
+    response = client.get(url)
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+    assert response.json()["items"][0]["consumed_at"] == "2026-10-31"
+    assert client.get(url + "&offset=1").json()["items"][0]["consumed_at"] == "2026-10-01"
+    assert client.get(url.replace("q=friends", "q=missing")).json()["total"] == 0
+    assert client.get("/api/v1/wines/tasting-archive?to_date=2026-09-30").json()["total"] == 1
+    assert client.get("/api/v1/wines/tasting-archive?to_date=invalid").status_code == 422
+
+
 def test_external_photo_roundtrip_preserve_replace_remove():
     client = TestClient(app)
     assert harness.register(client).status_code == 201

@@ -807,6 +807,7 @@ def list_tasting_archive(
     type: str = Query(default=""),
     status_filter: str = Query(default="", alias="status"),
     from_date: date | None = Query(default=None),
+    to_date: date | None = Query(default=None),
     origin: Literal["", "cellar", "external"] = Query(default=""),
     photos_only: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=200),
@@ -820,6 +821,8 @@ def list_tasting_archive(
     filters = [WineTastingEntry.household_id == context.household.id]
     if from_date is not None:
         filters.append(WineTastingEntry.consumed_at >= from_date)
+    if to_date is not None:
+        filters.append(WineTastingEntry.consumed_at <= to_date)
     if normalized_type:
         filters.append(func.lower(Wine.type) == normalized_type)
     if normalized_status:
@@ -860,6 +863,8 @@ def list_tasting_archive(
 
     def external_matches(entry: ExternalWineTasting) -> bool:
         if from_date is not None and entry.consumed_at < from_date:
+            return False
+        if to_date is not None and entry.consumed_at > to_date:
             return False
         if normalized_type and normalize_wine_type(entry.type).lower() != normalized_type:
             return False

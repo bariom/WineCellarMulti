@@ -17,9 +17,13 @@ async function openBook(page: Page, mode: "photos" | "empty" | "error" = "photos
         const offset = Number(params.get("offset") || 0);
         const query = (params.get("q") || "").trim().toLowerCase();
         (window as any).bookSearchRequests = [...((window as any).bookSearchRequests || []), { query, offset }];
-        const memories = mode === "empty" ? [] : [0, 1].map(index => ({ ...archive.items[0], tasting_id: `memory-${index}`, wine_name: index === 0 ? "Un brindisi in Toscana" : "Una sera sul lago", occasion: "", wine_photo_thumbnail_url: index === 0 ? bottlePhoto : "", memory_photo_url: memoryPhoto, memory_photo_location: index === 0 ? { latitude: 43.77, longitude: 11.25 } : null }));
-        const matches = memories.filter(item => [item.wine_name, item.wine_producer, item.wine_vintage, item.note, item.companions, item.pairing, item.occasion].join(" ").toLowerCase().includes(query));
-        return new Response(JSON.stringify({ ...archive, offset, limit: 1, total: matches.length, items: matches.slice(offset, offset + 1) }), { headers: { "Content-Type": "application/json" } });
+        const memories = (window as any).bookMemories ?? (mode === "empty" ? [] : [0, 1].map(index => ({ ...archive.items[0], tasting_id: `memory-${index}`, wine_name: index === 0 ? "Un brindisi in Toscana" : "Una sera sul lago", occasion: "", wine_photo_thumbnail_url: index === 0 ? bottlePhoto : "", memory_photo_url: memoryPhoto, memory_photo_location: index === 0 ? { latitude: 43.77, longitude: 11.25 } : null })));
+        const from = params.get("from_date") || "";
+        const to = params.get("to_date") || "";
+        (window as any).bookPeriodRequests = [...((window as any).bookPeriodRequests || []), { from, to, query, offset }];
+        const matches = memories.filter((item: typeof archive.items[number]) => (!from || item.consumed_at >= from) && (!to || item.consumed_at <= to) && [item.wine_name, item.wine_producer, item.wine_vintage, item.note, item.companions, item.pairing, item.occasion].join(" ").toLowerCase().includes(query));
+        const limit = Number(params.get("limit") || 1);
+        return new Response(JSON.stringify({ ...archive, offset, limit, total: matches.length, items: matches.slice(offset, offset + limit) }), { headers: { "Content-Type": "application/json" } });
       }
       return original(input, init);
     };
@@ -46,6 +50,11 @@ test("browse memories, optionally open the map, and keep layouts inside the view
     const image = (await book.getByRole("img", { name: "Ricordo: Un brindisi in Toscana", exact: true }).boundingBox())!;
     const title = (await book.getByRole("heading", { name: "Un brindisi in Toscana" }).boundingBox())!;
     expect(image.y + image.height).toBeLessThanOrEqual(title.y);
+    const hint = (await book.locator(".memory-book-photo-hint").boundingBox())!;
+    expect(hint.x).toBeGreaterThanOrEqual(image.x);
+    expect(hint.x + hint.width).toBeLessThanOrEqual(image.x + image.width);
+    expect(hint.y).toBeGreaterThanOrEqual(image.y);
+    expect(hint.y + hint.height).toBeLessThanOrEqual(image.y + image.height);
     const controls = await book.getByRole("button").all();
     for (const control of controls) {
       const box = (await control.boundingBox())!;
@@ -87,7 +96,7 @@ test("portrait memories keep search, captions and navigation visible without ver
       if (filtered) {
         await book.getByRole("searchbox", { name: "Cerca nei ricordi" }).fill("Amici");
         await book.getByRole("button", { name: "Cerca", exact: true }).click();
-        await expect(book.getByRole("status")).toHaveText("2 ricordi trovati");
+        await expect(book.getByRole("search").getByRole("status")).toHaveText("2 ricordi trovati");
       }
       const vertical = await book.evaluate(element => ({ scroll: element.scrollHeight, client: element.clientHeight }));
       expect(vertical.scroll, `${viewport.width}px, filtered=${filtered}, client=${vertical.client}`).toBeLessThanOrEqual(vertical.client);
@@ -112,7 +121,7 @@ test("enlarge a memory photo and return to the same filtered memory", async ({ p
   const book = await openBook(page, "photos", "", photo);
   await book.getByRole("searchbox").fill("Amici");
   await book.getByRole("button", { name: "Cerca", exact: true }).click();
-  await expect(book.getByRole("status")).toHaveText("2 ricordi trovati");
+  await expect(book.getByRole("search").getByRole("status")).toHaveText("2 ricordi trovati");
   await book.getByRole("button", { name: "Ricordo successivo" }).click();
   await expect(book.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
   const opener = book.getByRole("button", { name: "Apri foto ricordo" });
@@ -153,6 +162,140 @@ test("enlarge a memory photo and return to the same filtered memory", async ({ p
   }
 });
 
+test("filter memories by month with text search and reset paging", async ({ page }, testInfo) => {
+  const book = await openBook(page);
+  await book.getByRole("button", { name: "Ricordo successivo" }).click();
+  await expect(book.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
+  await book.getByLabel("Periodo", { exact: true }).fill("2026-08");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(book.getByRole("search").getByRole("status")).toHaveText("2 ricordi trovati");
+  await expect(book.getByRole("navigation")).toContainText("1 / 2");
+  expect(await page.evaluate(() => (window as any).bookPeriodRequests.at(-1))).toEqual({ from: "2026-08-01", to: "2026-08-31", query: "", offset: 0 });
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    const input = (await book.getByLabel("Periodo", { exact: true }).boundingBox())!;
+    const label = (await book.locator('label[for="memory-book-month"]').boundingBox())!;
+    const toggle = (await book.getByRole("button", { name: "Mappa dei ricordi", exact: true }).boundingBox())!;
+    expect(label.x + label.width).toBeLessThanOrEqual(input.x);
+    expect(input.x + input.width).toBeLessThanOrEqual(toggle.x);
+    expect(toggle.x + toggle.width).toBeLessThanOrEqual(viewport.width);
+    expect(toggle.height).toBeGreaterThanOrEqual(44);
+    expect(input.x + input.width).toBeLessThanOrEqual(viewport.width);
+    expect(await book.evaluate(element => element.scrollHeight <= element.clientHeight)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if ([390, 1440].includes(viewport.width)) await page.screenshot({ path: testInfo.outputPath(`memory-period-${viewport.width}-review.png`) });
+  }
+  await book.getByRole("searchbox").fill("lago");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(book.getByRole("search").getByRole("status")).toHaveText("1 ricordo trovato");
+  await book.getByLabel("Periodo", { exact: true }).fill("2026-10");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(book.getByRole("heading", { name: "Nessun ricordo trovato" })).toBeVisible();
+  expect(await page.evaluate(() => (window as any).bookPeriodRequests.at(-1))).toEqual({ from: "2026-10-01", to: "2026-10-31", query: "lago", offset: 0 });
+  await book.getByLabel("Periodo", { exact: true }).fill("2028-02");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).bookPeriodRequests.at(-1).to)).toBe("2028-02-29");
+  await book.getByRole("button", { name: "Mostra tutti i ricordi" }).click();
+  await expect(book.getByRole("heading", { name: "Un brindisi in Toscana" })).toBeVisible();
+  await expect(book.getByLabel("Periodo", { exact: true })).toHaveValue("");
+  await expect(book.getByRole("searchbox")).toHaveValue("");
+});
+
+test("world map groups nearby photos, previews them and opens memories beyond the first archive page", async ({ page }, testInfo) => {
+  const book = await openBook(page);
+  await page.route(/tile\.openstreetmap\.org/, route => route.fulfill({ contentType: "image/png", body: readFileSync("e2e/fixtures/maps/world.png") }));
+  await expect(book.getByRole("heading", { name: "Un brindisi in Toscana" })).toBeVisible();
+  await page.evaluate(archive => {
+    (window as any).bookMemories = Array.from({ length: 203 }, (_, index) => ({
+      ...archive.items[0], tasting_id: `world-${index}`, occasion: "",
+      wine_name: index === 0 ? "Brindisi in Toscana" : index === 1 ? "Cena a Parigi" : index === 202 ? "New York" : `Ricordo ${index}`,
+      memory_photo_url: "/images/home-tasting-v1.jpg",
+      memory_photo_location: index === 0 ? { latitude: 43.77, longitude: 11.25 } : index === 1 ? { latitude: 48.85, longitude: 2.35 } : index === 202 ? { latitude: 40.71, longitude: -74 } : index === 3 ? { latitude: 95, longitude: 0 } : null,
+    }));
+  }, tastingArchive);
+  await book.getByLabel("Periodo", { exact: true }).fill("2026-08");
+  await book.getByRole("searchbox").fill("Amici");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(book.getByRole("search").getByRole("status")).toHaveText("203 ricordi trovati");
+  await book.getByRole("button", { name: "Mappa dei ricordi", exact: true }).click();
+  const atlas = book.getByRole("region", { name: "Mappa dei ricordi", exact: true });
+  await expect(atlas.getByRole("status")).toHaveText("3 di 203 ricordi con posizione");
+  const europe = atlas.getByRole("button", { name: "2 ricordi in questa zona" });
+  await expect(europe).toBeVisible();
+  await europe.focus();
+  await page.keyboard.press("Enter");
+  const previews = atlas.getByRole("region", { name: "Ricordi in questa zona" });
+  await expect(previews.getByRole("button")).toHaveCount(2);
+  await expect(previews.getByRole("img", { name: "Ricordo: Cena a Parigi" })).toBeVisible();
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    const map = (await atlas.locator(".memory-atlas-map").boundingBox())!;
+    const strip = (await previews.boundingBox())!;
+    expect(strip.y).toBeGreaterThanOrEqual(map.y + map.height);
+    expect(strip.y + strip.height).toBeLessThanOrEqual(viewport.height);
+    expect(await book.evaluate(element => element.scrollHeight <= element.clientHeight)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const thumbnail = (await previews.getByRole("img").first().boundingBox())!;
+    const title = (await previews.getByText("Brindisi in Toscana", { exact: true }).boundingBox())!;
+    expect(thumbnail.y + thumbnail.height).toBeLessThanOrEqual(title.y);
+    if ([390, 1440].includes(viewport.width)) await page.screenshot({ path: testInfo.outputPath(`world-map-${viewport.width}-review.png`) });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(book).toHaveScreenshot("moments-map-compact.png");
+  const navigation = () => (window as any).bookPeriodRequests.at(-1).offset;
+  const offset = await page.evaluate(navigation);
+  await europe.focus();
+  await page.keyboard.press("ArrowRight");
+  expect(await page.evaluate(navigation)).toBe(offset);
+  await atlas.getByRole("button", { name: "1 ricordo in questa zona" }).click();
+  await expect(previews.getByRole("button", { name: "Apri ricordo: New York" })).toBeVisible();
+  await previews.getByRole("button", { name: "Apri ricordo: New York" }).click();
+  await expect(book.getByRole("heading", { name: "New York" })).toBeVisible();
+  await expect(book.getByRole("navigation", { name: "Sfoglia ricordi" })).toContainText("203 / 203");
+  await expect(book.getByRole("searchbox")).toHaveValue("Amici");
+  await expect(book.getByLabel("Periodo", { exact: true })).toHaveValue("2026-08");
+  await expect(atlas).toHaveCount(0);
+  await book.getByRole("button", { name: "Mappa dei ricordi", exact: true }).click();
+  await expect(atlas.getByRole("status")).toHaveText("3 di 203 ricordi con posizione");
+  for (let step = 0; step < 3; step++) {
+    await atlas.getByRole("button", { name: "Zoom in", exact: true }).click();
+    await expect.poll(() => atlas.locator(`img[src*=".tile.openstreetmap.org/${step + 1}/"]`).count()).toBeGreaterThan(0);
+    await expect(atlas.locator(".leaflet-map-pane")).not.toHaveClass(/\bleaflet-zoom-anim\b/);
+  }
+  await expect(atlas.getByRole("button", { name: "2 ricordi in questa zona" })).toHaveCount(0);
+  await expect(atlas.getByRole("button", { name: "1 ricordo in questa zona" })).toHaveCount(3);
+});
+
+test("memory map handles missing locations, filters without matches and retries a failed request", async ({ page }) => {
+  await page.route(/tile\.openstreetmap\.org/, route => route.fulfill({ status: 204, body: "" }));
+  const book = await openBook(page);
+  await expect(book.getByRole("heading", { name: "Un brindisi in Toscana" })).toBeVisible();
+  await book.getByRole("button", { name: "Mappa dei ricordi", exact: true }).click();
+  const atlas = book.getByRole("region", { name: "Mappa dei ricordi", exact: true });
+  await expect(atlas.getByRole("status")).toHaveText("1 di 2 ricordi con posizione");
+  await book.getByRole("searchbox").fill("lago");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(atlas.getByRole("status")).toHaveText("0 di 1 ricordi con posizione");
+  await expect(atlas.getByText(/Nessuna foto con posizione/)).toBeVisible();
+  await book.getByLabel("Periodo", { exact: true }).fill("2026-10");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(atlas.getByRole("status")).toHaveText("0 di 0 ricordi con posizione");
+  await book.getByRole("button", { name: "Mostra tutti i ricordi" }).click();
+  await expect(atlas.getByRole("status")).toHaveText("1 di 2 ricordi con posizione");
+  await book.getByRole("button", { name: "Sfoglia le foto" }).click();
+  await expect(book.getByRole("heading", { name: "Un brindisi in Toscana" })).toBeVisible();
+  await page.evaluate(() => {
+    const previous = window.fetch;
+    window.fetch = async (input, init) => String(input).includes("limit=200") && !(window as any).allowMapRetry
+      ? new Response("Unavailable", { status: 503 }) : previous(input, init);
+  });
+  await book.getByRole("button", { name: "Mappa dei ricordi", exact: true }).click();
+  await expect(atlas.getByRole("alert")).toContainText("Impossibile caricare");
+  await page.evaluate(() => { (window as any).allowMapRetry = true; });
+  await atlas.getByRole("button", { name: "Riprova" }).click();
+  await expect(atlas.getByRole("status")).toHaveText("1 di 2 ricordi con posizione");
+});
+
 test("empty book explains how to add a memory", async ({ page }) => {
   const empty = await openBook(page, "empty");
   await expect(empty.getByRole("heading", { name: "Il tuo libro aspetta il primo ricordo" })).toBeVisible();
@@ -168,7 +311,7 @@ test("search memories by wine or companions, paginate matches, and clear an empt
   await search.press("ArrowLeft");
   await expect(book.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
   await search.press("Enter");
-  await expect(book.getByRole("status")).toHaveText("1 ricordo trovato");
+  await expect(book.getByRole("search").getByRole("status")).toHaveText("1 ricordo trovato");
   await expect(book.getByRole("navigation", { name: "Sfoglia ricordi" })).toContainText("1 / 1");
   await expect(search).toBeFocused();
   await expect(book.getByRole("button", { name: "Ricordo successivo" })).toBeDisabled();
@@ -176,7 +319,7 @@ test("search memories by wine or companions, paginate matches, and clear an empt
 
   await search.fill("  Amici  ");
   await book.getByRole("button", { name: "Cerca", exact: true }).click();
-  await expect(book.getByRole("status")).toHaveText("2 ricordi trovati");
+  await expect(book.getByRole("search").getByRole("status")).toHaveText("2 ricordi trovati");
   await expect(book.getByRole("heading", { name: "Un brindisi in Toscana" })).toBeVisible();
   await book.getByRole("button", { name: "Ricordo successivo" }).click();
   await expect(book.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
@@ -185,7 +328,7 @@ test("search memories by wine or companions, paginate matches, and clear an empt
   await search.fill("nessuna corrispondenza");
   await search.press("Enter");
   await expect(book.getByRole("heading", { name: "Nessun ricordo trovato" })).toBeVisible();
-  await expect(book.getByRole("status")).toHaveText("0 ricordi trovati");
+  await expect(book.getByRole("search").getByRole("status")).toHaveText("0 ricordi trovati");
   await expect(book.getByRole("navigation", { name: "Sfoglia ricordi" })).toHaveCount(0);
   for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 1000 }]) {
     await page.setViewportSize(viewport);

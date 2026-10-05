@@ -74,6 +74,9 @@ The book search uses the existing archive `q` filter and preserves photo-only
 paging. Tests cover searching by wine and companions, resetting the page when
 changing the search, navigating filtered results, empty results, clearing the
 search, and arrow-key editing inside the search field.
+The month picker combines with text search and sends inclusive `from_date` and
+`to_date` bounds to the archive. Tests cover month-end boundaries, leap February,
+paging reset, empty periods, clearing both filters, and compact layout geometry.
 The compact header and search are also tested with a portrait memory photo,
 bottle photo, notes and map control at 360/390/430 px and desktop. With the map
 collapsed and short notes, the dialog and its navigation must fit vertically,
@@ -82,6 +85,20 @@ the compact presentation.
 Clicking a book memory photo opens the shared enlarged photo viewer. Tests
 cover mobile/desktop geometry, keyboard opening, closing with Escape or the
 close button, focus restoration, and preserving the current memory and search.
+The memory world map groups nearby photo coordinates at the current zoom and
+opens a thumbnail strip for the selected area. Selecting a thumbnail opens its
+original archive position while retaining text/month filters. Tests cover loading
+all archive pages (203 memories), missing/invalid coordinates, zoom separation,
+keyboard activation, retries, and map/preview geometry at 360/390/430 px and
+desktop. Map tests intercept tiles using a saved OpenStreetMap world tile;
+production retains OpenStreetMap attribution and loads live tiles. Memories
+without photo coordinates remain available in the photo book.
+The reviewed `moments-map-compact.png` baseline covers the map with selected
+area previews at 390 x 844.
+The memory book uses an ivory/burgundy album presentation, compact search and
+view controls, framed bottle photos, and a contained enlargement hint. Geometry
+checks keep the hint within the photo and the month picker clear of the map
+toggle. The four compact baselines are reviewed together with desktop rendering.
 
 My Taste geography ranks up to three origins by positive personal-rating evidence,
 separately from physical cellar availability. Complete preferences and the map are
