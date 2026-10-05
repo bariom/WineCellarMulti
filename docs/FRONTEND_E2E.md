@@ -74,6 +74,11 @@ The book search uses the existing archive `q` filter and preserves photo-only
 paging. Tests cover searching by wine and companions, resetting the page when
 changing the search, navigating filtered results, empty results, clearing the
 search, and arrow-key editing inside the search field.
+The compact header and search are also tested with a portrait memory photo,
+bottle photo, notes and map control at 360/390/430 px and desktop. With the map
+collapsed and short notes, the dialog and its navigation must fit vertically,
+including while search results are active. A reviewed portrait baseline covers
+the compact presentation.
 
 My Taste geography ranks up to three origins by positive personal-rating evidence,
 separately from physical cellar availability. Complete preferences and the map are

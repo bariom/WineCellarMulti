@@ -68,7 +68,7 @@ export default function MemoryBook({ locale, onClose }: { locale: Locale; onClos
       setIndex(0);
       setSearchQuery(searchText.trim());
     }}>
-      <label htmlFor="memory-book-query">{it ? "Cerca nei ricordi" : "Search memories"}</label>
+      <label className="sr-only" htmlFor="memory-book-query">{it ? "Cerca nei ricordi" : "Search memories"}</label>
       <div className="memory-book-search-controls">
         <input id="memory-book-query" type="search" value={searchText} onChange={event => setSearchText(event.target.value)} placeholder={it ? "Vino, occasione, persone…" : "Wine, occasion, people…"} />
         <button type="submit">{it ? "Cerca" : "Search"}</button>

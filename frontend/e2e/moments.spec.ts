@@ -2,11 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { mockApi, openRecordTasting, tastingArchive, wine } from "./fixtures/app";
 
-async function openBook(page: Page, mode: "photos" | "empty" | "error" = "photos", bottlePhoto = "") {
+async function openBook(page: Page, mode: "photos" | "empty" | "error" = "photos", bottlePhoto = "", memoryPhoto = "/images/home-tasting-v1.jpg") {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page);
   await page.goto("/");
-  await page.evaluate(({ archive, mode, bottlePhoto }) => {
+  await page.evaluate(({ archive, mode, bottlePhoto, memoryPhoto }) => {
     const original = window.fetch;
     window.fetch = async (input, init) => {
       const url = String(input);
@@ -17,13 +17,13 @@ async function openBook(page: Page, mode: "photos" | "empty" | "error" = "photos
         const offset = Number(params.get("offset") || 0);
         const query = (params.get("q") || "").trim().toLowerCase();
         (window as any).bookSearchRequests = [...((window as any).bookSearchRequests || []), { query, offset }];
-        const memories = mode === "empty" ? [] : [0, 1].map(index => ({ ...archive.items[0], tasting_id: `memory-${index}`, wine_name: index === 0 ? "Un brindisi in Toscana" : "Una sera sul lago", occasion: "", wine_photo_thumbnail_url: index === 0 ? bottlePhoto : "", memory_photo_url: "/images/home-tasting-v1.jpg", memory_photo_location: index === 0 ? { latitude: 43.77, longitude: 11.25 } : null }));
+        const memories = mode === "empty" ? [] : [0, 1].map(index => ({ ...archive.items[0], tasting_id: `memory-${index}`, wine_name: index === 0 ? "Un brindisi in Toscana" : "Una sera sul lago", occasion: "", wine_photo_thumbnail_url: index === 0 ? bottlePhoto : "", memory_photo_url: memoryPhoto, memory_photo_location: index === 0 ? { latitude: 43.77, longitude: 11.25 } : null }));
         const matches = memories.filter(item => [item.wine_name, item.wine_producer, item.wine_vintage, item.note, item.companions, item.pairing, item.occasion].join(" ").toLowerCase().includes(query));
         return new Response(JSON.stringify({ ...archive, offset, limit: 1, total: matches.length, items: matches.slice(offset, offset + 1) }), { headers: { "Content-Type": "application/json" } });
       }
       return original(input, init);
     };
-  }, { archive: tastingArchive, mode, bottlePhoto });
+  }, { archive: tastingArchive, mode, bottlePhoto, memoryPhoto });
   await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page.getByRole("button", { name: "Storico", exact: true }).click();
   await page.getByRole("button", { name: "Momenti · Sfoglia i ricordi", exact: true }).click();
@@ -73,6 +73,38 @@ test("browse memories, optionally open the map, and keep layouts inside the view
   await page.keyboard.press("Escape");
   await expect(book).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Momenti · Sfoglia i ricordi", exact: true })).toBeFocused();
+});
+
+test("portrait memories keep search, captions and navigation visible without vertical scrolling", async ({ page }, testInfo) => {
+  const photo = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="720"><rect width="400" height="720" fill="#a5b4aa"/><path d="M110 80h180l-25 290h-130Z" fill="#eee6cf"/><path d="M200 370v250m-80 20h160" stroke="#fffaf5" stroke-width="12"/></svg>')}`;
+  const bottle = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="240"><path d="M64 12h32v58c0 12 20 24 20 42v104H44V112c0-18 20-30 20-42Z" fill="#304a38"/><path d="M44 132h72v62H44Z" fill="#faf1df"/></svg>')}`;
+  const book = await openBook(page, "photos", bottle, photo);
+  await expect(book.getByRole("heading", { name: "Un brindisi in Toscana" })).toBeVisible();
+  await expect.poll(() => book.getByRole("img", { name: "Ricordo: Un brindisi in Toscana", exact: true }).evaluate((image: HTMLImageElement) => image.naturalHeight)).toBe(720);
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 900 }, { width: 777, height: 918 }]) {
+    await page.setViewportSize(viewport);
+    for (const filtered of [false, true]) {
+      if (filtered) {
+        await book.getByRole("searchbox", { name: "Cerca nei ricordi" }).fill("Amici");
+        await book.getByRole("button", { name: "Cerca", exact: true }).click();
+        await expect(book.getByRole("status")).toHaveText("2 ricordi trovati");
+      }
+      const vertical = await book.evaluate(element => ({ scroll: element.scrollHeight, client: element.clientHeight }));
+      expect(vertical.scroll, `${viewport.width}px, filtered=${filtered}, client=${vertical.client}`).toBeLessThanOrEqual(vertical.client);
+      expect(await book.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      const navigation = (await book.getByRole("navigation", { name: "Sfoglia ricordi" }).boundingBox())!;
+      const memory = (await book.locator(".memory-book-page").boundingBox())!;
+      expect(navigation.y).toBeGreaterThanOrEqual(memory.y + memory.height);
+      expect(navigation.y + navigation.height).toBeLessThanOrEqual(viewport.height);
+      if (!filtered && [390, 777].includes(viewport.width)) await page.screenshot({ path: testInfo.outputPath(`portrait-memory-${viewport.width}-review.png`) });
+      if (filtered) {
+        await book.getByRole("button", { name: "Mostra tutti i ricordi" }).click();
+        await expect(book.getByRole("heading", { name: "Un brindisi in Toscana" })).toBeVisible();
+      }
+    }
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(book).toHaveScreenshot("moments-portrait-compact.png");
 });
 
 test("empty book explains how to add a memory", async ({ page }) => {
