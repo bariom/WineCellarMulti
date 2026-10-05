@@ -23,7 +23,9 @@
 .memory-book-search input { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; border: 1px solid #d9c9bd; border-radius: 8px; background: #fffaf5; color: #49232c; padding: 8px; font-size: .85rem; }
 .memory-book-search-results { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: .85rem; color: #79685f; }
 .memory-book-page { width: min(100%, 460px); margin: 0 auto; border-radius: 16px; background: #fffaf5; box-shadow: 5px 5px 0 #e2d4c6, 10px 10px 0 #eee4da, 0 12px 30px #49232c22; overflow: hidden; }
-.memory-book-page > img { display: block; width: 100%; height: auto; max-height: min(30dvh, 260px); object-fit: contain; background: #e6d9cd; }
+.memory-book button.memory-book-photo-open { display: block; width: 100%; padding: 0; border: 0; border-radius: 0; background: #e6d9cd; cursor: zoom-in; }
+.memory-book-photo-open:focus-visible { outline: 3px solid #641d32; outline-offset: -3px; }
+.memory-book-photo-open > img { display: block; width: 100%; height: auto; max-height: min(30dvh, 260px); object-fit: contain; background: #e6d9cd; }
 .memory-book-caption { padding: 16px; overflow-wrap: anywhere; }
 .memory-book-identity.has-bottle-photo { display: grid; grid-template-columns: minmax(0, 1fr) clamp(76px, 22vw, 120px); align-items: center; gap: 16px; }
 .memory-book-wine-text { min-width: 0; }
@@ -39,7 +41,7 @@
 @media (max-width: 480px) {
   .memory-book { padding: 12px; border-radius: 18px; }
   .memory-book-caption { padding: 12px; }
-  .memory-book-page > img { max-height: 22dvh; }
+  .memory-book-photo-open > img { max-height: 22dvh; }
   .memory-book-bottle-photo { height: 104px; }
 }
 @media (prefers-reduced-motion: no-preference) {

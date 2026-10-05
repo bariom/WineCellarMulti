@@ -79,6 +79,9 @@ bottle photo, notes and map control at 360/390/430 px and desktop. With the map
 collapsed and short notes, the dialog and its navigation must fit vertically,
 including while search results are active. A reviewed portrait baseline covers
 the compact presentation.
+Clicking a book memory photo opens the shared enlarged photo viewer. Tests
+cover mobile/desktop geometry, keyboard opening, closing with Escape or the
+close button, focus restoration, and preserving the current memory and search.
 
 My Taste geography ranks up to three origins by positive personal-rating evidence,
 separately from physical cellar availability. Complete preferences and the map are

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { api } from "../services/api";
 import type { Locale, TastingArchiveApiItem, TastingArchivePage } from "../types";
 import MemoryLocation from "../components/MemoryLocation";
+import { MemoryPhotoViewer } from "../components/TastingMemoryPhoto";
 import "./MemoryBook.css";
 
 function MemoryWineIdentity({ entry, locale }: { entry: TastingArchiveApiItem; locale: Locale }) {
@@ -29,6 +30,7 @@ export default function MemoryBook({ locale, onClose }: { locale: Locale; onClos
   const [retry, setRetry] = useState(0);
   const [searchText, setSearchText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [photoOpen, setPhotoOpen] = useState(false);
   useEffect(() => {
     const element = dialog.current!;
     const trigger = document.activeElement as HTMLElement | null;
@@ -55,8 +57,9 @@ export default function MemoryBook({ locale, onClose }: { locale: Locale; onClos
   }, [page]);
   const entry = page?.items[0];
   return createPortal(<dialog ref={dialog} className="memory-book" tabIndex={-1} aria-label={it ? "Momenti" : "Moments"}
-    onCancel={event => { event.preventDefault(); onClose(); }}
+    onCancel={event => { event.preventDefault(); if (!photoOpen) onClose(); }}
     onKeyDown={event => {
+      if (photoOpen) return;
       if (event.target !== event.currentTarget && (event.target as HTMLElement).closest(".memory-location, .memory-book-search")) return;
       if (!busy && !error && event.key === "ArrowLeft" && index > 0) { event.preventDefault(); setIndex(index - 1); }
       if (!busy && !error && event.key === "ArrowRight" && index + 1 < (page?.total || 0)) { event.preventDefault(); setIndex(index + 1); }
@@ -80,7 +83,9 @@ export default function MemoryBook({ locale, onClose }: { locale: Locale; onClos
     </form>
     {busy ? <p role="status">{it ? "Preparazione dei ricordi…" : "Preparing your memories…"}</p> : error ? <div role="alert"><p>{it ? "Impossibile caricare i ricordi." : "Unable to load memories."}</p><button type="button" onClick={() => setRetry(value => value + 1)}>{it ? "Riprova" : "Try again"}</button></div> : entry ? <>
       <article className="memory-book-page" key={`${entry.source}-${entry.tasting_id}`}>
-        <img src={entry.memory_photo_url} alt={it ? `Ricordo: ${entry.wine_name}` : `Memory: ${entry.wine_name}`} />
+        <button type="button" className="memory-book-photo-open" aria-label={it ? "Apri foto ricordo" : "Open memory photo"} aria-haspopup="dialog" onClick={() => setPhotoOpen(true)}>
+          <img src={entry.memory_photo_url} alt={it ? `Ricordo: ${entry.wine_name}` : `Memory: ${entry.wine_name}`} />
+        </button>
         <div className="memory-book-caption">
           <MemoryWineIdentity entry={entry} locale={locale} />
           {entry.note ? <p className="memory-book-note">{entry.note}</p> : null}
@@ -93,6 +98,9 @@ export default function MemoryBook({ locale, onClose }: { locale: Locale; onClos
         <span aria-live="polite">{index + 1} / {page!.total}</span>
         <button type="button" className="secondary" disabled={index + 1 >= page!.total} onClick={() => setIndex(index + 1)} aria-label={it ? "Ricordo successivo" : "Next memory"}>→</button>
       </nav>
+      {photoOpen && entry.memory_photo_url ? <MemoryPhotoViewer url={entry.memory_photo_url} locale={locale} wineName={entry.wine_name}
+        date={new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${entry.consumed_at.slice(0, 10)}T12:00:00`))}
+        onClose={() => setPhotoOpen(false)} /> : null}
     </> : <div className="memory-book-empty"><h3>{searchQuery ? (it ? "Nessun ricordo trovato" : "No memories found") : (it ? "Il tuo libro aspetta il primo ricordo" : "Your book is waiting for its first memory")}</h3><p>{searchQuery ? (it ? "Prova con un altro vino, un’occasione o il nome di una persona." : "Try another wine, occasion, or person’s name.") : (it ? "Aggiungi una foto quando registri una bevuta. La ritroverai qui, insieme al vino e alla sua storia." : "Add a photo when recording a tasting. Find it here, together with the wine and its story.")}</p></div>}
   </dialog>, document.body);
 }

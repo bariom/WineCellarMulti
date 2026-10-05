@@ -72,7 +72,7 @@ export function TastingMemoryPhotoInput({ locale, value, existingUrl, disabled, 
   </section>;
 }
 
-function MemoryPhotoViewer({ url, locale, wineName, date, onClose }: {
+export function MemoryPhotoViewer({ url, locale, wineName, date, onClose }: {
   url: string; locale: Locale; wineName?: string; date: string; onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);

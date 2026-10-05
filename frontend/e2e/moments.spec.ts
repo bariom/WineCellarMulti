@@ -107,6 +107,52 @@ test("portrait memories keep search, captions and navigation visible without ver
   await expect(book).toHaveScreenshot("moments-portrait-compact.png");
 });
 
+test("enlarge a memory photo and return to the same filtered memory", async ({ page }, testInfo) => {
+  const photo = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="720"><rect width="400" height="720" fill="#a5b4aa"/><path d="M110 80h180l-25 290h-130Z" fill="#eee6cf"/><path d="M200 370v250m-80 20h160" stroke="#fffaf5" stroke-width="12"/></svg>')}`;
+  const book = await openBook(page, "photos", "", photo);
+  await book.getByRole("searchbox").fill("Amici");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(book.getByRole("status")).toHaveText("2 ricordi trovati");
+  await book.getByRole("button", { name: "Ricordo successivo" }).click();
+  await expect(book.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
+  const opener = book.getByRole("button", { name: "Apri foto ricordo" });
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    const preview = (await opener.boundingBox())!;
+    await opener.click();
+    const viewer = page.getByRole("dialog", { name: "Foto ricordo", exact: true });
+    await expect(viewer.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
+    const image = viewer.getByRole("img");
+    await expect(image).toHaveAttribute("src", photo);
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalHeight)).toBe(720);
+    const bounds = (await viewer.boundingBox())!;
+    const enlarged = (await image.boundingBox())!;
+    const heading = (await viewer.locator(".tasting-memory-viewer-heading").boundingBox())!;
+    expect(enlarged.height).toBeGreaterThan(preview.height);
+    expect(enlarged.y).toBeGreaterThanOrEqual(heading.y + heading.height);
+    expect(enlarged.x).toBeGreaterThanOrEqual(bounds.x);
+    expect(enlarged.x + enlarged.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+    expect(enlarged.y + enlarged.height).toBeLessThanOrEqual(viewport.height);
+    expect(await viewer.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if ([390, 1440].includes(viewport.width)) await page.screenshot({ path: testInfo.outputPath(`enlarged-memory-${viewport.width}-review.png`) });
+    await page.keyboard.press("ArrowLeft");
+    await viewer.getByRole("button", { name: "Chiudi" }).click();
+    await expect(viewer).toHaveCount(0);
+    await expect(opener).toBeFocused();
+    await expect(book.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
+    await expect(book.getByRole("navigation")).toContainText("2 / 2");
+    await expect(book.getByRole("searchbox")).toHaveValue("Amici");
+    await page.keyboard.press("Enter");
+    await expect(viewer).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(viewer).toHaveCount(0);
+    await expect(book).toBeVisible();
+    await expect(opener).toBeFocused();
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+  }
+});
+
 test("empty book explains how to add a memory", async ({ page }) => {
   const empty = await openBook(page, "empty");
   await expect(empty.getByRole("heading", { name: "Il tuo libro aspetta il primo ricordo" })).toBeVisible();
