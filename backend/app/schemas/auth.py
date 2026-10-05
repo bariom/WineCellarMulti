@@ -142,12 +142,13 @@ class UserPreferencesUpdate(BaseModel):
         if value is not None and value != "" and value not in MARKET_COUNTRIES:
             raise ValueError("Unsupported reference market")
         return value
+
     dashboard_focus: str | None = Field(
         default=None,
         pattern="^(collector|daily|balanced|personal)$",
     )
     personal_dashboard_widgets: list[DashboardWidgetPreference] | None = Field(
-        default=None, max_length=38
+        default=None, max_length=39
     )
 
     @field_validator("personal_dashboard_widgets")

@@ -114,6 +114,7 @@ const MaturityPanorama = lazy(() => import("./components/MaturityPanorama").then
 const BottlePhotoCapture = lazy(() => import("./components/BottlePhotoCapture"));
 const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
 const MemoryBookButton = lazy(() => import("./views/MemoryBookButton"));
+const MemoriesWidget = lazy(() => import("./components/MemoriesWidget"));
 const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
 const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
 const PersonalDashboard = lazy(() => import("./components/PersonalDashboard").then(module => ({ default: module.PersonalDashboard })));
@@ -8831,6 +8832,7 @@ export function App() {
   }
 
   function renderPersonalWidget(widget: PersonalDashboardWidget, preview = false) {
+    if (widget.id === "memories") return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><MemoriesWidget locale={locale} preview={preview} offline={offlineMode} /></Suspense>;
     return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><DashboardSummaryWidget
       widget={widget} locale={locale} wines={wines} wishlist={wishlist} featured={keyPositionCandidates}
       canShowPhotos={canAccessWinePhotos} onOpen={wine => { if (!preview) openWineFromDashboard(wine); }} onRegion={region => { if (!preview) openCellarForRegion(region); }}

@@ -41,6 +41,7 @@ class DashboardWidgetPreference(BaseModel):
         "taste_origins",
         "best_tastings",
         "recent_tastings",
+        "memories",
         "tasting_rhythm",
         "storage",
         "wishlist",

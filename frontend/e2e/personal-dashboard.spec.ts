@@ -274,9 +274,10 @@ test("personal dashboard scenic summaries share data and keep charts compact", a
       const widget = page.locator(`[data-widget-id="${id}"]`);
       await widget.scrollIntoViewIfNeeded();
       expect((await widget.boundingBox())!.height).toBeLessThan(750);
-      const header = (await widget.locator(".dashboard-summary > header").boundingBox())!;
-      const body = (await widget.locator(".summary-body").boundingBox())!;
-      const footer = (await widget.locator(".dashboard-summary > footer").boundingBox())!;
+      const memories = await widget.getAttribute("data-widget-id") === "memories";
+      const header = (await widget.locator(memories ? ".memories-widget > header" : ".dashboard-summary > header").boundingBox())!;
+      const body = (await widget.locator(memories ? ".memories-widget > figure" : ".summary-body").boundingBox())!;
+      const footer = (await widget.locator(memories ? ".memories-widget > footer" : ".dashboard-summary > footer").boundingBox())!;
       expect(header.y + header.height).toBeLessThanOrEqual(body.y);
       expect(body.y + body.height).toBeLessThanOrEqual(footer.y);
       expect(header.width).toBeGreaterThan(240);
@@ -514,9 +515,10 @@ test("personal dashboard supports every widget at half width", async ({ page }, 
     for (const widget of await dashboard.locator('.personal-widget').all()) {
       await widget.scrollIntoViewIfNeeded();
       expect(await widget.evaluate(element => element.scrollWidth <= element.clientWidth + 1), `${width}px: ${await widget.getAttribute("aria-label")}`).toBe(true);
-      const header = (await widget.locator(".dashboard-summary > header").boundingBox())!;
-      const body = (await widget.locator(".summary-body").boundingBox())!;
-      const footer = (await widget.locator(".dashboard-summary > footer").boundingBox())!;
+      const memories = await widget.getAttribute("data-widget-id") === "memories";
+      const header = (await widget.locator(memories ? ".memories-widget > header" : ".dashboard-summary > header").boundingBox())!;
+      const body = (await widget.locator(memories ? ".memories-widget > figure" : ".summary-body").boundingBox())!;
+      const footer = (await widget.locator(memories ? ".memories-widget > footer" : ".dashboard-summary > footer").boundingBox())!;
       expect(header.y + header.height).toBeLessThanOrEqual(body.y + 1);
       expect(body.y + body.height).toBeLessThanOrEqual(footer.y + 1);
       expect(header.width).toBeGreaterThan((await widget.boundingBox())!.width - 60);

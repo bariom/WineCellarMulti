@@ -33,7 +33,7 @@ Shared deterministic data and helpers live in `e2e/fixtures/app.ts`.
 | Public landing, dashboard presentation and demo entry (IT/EN, mobile/desktop) | `npx playwright test e2e/landing.spec.ts` |
 | Wine Detail, sensory signature, detail geometry and baseline | `npm run test:e2e:wine-detail` |
 | Collector composition, summaries, insights and scrolling | `npm run test:e2e:collector` |
-| Personal dashboard widgets, editor and drill-downs | `npm run test:e2e:personal-dashboard` |
+| Personal dashboard widgets, editor, memories album and drill-downs | `npm run test:e2e:personal-dashboard` |
 | Shared navigation, compact headers and Home photographs | `npm run test:e2e:app-navigation` |
 | Memory book, photo GPS and tasting photo regressions | `npm run test:e2e:moments` |
 | Recording tastings and tasting history | `npm run test:e2e:record-tasting` |
@@ -185,6 +185,11 @@ npm run test:e2e:wine-detail -- --grep "matches the compact visual baseline" --u
 Do not update snapshots as a way to hide an unexpected UI regression.
 
 ## Scope-aware test selection
+
+Il widget «I miei ricordi» mostra l’ultimo ricordo con foto e apre l’album Momenti.
+`npx playwright test e2e/memories-widget.spec.ts` verifica selezione e salvataggio,
+apertura dell’album in IT/EN, geometria mobile/desktop, album vuoto, retry e foto
+non disponibile. Il widget usa la prima pagina dell’archivio con `photos_only=true`.
 
 La demo permette di personalizzare «La mia dashboard»: selezione, ordine,
 larghezza dei widget e scelta come dashboard iniziale. Le modifiche restano

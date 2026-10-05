@@ -1403,7 +1403,8 @@ def test_personal_dashboard_supports_complete_catalogue():
     from app.schemas.dashboard import DashboardWidgetPreference
 
     widget_ids = get_args(DashboardWidgetPreference.model_fields["id"].annotation)
-    assert len(widget_ids) == 38
+    assert len(widget_ids) == 39
+    assert "memories" in widget_ids
     with TestClient(app) as client:
         assert register(client).status_code == 201
         layout = [{"id": widget_id, "width": "half"} for widget_id in widget_ids]

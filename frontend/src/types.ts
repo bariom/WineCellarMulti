@@ -1002,7 +1002,7 @@ export type PersonalDashboardWidgetId = "overview" | "ready" | "regions" | "matu
   | "tonight" | "past_window" | "to_collect" | "data_quality" | "style_balance"
   | "collection_value" | "availability" | "composition"
   | "purchase_value" | "value_changes" | "value_distribution" | "styles" | "vintages" | "grapes" | "producers" | "formats"
-  | "next_peak" | "taste_origins" | "best_tastings" | "recent_tastings" | "tasting_rhythm" | "storage" | "wishlist" | "purposes";
+  | "next_peak" | "taste_origins" | "best_tastings" | "recent_tastings" | "memories" | "tasting_rhythm" | "storage" | "wishlist" | "purposes";
 export type PersonalDashboardWidget = { id: PersonalDashboardWidgetId; width: "half" | "full"; group_by?: "region" | "producer" | "type" | null };
 export type PrimaryDashboardFocus = "collector" | "daily" | "balanced" | "personal";
 
