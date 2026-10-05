@@ -4260,9 +4260,9 @@ summary:focus-visible {
   background: color-mix(in srgb, var(--primary) 7%, var(--surface));
 }
 
-.recognition-enrichment-choice button {
+.recognition-enrichment-choice button.compact {
   width: 100%;
-  min-height: 40px;
+  min-height: 44px;
 }
 
 .recognition-enrichment-choice small {

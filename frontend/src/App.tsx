@@ -2149,29 +2149,6 @@ export function App() {
     });
   }
 
-  async function confirmWineImageRecognition() {
-    if (wineEnrichmentLoading || wineRecognitionLoading) return;
-    wineCreationAiActionRef.current = null;
-    const confirmedCandidate = wineRecognitionCandidateFromDraft("wine");
-    if (await enrichManualWineDraft("wine", "photo")) {
-      const candidate = selectedWineImageCandidate;
-      const corrected = wineRecognitionCandidateWasCorrected(candidate, confirmedCandidate);
-      if (wineImageRecognitionResult) {
-        try {
-          await registerConfirmedWineRecognition(
-            wineImageRecognitionResult.recognition_id,
-            confirmedCandidate,
-            corrected,
-          );
-        } catch {
-          // Confirmation telemetry must never block wine creation.
-        }
-      }
-      setWineImageRecognitionResult(null);
-      setSelectedWineImageCandidate(null);
-    }
-  }
-
   async function startFullEnrichmentFromRecognition(event: MouseEvent<HTMLButtonElement>) {
     if (wineEnrichmentLoading || wineRecognitionLoading || saving) return;
     const form = event.currentTarget.form;
@@ -11765,12 +11742,6 @@ export function App() {
                               <span>{t("recognitionEnrichmentChoiceHelp")}</span>
                             </div>
                             <div className="recognition-enrichment-actions">
-                              <div className="recognition-enrichment-choice">
-                                <button type="button" className="secondary compact" aria-describedby="recognition-catalog-help" disabled={wineEnrichmentLoading || wineRecognitionLoading || saving} onClick={() => void confirmWineImageRecognition()}>
-                                  <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("recognitionEnrich")} busyLabel={t("generating")} />
-                                </button>
-                                <small id="recognition-catalog-help">{t("recognitionEnrichHelp")}</small>
-                              </div>
                               <div className="recognition-enrichment-choice is-full">
                                 <button type="button" className="compact" aria-describedby="recognition-full-help" disabled={wineEnrichmentLoading || wineRecognitionLoading || saving} onClick={(event) => void startFullEnrichmentFromRecognition(event)}>
                                   {t("recognitionFullEnrichment")}

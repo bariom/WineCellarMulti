@@ -19,6 +19,7 @@ export const helpGuideContentV2: Record<Locale, HelpGuide> = {
         body: "The Cellar view is where your real collection lives. Add delivered bottles first, then ordered bottles, future deliveries, and shared positions.",
         bullets: [
           "Use Add wine to register producer, vintage, quantity, bottle format, status, and purchase price.",
+          "[AI] After photo recognition, check the wine and vintage, then use Save and complete with AI to add verified grapes, cellar notes, drinking window, and market value in one analysis.",
           "Vintage supports classic years plus NV or MV for non-vintage cuvees.",
           "For shared bottles, define ownership and percentages directly in the wine record.",
           "If you already have structured data, import it from Settings > Data.",
@@ -125,6 +126,7 @@ export const helpGuideContentV2: Record<Locale, HelpGuide> = {
         body: "La vista Cantina è il luogo dove vive la collezione reale. Inserisci prima i vini già in cantina, poi ordini, consegne future e posizioni condivise.",
         bullets: [
           "Usa Aggiungi vino per registrare produttore, annata, quantità, formato bottiglia, stato e prezzo di acquisto.",
+          "[AI] Dopo il riconoscimento da foto, controlla vino e annata e usa Salva e completa con AI per aggiungere uve verificate, note di cantina, finestra di beva e valore di mercato con un’unica analisi.",
           "L'annata supporta gli anni classici ma anche NV o MV per cuvée non millesimate.",
           "Per le bottiglie condivise, definisci proprietà e percentuali direttamente nella scheda vino.",
           "Se hai già dati strutturati, importali da Impostazioni > Data.",
