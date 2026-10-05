@@ -13536,6 +13536,18 @@ button.stat-card:hover {
   display: none;
 }
 
+.tasting-archive-wine-link {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tasting-archive-wine-link button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+}
+
 .tasting-archive-entry-body {
   display: grid;
   gap: 8px;
@@ -13619,6 +13631,31 @@ button.stat-card:hover {
   align-items: center;
   gap: 8px;
   white-space: nowrap;
+}
+
+.archive-wines-explainer { margin: 8px 0 22px; max-width: 85ch; color: var(--text-muted); font-size: .86rem; line-height: 1.6; }
+.tasting-archive-unspecified-color { display: block; margin-top: 4px; color: var(--text-muted); font-size: .72rem; }
+
+.tablet-layout-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 68px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-raised) 88%, var(--page));
+  color: var(--text-muted);
+  font-size: .85rem;
+}
+
+.tablet-layout-bar button {
+  min-height: 52px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  color: var(--surface);
+  background: var(--primary);
+  font-weight: 750;
 }
 
 .tasting-archive-summary .tasting-enjoyment-badge {

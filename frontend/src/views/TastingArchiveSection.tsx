@@ -62,7 +62,8 @@ type TastingArchiveSectionProps = {
   saving: boolean;
   displayValue: (value: string | null | undefined, locale: "en" | "it", group: string) => string;
   onDeleteEntry: (entry: Pick<TastingArchiveEntry, "id" | "source" | "wine">) => Promise<void>;
-  onOpenWine: (wine: any) => void;
+  canOpenWine: (wineId: string) => boolean;
+  onOpenWine: (wineId: string) => void;
   onGenerateReflection: (entry: { id: string; wine: { id: string } }, personalFeedback: string) => Promise<void>;
   onUpdateEntry: (entry: Pick<TastingArchiveEntry, "id" | "source" | "wine">, payload: ConsumeWineDraft) => Promise<void>;
   t: (key: any) => string;
@@ -265,6 +266,7 @@ export default function TastingArchiveSection({
   formatAiBudget,
   locale,
   onDeleteEntry,
+  canOpenWine,
   onOpenWine,
   onGenerateReflection,
   onUpdateEntry,
@@ -298,6 +300,7 @@ export default function TastingArchiveSection({
               <div className="tasting-archive-title">
                 <strong><i className={`wine-dot tone-${wineTone(entry.wine.type)}`} aria-hidden="true" />{entry.wine.name}</strong>
                 <span>{[entry.wine.producer, entry.wine.vintage, entry.wine.region].filter(Boolean).join(" - ")}</span>
+                {!entry.wine.type.trim() ? <small className="tasting-archive-unspecified-color">{locale === "it" ? "Colore non specificato" : "Wine color unspecified"}</small> : null}
               </div>
               <div className="tasting-archive-summary">
                 <span>{formatDisplayDate(entry.consumed_at)}</span>
@@ -326,6 +329,16 @@ export default function TastingArchiveSection({
                 <TastingEnjoymentBadge value={entry.enjoyment} t={t} />
               </div>
             </div>
+            {canOpenWine(entry.wine.id) ? <div className="tasting-archive-wine-link">
+              <button type="button" className="secondary compact" onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onOpenWine(entry.wine.id);
+              }}>
+                <AppIcon name="cellar" variant="navigation" detailLevel="compact" />
+                {locale === "it" ? "Scheda vino" : "Wine details"}
+              </button>
+            </div> : null}
           </summary>
           <div className="tasting-archive-entry-body">
             <p className="tasting-archive-meta">
@@ -434,9 +447,6 @@ export default function TastingArchiveSection({
                 </aside>
               ) : null}
               <div className="tasting-archive-actions">
-                {entry.source !== "external_tasting" ? <button type="button" className="secondary compact" onClick={() => onOpenWine(entry.wine)}>
-                  {t("openWine")}
-                </button> : null}
                 {canWrite ? (
                   <button
                     type="button"

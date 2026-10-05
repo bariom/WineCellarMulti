@@ -49,6 +49,13 @@ This works in both personal and restaurant modes. Confirming a purchase saves it
 immediately and increases stock. Other editor changes remain unsaved until
 **Salva modifiche / Save changes**; saving them preserves the updated quantity.
 
+## Tablet display
+
+On a detected tablet, use **Passa alla modalità desktop / Switch to desktop
+mode** in the bar above the page. The same choice is in **Menu** and **Settings
+→ Profile → Tablet display**. It is saved on that device; the bar above the page
+also lets you return to tablet mode at any time.
+
 ## Recording a tasting
 
 Use **Registra bevuta / Record a tasting** in the desktop sidebar or the mobile
@@ -59,6 +66,9 @@ wishlist item. Search existing wines and wishlist lists, enter a name manually,
 or photograph the label when label recognition is enabled for your account.
 Review recognized details before saving. Date defaults to today; ratings, notes,
 occasion, pairing and companions are optional.
+In **History → Consumed bottles**, use **Scheda vino / Wine details** on a tasting
+to open its saved wine record without leaving History. The action appears only
+when that wine record is available in the current cellar.
 
 **Foto ricordo / Memory photo** optionally attaches one image to a tasting:
 take a photo or choose one from the gallery, preview it, and remove it before
@@ -319,6 +329,9 @@ Open `http://<server-ip>:5173`.
 
 WineCellarMulti can be installed from Android Chrome when served over HTTPS.
 The frontend includes a web app manifest and service worker.
+The installed app supports portrait and landscape orientation, following the
+phone's auto-rotate setting. An existing installation may need to receive an
+updated web app manifest before this change takes effect.
 
 Production preview uses port `4174` to avoid conflicting with the old WineCellar app that already uses `4173`:
 

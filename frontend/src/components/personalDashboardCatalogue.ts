@@ -24,7 +24,7 @@ export const personalDashboardCatalogue: Array<{ id: PersonalDashboardWidgetId; 
   {"id": "taste_origins", "it": ["Geografia del gusto", "Le origini associate ai vini apprezzati."], "en": ["Taste geography", "Origins associated with wines you enjoyed."]},
   {"id": "best_tastings", "it": ["Le degustazioni più apprezzate", "I migliori giudizi registrati negli ultimi 12 mesi."], "en": ["Favourite tastings", "Your best recorded ratings over the last 12 months."]},
   {"id": "recent_tastings", "it": ["Ultime degustazioni", "Tre esperienze dal diario."], "en": ["Latest tastings", "Three experiences from your journal."]},
-  {"id": "memories", "it": ["I miei ricordi", "L’ultima foto, le persone e le storie da rivivere nel tuo album."], "en": ["My memories", "Your latest photo, the people and stories to revisit in your album."]},
+  {"id": "memories", "it": ["I miei ricordi", "Foto, persone e storie da sfogliare direttamente nella dashboard."], "en": ["My memories", "Photos, people and stories to browse directly in your dashboard."]},
   {"id": "tasting_rhythm", "it": ["Il ritmo delle degustazioni", "Le esperienze registrate mese per mese."], "en": ["Tasting rhythm", "Recorded experiences by month."]},
   {"id": "deliveries", "it": ["Bottiglie in viaggio", "Una linea del tempo delle consegne previste."], "en": ["Bottles on their way", "A timeline of expected deliveries."]},
   {"id": "to_collect", "it": ["Da ritirare", "Le bottiglie che aspettano di entrare in cantina."], "en": ["Awaiting collection", "Bottles waiting to join your cellar."]},

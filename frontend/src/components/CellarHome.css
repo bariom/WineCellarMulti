@@ -344,3 +344,29 @@
   .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .key-position-bottle-visual { height: 280px; }
   .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .key-position-bottle-visual img { max-height: 280px; }
 }
+
+@media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+  :root .authenticated-app-shell.cellar-home-edition .topbar {
+    min-height: 0;
+    padding: 8px 16px 10px;
+    gap: 4px;
+  }
+  .cellar-home-edition .cellar-home-hero { padding: 2px 0 4px; }
+  .cellar-home-edition .cellar-home-kicker { display: none; }
+  .cellar-home-edition .cellar-home-hero h2 { margin-bottom: 2px; font-size: 2rem; }
+  .cellar-home-edition .cellar-home-count { font-size: .75rem; }
+}
+
+@media (min-width: 901px) and (max-width: 1099px) and (max-height: 500px) and (orientation: landscape) {
+  :root .cellar-home-edition .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 0;
+    padding: 8px 16px 10px;
+    gap: 4px;
+  }
+  :root .cellar-home-edition .desktop-topbar-search { display: none; }
+  :root .cellar-home-edition .session-pill { grid-column: 2; }
+  :root .cellar-home-edition .cellar-home-hero { padding: 2px 0 4px; }
+  :root .cellar-home-edition .cellar-home-hero h2 { margin-bottom: 2px; font-size: 2rem; }
+  :root .cellar-home-edition .cellar-home-count { font-size: .75rem; }
+}

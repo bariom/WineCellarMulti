@@ -25,11 +25,23 @@ is 5173; set `PLAYWRIGHT_PORT` to choose another local server port. An explicit
 
 ## Feature commands
 
+Wine Pulse uses the full application width, with a desktop story index and a
+two-column article grid. Search and the unread filter apply to loaded stories;
+the topic and current/archive controls query the server. Read marks last for the
+current visit to Wine Pulse. Its feature suite covers Italian/English layouts at
+360, 390, 430, 1440 and 1920 px, reading filters, source links, retry and pagination
+cancellation when the topic changes.
+
 The former `wine-detail.spec.ts` monolith is split without dropping coverage.
 Shared deterministic data and helpers live in `e2e/fixtures/app.ts`.
 
 | Scope | Command from `frontend/` |
 | --- | --- |
+| Archived wines, missing wine color and tasting distinction | `npm run test:e2e:history-archive` |
+| Tablet desktop-layout preference, iPad emulation without touch points, persistence and phone exclusion | `npm run test:e2e:tablet-layout` |
+| Open a saved wine directly from tasting history | `npm run test:e2e:tasting-wine-detail` |
+| Installed PWA manifest orientation and smartphone landscape navigation | `npm run test:e2e:pwa-landscape` |
+| Wine Pulse desktop width, IT/EN reading tools, responsive layout, pagination and errors | `npm run test:e2e:wine-pulse` |
 | Public landing, dashboard presentation and demo entry (IT/EN, mobile/desktop) | `npx playwright test e2e/landing.spec.ts` |
 | Wine Detail, sensory signature, detail geometry and baseline | `npm run test:e2e:wine-detail` |
 | Collector composition, summaries, insights and scrolling | `npm run test:e2e:collector` |
@@ -186,10 +198,12 @@ Do not update snapshots as a way to hide an unexpected UI regression.
 
 ## Scope-aware test selection
 
-Il widget «I miei ricordi» mostra l’ultimo ricordo con foto e apre l’album Momenti.
+Il widget «I miei ricordi» usa lo stesso formato degli altri riquadri e permette
+di sfogliare le foto con precedente/successivo e contatore. Apre l’album Momenti
+sul ricordo visualizzato, caricando una sola foto alla volta.
 `npx playwright test e2e/memories-widget.spec.ts` verifica selezione e salvataggio,
 apertura dell’album in IT/EN, geometria mobile/desktop, album vuoto, retry e foto
-non disponibile. Il widget usa la prima pagina dell’archivio con `photos_only=true`.
+non disponibile e navigazione tra le pagine dell’archivio con `photos_only=true`.
 
 La demo permette di personalizzare «La mia dashboard»: selezione, ordine,
 larghezza dei widget e scelta come dashboard iniziale. Le modifiche restano

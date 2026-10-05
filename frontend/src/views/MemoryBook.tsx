@@ -24,10 +24,10 @@ function MemoryWineIdentity({ entry, locale }: { entry: TastingArchiveApiItem; l
   </div>;
 }
 
-export default function MemoryBook({ locale, onClose }: { locale: Locale; onClose: () => void }) {
+export default function MemoryBook({ locale, onClose, initialIndex = 0 }: { locale: Locale; onClose: () => void; initialIndex?: number }) {
   const it = locale === "it";
   const dialog = useRef<HTMLDialogElement>(null);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(initialIndex);
   const [page, setPage] = useState<TastingArchivePage | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState(false);

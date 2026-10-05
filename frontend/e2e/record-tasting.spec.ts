@@ -229,6 +229,7 @@ for (const width of [360, 390, 430]) {
       const box = (await button.boundingBox())!;
       expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
     }
+    await workspace.locator(".pagination-actions").evaluate((element) => element.scrollIntoView({ block: "center" }));
     const pagination = (await workspace.locator(".pagination-actions").boundingBox())!;
     const bottomNavigation = (await page.getByRole("navigation", { name: "Navigazione principale" }).boundingBox())!;
     expect(pagination.y + pagination.height).toBeLessThanOrEqual(bottomNavigation.y);

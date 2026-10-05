@@ -13,6 +13,7 @@ import type { TranslationKey } from "./i18n";
 import type { WineImageRecognitionCandidate, WineImageRecognitionConfirmationResult, WineImageRecognitionResult } from "./types";
 import type { WineSaleDraft } from "./types";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
+import { initializeTabletLayout, isTabletDevice, saveTabletLayout } from "./domain/tabletLayout";
 import { localizedNotification } from "./domain/notifications";
 import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
@@ -1604,6 +1605,7 @@ export function App() {
     rose: false,
     sweet: false,
     other: false,
+    unspecified: true,
   });
   const [wineToneRenderLimits, setWineToneRenderLimits] = useState<Record<string, number>>({
     red: WINE_TONE_PAGE_SIZE,
@@ -1614,6 +1616,12 @@ export function App() {
     other: WINE_TONE_PAGE_SIZE,
   });
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 1099);
+  const [tabletDevice] = useState(isTabletDevice);
+  const [tabletDesktopMode, setTabletDesktopMode] = useState(initializeTabletLayout);
+  const chooseTabletLayout = (desktop: boolean) => {
+    saveTabletLayout(desktop);
+    setTabletDesktopMode(desktop);
+  };
   const [mobileAccountMenuOpen, setMobileAccountMenuOpen] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
@@ -1721,11 +1729,11 @@ export function App() {
       setWineDetailExpanded(false);
       setWineEditorExpanded(false);
       setPairingWineDetailId(null);
-      if (activeView === "pairing") setSelectedWineId(null);
+      if (activeView === "pairing" || (activeView === "history" && historySection === "tastings")) setSelectedWineId(null);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [wineDetailExpanded, wineEditorExpanded, pairingWineDetailId, activeView]);
+  }, [wineDetailExpanded, wineEditorExpanded, pairingWineDetailId, activeView, historySection]);
 
   useEffect(() => {
     if (!wineFormOpen) setWineEditorExpanded(false);
@@ -6299,10 +6307,12 @@ export function App() {
   });
   const visibleTastingEntries = usingPagedTastingArchive ? pagedTastingEntries : filteredTastingEntries;
   const tastingArchiveTotalCount = usingPagedTastingArchive ? tastingArchivePage?.total || 0 : historyTastingEntries.length;
+  const archivedWinesByColor = activeView === "history" && historySection === "wines" && wineGroupingMode === "color";
+  const unspecifiedArchiveWines = archivedWinesByColor ? filteredWines.filter((wine) => !normalizeWineType(wine.type)) : [];
   const groupedFilteredWines = wineGroupingMode === "color"
-    ? wineToneOrder
+    ? [...wineToneOrder
       .map((tone) => {
-        const items = filteredWines.filter((wine) => wineTone(wine.type) === tone);
+        const items = filteredWines.filter((wine) => wineTone(wine.type) === tone && (!archivedWinesByColor || tone !== "other" || Boolean(normalizeWineType(wine.type))));
         return {
           key: tone,
           tone,
@@ -6315,7 +6325,15 @@ export function App() {
           ),
         };
       })
-      .filter((group) => group.items.length > 0)
+      .filter((group) => group.items.length > 0),
+      ...(unspecifiedArchiveWines.length ? [{
+        key: "unspecified",
+        tone: "other" as WineTone,
+        label: locale === "it" ? "Colore non specificato" : "Unspecified wine color",
+        items: unspecifiedArchiveWines,
+        wineCount: unspecifiedArchiveWines.length,
+        bottleCount: unspecifiedArchiveWines.reduce((sum, wine) => sum + Math.max(wine.tasting_history.length, 1), 0),
+      }] : [])]
     : Array.from(
       filteredWines.reduce((groups, wine) => {
         const label = wine.region?.trim() || (locale === "it" ? "Regione non specificata" : "Region not specified");
@@ -8357,8 +8375,11 @@ export function App() {
     setPairingWineDetailId(wine.id);
   }
 
-  function openWineFromTastingArchive(wine: Wine) {
-    openWineInView(wine, "history", "tastings");
+  function openWineFromTastingArchive(wineId: string) {
+    const wine = wines.find((item) => item.id === wineId);
+    if (!wine) return;
+    setSelectedWineId(wine.id);
+    setWineDetailExpanded(true);
   }
 
   function openQuickWineSearch(nextQuery: string) {
@@ -8389,7 +8410,7 @@ export function App() {
   function closeWineDetailModal() {
     setWineDetailExpanded(false);
     setPairingWineDetailId(null);
-    if (activeView === "pairing") setSelectedWineId(null);
+    if (activeView === "pairing" || (activeView === "history" && historySection === "tastings")) setSelectedWineId(null);
   }
 
   const activePairingBudget = Number(pairingMaxPrice || 0);
@@ -9341,6 +9362,16 @@ export function App() {
   return (
     <HelpContext.Provider value={{ openHelp }}>
     <main className={`app-shell${authenticated ? " authenticated-app-shell" : ""}${isCollectionView ? " collection-workspace-shell" : ""}${activeView === "home" && !isRestaurant ? " home-mobile-experience" : ""}${authenticated && activeView === "home" && !isRestaurant ? " cellar-home-edition" : ""}`}>
+      {tabletDevice && authenticated ? <div className="tablet-layout-bar">
+        <button type="button" onClick={() => chooseTabletLayout(!tabletDesktopMode)}>
+          {tabletDesktopMode
+            ? (locale === "it" ? "Torna alla modalità tablet" : "Return to tablet mode")
+            : (locale === "it" ? "Passa alla modalità desktop" : "Switch to desktop mode")}
+        </button>
+        <span>{tabletDesktopMode
+          ? (locale === "it" ? "Modalità desktop attiva su questo tablet" : "Desktop mode is active on this tablet")
+          : (locale === "it" ? "Stai usando la vista tablet" : "You are using tablet view")}</span>
+      </div> : null}
       {authenticated || shouldPrioritizeAuthAction ? (
       <header className={`topbar${authenticated && !isRestaurant && activeView !== "home" ? " cellar-compact-header" : ""}`} style={!authenticated && isMobileViewport ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", alignItems: "stretch", gap: "12px" } : undefined}>
         {authenticated && activeView === "home" && !isRestaurant ? <CellarHomeBackdrop /> : null}
@@ -10419,6 +10450,7 @@ export function App() {
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}><AppIcon name="pulse" variant="premium" detailLevel="rich" />Wine Pulse</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); openHelp(); }}><AppIcon name="grapes" variant="premium" detailLevel="rich" />{t("help")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); toggleSettingsView(); }}><AppIcon name="settings" variant="action" detailLevel="rich" />{t("settings")}</button>
+                {tabletDevice && !tabletDesktopMode ? <button type="button" onClick={() => { setMobileNavigationOpen(false); chooseTabletLayout(true); }}><AppIcon name="dashboard-cards" variant="navigation" detailLevel="rich" />{locale === "it" ? "Richiedi modalità desktop" : "Request desktop mode"}</button> : null}
               </div> : null}
               <nav className="mobile-bottom-navigation" aria-label={locale === "it" ? "Navigazione principale" : "Main navigation"}>
                 <button type="button" className={activeView === "home" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}><AppIcon name="dashboard" variant="navigation" detailLevel="rich" /><span>{t("home")}</span></button>
@@ -13202,6 +13234,9 @@ export function App() {
                 </button>
               ) : null}
             </div> : null}
+            {activeView === "history" && historySection === "wines" ? <p className="archive-wines-explainer">{locale === "it"
+              ? "Qui trovi le schede dei vini con giacenza zero. Una bevuta può riferirsi a un vino ancora in cantina o a una degustazione extra cantina. I vini archiviati senza colore sono nel gruppo «Colore non specificato»."
+              : "This view contains wine records with zero bottles in stock. A tasting may refer to wine still in your cellar or to one tasted outside it. Archived wines without a color appear under “Unspecified wine color”."}</p> : null}
             {activeView === "cellar" && maturityFilter ? (
               <div className="active-maturity-filter">
                 <span>{t("maturityFilter")}</span>
@@ -13289,6 +13324,7 @@ export function App() {
                   <TastingArchiveSection
                     canGenerateAi={canGenerateAi}
                     canWrite={canWriteWine}
+                    canOpenWine={(wineId) => wines.some((wine) => wine.id === wineId)}
                     displayValue={displayValue}
                     entries={visibleTastingEntries}
                     formatAiBudget={formatAiBudget}
@@ -13302,7 +13338,7 @@ export function App() {
                     wineTone={wineTone}
                   />
                 </Suspense>
-                {isMobileViewport && selectedVisibleWine && !wineFormOpen ? (
+                {isMobileViewport && selectedVisibleWine && !wineFormOpen && !wineDetailExpanded ? (
                   <div className="mobile-inline-detail" role="dialog" aria-modal="true" aria-label={selectedVisibleWine.name} onClick={closeMobileWineDetail}>
                     <div className="mobile-detail-sheet" onClick={(event) => event.stopPropagation()}>
                       <div className="mobile-detail-sheet-head">
@@ -13415,7 +13451,7 @@ export function App() {
                     >
                       <span className={wineGroupingMode === "color" ? `wine-tone-pill tone-${group.tone}` : "wine-tone-pill wine-region-pill"}>{group.label}</span>
                       <span className="wine-tone-group-summary">
-                        {formatBottleCount(group.wineCount, locale)} {t("winesLabel")} • {formatBottleCount(group.bottleCount, locale)} {t("bottles").toLowerCase()}
+                        {formatBottleCount(group.wineCount, locale)} {group.wineCount === 1 ? (locale === "it" ? "vino" : "wine") : t("winesLabel")}{activeView === "history" ? null : <> • {formatBottleCount(group.bottleCount, locale)} {t("bottles").toLowerCase()}</>}
                       </span>
                       <span className="wine-tone-group-chevron" aria-hidden="true">›</span>
                     </button>
@@ -13445,7 +13481,7 @@ export function App() {
                     <p className="row-primary">
                       <span className="wine-producer">{wine.producer || t("noProducer")}</span>
                       <span className="wine-quantity">{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale, isRestaurant)}</span>
-                      <WineStatusBadge status={wine.status} locale={locale} compact />
+                      {activeView === "history" ? null : <WineStatusBadge status={wine.status} locale={locale} compact />}
                       {wine.storage_allocations?.length ? <button
                         type="button"
                         className="row-chip wine-storage-chip"
@@ -13853,6 +13889,14 @@ export function App() {
                       ))}
                     </select>
                   </label>
+                  {tabletDevice ? <label className="tablet-layout-setting">
+                    <span>{locale === "it" ? "Visualizzazione su tablet" : "Tablet display"}</span>
+                    <select value={tabletDesktopMode ? "desktop" : "tablet"} onChange={(event) => chooseTabletLayout(event.target.value === "desktop")}>
+                      <option value="tablet">{locale === "it" ? "Modalità tablet" : "Tablet mode"}</option>
+                      <option value="desktop">{locale === "it" ? "Modalità desktop" : "Desktop mode"}</option>
+                    </select>
+                    <small>{locale === "it" ? "Usa l’interfaccia desktop su questo tablet. Puoi tornare qui per ripristinare la modalità tablet." : "Use the desktop interface on this tablet. Return here to switch back to tablet mode."}</small>
+                  </label> : null}
                   <label className="dashboard-focus-setting">
                     <span>{t("primaryDashboardFocus")}</span>
                     <select
