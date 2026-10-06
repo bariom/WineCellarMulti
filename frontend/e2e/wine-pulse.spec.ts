@@ -1,9 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockApi, session, memberships, wine } from "./fixtures/app";
+import { HOME_BACKDROPS } from "../src/components/CellarHomeBackdrop";
 
-async function openPulse(page: Page, locale = "it") {
-  await page.clock.setFixedTime(new Date("2026-10-05T12:00:00Z"));
-  await mockApi(page, [], false, memberships, [wine], { ...session, locale });
+async function openPulse(page: Page, locale = "it", scene?: string) {
+  // Keep native navigation timing for backdrop reload tests; the fake clock replaces it.
+  if (!scene) await page.clock.setFixedTime(new Date("2026-10-05T12:00:00Z"));
+  await mockApi(page, [], false, memberships, [wine], { ...session, locale }, [], undefined, undefined, scene ?? "vineyard");
   await page.addInitScript(() => {
     const original = window.fetch;
     (window as any).pulseFail = false;
@@ -31,6 +33,21 @@ async function openPulse(page: Page, locale = "it") {
   await page.goto("/");
   await page.getByRole("button", { name: "Wine Pulse", exact: true }).click();
   return page.locator(".wine-pulse-view");
+}
+
+for (const scene of HOME_BACKDROPS) {
+  test(`Wine Pulse backdrop ${scene.id}`, async ({ page }) => {
+    const pulse = await openPulse(page, "it", scene.id);
+    const backdrop = pulse.locator(".cellar-home-backdrop");
+    await expect(backdrop).toHaveAttribute("data-scene", scene.id);
+    await expect(backdrop.locator("img")).toHaveAttribute("src", scene.src);
+    await expect.poll(() => backdrop.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(1000);
+    await pulse.getByRole("tab", { name: "Archivio", exact: true }).click();
+    await expect(backdrop).toHaveAttribute("data-scene", scene.id);
+    await page.reload();
+    await page.getByRole("button", { name: "Wine Pulse", exact: true }).click();
+    await expect(backdrop).not.toHaveAttribute("data-scene", scene.id);
+  });
 }
 
 for (const locale of ["it", "en"]) {

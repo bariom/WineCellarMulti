@@ -8,6 +8,10 @@ export const HOME_BACKDROPS = [
   { id: "lakeside", src: "/images/home-lakeside-v1.jpg" },
   { id: "harvest", src: "/images/home-harvest-v1.jpg" },
   { id: "bottle-cellar", src: "/images/home-bottle-cellar-v1.jpg" },
+  { id: "sparkling-cellar", src: "/images/home-sparkling-cellar-v1.jpg" },
+  { id: "autumn-vineyard", src: "/images/home-autumn-vineyard-v1.jpg" },
+  { id: "evening-tasting", src: "/images/home-evening-tasting-v1.jpg" },
+  { id: "wine-press", src: "/images/home-wine-press-v1.jpg" },
 ] as const;
 const fallback = "/images/premium-cellar-empty.jpg";
 let memoryChoice: (typeof HOME_BACKDROPS)[number] | undefined;

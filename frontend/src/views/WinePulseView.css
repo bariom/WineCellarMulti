@@ -14,9 +14,12 @@
 }
 
 /* The full edition uses the available desktop canvas; the Home preview stays compact. */
-.wine-pulse-view .wine-pulse-hero { grid-template-columns: minmax(0, 1fr) auto; padding: clamp(24px, 4vw, 52px); color: #fff8e9; border-radius: 12px; background: linear-gradient(90deg, #183c31fa 0%, #183c31e6 50%, #183c3166), url('/images/home-vineyard-v1.jpg') center 55% / cover; }
+.wine-pulse-view .wine-pulse-hero { grid-template-columns: minmax(0, 1fr) auto; padding: clamp(24px, 4vw, 52px); color: #fff8e9; border-radius: 12px; background: #183c31; isolation: isolate; }
+.wine-pulse-hero > .cellar-home-backdrop { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.wine-pulse-hero > .cellar-home-backdrop img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 55%; }
+.wine-pulse-hero > .cellar-home-backdrop::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, #183c31fa 0%, #183c31e6 50%, #183c3166); }
 .wine-pulse-view .wine-pulse-hero::after { display: none; }
-.wine-pulse-view .wine-pulse-hero > :not(.wine-pulse-edition-mark) { grid-column: 1; }
+.wine-pulse-view .wine-pulse-hero > :not(.wine-pulse-edition-mark):not(.cellar-home-backdrop) { grid-column: 1; }
 .wine-pulse-view .wine-pulse-hero-kicker { color: #e5b698; }
 .wine-pulse-view .wine-pulse-hero h1 { color: #fff8e9; font: 400 clamp(3rem, 5vw, 5rem)/1.05 Georgia, serif; }
 .wine-pulse-view .wine-pulse-hero > p, .wine-pulse-view .wine-pulse-hero > small { color: #eee9dc; }

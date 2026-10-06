@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AppIcon } from "../components/AppIcon";
+import { CellarHomeBackdrop } from "../components/CellarHomeBackdrop";
 import { api } from "../services/api";
 import type {
   Locale,
@@ -198,6 +199,7 @@ export default function WinePulseView({ locale }: { locale: Locale }) {
   return (
     <section className="wine-pulse-view">
       <header className="wine-pulse-hero">
+        <CellarHomeBackdrop />
         <div className="wine-pulse-hero-kicker">
           <AppIcon name="newspaper" variant="premium" detailLevel="rich" />
           <span>{locale === "it" ? "Osservatorio editoriale" : "Editorial observatory"}</span>

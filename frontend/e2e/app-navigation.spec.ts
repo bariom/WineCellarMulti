@@ -205,7 +205,12 @@ for (const theme of ["atelier", "private-cellar", "midnight-ledger", "maison-cha
   }
 }
 
-for (const [random, scene] of [[0.08, "vineyard"], [0.25, "barrels"], [0.42, "tasting"], [0.58, "lakeside"], [0.75, "harvest"], [0.92, "bottle-cellar"]] as const) {
+for (const [random, scene] of [
+  [0.05, "vineyard"], [0.15, "barrels"], [0.25, "tasting"],
+  [0.35, "lakeside"], [0.45, "harvest"], [0.55, "bottle-cellar"],
+  [0.65, "sparkling-cellar"], [0.75, "autumn-vineyard"],
+  [0.85, "evening-tasting"], [0.95, "wine-press"],
+] as const) {
   test(`Home backdrop session ${scene}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.addInitScript(value => { Math.random = () => value; }, random);
@@ -215,7 +220,7 @@ for (const [random, scene] of [[0.08, "vineyard"], [0.25, "barrels"], [0.42, "ta
     await expect(backdrop).toHaveAttribute("data-scene", scene);
     await expect.poll(() => backdrop.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(1000);
     await page.screenshot({ path: testInfo.outputPath("scene.png") });
-    if (["lakeside", "harvest", "bottle-cellar"].includes(scene)) {
+    if (["lakeside", "harvest", "bottle-cellar", "sparkling-cellar", "autumn-vineyard", "evening-tasting", "wine-press"].includes(scene)) {
       for (const width of [360, 390, 430]) {
         await page.setViewportSize({ width, height: 844 });
         await expect(backdrop).toBeVisible();
