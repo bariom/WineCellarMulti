@@ -61,8 +61,9 @@ function WinePulseArticleCard({ article, locale, featured = false, read, onToggl
   onToggleRead?: () => void;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const hasImage = Boolean(article.image_url && !imageFailed);
   return (
-    <article id={onToggleRead ? `pulse-story-${article.id}` : undefined} className={`wine-pulse-story wine-pulse-story--${article.category}${featured ? " wine-pulse-story--featured" : ""}`}>
+    <article id={onToggleRead ? `pulse-story-${article.id}` : undefined} className={`wine-pulse-story wine-pulse-story--${article.category}${featured ? " wine-pulse-story--featured" : ""}${!featured && hasImage ? " wine-pulse-story--with-image" : ""}`}>
       {featured ? (
         <div className="wine-pulse-lead-number" aria-label={locale === "it" ? "Storia di copertina" : "Cover story"}>
           <span>{locale === "it" ? "Copertina" : "Cover"}</span>
@@ -91,6 +92,10 @@ function WinePulseArticleCard({ article, locale, featured = false, read, onToggl
       {featured ? (
         <div className="wine-pulse-featured-visual" aria-hidden="true">
           {article.image_url && !imageFailed ? <img src={article.image_url} alt="" onError={() => setImageFailed(true)} /> : <span>{sourceInitials(article.source)}</span>}
+        </div>
+      ) : hasImage ? (
+        <div className="wine-pulse-story-image" aria-hidden="true">
+          <img src={article.image_url!} alt="" onError={() => setImageFailed(true)} />
         </div>
       ) : null}
     </article>

@@ -199,8 +199,8 @@
 
 @media (min-width: 901px) {
   :root .authenticated-app-shell.cellar-home-edition {
-    width: min(100%, 1600px); max-width: 1600px; margin-inline: auto;
-    padding: 20px clamp(24px, 3vw, 56px) 64px; background: var(--home-paper);
+    width: min(100%, 1680px); max-width: 1680px; margin-inline: auto;
+    padding: 12px 14px 64px; background: var(--home-paper);
   }
   :root .cellar-home-edition .topbar {
     position: relative; top: auto; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 420px) auto;
