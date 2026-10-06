@@ -13573,9 +13573,17 @@ button.stat-card:hover {
 }
 
 .tasting-archive-title strong {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   color: var(--text);
   font-size: 1rem;
   line-height: 1.2;
+}
+
+.tasting-archive-title strong > .wine-dot {
+  margin-right: 0;
 }
 
 .tasting-archive-summary strong {
@@ -13624,6 +13632,20 @@ button.stat-card:hover {
 .tasting-archive-meta,
 .tasting-archive-summary span {
   color: var(--text-muted);
+}
+
+.tasting-archive-title .tasting-archive-memory-indicator {
+  display: inline-flex;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 50%;
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-raised));
+  font-size: .9rem;
 }
 
 .tasting-archive-summary {

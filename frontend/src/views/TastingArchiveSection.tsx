@@ -298,7 +298,15 @@ export default function TastingArchiveSection({
           <summary className="tasting-archive-entry-summary">
             <div className="tasting-archive-head">
               <div className="tasting-archive-title">
-                <strong><i className={`wine-dot tone-${wineTone(entry.wine.type)}`} aria-hidden="true" />{entry.wine.name}</strong>
+                <strong>
+                  <i className={`wine-dot tone-${wineTone(entry.wine.type)}`} aria-hidden="true" />
+                  {entry.wine.name}
+                  {entry.memory_photo_url ? (
+                    <span className="tasting-archive-memory-indicator" role="img" aria-label={locale === "it" ? "Ricordo con fotografia" : "Memory with photograph"} title={locale === "it" ? "Ricordo con fotografia" : "Memory with photograph"}>
+                      <AppIcon name="camera" variant="feature" detailLevel="compact" />
+                    </span>
+                  ) : null}
+                </strong>
                 <span>{[entry.wine.producer, entry.wine.vintage, entry.wine.region].filter(Boolean).join(" - ")}</span>
                 {!entry.wine.type.trim() ? <small className="tasting-archive-unspecified-color">{locale === "it" ? "Colore non specificato" : "Wine color unspecified"}</small> : null}
               </div>
