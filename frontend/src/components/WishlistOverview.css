@@ -1,0 +1,35 @@
+.wishlist-overview { display: grid; gap: 18px; min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+.wishlist-overview h2 { margin: 5px 0 8px; font-size: clamp(1.2rem, 2vw, 1.55rem); }
+.wishlist-overview p { margin: 0; color: var(--text-muted); line-height: 1.5; }
+.wishlist-start-actions { display: grid; gap: 8px; }
+.wishlist-start-actions > button { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; padding: 14px; text-align: left; white-space: normal; min-height: 64px; }
+.wishlist-start-actions strong, .wishlist-start-actions small { display: block; }
+.wishlist-start-actions strong { font-size: .94rem; }
+.wishlist-start-actions small { margin-top: 4px; font-size: .8rem; font-weight: 400; line-height: 1.4; }
+.wishlist-start-number { color: var(--accent); font-size: .75rem; }
+.wishlist-overview-list { display: grid; gap: 12px; min-width: 0; border-top: 1px solid var(--border); padding-top: 16px; }
+.wishlist-overview-list label { display: grid; gap: 6px; min-width: 0; }
+.wishlist-overview-list select { width: 100%; min-width: 0; min-height: 44px; }
+.wishlist-list-options > summary { cursor: pointer; min-height: 44px; padding: 12px 0; font-size: .85rem; }
+.wishlist-list-options .inline-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.wishlist-list-options dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 0; }
+.wishlist-list-options dt { font-size: .8rem; color: var(--text-muted); }
+.wishlist-list-options dd { margin: 4px 0 0; font-weight: 700; overflow-wrap: anywhere; }
+.wishlist-next-step, .wishlist-start-hint { font-size: .82rem; }
+.wishlist-editor-help { color: var(--text-muted); line-height: 1.5; margin: 0; }
+@media (max-width: 600px) { .wishlist-overview { padding: 14px; gap: 14px; } .wishlist-start-actions > button { padding: 12px; gap: 10px; } }
+.wine-list .wishlist-row { grid-template-columns: minmax(0, 1fr) 200px; grid-template-rows: auto auto; }
+.wine-list .wishlist-row > .wishlist-price-block { grid-column: 2; grid-row: 1; width: 100%; min-width: 0; }
+.wine-list .wishlist-row > .wishlist-row-actions { grid-column: 2; grid-row: 2; width: 100%; }
+.wine-list .wishlist-row-actions .wishlist-action-button { min-height: 44px; white-space: normal; }
+.wine-list .wishlist-row-actions .action-label { display: inline; white-space: normal; overflow: visible; text-overflow: clip; }
+@media (min-width: 1100px) {
+  .wishlist-start-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .wishlist-start-actions > button { grid-template-columns: minmax(0, 1fr); align-content: start; }
+  .wishlist-start-actions > button > span:last-child { display: none; }
+}
+@media (max-width: 1099px) {
+  .wine-list .wishlist-row { grid-template-columns: minmax(0, 1fr); }
+  .wine-list .wishlist-row > .wine-row-main, .wine-list .wishlist-row > .wishlist-price-block, .wine-list .wishlist-row > .wishlist-row-actions { grid-column: 1; grid-row: auto; }
+  .wine-list .wishlist-row > .wishlist-row-actions { display: grid; grid-template-columns: 1fr 1.4fr 1fr; }
+}

@@ -1,5 +1,11 @@
 # Frontend E2E checks
 
+Wishlist: `npm run test:e2e:wishlist` checks the guided save/offer/planning choices,
+deferred AI generation, purchase quantities, tasting without stock changes,
+read-only access, vintage entry and taste scanning. Responsive checks cover
+360, 390, 430 and 1440 px. `wishlist-overview-compact.png` protects the reviewed
+390 px overview; fixed navigation is hidden only for this section capture.
+
 The frontend uses Playwright with Chromium. The extracted application suites use safe,
 deterministic browser fixtures and do not require real credentials, tokens,
 production data, or a backend process.

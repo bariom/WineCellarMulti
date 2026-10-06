@@ -15,6 +15,7 @@
     "test:android": "npm --prefix ../android test",
     "test:help": "node scripts/check-help-content.mjs",
     "test:e2e": "playwright test",
+    "test:e2e:wishlist": "playwright test e2e/wishlist-workflow.spec.ts e2e/wishlist-vintage.spec.ts e2e/wishlist-strategy.spec.ts e2e/wishlist-live-taste-scanner.spec.ts",
     "test:e2e:app": "playwright test e2e/wine-detail.spec.ts e2e/collector.spec.ts e2e/personal-dashboard.spec.ts e2e/app-navigation.spec.ts e2e/record-tasting.spec.ts e2e/intelligence.spec.ts e2e/notifications.spec.ts e2e/home-dashboard.spec.ts e2e/cellar-management.spec.ts e2e/taste-profile-layout.spec.ts",
     "test:e2e:collector": "playwright test e2e/collector.spec.ts",
     "test:e2e:personal-dashboard": "playwright test e2e/personal-dashboard.spec.ts e2e/memories-widget.spec.ts",

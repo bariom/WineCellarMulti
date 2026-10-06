@@ -1955,15 +1955,16 @@ export function WishlistDetail({
           <strong className="wishlist-price">{offerPrice || formatMoney(item.target_price, item.currency, locale)}</strong>
         </div>
       </div>
+      <p>{locale === "it" ? "Valuta questo vino: confronta il prezzo offerto, verifica se incontra il tuo gusto o chiedi un consiglio sull’acquisto." : "Evaluate this wine: compare its offer price, check your taste match or ask for purchase advice."}</p>
       <div className="ai-actions">
         <button type="button" className="secondary compact" disabled={tasteMatchLoading} onClick={() => void checkTasteCompatibility()}>
           {tasteMatchLoading ? (locale === "it" ? "Verifica in corso…" : "Checking…") : (locale === "it" ? "Verifica compatibilità" : "Check compatibility")}
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("strategy")}>
-          <ButtonBusyContent busy={generating === "strategy"} idleLabel={t("aiStrategy")} busyLabel={t("generating")} />
+          <ButtonBusyContent busy={generating === "strategy"} idleLabel={locale === "it" ? "Consiglio su questo vino" : "Advice on this wine"} busyLabel={t("generating")} />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("purpose")}>
-          <ButtonBusyContent busy={generating === "purpose"} idleLabel={t("aiPurpose")} busyLabel={t("generating")} />
+          <ButtonBusyContent busy={generating === "purpose"} idleLabel={locale === "it" ? "Bere o conservare?" : "Drink or cellar?"} busyLabel={t("generating")} />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("target-price")}>
           <ButtonBusyContent busy={generating === "target-price"} idleLabel={locale === "it" ? "Analizza offerta" : "Analyse offer"} busyLabel={t("generating")} />

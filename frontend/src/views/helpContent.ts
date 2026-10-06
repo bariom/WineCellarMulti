@@ -36,12 +36,13 @@ export const helpGuideContentV2: Record<Locale, HelpGuide> = {
       },
       {
         title: "3. Build a buying workflow with Wishlist",
-        body: "Wishlist keeps future purchases separate from the active cellar until you are ready to convert them into real positions.",
+        body: "Save a wine to remember or try, evaluate an offer, or plan purchases across a list. Start with the three choices at the top of Wishlist.",
         bullets: [
           "Create multiple wishlist lists when you want to separate themes such as reds, Champagne, restaurant buys, or short-term opportunities.",
           "Add target prices, priority, purpose, merchant notes, and optional AI context notes.",
           "[AI] Use AI suggestions, if configured, to refine buying strategy, purpose, and live market price.",
-          "Convert wishlist items into cellar positions when you buy them, or delete a whole list knowing its items are deleted with it.",
+          "Open a wine and choose I tasted it to save an experience without adding bottles. Record purchase adds the purchased quantity to your cellar.",
+          "Plan your purchases opens the strategy and its taste-profile option; generate the AI advice when you are ready. Manage lists and summary contains list creation, renaming, deletion and totals.",
         ],
       },
       {
@@ -143,12 +144,13 @@ export const helpGuideContentV2: Record<Locale, HelpGuide> = {
       },
       {
         title: "3. Costruisci il flusso acquisti con la Wishlist",
-        body: "La Wishlist tiene separate le bottiglie future dalla cantina attiva finché non decidi di comprarle o convertirle in posizioni reali.",
+        body: "Salva un vino da ricordare o provare, valuta un’offerta oppure pianifica gli acquisti di una lista. Parti dalle tre scelte in cima alla Wishlist.",
         bullets: [
           "Crea più liste wishlist quando vuoi separare temi diversi, come rossi, Champagne, acquisti da ristorante o opportunità di breve periodo.",
           "Aggiungi prezzi target, priorità, scopo, note merchant e, se utile, una nota contesto AI.",
           "[AI] Usa i suggerimenti AI, se configurati, per affinare strategia di acquisto, scopo e prezzo di mercato live.",
-          "Converti gli elementi wishlist in posizioni di cantina quando acquisti, oppure elimina una lista sapendo che anche i suoi elementi verranno eliminati.",
+          "Apri un vino e scegli Ho assaggiato per salvare un’esperienza senza aggiungere bottiglie. Registra acquisto aggiunge alla cantina la quantità acquistata.",
+          "Pianifica gli acquisti apre la strategia e l’opzione del profilo gusto; genera il consiglio AI quando sei pronto. Gestisci liste e riepilogo raccoglie creazione, rinomina, eliminazione e totali.",
         ],
       },
       {

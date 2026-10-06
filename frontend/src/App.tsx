@@ -99,6 +99,7 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 }
 
 const PairingView = lazy(() => import("./views/PairingView"));
+const WishlistOverview = lazy(() => import("./components/WishlistOverview"));
 const WineLotsSection = lazy(() => import("./components/WineLotsSection"));
 const MarketPreferences = lazy(() => import("./components/MarketPreferences"));
 const PersonalOnboarding = lazy(() => import("./components/PersonalOnboarding"));
@@ -1669,6 +1670,7 @@ export function App() {
   const detailWinePhotoSuggestionCacheRef = useRef(new Map<string, WinePhotoSuggestion | null>());
   const dismissedDetailWinePhotoSuggestionsRef = useRef(new Set<string>());
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
+  const [wishlistEntryIntent, setWishlistEntryIntent] = useState<"save" | "offer">("save");
   const [searchQuery, setSearchQuery] = useState("");
   const [regionFilter, setRegionFilter] = useState("");
   const filterPanelRef = useRef<HTMLDetailsElement>(null);
@@ -6123,11 +6125,8 @@ export function App() {
     if (previousWishlistListIdRef.current !== selectedWishlistListId) {
       previousWishlistListIdRef.current = selectedWishlistListId;
       setWishlistPortfolioStrategy(null);
-      setWishlistPortfolioStrategyOpen(!visibleWishlistPortfolioStrategy);
+      setWishlistPortfolioStrategyOpen(false);
       return;
-    }
-    if (!visibleWishlistPortfolioStrategy) {
-      setWishlistPortfolioStrategyOpen(true);
     }
   }, [selectedWishlistListId, visibleWishlistPortfolioStrategy]);
   const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => normalizeWineType(wine.type)));
@@ -7643,6 +7642,7 @@ export function App() {
   }
 
   function startAddWishlistItem() {
+    setWishlistEntryIntent("save");
     clearWineRecognitionState();
     setWineRecognitionTarget("wishlist");
     setWineFormOpen(false);
@@ -12347,6 +12347,9 @@ export function App() {
             ) : activeView === "wishlist" && wishlistFormOpen ? (
               <form className="wine-form wishlist-editor-form" onSubmit={submitWishlist}>
                 <h2>{editingWishlistId ? t("editWishlist") : t("addWishlist")}</h2>
+                {!editingWishlistId ? <p className="wishlist-editor-help">{wishlistEntryIntent === "offer"
+                  ? (locale === "it" ? "Inserisci il vino, l’annata e il prezzo offerto. Salva, poi apri il vino e scegli “Analizza offerta” per confrontare il prezzo con il mercato." : "Enter the wine, vintage and offer price. Save, then open the wine and choose “Analyse offer” to compare its price with the market.")
+                  : (locale === "it" ? "Salva un vino da ricordare o provare, anche senza un’offerta. Potrai registrare un assaggio, valutarne l’acquisto o aggiungerlo alla cantina in seguito." : "Save a wine to remember or try, even without an offer. You can record a tasting, evaluate a purchase or add it to your cellar later.")}</p> : null}
                 <div className="form-actions wishlist-editor-actions">
                   <button type="submit" disabled={saving || !canWriteWine}>{saving ? t("saving") : editingWishlistId ? t("saveChanges") : t("createWishlist")}</button>
                   <button type="button" className="secondary" onClick={closeWishlistForm}>
@@ -12554,7 +12557,7 @@ export function App() {
                   t={t}
                   locale={locale}
                 />
-            ) : activeView === "wishlist" ? (
+            ) : activeView === "wishlist" ? (visibleWishlistPortfolioStrategy || wishlistPortfolioStrategyOpen ? (
                 <WishlistPortfolioStrategyPanel
                   strategy={visibleWishlistPortfolioStrategy}
                   canGenerate={canGenerateAi && wishlist.length > 0}
@@ -12566,7 +12569,7 @@ export function App() {
                   onUseTasteProfileChange={setWishlistUseTasteProfile}
                   t={t}
                 />
-            ) : (
+            ) : null) : (
               <div className="wine-detail empty-detail">
                 <div className="empty-detail-image" aria-hidden="true">
                   <img src="/images/premium-cellar-empty.jpg" alt="" loading="lazy" />
@@ -12863,89 +12866,26 @@ export function App() {
             </details>}
             </>
             ) : (
-            <details className="stats-panel-wrapper" open>
-              <summary>{t("wishlistItems")}</summary>
-              <div className="stats-panel-actions wishlist-list-toolbar">
-                <label className="wishlist-list-select">
-                  <span>{t("wishlistList")}</span>
-                  <select value={selectedWishlistListId} onChange={(event) => setSelectedWishlistListId(event.target.value)} disabled={saving || wishlistLists.length === 0}>
-                    {wishlistLists.map((wishlistList) => (
-                      <option key={wishlistList.id} value={wishlistList.id}>
-                        {wishlistList.name} ({wishlistList.item_count})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="inline-actions">
-                  <button type="button" className="secondary compact wishlist-list-action wishlist-list-action-create" disabled={!canWriteWine || saving} onClick={createWishlistList}>{t("createWishlistList")}</button>
-                  <button type="button" className="secondary compact wishlist-list-action wishlist-list-action-rename" disabled={!canWriteWine || saving || !selectedWishlistList} onClick={renameWishlistList}>{t("renameWishlistList")}</button>
-                  <button type="button" className="danger compact wishlist-list-action wishlist-list-action-delete" disabled={!canAdmin || saving || wishlistLists.length <= 1 || !selectedWishlistList} onClick={deleteWishlistList}>{t("deleteWishlistList")}</button>
-                </div>
-              </div>
-              <section className="stats-panel">
-                <div className="stat-card">
-                  <span>{t("wishlistItems")}</span>
-                  <strong>{formatBottleCount(wishlistStats.count, locale)}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>{t("targetValue")}</span>
-                  <strong>{formatMoney(wishlistStats.targetValue, "CHF", locale)}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>{t("highPriority")}</span>
-                  <strong>{formatBottleCount(wishlistStats.highPriority, locale)}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>{t("readyToBuy")}</span>
-                  <strong>{formatBottleCount(wishlistStats.readyToBuy, locale)}</strong>
-                </div>
-              </section>
-              <section className="wishlist-flow-guide" aria-label={t("wishlistFlowsTitle")}>
-                <div className="wishlist-flow-guide-head">
-                  <span>{t("wishlistFlowsEyebrow")}</span>
-                  <h2>{t("wishlistFlowsTitle")}</h2>
-                  <p>{t("wishlistFlowsHelp")}</p>
-                </div>
-                <article className="wishlist-flow-card wishlist-flow-card--offer">
-                  <div className="wishlist-flow-card-heading">
-                    <i aria-hidden="true"><AppIcon name="wishlist" variant="feature" tone="accent" size="1.1rem" /></i>
-                    <span>01</span>
-                  </div>
-                  <h3>{t("wishlistOfferFlowTitle")}</h3>
-                  <p>{t("wishlistOfferFlowHelp")}</p>
-                  <small>{t("wishlistOfferFlowSteps")}</small>
-                  <button type="button" onClick={startAddWishlistItem} disabled={!canWriteWine}>
-                    {t("wishlistOfferFlowAction")}
-                  </button>
-                </article>
-                <article className="wishlist-flow-card wishlist-flow-card--strategy">
-                  <div className="wishlist-flow-card-heading">
-                    <i aria-hidden="true"><AppIcon name="chart" variant="feature" tone="accent" size="1.1rem" /></i>
-                    <span>02</span>
-                  </div>
-                  <h3>{t("wishlistStrategyFlowTitle")}</h3>
-                  <p>{t("wishlistStrategyFlowHelp")}</p>
-                  <small>{wishlist.length ? t("wishlistStrategyFlowSteps") : t("wishlistStrategyFlowNeedsWine")}</small>
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={!canGenerateAi || wishlist.length === 0 || generatingAi === "wishlist-portfolio-strategy"}
-                    onClick={() => {
-                      setSelectedWishlistId(null);
-                      setWishlistFormOpen(false);
-                      setWishlistPortfolioStrategyOpen(true);
-                      void generateWishlistPortfolioStrategy();
-                    }}
-                  >
-                    <ButtonBusyContent
-                      busy={generatingAi === "wishlist-portfolio-strategy"}
-                      idleLabel={t(visibleWishlistPortfolioStrategy ? "refreshWishlistPortfolioStrategy" : "generateWishlistPortfolioStrategy")}
-                      busyLabel={t("generating")}
-                    />
-                  </button>
-                </article>
-              </section>
-              {isMobileViewport && !selectedWishlistItem ? (
+            <>
+              <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
+                <WishlistOverview locale={locale} lists={wishlistLists} selectedId={selectedWishlistListId}
+                  onSelect={setSelectedWishlistListId} canWrite={canWriteWine} canAdmin={canAdmin} saving={saving}
+                  count={wishlistStats.count} targetValue={formatMoney(wishlistStats.targetValue, "CHF", locale)}
+                  highPriority={wishlistStats.highPriority} readyToBuy={wishlistStats.readyToBuy}
+                  onCreate={createWishlistList} onRename={renameWishlistList} onDelete={deleteWishlistList}
+                  onSaveWine={startAddWishlistItem} onOffer={() => { startAddWishlistItem(); setWishlistEntryIntent("offer"); }}
+                  onStrategy={() => {
+                    setSelectedWishlistId(null);
+                    setWishlistFormOpen(false);
+                    setWishlistPortfolioStrategyOpen(true);
+                    requestAnimationFrame(() => {
+                      const panel = Array.from(document.querySelectorAll<HTMLElement>(".wishlist-portfolio-panel")).find(element => element.getBoundingClientRect().width > 0);
+                      panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      panel?.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
+                    });
+                  }} t={t} />
+              </Suspense>
+              {isMobileViewport && !selectedWishlistItem && (visibleWishlistPortfolioStrategy || wishlistPortfolioStrategyOpen) ? (
                 <WishlistPortfolioStrategyPanel
                   strategy={visibleWishlistPortfolioStrategy}
                   canGenerate={canGenerateAi && wishlist.length > 0}
@@ -12958,7 +12898,7 @@ export function App() {
                   t={t}
                 />
               ) : null}
-            </details>
+            </>
             )}
             {!(activeView === "history" && historySection === "sales") ? <div className={`collection-filter-dock${activeView === "cellar" ? " collection-filter-dock--cellar" : ""}`}>
             <details id={activeView === "cellar" ? "cellar-advanced-filters" : undefined} ref={filterPanelRef} className={`filter-panel ${activeView === "cellar" ? "cellar-filter-panel" : ""}`}>

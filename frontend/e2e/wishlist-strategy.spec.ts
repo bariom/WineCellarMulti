@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 test("wishlist buying strategy exposes taste-profile control on mobile", async ({ page }) => {
+  // Use Vite's resolved URL so the fixture and renderer share one React instance.
+  const panelSource = await (await page.request.get("/src/components/AppPanels.tsx")).text();
+  const reactUrl = panelSource.match(/from "([^"]*\/react\.js[^\"]*)"/)?.[1];
+  expect(reactUrl).toBeTruthy();
   await page.route("**/wishlist-strategy-test", route => route.fulfill({
     contentType: "text/html",
     body: `<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
@@ -9,7 +13,7 @@ test("wishlist buying strategy exposes taste-profile control on mobile", async (
       window.$RefreshReg$ = () => {};
       window.$RefreshSig$ = () => (type) => type;
       window.__vite_plugin_react_preamble_installed__ = true;
-      const {default: React} = await import('/node_modules/.vite/deps/react.js');
+      const {default: React} = await import(${JSON.stringify(reactUrl)});
       const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
       const {WishlistPortfolioStrategyPanel} = await import('/src/components/AppPanels.tsx');
       const {translations} = await import('/src/i18n.ts');
