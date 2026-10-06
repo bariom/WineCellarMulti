@@ -7848,10 +7848,19 @@ def test_value_market_errors_do_not_replace_saved_estimates(monkeypatch):
     assert created.status_code == 201
     wine_id = created.json()["id"]
     base = {"current_value": 45, "currency": "EUR", "notes": "Unknown", "market_note": "No evidence", "market_sources": []}
-    for response in (json.dumps(base), json.dumps({**base, "current_value": "not a number"}), json.dumps({**base, "market_sources": [{"merchant": "Unknown", "country": "US", "price": 45, "currency": "EUR", "url": "javascript:alert(1)"}]}), "not JSON"):
+    invalid_url_source = {
+        "merchant": "Unknown", "country": "US", "price": 45,
+        "currency": "EUR", "url": "javascript:alert(1)",
+    }
+    for response, expected_status in (
+        (json.dumps(base), 422),
+        (json.dumps({**base, "current_value": "not a number"}), 502),
+        (json.dumps({**base, "market_sources": [invalid_url_source]}), 422),
+        ("not JSON", 502),
+    ):
         monkeypatch.setattr(ai_routes, "create_response", lambda *args, text=response, **kwargs: OpenAIResponse(text=text, usage=TokenUsage(input_tokens=1, output_tokens=1, total_tokens=2)))
         result = client.post(f"/api/v1/ai/wines/{wine_id}/value", json={"force_refresh": True})
-        assert result.status_code == 502, result.text
+        assert result.status_code == expected_status, result.text
         saved = client.get(f"/api/v1/wines/{wine_id}").json()
         assert saved["current_value"] == "33.00"
         assert saved["ai_value_market_country"] == ""

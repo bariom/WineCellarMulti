@@ -81,3 +81,29 @@ test.describe("iPad user agent without touch emulation", () => {
     await expect(page.getByRole("button", { name: "Impostazioni", exact: true })).toBeVisible();
   });
 });
+
+test.describe("tablet insights menu", () => {
+  test.use({ viewport: { width: 800, height: 1280 }, screen: { width: 800, height: 1280 }, hasTouch: true, isMobile: true });
+
+  for (const viewport of [{ width: 800, height: 1280 }, { width: 820, height: 1180 }, { width: 1024, height: 768 }]) {
+    test(`insights remain visible and selectable at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
+      await page.setViewportSize(viewport);
+      await mockApi(page);
+      await page.goto("/");
+      const navigation = page.locator(".dashboard-focus-navigation");
+      const insights = navigation.locator(".dashboard-analysis-switcher");
+      await insights.locator("summary").click();
+      const options = insights.getByRole("tablist", { name: "Approfondimenti" });
+      await expect(options).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath(`tablet-insights-${viewport.width}.png`), animations: "disabled" });
+      const menu = (await options.boundingBox())!;
+      const container = (await navigation.boundingBox())!;
+      expect(menu.y + menu.height).toBeLessThanOrEqual(container.y + container.height + 1);
+      expect(menu.x).toBeGreaterThanOrEqual(0);
+      expect(menu.x + menu.width).toBeLessThanOrEqual(viewport.width);
+      await options.getByRole("tab", { name: "Valore", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Valore", exact: true }).first()).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    });
+  }
+});

@@ -5471,7 +5471,7 @@ def generate_wine_value(
         wine.value_not_found = True
         db.commit()
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="No verified live market price sources found",
         )
     local_value = local_market_source_price(
