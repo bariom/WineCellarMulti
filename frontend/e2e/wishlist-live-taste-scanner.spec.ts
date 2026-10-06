@@ -35,7 +35,7 @@ test("live wishlist scanner can continue without a taste profile on mobile", asy
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/wishlist-live-scanner-test");
-  await page.getByRole("button", { name: "Scansione gusto live" }).click();
+  await page.getByRole("button", { name: "Scansiona etichetta" }).click();
   await page.locator('input[type="file"]').setInputFiles({
     name: "label.svg",
     mimeType: "image/svg+xml",
@@ -65,5 +65,5 @@ test("live wishlist scanner can continue without a taste profile on mobile", asy
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: testInfo.outputPath('wishlist-result.png') });
   await continueButton.click();
-  await expect(page.getByRole("dialog", { name: "Scansione gusto live" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "Scansiona etichetta" })).toBeHidden();
 });

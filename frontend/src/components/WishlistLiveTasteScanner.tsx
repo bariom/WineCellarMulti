@@ -271,9 +271,9 @@ export function WishlistLiveTasteScanner({
   return <>
     <button type="button" className="wishlist-live-scan-launch" disabled={disabled} onClick={() => void startCamera()}>
       <AppIcon name="camera" />
-      <span>{italian ? "Scansione gusto live" : "Live taste scan"}</span>
+      <span>{italian ? "Scansiona etichetta" : "Scan label"}</span>
     </button>
-    {open ? createPortal(<div className="wishlist-live-scan-layer" role="dialog" aria-modal="true" aria-label={italian ? "Scansione gusto live" : "Live taste scan"}>
+    {open ? createPortal(<div className="wishlist-live-scan-layer" role="dialog" aria-modal="true" aria-label={italian ? "Scansiona etichetta" : "Scan label"}>
       <section className="wishlist-live-scan-modal">
         <header><div><span>VINARIS VISION</span><strong>{italian ? "Inquadra. Riconosci. Scopri." : "Frame. Identify. Discover."}</strong></div><button type="button" onClick={close} aria-label={italian ? "Chiudi" : "Close"}>×</button></header>
         <div className={`wishlist-live-scan-stage${phase === "result" ? " has-result" : ""}`}>
