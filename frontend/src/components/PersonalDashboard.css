@@ -1,9 +1,13 @@
-.personal-dashboard { display: grid; gap: 24px; min-width: 0; }
+.personal-dashboard { display: grid; gap: 12px; min-width: 0; }
 .personal-dashboard-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; }
-.personal-dashboard-header h2 { margin: 6px 0; }
-.personal-dashboard-header p { margin: 6px 0; max-width: 65ch; }
+.personal-dashboard-header > div:first-child { display: grid; gap: 4px; min-width: 0; }
+.personal-dashboard-header h2 { margin: 0; }
+.personal-dashboard-header p { margin: 0; max-width: 65ch; }
+:root .cellar-home-edition .home-workspace > .home-dashboard:has(> .personal-dashboard) { gap: 16px; }
 .personal-dashboard-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .personal-dashboard button, .personal-dashboard select { min-height: 44px; }
+.personal-dashboard-header .personal-dashboard-customize { display: inline-flex; align-items: center; gap: 6px; width: auto; min-height: 44px; padding: 6px 10px; border: 0; border-radius: 6px; background: transparent; box-shadow: none; color: var(--primary); font-size: .8rem; font-weight: 600; }
+.personal-dashboard-header .personal-dashboard-customize:hover { background: color-mix(in srgb, var(--primary) 7%, transparent); box-shadow: none; transform: none; }
 .personal-widget-picker { min-width: 0; margin: 0; padding: 20px; border: 1px solid var(--line, #c9bdab); border-radius: 16px; }
 .personal-widget-picker legend { font-weight: 750; padding: 0 8px; }
 .personal-widget-catalogue { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }

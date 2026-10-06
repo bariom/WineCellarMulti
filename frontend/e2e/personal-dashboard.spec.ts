@@ -429,12 +429,30 @@ test("personal dashboard widgets fit mobile and desktop and can become the defau
   await page.getByRole("tab", { name: "La mia dashboard", exact: true }).click();
   const dashboard = page.getByRole("region", { name: "La mia dashboard", exact: true });
   await dashboard.getByRole("button", { name: "Usa come iniziale", exact: true }).click();
-  await expect(dashboard.getByText("Dashboard iniziale", { exact: true })).toBeVisible();
+  await expect(dashboard.getByRole("button", { name: "Usa come iniziale", exact: true })).toHaveCount(0);
+  await expect(dashboard.getByText("Dashboard iniziale", { exact: true })).toHaveCount(0);
   await page.reload();
   await expect(dashboard).toBeVisible();
   for (const width of [360, 390, 430, 1440]) {
     await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
     await page.evaluate(() => scrollTo(0, 0));
+    const customize = dashboard.getByRole("button", { name: "Personalizza", exact: true });
+    const action = (await customize.boundingBox())!;
+    const intro = (await dashboard.locator(".personal-dashboard-header > div").first().boundingBox())!;
+    expect(action.width).toBeLessThanOrEqual(120);
+    expect(action.height).toBe(44);
+    expect(action.x).toBeGreaterThanOrEqual(0);
+    expect(action.x + action.width).toBeLessThanOrEqual(width);
+    expect(action.x >= intro.x + intro.width || action.y >= intro.y + intro.height).toBe(true);
+    await expect(customize).toHaveCSS("box-shadow", "none");
+    if (width === 1440) {
+      const navigation = (await page.locator(".dashboard-focus-navigation").boundingBox())!;
+      expect(navigation.height).toBeLessThanOrEqual(56);
+      for (const tab of await page.locator(".focus-switcher-primary").getByRole("tab").all()) {
+        expect((await tab.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      }
+    }
+    if (width === 390 || width === 1440) await dashboard.locator(".personal-dashboard-header").screenshot({ path: testInfo.outputPath(`personal-header-${width}.png`) });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     if (width < 900) {
       await expect(page.locator(".cellar-home-hero")).toBeVisible();
@@ -486,7 +504,7 @@ for (const width of [360, 390, 430, 1440]) {
     await expect(dashboard.locator('[data-widget-id="overview"]')).toHaveCount(0);
     await expect(dashboard.locator('[data-widget-id="ready"]')).toHaveCount(1);
     await dashboard.getByRole("button", { name: "Usa come iniziale", exact: true }).click();
-    await expect(dashboard.getByText("Dashboard iniziale", { exact: true })).toBeVisible();
+    await expect(dashboard.getByRole("button", { name: "Usa come iniziale", exact: true })).toHaveCount(0);
     await page.getByRole("tab", { name: /^Focus collezionista/ }).click();
     await page.getByRole("tab", { name: /^La mia dashboard/ }).click();
     await expect(dashboard.locator('[data-widget-id="ready"]')).toHaveCount(1);

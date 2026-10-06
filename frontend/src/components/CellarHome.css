@@ -264,7 +264,9 @@
   :root .cellar-home-edition .view-tabs-navigation .help-context-trigger { margin: 0 0 0 auto; }
   :root .cellar-home-edition .home-workspace .view-tabs-quick-actions { display: none; }
   :root .cellar-home-edition .home-workspace > .home-dashboard { width: 100%; margin: 0; padding: 0; gap: 32px; }
-  :root .cellar-home-edition .dashboard-focus-navigation { grid-template-columns: minmax(0, 1fr) auto; padding: 12px 0; gap: 20px; }
+  :root .cellar-home-edition .dashboard-focus-navigation { grid-template-columns: minmax(0, 1fr) auto; min-height: 0; padding: 4px 0; gap: 20px; }
+  :root .cellar-home-edition .focus-switcher-primary { margin: 0; padding: 0; }
+  :root .cellar-home-edition .dashboard-analysis-switcher > summary { min-height: 44px; padding-block: 6px; }
   .cellar-home-edition .dashboard-focus-lead { display: none; }
   .cellar-home-edition .focus-switcher-primary button { font-size: .85rem; }
   .cellar-home-edition .cellar-home-intro { display: block; }

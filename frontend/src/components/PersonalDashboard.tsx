@@ -1,5 +1,6 @@
 import { DashboardSummaryData } from "./dashboardSummaryData";
 import { WidgetPickerCard } from "./WidgetPickerCard";
+import { AppIcon } from "./AppIcon";
 import { ApiError } from "../services/api";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -91,9 +92,8 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDemo = false, i
     <header className="personal-dashboard-header">
       <div><p className="eyebrow">{it ? "Il tuo spazio in cantina" : "Your space in the cellar"}</p><h2>{it ? "La mia dashboard" : "My dashboard"}</h2><p>{it ? "La tua cantina a colpo d’occhio. Scegli i widget e disponili nel tuo ordine." : "Your cellar at a glance. Choose your widgets and arrange them your way."}</p></div>
       <div className="personal-dashboard-actions">
-        {!editing && <button type="button" disabled={readOnly || saving} onClick={() => { setDraft(layout.map(widget => ({ ...widget }))); setEditing(true); setError(""); setNotice(""); }}>{it ? "Personalizza" : "Customize"}</button>}
+        {!editing && <button type="button" className="secondary personal-dashboard-customize" disabled={readOnly || saving} onClick={() => { setDraft(layout.map(widget => ({ ...widget }))); setEditing(true); setError(""); setNotice(""); }}><AppIcon name="edit" detailLevel="compact" />{it ? "Personalizza" : "Customize"}</button>}
         {!editing && !isDefault && <button type="button" className="secondary" disabled={readOnly || saving} onClick={() => void onMakeDefault()}>{it ? "Usa come iniziale" : "Use as default"}</button>}
-        {isDefault && <span>{it ? "Dashboard iniziale" : "Default dashboard"}</span>}
       </div>
     </header>
     {readOnly && <p>{it ? "La personalizzazione richiede un account personale e una connessione attiva." : "Customization requires a personal account and an active connection."}</p>}
