@@ -44,7 +44,7 @@ Shared deterministic data and helpers live in `e2e/fixtures/app.ts`.
 | Scope | Command from `frontend/` |
 | --- | --- |
 | Archived wines, missing wine color and tasting distinction | `npm run test:e2e:history-archive` |
-| Tablet desktop-layout preference, iPad emulation without touch points, persistence, phone exclusion and visible insights menu at 800–1024 px | `npm run test:e2e:tablet-layout` |
+| Tablet desktop-layout preference, iPad emulation without touch points, persistence, phone exclusion, Windows touch laptop header alignment at 1366/1920 px and visible insights menu at 800–1024 px | `npm run test:e2e:tablet-layout` |
 | Open a saved wine directly from tasting history | `npm run test:e2e:tasting-wine-detail` |
 | Installed PWA manifest orientation and smartphone landscape navigation | `npm run test:e2e:pwa-landscape` |
 | Wine Pulse desktop width, IT/EN reading tools, responsive layout, pagination and errors | `npm run test:e2e:wine-pulse` |

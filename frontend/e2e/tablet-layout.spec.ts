@@ -1,6 +1,47 @@
 import { expect, test } from "@playwright/test";
 import { memberships, mockApi, session, wine } from "./fixtures/app";
 
+test.describe("Windows touch laptop", () => {
+  test.use({
+    screen: { width: 1920, height: 1080 },
+    hasTouch: true,
+    isMobile: false,
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+  });
+
+  for (const width of [1366, 1920]) {
+    test(`keeps search and account controls on the right at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.addInitScript(() => {
+        localStorage.setItem("vinaris-tablet-desktop-layout", "desktop");
+        Object.defineProperty(navigator, "maxTouchPoints", { get: () => 10 });
+        const original = window.matchMedia.bind(window);
+        window.matchMedia = query => {
+          const result = original(query);
+          if (query === "(pointer: coarse)") Object.defineProperty(result, "matches", { value: false });
+          return result;
+        };
+      });
+      await mockApi(page, [], false, memberships, [wine], session);
+      await page.goto("/");
+      await expect(page.locator("html")).not.toHaveClass(/tablet-desktop-mode/);
+      await expect(page.locator('meta[name="viewport"]')).toHaveAttribute("content", /width=device-width/);
+      const header = page.locator(".topbar");
+      const bounds = (await header.boundingBox())!;
+      const search = (await header.locator(".desktop-topbar-search").boundingBox())!;
+      const actions = (await header.locator(".session-pill").boundingBox())!;
+      const brand = (await header.locator(".topbar-brand").boundingBox())!;
+      const rightPadding = await header.evaluate(el => parseFloat(getComputedStyle(el).paddingRight));
+      expect(actions.x + actions.width).toBeCloseTo(bounds.x + bounds.width - rightPadding, 0);
+      expect(search.x).toBeGreaterThan(bounds.x + bounds.width / 2);
+      expect(brand.x + brand.width).toBeLessThanOrEqual(search.x);
+      expect(search.x + search.width).toBeLessThanOrEqual(actions.x);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await header.screenshot({ path: testInfo.outputPath(`laptop-header-${width}.png`) });
+    });
+  }
+});
+
 test.describe("tablet layout preference", () => {
   test.use({ viewport: { width: 820, height: 1180 }, screen: { width: 820, height: 1180 }, hasTouch: true, isMobile: true });
 
@@ -67,6 +108,7 @@ test.describe("iPad user agent without touch emulation", () => {
   });
 
   test("keeps the tablet page clear and offers desktop mode in the menu", async ({ page }, testInfo) => {
+    await page.addInitScript(() => Object.defineProperty(navigator, "maxTouchPoints", { get: () => 0 }));
     await mockApi(page);
     await page.goto("/");
     expect(await page.evaluate(() => navigator.maxTouchPoints)).toBe(0);
