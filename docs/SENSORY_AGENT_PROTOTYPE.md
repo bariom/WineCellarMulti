@@ -52,8 +52,9 @@ profilo da validare. Gli aromi e le prove sono conservati nel rapporto della ric
 Non vengono sovrascritti profili manuali o validati, identità cambiate o dimensioni
 modificate dopo la ricerca. Le proposte applicate non si possono applicare di nuovo.
 
-La selezione deduplica le identità e considera profili mancanti e automatici non validati,
-indipendentemente dalla confidenza interna. I dati privati delle altre cantine non entrano nella ricerca.
+La selezione deduplica le identità e include tutti i vini, anche con profili manuali
+o validati, indipendentemente dalla confidenza interna. La ricerca non modifica
+il profilo esistente. I dati privati delle altre cantine non entrano nella ricerca.
 Il numero impostato è un limite massimo: il rapporto mostra l’avanzamento sui
 vini effettivamente selezionati e conta separatamente quelli saltati. Quando
 il campione è più piccolo del limite, ne spiega le esclusioni.
@@ -81,9 +82,9 @@ Gli endpoint `/api/v1/taste-profile/admin/research-runs` richiedono `CurrentCont
 di un amministratore applicativo:
 
 - `POST`: avvia una ricerca (`max_wines`, `budget_usd`), risposta `202`.
-- `GET /candidates`: vini selezionabili della cantina attiva, deduplicati e senza
+- `GET /candidates`: vini della cantina attiva, deduplicati, inclusi quelli con
   profili manuali o validati. `POST` accetta anche `wine_ids` (1–20 UUID): ricerca
-  esclusivamente quei vini nell'ordine richiesto. ID fuori cantina, protetti,
+  esclusivamente quei vini nell'ordine richiesto. ID fuori cantina,
   identità duplicate o selezioni oltre `max_wines` vengono rifiutati; non si
   sostituiscono silenziosamente i vini selezionati con un campione automatico.
 - `GET`: restituisce gli ultimi cinque rapporti della cantina attiva.
@@ -109,9 +110,10 @@ Riferimenti: [ricerca web OpenAI](https://developers.openai.com/api/docs/guides/
 
 ## Ricerca comparativa (prompt v3)
 
-La selezione include tutti i profili automatici non validati, anche con confidence
-interna alta: quella stima non costituisce una prova. Restano protetti i profili
-manuali e validati. Il profilo esistente serve soltanto al confronto nel report,
+La selezione include tutti i profili, anche manuali o validati e con confidence
+interna alta: validazione e punteggio precedenti non costituiscono prove per l'agente.
+Restano protetti dalla sovrascrittura i profili manuali e validati.
+Il profilo esistente serve soltanto al confronto nel report,
 non viene inviato al modello.
 
 Per ogni dimensione la ricerca confronta fonti del produttore ed esterne, riferite
@@ -145,3 +147,18 @@ revisionato: verificare identità e annata, fedeltà degli estratti, indipendenz
 editoriale, correttezza delle intensità e astensione nei casi deboli. Il punteggio
 interno di copertura non sostituisce questa valutazione. Per l'automazione serve
 anche una coda durevole che gestisca riavvii, deduplicazione e budget.
+
+## Confronto con i profili precedenti
+
+Ogni nuovo report conserva valori, origine, validazione e punteggio del profilo
+presente prima della ricerca, anche quando la proposta è incompleta o fallisce.
+La tabella mostra tutte le nove dimensioni: valore precedente, proposta e scarto
+con segno. Le dimensioni prive di nuove prove mantengono un trattino nella colonna
+dell'agente; non vengono riempite con valori precedenti. Lo scarto non misura
+l'errore o l'accuratezza dell'agente: entrambi i profili richiedono una verifica
+contro un riferimento esterno. I vecchi report senza questi metadati restano
+leggibili e indicano l'origine come non registrata.
+
+La ricerca include i profili validati ma non li sovrascrive. Per questi risultati
+si presenta il confronto senza pulsante di applicazione; la modifica manuale
+del profilo resta disponibile nel pannello amministrativo.

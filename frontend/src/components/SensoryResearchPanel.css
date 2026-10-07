@@ -20,3 +20,10 @@
 .sensory-research-results dd { margin: 6px 0 0; overflow-wrap: anywhere; }
 .sensory-research-results blockquote { margin: 8px 0; font-style: italic; }
 .sensory-research-results a { overflow-wrap: anywhere; }
+.sensory-research-comparison { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .875rem; }
+.sensory-research-comparison caption { text-align: left; font-weight: 600; padding-bottom: 8px; }
+.sensory-research-comparison th, .sensory-research-comparison td { padding: 8px 4px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; text-align: right; }
+.sensory-research-comparison th:first-child { width: 40%; text-align: left; }
+@media (max-width: 600px) {
+  .sensory-research-controls > label:first-child { flex-basis: 100%; }
+}

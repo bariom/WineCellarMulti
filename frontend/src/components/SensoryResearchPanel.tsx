@@ -80,7 +80,7 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
 
   return <section className="sensory-research" aria-labelledby="sensory-research-title">
     <h4 id="sensory-research-title">{it ? "Agente del profilo organolettico · Prototipo" : "Organoleptic profile agent · Prototype"}</h4>
-    <p>{it ? "Confronta schede del produttore e descrizioni esterne indipendenti per verificare i profili automatici della cantina. Il profilo attuale è una stima non validata." : "Compare producer sheets and independent external tasting notes to verify automatic cellar profiles. The current profile is an unvalidated estimate."}</p>
+    <p>{it ? "Confronta schede del produttore e fonti esterne per tutti i vini della cantina, anche con profili manuali o validati. I valori precedenti servono al confronto e non guidano la ricerca dell'agente." : "Compare producer sheets and external sources for all cellar wines, including manual and validated profiles. Previous values are compared but do not guide the agent's research."}</p>
     <form className="sensory-research-controls" onSubmit={event => { event.preventDefault(); void start(); }}>
       <label>{it ? "Vini da analizzare" : "Wines to research"}<select aria-label={it ? "Vini da analizzare" : "Wines to research"} value={selectionMode} disabled={running || busy} onChange={event => setSelectionMode(event.target.value)}><option value="automatic">{it ? "Selezione automatica" : "Automatic selection"}</option><option value="manual">{it ? "Scelgo io i vini" : "Choose wines myself"}</option></select></label>
       {!manual && <label>{it ? "Numero massimo di vini" : "Maximum number of wines"}<input type="number" min="1" max="20" required value={limit} disabled={running || busy} onChange={event => setLimit(Number(event.target.value))} /></label>}
@@ -96,7 +96,7 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
           </label>)}</div>
           {!visibleCandidates.length && <p>{it ? "Nessun vino disponibile per questa ricerca." : "No wines available for this search."}</p>}
         </>}
-        <p className="muted">{it ? "I profili manuali e validati sono esclusi. Il filtro non modifica i vini già selezionati." : "Manual and validated profiles are excluded. Filtering preserves your selected wines."}</p>
+        <p className="muted">{it ? "Sono inclusi anche i profili manuali e validati. Il filtro non modifica i vini già selezionati." : "Manual and validated profiles are included. Filtering preserves your selected wines."}</p>
       </fieldset>}
       <button type="submit" className="secondary compact" disabled={busy || running || (manual && (!selectedIds.length || loadingCandidates || !!candidateError))}>{running ? (it ? "Ricerca in corso…" : "Researching…") : (it ? "Avvia ricerca autonoma" : "Start autonomous research")}</button>
     </form>
@@ -104,7 +104,7 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
     {error && <p role="alert">{error}</p>}
     {run && <>
       <p role="status">{labels[run.status] || run.status} · {run.results.length}/{run.selected_wines} {it ? "vini valutati" : "wines reviewed"}{skipped > 0 ? ` · ${skipped} ${it ? (skipped === 1 ? "saltato" : "saltati") : "skipped"}` : ""} · ${run.cost_usd}</p>
-      {run.selected_wines < run.max_wines && <p>{it ? `Selezionati ${run.selected_wines} vini da valutare, su un massimo di ${run.max_wines}. Sono esclusi i duplicati e i profili manuali o validati.` : `Selected ${run.selected_wines} wines to review, with a maximum of ${run.max_wines}. Duplicates and manual or validated profiles are excluded.`}</p>}
+      {run.selected_wines < run.max_wines && <p>{it ? `Selezionati ${run.selected_wines} vini da valutare, su un massimo di ${run.max_wines}. Ogni identità vino viene analizzata una sola volta.` : `Selected ${run.selected_wines} wines to review, with a maximum of ${run.max_wines}. Each wine identity is researched once.`}</p>}
       {run.issue && <p>{run.issue === "budget_limit" ? (it ? "Budget residuo insufficiente per un’altra ricerca." : "Remaining budget is insufficient for another search.") : (it ? "La ricerca si è interrotta. Le proposte già completate restano disponibili." : "Research stopped. Completed proposals remain available.")}</p>}
       <div className="sensory-research-results">{run.results.map(result => <article key={result.wine_id}>
         <h5>{result.name}</h5><p>{result.producer}</p>
@@ -113,7 +113,16 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
         {result.summary && <p>{result.summary}</p>}
         {result.limitations && <p>{result.limitations}</p>}
         {result.issue === "missing_vintage" ? <p>{it ? "Ricerca non eseguita: inserisci l’annata nella scheda del vino e avvia una nuova ricerca." : "Research skipped: enter the vintage in wine details and start a new run."}</p> : !result.vintage_confirmed && <p>{it ? "Annata non verificata: proposta non applicabile." : "Vintage unverified: proposal cannot be applied."}</p>}
-        {Object.keys(result.dimensions).length > 0 && <details><summary>{it ? "Confronto e prove" : "Comparison and evidence"}</summary><p>{it ? "Valori stimati su scala 0–1. Copertura delle prove (non accuratezza misurata)" : "Estimated values on a 0–1 scale. Evidence coverage (not measured accuracy)"}: {Math.round(result.confidence * 100)}%</p>
+        {(Object.keys(result.dimensions).length > 0 || Object.keys(result.baseline).length > 0) && <details><summary>{it ? "Confronto e prove" : "Comparison and evidence"}</summary>
+          <p>{it ? "Profilo precedente" : "Previous profile"}: {result.baseline_source || (it ? "origine non registrata" : "origin not recorded")} · {result.baseline_validated ? (it ? "validato" : "validated") : (it ? "non validato" : "unvalidated")}{result.baseline_confidence != null && ` · ${it ? "punteggio interno" : "internal score"}: ${Math.round(result.baseline_confidence * 100)}%`}</p>
+          <p>{it ? "Gli scostamenti mostrano differenze, non errori accertati: nessuno dei due profili è un riferimento di accuratezza. Un trattino indica un valore non disponibile." : "Differences are not proven errors: neither profile is an accuracy reference. A dash means the value is unavailable."}</p>
+          <table className="sensory-research-comparison"><caption>{it ? "Valori precedenti e proposta dell'agente (0–1)" : "Previous values and agent proposal (0–1)"}</caption><thead><tr><th scope="col">{it ? "Caratteristica" : "Trait"}</th><th scope="col">{it ? "Prima" : "Before"}</th><th scope="col">{it ? "Agente" : "Agent"}</th><th scope="col">{it ? "Scarto" : "Change"}</th></tr></thead><tbody>{Object.keys(traitsIt).map(key => {
+            const before = result.baseline[key];
+            const after = result.dimensions[key]?.value;
+            const difference = before != null && after != null ? Math.round((after - before) * 100) / 100 : null;
+            return <tr key={key}><th scope="row">{it ? traitsIt[key] : key.replace(/_/g, " ")}</th><td>{before != null ? before.toFixed(2) : "—"}</td><td>{after != null ? after.toFixed(2) : "—"}</td><td>{difference != null ? `${difference > 0 ? "+" : ""}${difference.toFixed(2)}` : "—"}</td></tr>;
+          })}</tbody></table>
+          <p>{it ? "Valori stimati su scala 0–1. Copertura delle prove (non accuratezza misurata)" : "Estimated values on a 0–1 scale. Evidence coverage (not measured accuracy)"}: {Math.round(result.confidence * 100)}%</p>
           <dl>{Object.entries(result.dimensions).map(([key, trait]) => <div key={key}><dt>{it ? traitsIt[key] || key : key.replace(/_/g, " ")}</dt><dd>{result.baseline[key] ?? "—"} → {trait.value} · {trait.basis === "documented" ? (it ? "Descritto dalla fonte" : "Described by source") : (it ? "Interpretazione" : "Inferred")}<blockquote>{trait.excerpt}</blockquote><a href={trait.source_url} target="_blank" rel="noopener noreferrer">{it ? "Verifica fonte ↗" : "Verify source ↗"}</a></dd></div>)}</dl>
           {result.comparisons?.map(comparison => <div key={comparison.dimension}>
             <strong>{it ? traitsIt[comparison.dimension] || comparison.dimension : comparison.dimension.replace(/_/g, " ")} · {comparison.agreement === "corroborated" ? (it ? "Fonti concordanti" : "Corroborated sources") : comparison.agreement === "conflicting" ? (it ? "Fonti discordanti" : "Conflicting sources") : (it ? "Prova singola" : "Single source")}</strong>
@@ -123,7 +132,8 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
           {result.aromas.length > 0 && <p>{it ? "Aromi descritti" : "Described aromas"}: {result.aromas.map(aroma => aroma.name).join(", ")}</p>}
         </details>}
         <ul>{result.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || source.url} ↗</a></li>)}</ul>
-        {result.status === "ready" && <button type="button" className="secondary compact" disabled={busy || running} onClick={() => void apply(result.wine_id)}>{it ? "Usa questo profilo" : "Apply this profile"}</button>}
+        {(result.baseline_validated || result.baseline_source === "manual") && <p>{it ? "Ricerca di confronto: il profilo precedente manuale o validato resta conservato." : "Comparison research: the previous manual or validated profile is preserved."}</p>}
+        {result.status === "ready" && !result.baseline_validated && result.baseline_source !== "manual" && <button type="button" className="secondary compact" disabled={busy || running} onClick={() => void apply(result.wine_id)}>{it ? "Usa questo profilo" : "Apply this profile"}</button>}
       </article>)}</div>
     </>}
   </section>;

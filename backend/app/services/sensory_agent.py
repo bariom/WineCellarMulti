@@ -176,9 +176,6 @@ def candidate_wines(
         if identity in seen:
             continue
         seen.add(identity)
-        profile = sensory_profile_for_wine(db, wine)
-        if profile and (profile.validated or profile.source == "manual"):
-            continue
         candidates.append(wine)
         if limit is not None and len(candidates) >= limit:
             break
@@ -227,6 +224,11 @@ def worker_context(
 def research_wine(
     db: Session, context: CurrentContext, wine: Wine, remaining: Decimal
 ) -> SensoryResearchResult | None:
+    existing = sensory_profile_for_wine(db, wine)
+    baseline = dict(existing.dimensions) if existing else {}
+    baseline_source = existing.source if existing else ""
+    baseline_validated = bool(existing and existing.validated)
+    baseline_confidence = existing.confidence if existing else None
     if not wine.vintage.strip():
         return SensoryResearchResult(
             wine_id=wine.id,
@@ -236,6 +238,10 @@ def research_wine(
             vintage=wine.vintage,
             status="skipped",
             issue="missing_vintage",
+            baseline=baseline,
+            baseline_source=baseline_source,
+            baseline_validated=baseline_validated,
+            baseline_confidence=baseline_confidence,
         )
     # Reuse Vinaris provider selection, credit reservation and usage accounting.
     from app.api.routes.ai import (
@@ -248,8 +254,6 @@ def research_wine(
         web_search_tool_cost_usd,
     )
 
-    existing = sensory_profile_for_wine(db, wine)
-    baseline = existing.dimensions if existing else {}
     prompt = wine_sensory_research_prompt(
         wine_context={
             "name": wine.name,
@@ -296,6 +300,9 @@ def research_wine(
         timeout_seconds=180,
     )
     result = proposal_from_response(wine, response, baseline)
+    result.baseline_source = baseline_source
+    result.baseline_validated = baseline_validated
+    result.baseline_confidence = baseline_confidence
     record_ai_audit(
         db,
         context,
@@ -335,9 +342,6 @@ def run_sensory_research(run_id: UUID, household_id: UUID, session_id: UUID) -> 
                     )
                 )
                 if wine is None:
-                    continue
-                profile = sensory_profile_for_wine(db, wine)
-                if profile and (profile.validated or profile.source == "manual"):
                     continue
                 result = research_wine(db, context, wine, run.budget_usd - run.cost_usd)
                 if result is None:

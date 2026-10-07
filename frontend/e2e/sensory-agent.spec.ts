@@ -19,7 +19,8 @@ async function renderPanel(page: Page, locale: string) {
 const result = {
   wine_id: "wine-one", identity_id: "identity", name: "Barolo Riserva", producer: "Cantina di Test", vintage: "2020",
   status: "ready", issue: "", summary: "Un vino strutturato, con acidità fresca e tannino deciso.", limitations: "Profilo atteso: non descrive la singola bottiglia bevuta.",
-  vintage_confirmed: true, confidence: .65, baseline: { body: .4 },
+  vintage_confirmed: true, confidence: .65, baseline: { body: .4, wood: .3 },
+  baseline_source: "metadata", baseline_validated: false, baseline_confidence: .8,
   dimensions: { body: { value: .8, basis: "documented", excerpt: "Full-bodied with firm tannins.", source_url: "https://producer.example/technical-sheet-2020" }, acidity: { value: .7, basis: "inferred", excerpt: "Fresh and balanced finish.", source_url: "https://producer.example/technical-sheet-2020" } },
   comparisons: [{ dimension: "body", agreement: "corroborated", independent: true,
     explanation: "Producer and independent critic agree on a full body.", evidence: [
@@ -64,6 +65,10 @@ for (const locale of ["it", "en"]) {
     await expect(proposals.nth(2).getByRole("button")).toHaveCount(0);
     await proposals.first().getByText(it ? "Confronto e prove" : "Comparison and evidence", { exact: true }).click();
     await expect(proposals.first()).toContainText("0.4 → 0.8");
+    const comparison = proposals.first().getByRole("table");
+    await expect(comparison.getByRole("row", { name: it ? /Corpo/ : /body/ })).toContainText("+0.40");
+    await expect(comparison.getByRole("row", { name: it ? /Legno/ : /wood/ })).toContainText("0.30");
+    await expect(comparison.getByRole("row", { name: it ? /Legno/ : /wood/ })).toContainText("—");
     await expect(proposals.first()).toContainText(it ? "Interpretazione" : "Inferred");
     await expect(proposals.first()).toContainText(it ? "Fonti concordanti" : "Corroborated sources");
     await expect(proposals.first().getByRole("link", { name: it ? "Confronta fonte ↗" : "Compare source ↗" }).nth(1)).toHaveAttribute("href", "https://critic.example/review-2020");
@@ -135,3 +140,23 @@ for (const locale of ["it", "en"]) {
     expect(requested).toEqual({ max_wines: 1, budget_usd: "1", wine_ids: ["frati"] });
   });
 }
+
+test("Sensory agent compares validated previous profiles without offering an overwrite", async ({ page }, testInfo) => {
+  await renderPanel(page, "it");
+  await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, results: [{ ...result, baseline_validated: true }] }] }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/sensory-agent-test");
+  const proposal = page.getByRole("article");
+  await proposal.getByText("Confronto e prove", { exact: true }).click();
+  await expect(proposal).toContainText("Profilo precedente: metadata · validato");
+  await expect(proposal).toContainText("il profilo precedente manuale o validato resta conservato");
+  await expect(proposal.getByRole("button", { name: "Usa questo profilo" })).toHaveCount(0);
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const table = (await proposal.getByRole("table").boundingBox())!;
+    expect(table.x).toBeGreaterThanOrEqual(0);
+    expect(table.x + table.width).toBeLessThanOrEqual(width);
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`comparison-${width}.png`), fullPage: true });
+  }
+});

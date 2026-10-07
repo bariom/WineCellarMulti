@@ -1633,6 +1633,7 @@ export type SensoryResearchResult = {
   issue: string; summary: string; limitations: string; vintage_confirmed: boolean; confidence: number;
   comparisons?: SensoryResearchComparison[];
   baseline: Record<string, number>; dimensions: Record<string, SensoryResearchTrait>;
+  baseline_source?: string; baseline_validated?: boolean; baseline_confidence?: number | null;
   aromas: Array<{ name: string; excerpt: string; source_url: string }>;
   sources: Array<{ url: string; title: string }>; model: string; prompt_version: string; cost_usd: string;
 };

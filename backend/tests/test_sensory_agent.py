@@ -204,7 +204,7 @@ def test_private_or_unsafe_sources_rejected(url):
     assert not agent.public_source_url(url)
 
 
-def test_candidates_are_scoped_deduplicated_and_protect_manual_profiles(setup):
+def test_candidates_are_scoped_deduplicated_and_include_manual_profiles(setup):
     db, context, wine = setup
     other = Household(name="Other")
     db.add(other)
@@ -216,7 +216,10 @@ def test_candidates_are_scoped_deduplicated_and_protect_manual_profiles(setup):
         WineSensoryProfile(identity_id=manual.shared_identity_id, source="manual", confidence=0.1)
     )
     db.flush()
-    assert [candidate.id for candidate in agent.candidate_wines(db, context, 20)] == [wine.id]
+    assert [candidate.id for candidate in agent.candidate_wines(db, context, 20)] == [
+        wine.id,
+        manual.id,
+    ]
 
 
 def test_budget_check_prevents_provider_call(setup, monkeypatch):
@@ -467,8 +470,8 @@ def test_explicit_selection_only_schedules_requested_wines_in_order(setup):
     assert db.get(SensoryAgentRun, run.id).wine_ids == [str(second.id), str(wine.id)]
 
 
-@pytest.mark.parametrize("case", ["foreign", "manual", "validated", "missing", "over_limit"])
-def test_explicit_selection_rejects_unavailable_or_protected_wines(setup, case):
+@pytest.mark.parametrize("case", ["foreign", "missing", "over_limit"])
+def test_explicit_selection_rejects_unavailable_wines(setup, case):
     db, context, wine = setup
     target_id = wine.id
     if case == "foreign":
@@ -476,14 +479,6 @@ def test_explicit_selection_rejects_unavailable_or_protected_wines(setup, case):
         db.add(other)
         db.flush()
         target_id = make_wine(db, other, name="Private").id
-    elif case in {"manual", "validated"}:
-        db.add(
-            WineSensoryProfile(
-                identity_id=wine.shared_identity_id,
-                source="manual" if case == "manual" else "ai",
-                validated=case == "validated",
-            )
-        )
     elif case == "missing":
         target_id = uuid4()
     ids = [target_id]
@@ -516,7 +511,7 @@ def test_candidate_endpoint_scopes_and_deduplicates_wines(setup):
         url = "/taste-profile/admin/research-runs/candidates"
         response = client.get(url)
         assert response.status_code == 200
-        assert [item["id"] for item in response.json()] == [str(wine.id)]
+        assert [item["id"] for item in response.json()] == [str(wine.id), str(protected.id)]
         context.user.is_app_admin = False
         assert client.get(url).status_code == 403
 
@@ -527,3 +522,50 @@ def test_explicit_selection_has_bounded_nonempty_request(ids):
 
     with pytest.raises(ValidationError):
         SensoryResearchRequest(wine_ids=ids)
+
+
+@pytest.mark.parametrize("source,validated", [("metadata", True), ("manual", False)])
+def test_worker_researches_existing_profiles_without_changing_them(
+    setup, monkeypatch, source, validated
+):
+    db, context, wine = setup
+    profile = WineSensoryProfile(
+        identity_id=wine.shared_identity_id,
+        source=source,
+        validated=validated,
+        dimensions={"body": 0.3, "wood": 0.8},
+        confidence=0.9,
+        generation_status="available",
+    )
+    db.add(profile)
+    db.commit()
+    started = routes.start_research(
+        SensoryResearchRequest(wine_ids=[wine.id]), BackgroundTasks(), db, context
+    )
+    monkeypatch.setattr(ai, "get_or_create_user_ai_settings", lambda *args: object())
+    monkeypatch.setattr(ai, "select_ai_provider", lambda *args: ("application", "unused"))
+    monkeypatch.setattr(ai, "maximum_billable_cost_usd", lambda **kwargs: Decimal("0.2"))
+    monkeypatch.setattr(ai, "reservation_pricing_model", lambda *args: "test")
+    requests = []
+
+    def fake_response(*args, **kwargs):
+        requests.append(kwargs)
+        return response(output(wine)), "application"
+
+    monkeypatch.setattr(ai, "create_ai_response", fake_response)
+    monkeypatch.setattr(ai, "record_ai_audit", lambda *args, **kwargs: None)
+    agent.run_sensory_research(started.id, context.household.id, context.session.id)
+    run = db.get(SensoryAgentRun, started.id)
+    db.refresh(run)
+    db.refresh(profile)
+    assert run.status == "completed" and len(run.results) == 1
+    result = run.results[0]
+    assert result["baseline"] == {"body": 0.3, "wood": 0.8}
+    assert result["baseline_source"] == source and result["baseline_validated"] == validated
+    assert result["baseline_confidence"] == 0.9
+    assert profile.dimensions == {"body": 0.3, "wood": 0.8}
+    assert profile.source == source and profile.validated == validated
+    assert "baseline" not in requests[0]["user_prompt"]
+    with pytest.raises(HTTPException) as exc:
+        routes.apply_research(started.id, wine.id, db, context)
+    assert exc.value.status_code == 409

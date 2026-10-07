@@ -68,11 +68,11 @@ def start_research(
             raise HTTPException(422, "Selected wines exceed the maximum number")
         candidates = candidate_wines(db, context, None, wine_ids=requested)
         if {wine.id for wine in candidates} != set(requested):
-            raise HTTPException(422, "Selected wines are unavailable, duplicated or protected")
+            raise HTTPException(422, "Selected wines are unavailable or duplicated")
     else:
         candidates = candidate_wines(db, context, payload.max_wines)
     if not candidates:
-        raise HTTPException(422, "No unvalidated automatic profiles in this cellar")
+        raise HTTPException(422, "No wines available for research in this cellar")
     run = SensoryAgentRun(
         household_id=context.household.id,
         user_id=context.user.id,

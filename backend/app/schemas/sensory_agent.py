@@ -95,6 +95,9 @@ class SensoryResearchResult(BaseModel):
     vintage_confirmed: bool = False
     confidence: float = 0
     baseline: dict[str, float] = Field(default_factory=dict)
+    baseline_source: str = ""
+    baseline_validated: bool = False
+    baseline_confidence: float | None = None
     dimensions: dict[str, ResearchTrait] = Field(default_factory=dict)
     aromas: list[ResearchAroma] = Field(default_factory=list)
     sources: list[dict[str, str]] = Field(default_factory=list)
