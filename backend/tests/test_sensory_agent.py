@@ -735,7 +735,7 @@ def test_api_requires_admin_and_scopes_run_reads(setup):
 
 def test_prompt_has_identity_grounding_language_and_no_invention():
     prompt = wine_sensory_research_prompt(wine_context={"name": "Test wine"}, locale="it")
-    assert prompt.id == "wine.sensory_research" and prompt.version == "6"
+    assert prompt.id == "wine.sensory_research" and prompt.version == "7"
     assert "Italian" in prompt.user and "Test wine" in prompt.user
     assert "Never invent" in prompt.system and "untrusted data" in prompt.system
     assert "Missing evidence means null" in prompt.system and "vintage_confirmed" in prompt.system
@@ -1076,6 +1076,7 @@ def completion_output(wine, *, ambiguous=False, research=None):
                 "value": 0.5,
                 "lower": 0.3,
                 "upper": 0.7,
+                "evidence": [],
                 "rationale": "Stima dello stile atteso; mancano prove sull'intensità.",
             }
             for key in SENSORY_DIMENSIONS
@@ -1109,13 +1110,17 @@ def test_completion_retains_checked_values_conflicts_and_broadens_narrow_ranges(
     assert tannin.lower == 0.35 and tannin.upper == 0.65
 
 
-@pytest.mark.parametrize("invalid", ["missing_trait", "out_of_range", "reversed_range", "identity"])
+@pytest.mark.parametrize(
+    "invalid", ["missing_trait", "missing_premises", "out_of_range", "reversed_range", "identity"]
+)
 def test_completion_rejects_malformed_or_wrong_identity_without_losing_research(setup, invalid):
     _, _, wine = setup
     first = complete_proposal(wine, complete_output(wine))
     payload = completion_output(wine)
     if invalid == "missing_trait":
         del payload["estimates"]["fruit"]
+    elif invalid == "missing_premises":
+        del payload["estimates"]["fruit"]["evidence"]
     elif invalid == "out_of_range":
         payload["estimates"]["fruit"]["value"] = 1.5
     elif invalid == "reversed_range":
@@ -1129,11 +1134,12 @@ def test_completion_rejects_malformed_or_wrong_identity_without_losing_research(
 
 
 @pytest.mark.parametrize("ambiguous", [False, True])
+@pytest.mark.parametrize("version", ["6", "7"])
 def test_estimated_profile_apply_preserves_inference_and_blocks_ambiguous_identity(
-    setup, ambiguous
+    setup, ambiguous, version
 ):
     db, context, wine = setup
-    first = agent.proposal_from_response(wine, response({}), {}, prompt_version="6")
+    first = agent.proposal_from_response(wine, response({}), {}, prompt_version=version)
     result = agent.complete_with_estimates(
         wine, first, response(completion_output(wine, ambiguous=ambiguous))
     )
@@ -1157,6 +1163,7 @@ def test_estimated_profile_apply_preserves_inference_and_blocks_ambiguous_identi
         assert applied.results[0].status == "applied"
         profile = agent.sensory_profile_for_wine(db, wine)
         assert len(profile.dimensions) == 9 and not profile.validated
+        assert profile.provenance["body"]["inference_basis"] == "model_knowledge"
         assert profile.provenance["body"]["origin"] == "ai_inference"
         assert profile.provenance["body"]["rationale"]
         assert profile.provenance["body"]["lower"] == 0.3
@@ -1271,13 +1278,119 @@ def test_completion_prompt_and_strict_schema():
     prompt = wine_sensory_completion_prompt(
         wine_context={"vintage": "2016"}, feedback={"issue": "source_unreadable"}, locale="it"
     )
-    assert prompt.id == "wine.sensory_completion" and prompt.version == "1"
+    assert prompt.id == "wine.sensory_completion" and prompt.version == "2"
     assert "Italian" in prompt.user and "2016" in prompt.user
     assert "untrusted data" in prompt.system and "must not anchor" in prompt.system
     assert "ALL nine estimates" in prompt.system and "Do not retry Cloudflare" in prompt.system
     assert "not a statistical confidence interval" in prompt.system
+    assert "evidence must list verbatim source excerpts" in prompt.system
+    assert "including analytical values and production methods" in prompt.system
+    assert "Follow vintage_verified" in prompt.system
     schema = SensoryCompletionOutput.model_json_schema()
     for item in [schema, *schema["$defs"].values()]:
         if item.get("type") == "object":
             assert item["additionalProperties"] is False
             assert set(item["required"]) == set(item["properties"])
+
+
+@pytest.mark.parametrize("locale", ["it", "en"])
+def test_checked_report_does_not_repeat_unverified_identity_claims(setup, locale):
+    _, _, wine = setup
+    first = agent.proposal_from_response(wine, response({}), {}, prompt_version="7")
+    payload = completion_output(wine)
+    payload["summary"] = "Identity and vintage confirmed; 100% Merlot."
+    completed = agent.complete_with_estimates(wine, first, response(payload), locale=locale)
+    assert completed.status == "ready" and completed.coverage["available"] == 9
+    assert not completed.identity_confirmed and not completed.vintage_confirmed
+    assert "100% Merlot" not in completed.summary
+    assert "100% Merlot" in completed.agent_summary
+    assert (
+        "Annata non confermata" if locale == "it" else "Vintage not confirmed"
+    ) in completed.summary
+    assert completed.coverage["qualitative"] == 0
+    assert all(i.inference_basis == "model_knowledge" for i in completed.complete_profile.values())
+
+
+@pytest.mark.parametrize("status", ["readable", "cloudflare_challenge", "http_error", "uncited"])
+def test_completion_checks_qualitative_premises_without_validating_intensity(
+    setup, monkeypatch, status
+):
+    _, _, wine = setup
+    from dataclasses import replace
+
+    import app.services.sensory_completion as completion
+    from app.services.score_sources import DocumentText
+
+    premise = source_evidence(vintage=wine.vintage, excerpt="Notes of oak and spice")
+    reads = []
+
+    def read(url, **kwargs):
+        reads.append(url)
+        return DocumentText(
+            text=premise["excerpt"] if status == "readable" else "",
+            status=status,
+            http_status=429 if status == "http_error" else None,
+        )
+
+    monkeypatch.setattr(completion, "read_public_document", read)
+    first = agent.proposal_from_response(wine, response({}), {}, prompt_version="7")
+    payload = completion_output(wine)
+    payload["estimates"]["wood"]["evidence"] = [premise]
+    payload["estimates"]["spice"]["evidence"] = [premise]
+    supplied = response(payload)
+    if status == "uncited":
+        supplied = replace(supplied, web_sources=())
+    completed = agent.complete_with_estimates(wine, first, supplied, document_cache={})
+    item = completed.complete_profile["wood"]
+    assert item.value == 0.5 and item.origin == "ai_inference" and item.confidence == 0
+    assert completed.confidence == 0 and not completed.vintage_confirmed
+    if status == "readable":
+        assert item.inference_basis == "verified_description" and item.evidence
+        assert not item.unverified_evidence and completed.coverage["qualitative"] == 2
+        assert completed.source_checks[premise["source_url"]].matched_excerpts == 1
+    else:
+        assert item.inference_basis == "unverified_source" and not item.evidence
+        assert item.unverified_evidence and completed.coverage["qualitative"] == 0
+    assert len(reads) == (0 if status == "uncited" else 1)
+
+
+def test_refinement_keeps_new_qualitative_evidence_when_intensity_is_unknown(setup, monkeypatch):
+    _, _, wine = setup
+    import app.services.sensory_completion as completion
+    from app.services.score_sources import DocumentText
+
+    payload = complete_output(wine)
+    payload["dimensions"] = {key: None for key in SENSORY_DIMENSIONS}
+    payload["comparisons"] = []
+    payload["dimensions"]["wood"] = {
+        **source_evidence(vintage=wine.vintage, excerpt="Notes of oak"),
+        "value": 0.5,
+        "basis": "inferred",
+        "intensity_supported": False,
+    }
+    pages = source_pages(payload)
+    monkeypatch.setattr(
+        completion,
+        "read_public_document",
+        lambda url, **kwargs: DocumentText(text=pages.get(url, ""), status="readable"),
+    )
+    first = agent.proposal_from_response(wine, response({}), {}, prompt_version="7")
+    completed = agent.complete_with_estimates(
+        wine, first, response(completion_output(wine, research=payload)), document_cache={}
+    )
+    assert completed.complete_profile["wood"].inference_basis == "verified_description"
+    assert completed.complete_profile["wood"].evidence[0].excerpt == "Notes of oak"
+    assert completed.coverage["qualitative"] == 1 and completed.confidence == 0
+
+
+@pytest.mark.parametrize("verified_quotes", [0, 1])
+def test_unreadable_comparison_does_not_create_source_conflict(setup, verified_quotes):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    comparison = payload["comparisons"][0]
+    comparison["agreement"] = "conflicting"
+    pages = source_pages(payload) if verified_quotes else {}
+    pages.pop("https://critic.example/2020", None)
+    checked = complete_proposal(wine, payload, source_texts=pages)
+    assert checked.complete_profile["body"].issue != "conflicting_sources"
+    assert "body:unverified_conflict" in checked.warnings

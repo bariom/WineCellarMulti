@@ -151,6 +151,101 @@ def evidence_from_trait(trait: SourceTrait) -> SourceEvidence:
     )
 
 
+class SensoryEvidenceVerifier:
+    """Validate provider-cited excerpts consistently across research and inferred premises."""
+
+    def __init__(
+        self,
+        sources: dict,
+        result: SensoryResearchResult,
+        *,
+        source_texts: dict[str, str] | None = None,
+        document_cache: dict | None = None,
+    ):
+        self.sources = sources
+        self.result = result
+        self.source_texts = source_texts
+        self.document_cache = document_cache
+        self.used: set[str] = set()
+        self.pages: dict[str, str] = {} if source_texts is None else dict(source_texts)
+        self.verdicts: dict[tuple[str, str], bool] = {}
+        for item in result.complete_profile.values():
+            for evidence in item.evidence:
+                self.verdicts[(evidence.source_url, evidence.excerpt)] = True
+        if result.identity_evidence:
+            evidence = result.identity_evidence
+            self.verdicts[(evidence.source_url, evidence.excerpt)] = True
+
+    def verified(self, evidence: SourceEvidence) -> bool:
+        from app.services.sensory_agent import public_source_url
+
+        url = public_source_url(evidence.source_url)
+        if url not in self.sources or not evidence.excerpt.strip():
+            return False
+        evidence.source_url = url
+        self.used.add(url)
+        if url not in self.pages:
+            # The reader checks DNS/redirects, pins public addresses, and bounds size/time.
+            if (
+                len(self.pages) < 12
+                and self.source_texts is None
+                and (
+                    self.document_cache is None
+                    or url in self.document_cache
+                    or len(self.document_cache) < 12
+                )
+            ):
+                if self.document_cache is not None and url in self.document_cache:
+                    document = self.document_cache[url]
+                else:
+                    document = read_public_document(url, allow_pdf=True)
+                    if self.document_cache is not None:
+                        self.document_cache[url] = document
+                self.pages[url] = document.text
+                self.result.source_checks.setdefault(
+                    url,
+                    SourceCheck(
+                        status=document.status,
+                        content_type=document.content_type,
+                        http_status=document.http_status,
+                    ),
+                )
+            else:
+                self.pages[url] = ""
+                self.result.source_checks[url] = SourceCheck(status="limit")
+        check = self.result.source_checks.setdefault(
+            url, SourceCheck(status="readable" if self.pages[url] else "empty")
+        )
+        cache_key = (url, evidence.excerpt)
+        if cache_key in self.verdicts:
+            return self.verdicts[cache_key]
+        page = norm(self.pages[url])
+        segments = [
+            norm(part) for part in re.split(r"\.{3}|\u2026", evidence.excerpt) if norm(part)
+        ]
+        if not page or not segments:
+            warning = "source_excerpt_unverified:" + url
+            if warning not in self.result.warnings:
+                self.result.warnings.append(warning)
+            check.unmatched_excerpts += 1
+            self.verdicts[cache_key] = False
+            return False
+        position = 0
+        for segment in segments:
+            found = page.find(segment, position)
+            if found < 0:
+                warning = "source_excerpt_unverified:" + url
+                if warning not in self.result.warnings:
+                    self.result.warnings.append(warning)
+                check.unmatched_excerpts += 1
+                self.verdicts[cache_key] = False
+                return False
+            position = found + len(segment)
+        check.matched_excerpts += 1
+        self.verdicts[cache_key] = True
+        return True
+
+
 def build_complete_proposal(
     wine: Wine,
     response: OpenAIResponse,
@@ -195,74 +290,18 @@ def build_complete_proposal(
         for source in response.web_sources
         if (url := public_source_url(str(source.get("url") or "")))
     }
-    used: set[str] = set()
-    pages: dict[str, str] = {} if source_texts is None else dict(source_texts)
-    verdicts: dict[tuple[str, str], bool] = {}
-
-    def verified(evidence: SourceEvidence) -> bool:
-        url = public_source_url(evidence.source_url)
-        if url not in sources or not evidence.excerpt.strip():
-            return False
-        evidence.source_url = url
-        used.add(url)
-        if url not in pages:
-            # The reader checks DNS/redirects, pins public addresses, and bounds size/time.
-            if (
-                len(pages) < 12
-                and source_texts is None
-                and (document_cache is None or url in document_cache or len(document_cache) < 12)
-            ):
-                if document_cache is not None and url in document_cache:
-                    document = document_cache[url]
-                else:
-                    document = read_public_document(url, allow_pdf=True)
-                    if document_cache is not None:
-                        document_cache[url] = document
-                pages[url] = document.text
-                result.source_checks[url] = SourceCheck(
-                    status=document.status,
-                    content_type=document.content_type,
-                    http_status=document.http_status,
-                )
-            else:
-                pages[url] = ""
-                result.source_checks[url] = SourceCheck(status="limit")
-        check = result.source_checks.setdefault(
-            url, SourceCheck(status="readable" if pages[url] else "empty")
-        )
-        cache_key = (url, evidence.excerpt)
-        if cache_key in verdicts:
-            return verdicts[cache_key]
-        page = norm(pages[url])
-        segments = [
-            norm(part) for part in re.split(r"\.{3}|\u2026", evidence.excerpt) if norm(part)
-        ]
-        if not page or not segments:
-            warning = "source_excerpt_unverified:" + url
-            if warning not in result.warnings:
-                result.warnings.append(warning)
-            check.unmatched_excerpts += 1
-            verdicts[cache_key] = False
-            return False
-        position = 0
-        for segment in segments:
-            found = page.find(segment, position)
-            if found < 0:
-                warning = "source_excerpt_unverified:" + url
-                if warning not in result.warnings:
-                    result.warnings.append(warning)
-                check.unmatched_excerpts += 1
-                verdicts[cache_key] = False
-                return False
-            position = found + len(segment)
-        check.matched_excerpts += 1
-        verdicts[cache_key] = True
-        return True
+    verifier = SensoryEvidenceVerifier(
+        sources, result, source_texts=source_texts, document_cache=document_cache
+    )
+    verified, used = verifier.verified, verifier.used
 
     result.summary, result.limitations = output.summary, output.limitations
+    result.identity_confirmed = verified(output.identity_evidence)
+    if result.identity_confirmed:
+        result.identity_evidence = output.identity_evidence
     result.vintage_confirmed = (
         output.vintage_confirmed
-        and verified(output.identity_evidence)
+        and result.identity_confirmed
         and exact_evidence(output.identity_evidence, wine.vintage)
     )
     comparisons = {item.dimension: item for item in output.comparisons}
@@ -285,7 +324,11 @@ def build_complete_proposal(
         evidence = evidence_from_trait(trait)
         comparison = comparisons.get(key)
         valid = [item for item in comparison.evidence if verified(item)] if comparison else []
-        if comparison and comparison.agreement == "conflicting":
+        if (
+            comparison
+            and comparison.agreement == "conflicting"
+            and len({(item.source_url, norm(item.excerpt)) for item in valid}) >= 2
+        ):
             result.complete_profile[key].issue = "conflicting_sources"
             result.warnings.append(f"{key}:conflicting_sources")
             continue
@@ -350,6 +393,9 @@ def build_complete_proposal(
     for comparison in output.comparisons:
         if comparison.agreement == "conflicting":
             conflicting = [item for item in comparison.evidence if verified(item)]
+            if len({(item.source_url, norm(item.excerpt)) for item in conflicting}) < 2:
+                result.warnings.append(f"{comparison.dimension}:unverified_conflict")
+                continue
             result.complete_profile[comparison.dimension] = CompletedDimension(
                 issue="conflicting_sources", evidence=conflicting
             )

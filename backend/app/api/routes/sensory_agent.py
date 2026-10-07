@@ -179,15 +179,15 @@ def apply_research(
     if profile is None:
         profile = WineSensoryProfile(identity_id=identity.id)
         db.add(profile)
-    if result.prompt_version in {"4", "5", "6"}:
+    if result.prompt_version in {"4", "5", "6", "7"}:
         if (
-            (result.prompt_version != "6" and not result.vintage_confirmed)
+            (result.prompt_version not in {"6", "7"} and not result.vintage_confirmed)
             or result.identity_ambiguous
             or set(result.complete_profile) != set(SENSORY_DIMENSIONS)
             or any(
                 item.value is None
                 or item.origin == "unknown"
-                or (item.issue and result.prompt_version != "6")
+                or (item.issue and result.prompt_version not in {"6", "7"})
                 or (
                     item.origin == "ai_inference"
                     and (

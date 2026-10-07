@@ -22,12 +22,12 @@ esistenti. Distribuire anche il frontend aggiornato. Restano valide le impostazi
 4. Revisionare una proposta completa prima di usare **Usa questo profilo**.
    Il salvataggio non equivale alla validazione umana.
 
-## Fasi del percorso v6
+## Fasi del percorso v7
 
 Il prompt versionato `wine.sensory_research` e un contratto JSON rigoroso richiedono
 identificazione, prove per annata, confronto, ricerca mirata delle lacune e fino a
 cinque riferimenti documentati. Il primo passaggio dispone di sei consultazioni
-web. Se il profilo non è completo, il prompt `wine.sensory_completion` v1 riceve
+web. Se il profilo non è completo, il prompt `wine.sensory_completion` v2 riceve
 gli esiti reali della verifica server, dispone di altre quattro consultazioni per
 cercare alternative e produce tutte le nove intensità attese. Le conversioni
 numeriche restano stime su scala 0-1. Il secondo passaggio non viene eseguito
@@ -119,7 +119,7 @@ Il sostegno euristico per tratto e 0,80 per riscontri indipendenti, 0,55 per fon
 singola dell'annata, 0,35-0,40 per stile e 0,35 per vini simili; il punteggio totale
 include lacune e inferenze non verificate a zero. Non sono probabilita calibrate
 di correttezza: zero prove numeriche non significa zero plausibilità del profilo.
-Nel percorso v6 una proposta con nove valori è applicabile anche senza annata
+Nei percorsi v6 e v7 una proposta con nove valori è applicabile anche senza annata
 verificata: è una stima da revisionare e resta non validata. Un'identità realmente
 ambigua produce un profilo completo provvisorio ma blocca l'applicazione.
 Un profilo totalmente inferito ha copertura delle prove zero: i nove valori sono
@@ -193,3 +193,27 @@ applicativo e CurrentContext: POST avvia (`max_wines`, `budget_usd`, `wine_ids`
 opzionali); GET elenca gli ultimi cinque rapporti; GET /candidates elenca i vini;
 GET /{run_id} legge un rapporto; POST /{run_id}/wines/{wine_id}/apply applica una
 proposta. Le selezioni fuori cantina, duplicate o oltre limite vengono rifiutate.
+
+
+## Coerenza del rapporto e basi delle inferenze (v7)
+
+La sintesi principale è generata dal server dai controlli eseguiti, separando
+identità, annata, intensità sostenute dalle fonti e descrizioni qualitative
+verificate. La prosa libera del modello resta consultabile in una sezione
+esplicitamente non verificata; anche i rapporti v6 già salvati mostrano quella
+prosa separatamente. Una fonte bloccata non conferma annata o dati analitici.
+
+Ogni stima del completamento richiede un elenco strutturato di citazioni per
+le premesse fattuali, oppure un elenco vuoto per ipotesi generali. Il server
+applica la stessa verifica URL/estratti alle premesse e distingue descrizioni
+verificate, informazioni non verificate, basi miste e conoscenza del modello.
+Le citazioni qualitative rimangono conservate anche quando non sostengono
+l'intensità: una citazione sul legno non verifica il valore numerico stimato.
+Le inferenze mantengono sostegno numerico zero e intervalli plausibili non
+calibrati. Un conflitto richiede almeno due citazioni distinte verificabili;
+confronti bloccati non generano automaticamente «fonti discordanti».
+
+Questi campi sono additivi nei risultati e nella provenienza JSON: non richiedono
+una nuova migrazione. Il budget e il massimo di dieci consultazioni web restano
+invariati. Le citazioni non misurano l'accuratezza sensoriale: per stimarla serve
+un campione di profili valutati indipendentemente.

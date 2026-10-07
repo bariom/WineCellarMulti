@@ -165,6 +165,7 @@ class SensoryEstimate(BaseModel):
     lower: float = Field(ge=0, le=1, strict=True)
     upper: float = Field(ge=0, le=1, strict=True)
     rationale: str = Field(min_length=20, max_length=600)
+    evidence: list[SourceEvidence] = Field(max_length=3)
 
     @model_validator(mode="after")
     def ordered_range(self):
@@ -221,6 +222,11 @@ class CompletedDimension(BaseModel):
     rationale: str = ""
     lower: float | None = Field(default=None, ge=0, le=1)
     upper: float | None = Field(default=None, ge=0, le=1)
+    inference_basis: (
+        Literal["verified_description", "mixed_sources", "unverified_source", "model_knowledge"]
+        | None
+    ) = None
+    unverified_evidence: list[SourceEvidence] = Field(default_factory=list)
 
 
 class SourceCheck(BaseModel):
@@ -241,6 +247,10 @@ class SensoryResearchResult(BaseModel):
     issue: str = ""
     summary: str = ""
     limitations: str = ""
+    agent_summary: str = ""
+    agent_limitations: str = ""
+    identity_confirmed: bool = False
+    identity_evidence: SourceEvidence | None = None
     vintage_confirmed: bool = False
     identity_ambiguous: bool = False
     confidence: float = 0

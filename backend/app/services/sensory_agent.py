@@ -70,7 +70,7 @@ def proposal_from_response(
     source_texts: dict[str, str] | None = None,
     document_cache: dict | None = None,
 ) -> SensoryResearchResult:
-    if prompt_version in {"4", "5", "6"}:
+    if prompt_version in {"4", "5", "6", "7"}:
         from app.services.sensory_completion import build_complete_proposal
 
         return build_complete_proposal(
@@ -185,6 +185,7 @@ def complete_with_estimates(
     *,
     previous_sources: tuple[dict[str, str], ...] = (),
     document_cache: dict | None = None,
+    locale: str = "it",
 ) -> SensoryResearchResult:
     """Keep checked observations and fill gaps with explicitly unvalidated model estimates."""
     result.cost_usd += response.charged_cost_usd
@@ -208,7 +209,7 @@ def complete_with_estimates(
                 web_sources=(*previous_sources, *response.web_sources),
             ),
             {},
-            prompt_version="6",
+            prompt_version=result.prompt_version,
             document_cache=document_cache,
         )
         rank = {
@@ -223,6 +224,12 @@ def complete_with_estimates(
             # Refinement cannot silently erase previously observed disagreement.
             if current.issue in {"conflicting_sources", "reference_disagreement"}:
                 continue
+            if item.value is None and item.evidence and current.value is None:
+                current.evidence = list(
+                    {
+                        (e.source_url, e.excerpt): e for e in [*current.evidence, *item.evidence]
+                    }.values()
+                )
             if item.issue == "conflicting_sources" or rank[item.origin] > rank[current.origin]:
                 result.complete_profile[key] = item
                 if key in checked.dimensions:
@@ -230,6 +237,9 @@ def complete_with_estimates(
                 else:
                     result.dimensions.pop(key, None)
         result.vintage_confirmed |= checked.vintage_confirmed
+        result.identity_confirmed |= checked.identity_confirmed
+        if checked.identity_evidence:
+            result.identity_evidence = checked.identity_evidence
         result.sources = list({s["url"]: s for s in [*result.sources, *checked.sources]}.values())
         for url, check in checked.source_checks.items():
             previous = result.source_checks.get(url)
@@ -250,6 +260,14 @@ def complete_with_estimates(
     result.summary, result.limitations = output.summary, output.limitations
     result.identity_ambiguous = output.identity_ambiguous
     result.model = response.model or result.model
+    from app.services.sensory_completion import SensoryEvidenceVerifier
+
+    sources = {
+        url: {"url": url, "title": str(source.get("title") or "")[:200]}
+        for source in (*previous_sources, *response.web_sources)
+        if (url := public_source_url(str(source.get("url") or "")))
+    }
+    verifier = SensoryEvidenceVerifier(sources, result, document_cache=document_cache)
     for key, estimate in output.estimates:
         current = result.complete_profile[key]
         if current.value is not None:
@@ -259,9 +277,34 @@ def complete_with_estimates(
         current.value = round(estimate.value, 2)
         current.origin = "ai_inference"
         current.rationale = estimate.rationale
+        for premise in estimate.evidence:
+            url = public_source_url(premise.source_url)
+            if not url:
+                result.warnings.append(f"{key}:invalid_premise_url")
+                continue
+            premise.source_url = url
+            if verifier.verified(premise):
+                current.evidence.append(premise)
+            else:
+                current.unverified_evidence.append(premise)
+        current.evidence = list({(e.source_url, e.excerpt): e for e in current.evidence}.values())
+        current.inference_basis = (
+            "mixed_sources"
+            if current.evidence and current.unverified_evidence
+            else "verified_description"
+            if current.evidence
+            else "unverified_source"
+            if current.unverified_evidence
+            else "model_knowledge"
+        )
         current.lower = round(min(estimate.lower, max(0, estimate.value - 0.15)), 2)
         current.upper = round(max(estimate.upper, min(1, estimate.value + 0.15)), 2)
         current.confidence = 0  # No verified evidence for this numeric intensity.
+    result.sources = list(
+        {
+            s["url"]: s for s in [*result.sources, *(sources[url] for url in sorted(verifier.used))]
+        }.values()
+    )
     exact = sum(
         i.origin in {"corroborated", "single_source"} for i in result.complete_profile.values()
     )
@@ -278,6 +321,68 @@ def complete_with_estimates(
     result.confidence = round(sum(i.confidence for i in result.complete_profile.values()) / 9, 3)
     result.status = "incomplete" if output.identity_ambiguous else "ready"
     result.issue = "ambiguous_identity" if output.identity_ambiguous else ""
+    return describe_checked_result(result, locale)
+
+
+def describe_checked_result(result: SensoryResearchResult, locale: str) -> SensoryResearchResult:
+    """Keep provider prose separate from statements derived from actual server checks."""
+    if result.prompt_version != "7":
+        return result
+    if result.agent_summary:
+        return result
+    result.agent_summary, result.agent_limitations = result.summary, result.limitations
+    qualitative = sum(bool(item.evidence) for item in result.complete_profile.values())
+    grounded = sum(
+        item.origin == "ai_inference" and bool(item.evidence)
+        for item in result.complete_profile.values()
+    )
+    unsupported = sum(
+        item.origin == "ai_inference" and bool(item.unverified_evidence)
+        for item in result.complete_profile.values()
+    )
+    result.coverage.update(
+        qualitative=qualitative, inferred_grounded=grounded, inferred_unverified=unsupported
+    )
+    numeric = sum(
+        item.value is not None and item.origin not in {"ai_inference", "unknown"}
+        for item in result.complete_profile.values()
+    )
+    if locale == "it":
+        identity = (
+            "Identità con riscontro documentale."
+            if result.identity_confirmed
+            else ("Identità senza riscontro documentale verificato.")
+        )
+        vintage = (
+            "Annata confermata da una citazione verificata."
+            if result.vintage_confirmed
+            else ("Annata non confermata dalle verifiche del server.")
+        )
+        result.summary = f"{identity} {vintage} {numeric}/9 intensità sostenute da fonti; " + (
+            f"{qualitative}/9 tratti con citazioni qualitative verificate."
+        )
+        result.limitations = (
+            "Le inferenze restano stime: una descrizione qualitativa verificata non verifica "
+            "il valore numerico. Il testo libero dell'agente è separato dalle prove controllate."
+        )
+    else:
+        identity = (
+            "Identity has documentary support."
+            if result.identity_confirmed
+            else ("Identity has no verified documentary support.")
+        )
+        vintage = (
+            "Vintage confirmed by a verified quotation."
+            if result.vintage_confirmed
+            else ("Vintage not confirmed by server verification.")
+        )
+        result.summary = f"{identity} {vintage} {numeric}/9 source-supported intensities; " + (
+            f"{qualitative}/9 traits with verified qualitative quotations."
+        )
+        result.limitations = (
+            "Inferences remain estimates: a verified qualitative description does not verify "
+            "the numeric value. Free-form agent text is separate from checked evidence."
+        )
     return result
 
 
@@ -460,7 +565,7 @@ def research_wine(
         extra_cost_usd=web_search_tool_cost_usd(response.web_search_calls),
     )
     if result.status == "ready":
-        return result
+        return describe_checked_result(result, context.user.locale)
     feedback = {
         "vintage_verified": result.vintage_confirmed,
         "issue": result.issue,
@@ -498,7 +603,7 @@ def research_wine(
     )
     if actual_completion_ceiling > remaining - result.cost_usd:
         result.warnings.append("completion_budget_limit")
-        return result
+        return describe_checked_result(result, context.user.locale)
     try:
         completion_response, completion_provider = create_ai_response(
             db,
@@ -520,13 +625,14 @@ def research_wine(
     except Exception:
         # A failed refinement must not lose the paid first pass or abort subsequent wines.
         result.warnings.append("completion_failed")
-        return result
+        return describe_checked_result(result, context.user.locale)
     result = complete_with_estimates(
         wine,
         result,
         completion_response,
         previous_sources=response.web_sources,
         document_cache=document_cache,
+        locale=context.user.locale,
     )
     record_ai_audit(
         db,
@@ -541,7 +647,7 @@ def research_wine(
         sources=result.sources,
         extra_cost_usd=web_search_tool_cost_usd(completion_response.web_search_calls),
     )
-    return result
+    return describe_checked_result(result, context.user.locale)
 
 
 def run_sensory_research(run_id: UUID, household_id: UUID, session_id: UUID) -> None:

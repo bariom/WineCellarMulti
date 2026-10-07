@@ -64,7 +64,8 @@ for (const locale of ["it", "en"]) {
     await expect(article.getByRole("table").getByRole("row")).toHaveCount(10);
     await expect(article).toContainText(it ? "Inferenza del modello" : "Model inference");
     await expect(article).toContainText(it ? "Intervallo plausibile: 0.30–0.70" : "Plausible range: 0.30–0.70");
-    await expect(article).toContainText("unverified assumption");
+    await article.getByText(it ? "Motivazione proposta dall'agente · non verificata" : "Agent rationale · unverified", { exact: true }).first().click();
+    await expect(article.getByText("Expected style estimate; grape composition is an unverified assumption.", { exact: true }).first()).toBeVisible();
     for (const width of [360, 390, 430, 1440]) {
       await page.setViewportSize({ width, height: 844 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -290,3 +291,44 @@ test("Sensory agent compares validated previous profiles without offering an ove
     if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`comparison-${width}.png`), fullPage: true });
   }
 });
+
+
+for (const locale of ["it", "en"]) {
+  test(`Checked report separates qualitative proof and blocked assumptions (${locale})`, async ({ page }, testInfo) => {
+    const it = locale === "it";
+    await renderPanel(page, locale);
+    const evidence = { excerpt: "Notes of oak", source_url: "https://producer.example/2020", scope: "exact_vintage", vintage: "2020", published_year: null, publisher: "Producer", role: "producer" };
+    const blocked = { ...evidence, excerpt: "Residual sugar 0.5 g/l", source_url: "https://critic.example/2020", publisher: "Critic", role: "critic" };
+    const proposal = { ...result, prompt_version: "7", identity_confirmed: false, vintage_confirmed: false,
+      confidence: 0, dimensions: {}, comparisons: [], aromas: [], sources: [{ url: blocked.source_url, title: "Blocked review" }],
+      summary: it ? "Annata non confermata dalle verifiche del server." : "Vintage not confirmed by server verification.",
+      agent_summary: "Identity and vintage confirmed; 100% Merlot.", agent_limitations: "Producer accessible.",
+      coverage: { available: 9, total: 9, exact_vintage: 0, corroborated: 0, estimated: 9, inferred: 9, unknown: 0, qualitative: 1 },
+      source_checks: { [evidence.source_url]: { status: "readable", matched_excerpts: 1, unmatched_excerpts: 0 }, [blocked.source_url]: { status: "cloudflare_challenge", http_status: 403, matched_excerpts: 0, unmatched_excerpts: 1 } },
+      complete_profile: Object.fromEntries(["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"].map(key => [key, {
+        value: .5, origin: "ai_inference", confidence: 0, issue: "", rationale: "Expected style estimate with unverified analytical information.", lower: .3, upper: .7, references: [],
+        evidence: key === "wood" ? [evidence] : [], unverified_evidence: key === "sweetness" ? [blocked] : [],
+        inference_basis: key === "wood" ? "verified_description" : key === "sweetness" ? "unverified_source" : "model_knowledge",
+      }])) };
+    await page.route("**/api/v1/taste-profile/admin/research-runs**", route => route.fulfill({ json: [{ ...completed, selected_wines: 1, results: [proposal] }] }));
+    await page.goto("/sensory-agent-test");
+    const article = page.getByRole("article");
+    await expect(article.getByText(proposal.summary, { exact: true })).toBeVisible();
+    await expect(article.getByText(proposal.agent_summary, { exact: true })).not.toBeVisible();
+    await expect(article).toContainText(it ? "1/9 tratti con descrizioni qualitative" : "1/9 traits with qualitative descriptions");
+    await article.getByText(it ? "Confronto e prove" : "Comparison and evidence", { exact: true }).click();
+    await expect(article.getByText(it ? "Stima da descrizioni qualitative verificate; intensità inferita." : "Estimate from verified qualitative descriptions; intensity inferred.", { exact: true })).toBeVisible();
+    await expect(article.getByText(it ? "Informazioni non verificate: non sono prove" : "Unverified information: not evidence", { exact: true })).toBeVisible();
+    await expect(article.getByRole("link", { name: it ? "Apri fonte non verificata ↗" : "Open unverified source ↗" })).toHaveAttribute("href", blocked.source_url);
+    for (const width of [360, 390, 430, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const card = (await article.boundingBox())!;
+      const table = (await article.getByRole("table").boundingBox())!;
+      expect(table.x + table.width).toBeLessThanOrEqual(card.x + card.width + 1);
+      if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`checked-report-${width}.png`), fullPage: true });
+    }
+    await article.getByText(it ? "Testo proposto dall'agente · non verificato" : "Agent draft text · unverified", { exact: true }).click();
+    await expect(article.getByText(proposal.agent_summary, { exact: true })).toBeVisible();
+  });
+}
