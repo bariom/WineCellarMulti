@@ -5,6 +5,11 @@ The admin panel offers “Genera mancanti con AI” for missing profiles and
 baselines are used first. When insufficient, AI attempts metadata enrichment
 before direct sensory inference. Single-wine errors appear beside the action.
 
+“Cerca vino, produttore o annata” searches the full shared profile catalog,
+including missing profiles when that filter is selected. Press Enter or
+“Applica filtri” to restart from page one. “Precedenti” and “Successivi” navigate
+pages of 30 wines; the count beside “Profili vino” is the current page size.
+
 Baseline generation respects complete, valid grape percentages (using the midpoint
 for ranges). Otherwise it weights the distinct varieties equally. The grape blend
 has one fixed overall weight, so listing more grapes does not overwhelm the

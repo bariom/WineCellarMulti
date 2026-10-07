@@ -19,7 +19,8 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
   const original = { identity_id: "test", name: "Testamatta", producer: "Bibi Graetz", vintage: "2018", source: "metadata", confidence: .4, validated: false, dimensions: { body: .64, fruit: .67 }, generation_status: "available" };
   const refined = { ...original, dimensions: { body: .68, fruit: .67 }, model: "gpt-6-astra", estimated_cost_usd: ".12", provenance: { body: { value: .68, lower: .55, upper: .8, calculation_method: "contextual_research_v1", rationale: "Stima contestuale del peso al palato, con incertezza esplicita.", evidence: [{ excerpt: "Full-bodied with bright acidity", source_url: "https://producer.example/testamatta-2018", publisher: "Produttore" }] } } };
   await page.route("**/api/v1/taste-profile/admin/**", route => {
-    const path = new URL(route.request().url()).pathname;
+    const url = new URL(route.request().url());
+    const path = url.pathname;
     expect(path).not.toContain("research-runs");
     if (path.endsWith("/refine")) {
       researched = true;
@@ -29,11 +30,23 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
       saved = route.request().postDataJSON().validated === true;
       return route.fulfill({ json: refined });
     }
-    return route.fulfill({ json: path.endsWith("/summary") ? { wines_with_profile: 2 } : path.endsWith("/profiles") ? [researched ? refined : original, { ...original, identity_id: "protected", name: "Profilo validato", validated: true }] : [] });
+    const matching = [researched ? refined : original, { ...original, identity_id: "protected", name: "Profilo validato", validated: true }];
+    const profiles = url.searchParams.get("search") === "Testamatta" ? matching
+      : url.searchParams.get("offset") === "30" ? [{ ...original, identity_id: "last", name: "Vino oltre i primi trenta" }]
+      : [...matching, ...Array.from({ length: 29 }, (_, i) => ({ ...original, identity_id: `wine-${i}`, name: `Vino ${i}` }))];
+    return route.fulfill({ json: path.endsWith("/summary") ? { wines_with_profile: 31 } : path.endsWith("/profiles") ? profiles : [] });
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/sensory-refinement-test");
-  await page.getByText("Profili vino (2)", { exact: true }).click();
+  await page.getByText("Profili vino (30)", { exact: true }).click();
+  await page.getByRole("button", { name: "Successivi", exact: true }).click();
+  await expect(page.getByText(/Vino oltre i primi trenta/)).toBeVisible();
+  await expect(page.getByText("Pagina 2", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Successivi", exact: true })).toBeDisabled();
+  await page.getByLabel("Cerca vino, produttore o annata").fill("Testamatta");
+  await page.getByLabel("Cerca vino, produttore o annata").press("Enter");
+  await expect(page.getByText("Pagina 1", { exact: true })).toBeVisible();
+  await expect(page.getByText("Profili vino (2)", { exact: true })).toBeVisible();
   const buttons = page.getByRole("button", { name: "Approfondisci con Astra", exact: true });
   await expect(buttons.nth(1)).toBeDisabled();
   await buttons.first().click();

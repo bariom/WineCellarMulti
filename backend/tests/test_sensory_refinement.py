@@ -3,6 +3,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi import HTTPException
+from test_sensory_agent import make_wine
 from test_sensory_agent import setup as shared_setup  # noqa: F401
 
 from app.api.routes import ai
@@ -265,3 +266,31 @@ def test_astra_selection_and_prompt_contract(monkeypatch):
         if definition.get("type") == "object":
             assert definition["additionalProperties"] is False
             assert set(definition["required"]) == set(definition["properties"])
+
+
+def test_profile_search_and_pagination_include_missing_identities(setup):
+    db, context, wine = setup
+    for index in range(32):
+        item = make_wine(db, context.household, name=f"Search wine {index:02}")
+        db.add(WineSensoryProfile(identity_id=item.shared_identity_id, dimensions={"body": 0.5}))
+    db.commit()
+
+    def listing(**kwargs):
+        return routes.list_sensory_profiles(
+            db=db,
+            context=context,
+            search=kwargs.pop("search", None),
+            offset=kwargs.pop("offset", 0),
+            limit=kwargs.pop("limit", 30),
+            **kwargs,
+        )
+
+    first = listing(search="search WINE")
+    second = listing(search="search WINE", offset=30)
+    assert len(first) == 30 and len(second) == 2
+    assert not {item["identity_id"] for item in first} & {item["identity_id"] for item in second}
+    assert len(listing(search="Producer", limit=50)) == 32
+    assert len(listing(search="2020", limit=50)) == 32
+    assert [item["name"] for item in listing(search="Barolo", missing=True)] == [wine.name]
+    assert not listing(search="absent", missing=True)
+    assert not listing(search="Barolo", missing=True, producer="Other")

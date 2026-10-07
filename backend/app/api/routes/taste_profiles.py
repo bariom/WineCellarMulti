@@ -854,10 +854,36 @@ def list_sensory_profiles(
     appellation: str | None = None,
     grape: str | None = None,
     producer: str | None = None,
+    search: str | None = Query(default=None, max_length=200),
+    offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_app_admin_context),
 ) -> list[dict]:
+    identity_filters = []
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        identity_filters.append(
+            SharedWineIdentity.name.ilike(term, escape="\\")
+            | SharedWineIdentity.producer.ilike(term, escape="\\")
+            | SharedWineIdentity.vintage.ilike(term, escape="\\")
+        )
+    if producer:
+        identity_filters.append(SharedWineIdentity.producer.ilike(f"%{producer}%"))
+    wine_filters = [Wine.household_id == context.household.id]
+    for field, value in [
+        (Wine.type, wine_type),
+        (Wine.region, region),
+        (Wine.appellation, appellation),
+    ]:
+        if value:
+            wine_filters.append(field.ilike(f"%{value}%"))
+    if grape:
+        wine_filters.append(Wine.grapes.cast(String).ilike(f"%{grape}%"))
+    if any((wine_type, region, appellation, grape)):
+        identity_filters.append(
+            SharedWineIdentity.id.in_(select(Wine.shared_identity_id).where(*wine_filters))
+        )
     if missing:
         query = (
             select(SharedWineIdentity)
@@ -866,7 +892,9 @@ def list_sensory_profiles(
                 (WineSensoryProfile.id.is_(None))
                 | (WineSensoryProfile.generation_status != "available")
             )
-            .order_by(SharedWineIdentity.name)
+            .where(*identity_filters)
+            .order_by(SharedWineIdentity.name, SharedWineIdentity.id)
+            .offset(offset)
             .limit(limit)
         )
         return [
@@ -884,8 +912,10 @@ def list_sensory_profiles(
             }
             for identity in db.scalars(query)
         ]
-    query = select(WineSensoryProfile, SharedWineIdentity).join(
-        SharedWineIdentity, SharedWineIdentity.id == WineSensoryProfile.identity_id
+    query = (
+        select(WineSensoryProfile, SharedWineIdentity)
+        .join(SharedWineIdentity, SharedWineIdentity.id == WineSensoryProfile.identity_id)
+        .where(*identity_filters)
     )
     if source:
         query = query.where(WineSensoryProfile.source == source)
@@ -893,21 +923,6 @@ def list_sensory_profiles(
         query = query.where(WineSensoryProfile.validated == validated)
     if low_confidence:
         query = query.where(WineSensoryProfile.confidence < 0.4)
-    if producer:
-        query = query.where(func.lower(SharedWineIdentity.producer).like(f"%{producer.lower()}%"))
-    wine_filters = []
-    if wine_type:
-        wine_filters.append(func.lower(Wine.type).like(f"%{wine_type.lower()}%"))
-    if region:
-        wine_filters.append(func.lower(Wine.region).like(f"%{region.lower()}%"))
-    if appellation:
-        wine_filters.append(func.lower(Wine.appellation).like(f"%{appellation.lower()}%"))
-    if grape:
-        wine_filters.append(func.lower(Wine.grapes.cast(String)).like(f"%{grape.lower()}%"))
-    if wine_filters:
-        query = query.where(
-            WineSensoryProfile.identity_id.in_(select(Wine.shared_identity_id).where(*wine_filters))
-        )
     return [
         {
             "name": identity.name,
@@ -916,7 +931,9 @@ def list_sensory_profiles(
             **sensory_response(profile).model_dump(mode="json"),
         }
         for profile, identity in db.execute(
-            query.order_by(WineSensoryProfile.updated_at.desc()).limit(limit)
+            query.order_by(WineSensoryProfile.updated_at.desc(), SharedWineIdentity.id)
+            .offset(offset)
+            .limit(limit)
         )
     ]
 
