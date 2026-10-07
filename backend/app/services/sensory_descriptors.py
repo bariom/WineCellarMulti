@@ -78,6 +78,13 @@ def _anchors(dimension: str, text: str, *, strict: bool = False) -> set[float]:
         return set()  # Different phases of the same sip cannot define one fixed body anchor.
     noun = _NOUNS[dimension]
     result: set[float] = set()
+    if strict and not _NEGATION.search(text):
+        if dimension == "body" and re.search(r"\bfeels light and sculpted\b", text):
+            result.add(0.25)
+        if dimension == "aromatic_intensity" and re.search(
+            r"\bperfume that fills the glass\b", text
+        ):
+            result.add(0.75)
     if (
         dimension == "aromatic_intensity"
         and not _NEGATION.search(text)
@@ -151,6 +158,17 @@ def _anchors(dimension: str, text: str, *, strict: bool = False) -> set[float]:
         ):
             result.add(0.75)
         if strict and dimension == "tannin" and re.search(r"\bfull\s+tannins?\b", remaining):
+            result.add(0.75)
+        if strict and dimension == "acidity" and re.search(r"\bbright acidity\b", remaining):
+            result.add(0.75)
+        if (
+            strict
+            and dimension == "fruit"
+            and re.search(
+                r"\brich (?:in|of) (?:blackberries|blueberries|cherries|raspberries|fruit)\b",
+                remaining,
+            )
+        ):
             result.add(0.75)
         if dimension == "minerality" and re.search(
             r"\bvery\s+saline\s+(?:finish|palate)\b", remaining

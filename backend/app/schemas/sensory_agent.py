@@ -258,13 +258,32 @@ class AppliedDimension(BaseModel):
 
 
 class SensoryApplicationPreview(BaseModel):
-    policy_version: str = "1"
+    policy_version: str = "2"
     eligible: bool = False
     reason: str = ""
     dimensions: dict[str, AppliedDimension] = Field(default_factory=dict)
     updated: list[str] = Field(default_factory=list)
     retained: list[str] = Field(default_factory=list)
     review_required: list[str] = Field(default_factory=list)
+    candidates: dict[str, AppliedDimension] = Field(default_factory=dict)
+
+
+class SensoryApplyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    dimensions: list[
+        Literal[
+            "body",
+            "acidity",
+            "tannin",
+            "sweetness",
+            "aromatic_intensity",
+            "fruit",
+            "wood",
+            "spice",
+            "minerality",
+        ]
+    ] = Field(min_length=1, max_length=9)
+    confirm_protected: bool = False
 
 
 class AgentStep(BaseModel):
@@ -274,7 +293,20 @@ class AgentStep(BaseModel):
     tools: list[str] = Field(default_factory=list)
 
 
+class SensoryProfileSnapshot(BaseModel):
+    dimensions: dict[str, float]
+    provenance: dict
+    source: str
+    validated: bool
+    confidence: float
+    model: str
+    generated_at: datetime | None
+    replaced_at: datetime
+    replaced_by: UUID
+
+
 class SensoryResearchResult(BaseModel):
+    previous_profile: SensoryProfileSnapshot | None = None
     agent_steps: list[AgentStep] = Field(default_factory=list)
     wine_id: UUID
     identity_id: UUID | None = None

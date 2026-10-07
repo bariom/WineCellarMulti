@@ -1,6 +1,6 @@
 # Assisted sensory profile agent
 
-The agent is available to application administrators in the sensory profile settings panel. Start a research run, choose wines and a credit budget, review the evidence and **Values that will be used**, then explicitly apply an eligible proposal. A research run does not modify wine profiles. Applying a proposal leaves it unvalidated. Manual and validated profiles remain protected.
+The agent is available to application administrators in the sensory profile settings panel. Start a research run, choose wines and a credit budget, review the evidence and **Values that will be used**, then explicitly apply an eligible proposal or select individual supported traits. A research run does not modify wine profiles. Applying a proposal leaves it unvalidated. Manual and validated profiles require an additional explicit revision confirmation.
 
 This release describes the **expected wine style at release**, not the condition of a particular bottle today. Body means perceived palate weight; tannin means perceived astringency intensity; sweetness means perceived palate sweetness; aromatic intensity means nose strength. Fruit, oak and spice describe the prominence of those sensory families. Minerality describes explicitly reported mineral or saline sensations, not a chemical measurement.
 
@@ -8,13 +8,13 @@ Research reserves both passes, including search context, tool calls and the most
 
 ## What gets applied
 
-New runs use an autonomous OpenAI Responses tool loop (`wine.sensory_autonomous` v1,
+New runs use an autonomous OpenAI Responses tool loop (`wine.sensory_autonomous` v2,
 result contract v12). The agent chooses searches, reads discovered HTML/PDF sources,
 submits candidate profiles for server review, receives failed-check feedback and can
 repair its evidence before concluding. Unsupported dimensions remain unknown rather
 than being filled with nine forced inferences. Applying a supported partial proposal
 retains the existing fallback for its gaps. The existing approval flow protects manual
-and validated profiles. Set `WINE_SENSORY_AUTONOMOUS_ENABLED=false` to use the previous
+and validated profiles from automatic changes. Set `WINE_SENSORY_AUTONOMOUS_ENABLED=false` to use the previous
 two-pass researcher; `OPENAI_SENSORY_AGENT_MODEL` selects the autonomous model (default
 `gpt-6.1-sol`). Model/account availability must be checked on deployment.
 
@@ -26,9 +26,9 @@ contains tool names and cost, never full prompts, arguments or reasoning. The ag
 can return a partial draft when the budget runs out. These bounds do not guarantee
 that a one-dollar budget will cover a multi-step investigation under every price book.
 
-Contract v12 excludes explicitly labelled drinking windows and publication dates from
+Contract v12 excludes explicitly labelled drinking windows and calendar publication dates from
 vintage-conflict checks, while bare years and other wine/vintage headings still block
-attribution. Quotes must still match actual source text. Review confidence is an
+attribution. Whitespace inside known identity words can be repaired (PDF `BI BI` versus `Bibi`); spelling changes, missing words and different vintages remain rejected. A verified exact-vintage source heading cited by a trait can recover an incorrectly copied separate identity quote. Quotes must still match actual source text. Review confidence is an
 editorial evidence-support score; reliability must be measured against independent
 expert profiles using the evaluation procedure below.
 
@@ -38,9 +38,27 @@ Research prompt `wine.sensory_research` version 11 and completion prompt `wine.s
 - A documented identity is required. An edition-specific NV wine is not dated by its base harvest. For example, Krug 170ème and the harvest of 2014 must not become a vintage-2014 identity. Edition-specific descriptions may support its style without confirming the supplied numeric vintage. No user metadata is silently corrected.
 - Only direct, checked intensity descriptors normalized with `verified_descriptor_v2` can replace a baseline. Qualitative descriptions, context, blocked sources, donor wines and free model inferences remain research information.
 - Firm tannins alone describe texture. Explicit full/high tannins can support amount. Pepper/gingerbread, crushed rock and “corposo” are recognized in the relevant sensory families; recognizing a family does not automatically assign intensity.
-- A single-source or style change exceeding **0.20** on the 0–1 scale retains the previous value and is marked for further review. This is an operational guard, not an accuracy threshold. Independent corroboration can permit a larger change; conflicts retain baseline.
+- A single-source or style change exceeding **0.20** on the 0–1 scale retains the previous value in the default preview and is marked for further review. It may be selected explicitly after reviewing its evidence. This is an operational guard, not an accuracy threshold. Conflicting traits cannot be selected.
 - With an existing unvalidated profile, fallback retains its values and provenance. Without a profile, fallback uses the existing deterministic metadata generator. Unsupported dimensions without a fallback remain unavailable, never zero. No supported updates means no apply action.
-- The server recalculates the preview while applying. Changed values, provenance confidence, validation or identity reject stale proposals. Research cannot overwrite manual or validated profiles.
+- The server recalculates the preview while applying. Changed values, provenance confidence, source, validation or identity reject stale proposals. Application policy v2 exposes supported candidates even for protected profiles. POST `/apply` may include `{"dimensions":["fruit"],"confirm_protected":true}`. Only selected, supported, non-conflicting traits change; verified identity and vintage remain mandatory. Protected profiles require explicit confirmation. The complete previous profile is retained in `result.previous_profile` in the household-scoped research run; it does not add metadata keys to per-trait provenance. After application, the new profile requires validation. Existing stored previews must be researched again if their application policy differs.
+
+## Testamatta 2018 source regression
+
+The fixed evidence fixture `backend/tests/fixtures/testamatta_2018_sources.json` includes short quotations from the producer sheet, James Suckling's reproduced review and Dunell's reproduced Monica Larner/Jane Anson reviews. It is a controlled validator case, not a generated expert reference or an autonomous run. The corrected reader/verifier recognizes the producer PDF's split name and review dates. The live source check produces three broad editorial estimates: acidity 0.75, fruit prominence 0.75 and minerality 0.25. Body and aromatic intensity remain conflicting; silky/important tannins describe texture without establishing an intensity. No nine-value profile is forced.
+
+Run the live source verification without OpenAI calls, from `backend/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.probe_sensory_agent --sources-only --output "$env:TEMP\testamatta-sources.json"
+```
+
+Run the autonomous provider pilot with a maximum one-dollar budget:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.probe_sensory_agent --budget 1 --output "$env:TEMP\testamatta-agent.json"
+```
+
+The pilot creates a disposable SQLite cellar with a protected Testamatta baseline, uses the normal provider/billing/authorization/evidence pipeline, and never changes the application database. Temporary credits are a test ledger; provider calls still incur actual OpenAI costs. Reports contain checked results, not credentials or full prompts. A failed provider or identity check exits unsuccessfully. The local provider pilot was blocked by an invalid local credential (HTTP 401); it did not establish autonomous extraction quality. Successful source verification alone is not a successful autonomous run.
 
 Stored reports from versions 1–10 remain readable, but must be researched again before application. Their quotations did not require the new attribution contract. No database migration is needed: application previews and provenance use existing JSON fields.
 

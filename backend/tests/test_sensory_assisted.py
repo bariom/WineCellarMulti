@@ -1,5 +1,6 @@
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 from test_sensory_agent import (
     assisted_proposal,
     attributed_output,
@@ -11,8 +12,11 @@ from test_sensory_agent import (
     setup as shared_setup,  # noqa: F401 - shared database fixture
 )
 
+from app.api.deps import get_current_context
 from app.api.routes import sensory_agent as routes
+from app.db.session import get_db
 from app.models import SensoryAgentRun, WineSensoryProfile
+from app.schemas.sensory_agent import SensoryApplyRequest
 from app.services import sensory_agent as agent
 from app.services.sensory_application import application_preview
 
@@ -162,3 +166,152 @@ def test_prompts_require_attribution_and_keep_inferences_out_of_application():
         assert "attribution_excerpt" in prompt.system and "base harvest" in prompt.system
         assert "baseline" in prompt.system
         assert "untrusted" in prompt.system and "Italian" in prompt.user
+
+
+@pytest.mark.parametrize("source,validated", [("hybrid", True), ("manual", False)])
+def test_explicit_selected_revision_preserves_protected_profile_history(setup, source, validated):
+    db, context, wine = setup
+    baseline = {"body": 0.68, "wood": 0.35, "spice": 0.38}
+    profile = WineSensoryProfile(
+        identity_id=wine.shared_identity_id,
+        source=source,
+        validated=validated,
+        dimensions=baseline,
+        confidence=0.72,
+        provenance={"spice": {"confidence": 0.4}},
+    )
+    db.add(profile)
+    db.commit()
+    proposal = assisted_proposal(db, wine)
+    proposal.prompt_version = "12"
+    proposal.status = "incomplete"
+    assert not proposal.application.eligible
+    assert "wood" in proposal.application.candidates  # large change needs deliberate selection
+    run = SensoryAgentRun(
+        household_id=context.household.id,
+        user_id=context.user.id,
+        status="completed",
+        results=[proposal.model_dump(mode="json")],
+    )
+    db.add(run)
+    db.commit()
+    with pytest.raises(HTTPException):
+        routes.apply_research(
+            run.id, wine.id, db, context, payload=SensoryApplyRequest(dimensions=["wood"])
+        )
+    assert profile.dimensions == baseline and profile.validated == validated
+    routes.apply_research(
+        run.id,
+        wine.id,
+        db,
+        context,
+        payload=SensoryApplyRequest(dimensions=["wood"], confirm_protected=True),
+    )
+    assert profile.dimensions["wood"] == 0.75
+    assert profile.dimensions["body"] == baseline["body"]
+    assert profile.dimensions["spice"] == baseline["spice"]
+    assert not profile.validated
+    snapshot = run.results[0]["previous_profile"]
+    assert snapshot["dimensions"] == baseline
+    assert snapshot["source"] == source and snapshot["validated"] == validated
+    assert run.results[0]["application"]["updated"] == ["wood"]
+    assert profile.provenance["spice"] == {"confidence": 0.4}
+
+
+@pytest.mark.parametrize(
+    "change", ["unknown_trait", "identity", "vintage", "conflict", "changed_profile"]
+)
+def test_selected_revision_cannot_bypass_evidence_or_stale_baseline(setup, change):
+    db, context, wine = setup
+    profile = WineSensoryProfile(
+        identity_id=wine.shared_identity_id,
+        source="hybrid",
+        validated=True,
+        dimensions={"body": 0.68},
+        confidence=0.72,
+    )
+    db.add(profile)
+    db.commit()
+    proposal = assisted_proposal(db, wine)
+    proposal.prompt_version = "12"
+    proposal.status = "incomplete"
+    if change == "identity":
+        proposal.identity_confirmed = False
+    if change == "vintage":
+        proposal.vintage_confirmed = False
+    if change == "conflict":
+        proposal.complete_profile["body"].issue = "conflicting_sources"
+    if change == "unknown_trait":
+        proposal.complete_profile["sweetness"].value = None
+    proposal.application = application_preview(proposal, profile.dimensions, profile.confidence)
+    run = SensoryAgentRun(
+        household_id=context.household.id,
+        user_id=context.user.id,
+        status="completed",
+        results=[proposal.model_dump(mode="json")],
+    )
+    db.add(run)
+    db.commit()
+    if change == "changed_profile":
+        profile.dimensions = {"body": 0.6}
+        db.commit()
+    with pytest.raises(HTTPException) as exc:
+        routes.apply_research(
+            run.id,
+            wine.id,
+            db,
+            context,
+            payload=SensoryApplyRequest(
+                dimensions=["sweetness" if change == "unknown_trait" else "body"],
+                confirm_protected=True,
+            ),
+        )
+    assert exc.value.status_code in {409, 422}
+    assert profile.validated and not run.results[0].get("previous_profile")
+
+
+def test_http_selected_revision_contract_and_household_scope(setup):
+    db, context, wine = setup
+    profile = WineSensoryProfile(
+        identity_id=wine.shared_identity_id,
+        source="hybrid",
+        validated=True,
+        dimensions={"body": 0.68},
+        confidence=0.72,
+    )
+    db.add(profile)
+    db.commit()
+    proposal = assisted_proposal(db, wine)
+    proposal.prompt_version = "12"
+    run = SensoryAgentRun(
+        household_id=context.household.id,
+        user_id=context.user.id,
+        status="completed",
+        results=[proposal.model_dump(mode="json")],
+    )
+    db.add(run)
+    db.commit()
+    app = FastAPI()
+    app.include_router(routes.router)
+    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_current_context] = lambda: context
+    with TestClient(app) as client:
+        url = f"/taste-profile/admin/research-runs/{run.id}/wines/{wine.id}/apply"
+        assert (
+            client.post(url, json={"dimensions": [], "confirm_protected": True}).status_code == 422
+        )
+        assert client.post(url, json={"dimensions": ["body"]}).status_code == 409
+        reply = client.post(url, json={"dimensions": ["body"], "confirm_protected": True})
+        assert reply.status_code == 200
+        assert reply.json()["results"][0]["previous_profile"]["validated"] is True
+        from app.models import Household
+
+        other = Household(name="Other")
+        db.add(other)
+        db.flush()
+        run.household_id = other.id
+        db.commit()
+        assert (
+            client.post(url, json={"dimensions": ["body"], "confirm_protected": True}).status_code
+            == 404
+        )

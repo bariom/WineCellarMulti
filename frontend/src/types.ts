@@ -1649,11 +1649,13 @@ export type SensoryResearchComparison = {
 };
 export type SensoryResearchTrait = { value: number; basis: "documented" | "inferred"; excerpt: string; source_url: string };
 export type SensoryResearchResult = {
+  previous_profile?: { dimensions: Record<string, number>; provenance: Record<string, unknown>; source: string; validated: boolean; confidence: number; model: string; generated_at: string | null; replaced_at: string; replaced_by: string } | null;
   agent_steps?: { turn: number; web_search_calls: number; cost_usd: string; tools: string[] }[];
   application?: {
     policy_version: string; eligible: boolean; reason: string;
     dimensions: Record<string, { value: number; confidence: number; origin: "agent" | "baseline"; reason: string }>;
     updated: string[]; retained: string[]; review_required: string[];
+    candidates?: Record<string, { value: number; confidence: number; origin: "agent" | "baseline"; reason: string }>;
   } | null;
   wine_id: string; identity_id: string | null; name: string; producer: string; vintage: string;
   status: "ready" | "incomplete" | "no_evidence" | "failed" | "skipped" | "applied";

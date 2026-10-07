@@ -34,6 +34,66 @@ const result = {
 
 const completed = { id: "run-one", status: "completed", issue: "", max_wines: 10, selected_wines: 3, budget_usd: "1", cost_usd: "0.02", results: [result, { ...result, wine_id: "wine-two", name: "Vino senza annata verificata", status: "incomplete", vintage_confirmed: false }, { ...result, wine_id: "wine-three", name: "Vino senza annata", vintage: "", status: "skipped", issue: "missing_vintage", vintage_confirmed: false, dimensions: {}, aromas: [], sources: [], summary: "", limitations: "", cost_usd: "0" }], created_at: "2026-10-07T08:00:00Z", updated_at: "2026-10-07T08:01:00Z" };
 
+for (const locale of ["it", "en"]) {
+  test(`Testamatta protected profile requires selected traits and explicit revision (${locale})`, async ({ page }, testInfo) => {
+    const it = locale === "it";
+    await page.setViewportSize({ width: 390, height: 844 });
+    await renderPanel(page, locale);
+    const candidate = (value: number) => ({ value, confidence: .55, origin: "agent", reason: "verified_intensity" });
+    const proposal = { ...result, name: "Testamatta", producer: "Bibi Graetz", vintage: "2018", status: "incomplete", prompt_version: "12",
+      summary: "Frutto e acidità evidenti; mineralità leggera. Corpo e intensità aromatica hanno fonti discordanti.",
+      sources: [{ title: "Scheda del produttore · Testamatta 2018", url: "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20en.pdf" }],
+      dimensions: {}, comparisons: [], aromas: [],
+      identity_confirmed: true, baseline_source: "hybrid", baseline_validated: true,
+      baseline: { body: .64, acidity: .69, fruit: .67, minerality: .38 },
+      application: { ...result.application, eligible: false, reason: "protected_profile", updated: [], retained: ["body", "acidity", "fruit", "minerality"], review_required: ["body", "aromatic_intensity"],
+        candidates: { acidity: candidate(.75), fruit: candidate(.75), minerality: candidate(.25) },
+      },
+    };
+    let submitted: unknown;
+    await page.route("**/api/v1/taste-profile/admin/research-runs**", route => {
+      if (route.request().url().endsWith("/apply")) {
+        submitted = route.request().postDataJSON();
+        return route.fulfill({ json: { ...completed, results: [{ ...proposal, status: "applied" }] } });
+      }
+      return route.fulfill({ json: [{ ...completed, results: [proposal] }] });
+    });
+    await page.goto("/sensory-agent-test");
+    const selection = page.getByRole("group", { name: it ? "Scegli le caratteristiche da aggiornare" : "Choose traits to update" });
+    const button = selection.getByRole("button", { name: it ? "Applica le caratteristiche selezionate" : "Apply selected traits" });
+    await expect(button).toBeDisabled();
+    await selection.getByLabel(it ? /Acidità:/ : /acidity:/).check();
+    await selection.getByLabel(it ? /Frutto:/ : /fruit:/).check();
+    await expect(button).toBeDisabled();
+    await selection.getByLabel(it ? /Confermo la revisione/ : /Confirm revision/).check();
+    await expect(button).toBeEnabled();
+    await expect(page.getByText(it ? "Caratteristiche selezionate: 2. Le altre mantengono i valori precedenti." : "Selected traits: 2. Other traits retain their previous values.", { exact: true })).toBeVisible();
+    await page.getByText(it ? "Anteprima delle caratteristiche selezionate" : "Selected traits preview", { exact: true }).click();
+    const selectedTable = page.getByRole("table", { name: it ? "Anteprima del profilo applicato" : "Applied profile preview" });
+    await expect(selectedTable.getByRole("row")).toHaveCount(3);
+    await expect(selectedTable).not.toContainText(it ? "Mineralità" : "minerality");
+    await expect(selection.getByLabel(it ? /Corpo:/ : /body:/)).toHaveCount(0);
+    for (const width of [360, 390, 430, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+      const bounds = (await selection.boundingBox())!;
+      const action = (await button.boundingBox())!;
+      expect(action.x).toBeGreaterThanOrEqual(bounds.x);
+      expect(action.x + action.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+      for (const label of await selection.locator("label").all()) {
+        const checkbox = (await label.getByRole("checkbox").boundingBox())!;
+        const text = (await label.locator("span").boundingBox())!;
+        expect(checkbox.x + checkbox.width).toBeLessThanOrEqual(text.x);
+        expect(text.x + text.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+      }
+      if (width === 390) await page.screenshot({ path: testInfo.outputPath("testamatta-selected-revision-mobile.png"), fullPage: true });
+    }
+    await button.click();
+    await expect(page.getByText(it ? "Profilo utilizzato" : "Profile applied", { exact: true })).toBeVisible();
+    expect(submitted).toEqual({ dimensions: ["acidity", "fruit"], confirm_protected: true });
+  });
+}
+
 test("Autonomous partial proposal is reviewable on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await renderPanel(page, "it");

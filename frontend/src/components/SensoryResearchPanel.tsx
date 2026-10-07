@@ -10,6 +10,9 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
   const [run, setRun] = useState<SensoryResearchRun | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [chosenTraits, setChosenTraits] = useState<Record<string, string[]>>({});
+  const [confirmedRevisions, setConfirmedRevisions] = useState<Record<string, boolean>>({});
+  useEffect(() => { setChosenTraits({}); setConfirmedRevisions({}); }, [run?.id]);
   useEffect(() => { setDetailsOpen(false); }, [run?.id]);
 
   function setAllDetails(open: boolean) {
@@ -94,11 +97,12 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
     } catch (err) { reportError(err); }
     finally { setBusy(false); }
   }
-  async function apply(wineId: string) {
+  async function apply(wineId: string, selection?: string[]) {
     if (!run) return;
     setBusy(true); setError("");
     try {
-      setRun(await api<SensoryResearchRun>(`/api/v1/taste-profile/admin/research-runs/${run.id}/wines/${wineId}/apply`, { method: "POST" }));
+      setRun(await api<SensoryResearchRun>(`/api/v1/taste-profile/admin/research-runs/${run.id}/wines/${wineId}/apply`, { method: "POST", ...(selection ? { body: JSON.stringify({ dimensions: selection, confirm_protected: confirmedRevisions[wineId] ?? false }) } : {}) }));
+      setChosenTraits(current => ({ ...current, [wineId]: [] }));
       await onApplied();
     } catch (err) { reportError(err); }
     finally { setBusy(false); }
@@ -141,6 +145,9 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
         const available = profile.filter(item => item.value != null).length;
         const inferred = profile.filter(item => item.value != null && item.origin === "ai_inference").length;
         const supported = profile.filter(item => item.value != null && !["ai_inference", "unknown"].includes(item.origin)).length;
+        const chosen = chosenTraits[result.wine_id] ?? [];
+        const selectedPreview = Object.entries(result.application?.candidates ?? {}).filter(([key]) => chosen.includes(key));
+        const previewRows = selectedPreview.length ? selectedPreview : Object.entries(result.application?.dimensions ?? {});
         return <article key={result.wine_id}>
         <h5>{result.name}</h5><p>{result.producer}</p>
         <p>{it ? "Annata richiesta" : "Requested vintage"}: {result.vintage.trim() || (it ? "Mancante nella scheda vino" : "Missing from wine details")}</p>
@@ -181,7 +188,7 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
           </div>)}
           {result.aromas.length > 0 && <p>{it ? "Aromi descritti" : "Described aromas"}: {result.aromas.map(aroma => aroma.name).join(", ")}</p>}
           {result.complete_profile && <dl>{Object.entries(result.complete_profile).map(([key, dimension]) => <div key={key}>
-            <dt>{it ? traitsIt[key] || key : key.replace(/_/g, " ")} · {dimension.sensory_support ? supportLabels[dimension.sensory_support] : origins[dimension.origin]}</dt>
+            <dt>{it ? traitsIt[key] || key : key.replace(/_/g, " ")} · {dimension.value == null ? (dimension.sensory_support === "description" ? (it ? "Descrizione verificata · intensità non determinabile" : "Verified description · intensity undetermined") : (it ? "Non determinabile" : "Undetermined")) : dimension.sensory_support ? supportLabels[dimension.sensory_support] : origins[dimension.origin]}</dt>
             <dd>{dimension.value != null ? `${dimension.value.toFixed(2)} · ${dimension.origin === "ai_inference" ? (it ? "intensità non verificata" : "unverified intensity") : `${it ? "Sostegno delle prove" : "Evidence support"}: ${Math.round(dimension.confidence * 100)}%`}` : (issues[dimension.issue] || (it ? "Prove insufficienti" : "Insufficient evidence"))}
               {["verified_descriptor_v1", "verified_descriptor_v2"].includes(dimension.calculation_method || "") && <><p>{it ? "Calcolato da descrittori verificati con una scala riproducibile. È una stima, non una misurazione." : "Calculated from verified descriptors using a reproducible scale. This is an estimate, not a measurement."}</p>{dimension.lower != null && dimension.upper != null && <p>{it ? "Intervallo interpretativo" : "Interpretative range"}: {dimension.lower.toFixed(2)}–{dimension.upper.toFixed(2)}</p>}</>}
               {dimension.origin === "ai_inference" && <>
@@ -210,16 +217,33 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
           return <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || source.url} ↗</a>{check && <span> · {check.status === "readable" ? (it ? `Fonte letta: ${check.matched_excerpts} citazioni verificate, ${check.unmatched_excerpts} non corrispondenti` : `Source read: ${check.matched_excerpts} verified quotations, ${check.unmatched_excerpts} unmatched`) : sourceStatus}{check.http_status && check.http_status !== 200 ? ` (HTTP ${check.http_status})` : ""}</span>}</li>;
         })}</ul>
         {result.application && <section aria-label={it ? "Applicazione assistita" : "Assisted application"}>
-          <p>{it ? `Aggiornamenti sostenuti da prove: ${result.application.updated.length}. Valori conservati dalla baseline: ${result.application.retained.length}.` : `Evidence-supported updates: ${result.application.updated.length}. Values retained from baseline: ${result.application.retained.length}.`}</p>
+          {result.status !== "applied" && !!Object.keys(result.application.candidates ?? {}).length && <fieldset className="sensory-research-revision" disabled={busy || running}>
+            <legend>{it ? "Scegli le caratteristiche da aggiornare" : "Choose traits to update"}</legend>
+            <p>{it ? "Seleziona solo i valori che approvi dopo aver esaminato le prove. Le altre caratteristiche restano invariate; i valori discordanti non sono selezionabili." : "Select only values you approve after reviewing the evidence. Other traits remain unchanged; conflicting values cannot be selected."}</p>
+            {Object.entries(result.application.candidates ?? {}).map(([key, item]) => <label key={key}>
+              <input type="checkbox" checked={(chosenTraits[result.wine_id] ?? []).includes(key)} onChange={event => setChosenTraits(current => ({ ...current, [result.wine_id]: event.target.checked ? [...(current[result.wine_id] ?? []), key] : (current[result.wine_id] ?? []).filter(trait => trait !== key) }))} />
+              <span>{it ? traitsIt[key] || key : key.replace(/_/g, " ")}: {result.baseline[key]?.toFixed(2) ?? "—"} → {item.value.toFixed(2)}</span>
+            </label>)}
+            {(result.baseline_validated || result.baseline_source === "manual") && <label>
+              <input type="checkbox" checked={confirmedRevisions[result.wine_id] ?? false} onChange={event => setConfirmedRevisions(current => ({ ...current, [result.wine_id]: event.target.checked }))} />
+              <span>{it ? "Confermo la revisione del profilo protetto. La versione precedente sarà conservata; il nuovo profilo richiederà validazione." : "Confirm revision of the protected profile. The previous version will be retained; the new profile will require validation."}</span>
+            </label>}
+            <button type="button" className="secondary compact" disabled={!chosen.length || !result.identity_confirmed || !result.vintage_confirmed || result.identity_ambiguous || ((result.baseline_validated || result.baseline_source === "manual") && !confirmedRevisions[result.wine_id]) || !(result.status === "ready" || (result.prompt_version === "12" && result.status === "incomplete"))} onClick={() => void apply(result.wine_id, chosen)}>{it ? "Applica le caratteristiche selezionate" : "Apply selected traits"}</button>
+          </fieldset>}
+          <p>{selectedPreview.length ? (it ? `Caratteristiche selezionate: ${selectedPreview.length}. Le altre mantengono i valori precedenti.` : `Selected traits: ${selectedPreview.length}. Other traits retain their previous values.`) : (it ? `Aggiornamenti sostenuti da prove: ${result.application.updated.length}. Valori conservati dalla baseline: ${result.application.retained.length}.` : `Evidence-supported updates: ${result.application.updated.length}. Values retained from baseline: ${result.application.retained.length}.`)}</p>
           {!!result.application.review_required.length && <p>{it ? "Da approfondire prima di sostituire la baseline" : "Further review required before replacing baseline"}: {result.application.review_required.map(key => it ? traitsIt[key] || key : key.replace(/_/g, " ")).join(", ")}. {it ? "Una grande variazione da fonte singola o fonti discordanti conserva il valore precedente." : "A large single-source change or conflicting sources retains the previous value."}</p>}
-          <details><summary>{it ? "Valori che verranno utilizzati" : "Values that will be used"}</summary>
-            <table className="sensory-research-comparison" aria-label={it ? "Anteprima del profilo applicato" : "Applied profile preview"}><thead><tr><th>{it ? "Caratteristica" : "Trait"}</th><th>{it ? "Valore" : "Value"}</th><th>{it ? "Origine" : "Origin"}</th></tr></thead><tbody>{Object.entries(result.application.dimensions).map(([key, item]) => <tr key={key}><th scope="row">{it ? traitsIt[key] || key : key.replace(/_/g, " ")}</th><td>{item.value.toFixed(2)}</td><td>{item.origin === "agent" ? (it ? "Agente · prove verificate" : "Agent · checked evidence") : "Baseline"}</td></tr>)}</tbody></table>
+          <details><summary>{selectedPreview.length ? (it ? "Anteprima delle caratteristiche selezionate" : "Selected traits preview") : (it ? "Valori che verranno utilizzati" : "Values that will be used")}</summary>
+            <table className="sensory-research-comparison" aria-label={it ? "Anteprima del profilo applicato" : "Applied profile preview"}><thead><tr><th>{it ? "Caratteristica" : "Trait"}</th><th>{it ? "Valore" : "Value"}</th><th>{it ? "Origine" : "Origin"}</th></tr></thead><tbody>{previewRows.map(([key, item]) => <tr key={key}><th scope="row">{it ? traitsIt[key] || key : key.replace(/_/g, " ")}</th><td>{item.value.toFixed(2)}</td><td>{item.origin === "agent" ? (it ? "Agente · prove verificate" : "Agent · checked evidence") : "Baseline"}</td></tr>)}</tbody></table>
           </details>
-          {!result.application.eligible && <p>{result.application.reason === "protected_profile" ? (it ? "Il profilo manuale o validato resta protetto." : "The manual or validated profile remains protected.") : result.application.reason === "identity_unverified" ? (it ? "Prima di applicare il profilo serve un riscontro verificato sull'identità del vino." : "Verified wine identity is required before applying this profile.") : (it ? "Nessun aggiornamento applicabile: la baseline resta conservata." : "No applicable updates: baseline is preserved.")}</p>}
+          {!result.application.eligible && !selectedPreview.length && <p>{result.application.reason === "protected_profile" ? (it ? "Il profilo manuale o validato resta protetto." : "The manual or validated profile remains protected.") : result.application.reason === "identity_unverified" ? (it ? "Prima di applicare il profilo serve un riscontro verificato sull'identità del vino." : "Verified wine identity is required before applying this profile.") : (it ? "Nessun aggiornamento applicabile: la baseline resta conservata." : "No applicable updates: baseline is preserved.")}</p>}
         </section>}
         {(result.baseline_validated || result.baseline_source === "manual") && <p>{it ? "Ricerca di confronto: il profilo precedente manuale o validato resta conservato." : "Comparison research: the previous manual or validated profile is preserved."}</p>}
         {result.status === "ready" && !["11", "12"].includes(result.prompt_version) && <p>{it ? "Ripeti la ricerca per utilizzare l'applicazione assistita con verifica delle citazioni e baseline di riserva." : "Research again to use assisted application with quotation attribution and baseline fallback."}</p>}
-        {(result.status === "ready" || (result.prompt_version === "12" && result.status === "incomplete")) && ["11", "12"].includes(result.prompt_version) && result.application?.eligible && !result.baseline_validated && result.baseline_source !== "manual" && <button type="button" className="secondary compact" disabled={busy || running} onClick={() => void apply(result.wine_id)}>{it ? "Usa questo profilo" : "Apply this profile"}</button>}
+        {result.previous_profile && <details><summary>{it ? "Versione precedente conservata" : "Previous version retained"}</summary>
+          <p>{result.previous_profile.source} · {result.previous_profile.validated ? (it ? "validato" : "validated") : (it ? "non validato" : "not validated")}</p>
+          <table className="sensory-research-comparison"><thead><tr><th>{it ? "Caratteristica" : "Trait"}</th><th>{it ? "Valore precedente" : "Previous value"}</th></tr></thead><tbody>{Object.entries(result.previous_profile.dimensions).map(([key, value]) => <tr key={key}><th scope="row">{it ? traitsIt[key] || key : key.replace(/_/g, " ")}</th><td>{value.toFixed(2)}</td></tr>)}</tbody></table>
+        </details>}
+        {!chosen.length && (result.status === "ready" || (result.prompt_version === "12" && result.status === "incomplete")) && ["11", "12"].includes(result.prompt_version) && result.application?.eligible && !result.baseline_validated && result.baseline_source !== "manual" && <button type="button" className="secondary compact" disabled={busy || running} onClick={() => void apply(result.wine_id)}>{it ? "Usa questo profilo" : "Apply this profile"}</button>}
       </article>; })}</div>
     </>}
   </section>;

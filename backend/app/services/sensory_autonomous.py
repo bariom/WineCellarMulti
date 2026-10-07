@@ -232,6 +232,20 @@ def research_autonomously(
         if len(json.dumps(history)) > MAX_HISTORY_CHARS:
             stop_reason = "agent_context_limit"
             break
+        history.append(
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "runtime_limits": {
+                            "remaining_provider_turns": MAX_TURNS - turn,
+                            "remaining_web_calls": MAX_SEARCH_CALLS - searches,
+                            "remaining_budget_usd": str(max(Decimal("0"), budget - cost)),
+                        },
+                    }
+                ),
+            }
+        )
         # Once searches run out, the agent can still read and review found sources.
         search_limit = min(2, MAX_SEARCH_CALLS - searches)
         remaining = budget - cost

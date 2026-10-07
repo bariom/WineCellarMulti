@@ -129,7 +129,12 @@ def test_native_tool_loop_reads_reviews_and_preserves_partial_checked_profile(se
     assert result.cost_usd == Decimal("0.06") and result.web_search_calls == 1
     assert len(result.agent_steps) == 3
     assert any(item.get("type") == "function_call_output" for item in histories[1])
-    assert "identity_confirmed" in histories[2][-1]["output"]
+    feedback = [item for item in histories[2] if item.get("type") == "function_call_output"]
+    assert "identity_confirmed" in feedback[-1]["output"]
+    limits = json.loads(histories[2][-1]["content"])["runtime_limits"]
+    assert limits["remaining_provider_turns"] == autonomous.MAX_TURNS - 2
+    assert limits["remaining_web_calls"] == autonomous.MAX_SEARCH_CALLS - 1
+    assert Decimal(limits["remaining_budget_usd"]) == Decimal("0.96")
 
 
 def test_tools_reject_undiscovered_urls_and_unread_evidence(setup):
@@ -194,7 +199,7 @@ def test_provider_failure_and_other_household_are_not_silent_budget_failures(set
 @pytest.mark.parametrize("locale,language", [("it", "Italian"), ("en", "English")])
 def test_autonomous_prompt_and_strict_tools(locale, language):
     prompt = wine_sensory_autonomous_prompt(wine_context={"vintage": "2018"}, locale=locale)
-    assert prompt.id == "wine.sensory_autonomous" and prompt.version == "1"
+    assert prompt.id == "wine.sensory_autonomous" and prompt.version == "2"
     assert language in prompt.system and '"2018"' in prompt.user
     for required in ["untrusted", "null", "review_wine_profile", "independent", "not complexity"]:
         assert required in prompt.system

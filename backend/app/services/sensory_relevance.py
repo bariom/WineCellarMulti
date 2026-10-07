@@ -12,7 +12,8 @@ _TRAITS = {
     "body": (
         r"\bbody\b|bodied|\bcorpo\b|corpos[oa]|\bcorps\b|mittelschwer|vollmund|fyllig|"
         r"\bstructure\b|\bstruttura\b|\bmouth (?:is )?full\b|"
-        r"\bpalato (?:ampio|pieno)\b|\bample(?:\s+gras|\s+genereux)* le palais\b"
+        r"\bpalato (?:ampio|pieno)\b|\bample(?:\s+gras|\s+genereux)* le palais\b|"
+        r"\bfeels light and sculpted\b"
     ),
     "acidity": (
         r"acidit|\bsaure\b|syra|freschezza|fraicheur|\bfrische\b|"
@@ -23,7 +24,7 @@ _TRAITS = {
         r"sweet|dolce|dolci|douceur|\bsec\b|secco|secca|trocken|\bdry\b|"
         r"residual sugar|zuccheri residui"
     ),
-    "aromatic_intensity": r"arom[ai]|profum|bouquet|\bnose\b|\bnaso\b|\bnez\b|duft|doft",
+    "aromatic_intensity": r"arom[ai]|profum|perfume|bouquet|\bnose\b|\bnaso\b|\bnez\b|duft|doft",
     "fruit": (
         r"frutt|\bfruit\w*|frucht|frukt|cherry|cherries|cilieg|cassis|berry|berries|"
         r"prun|plum|agrum|citrus|peach|pesca"

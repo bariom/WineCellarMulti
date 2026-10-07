@@ -1,5 +1,7 @@
 """Assisted application of checked intensities; free model guesses remain research."""
 
+from collections.abc import Sequence
+
 from app.schemas.sensory_agent import (
     AppliedDimension,
     SensoryApplicationPreview,
@@ -16,6 +18,8 @@ def application_preview(
     baseline_confidence: float,
     *,
     baseline_provenance: dict | None = None,
+    selected_dimensions: Sequence[str] | None = None,
+    confirm_protected: bool = False,
 ) -> SensoryApplicationPreview:
     preview = SensoryApplicationPreview()
     for key, value in validated_dimensions(baseline).items():
@@ -41,9 +45,12 @@ def application_preview(
         )
     blocked = (
         "protected_profile"
-        if result.baseline_validated or result.baseline_source == "manual"
+        if (result.baseline_validated or result.baseline_source == "manual")
+        and not (confirm_protected and selected_dimensions)
         else "identity_unverified"
-        if not result.identity_confirmed or result.identity_ambiguous
+        if not result.identity_confirmed
+        or not result.vintage_confirmed
+        or result.identity_ambiguous
         else "research_failed"
         if result.status in {"failed", "skipped", "no_evidence"}
         else ""
@@ -62,15 +69,32 @@ def application_preview(
             and not item.issue
             and not item.references
         )
+        if supported and item is not None and item.value is not None:
+            previous = preview.dimensions.get(key)
+            large_change = bool(
+                previous
+                and item.origin != "corroborated"
+                and abs(item.value - previous.value) > MAX_SINGLE_SOURCE_CHANGE + 1e-9
+            )
+            if large_change and selected_dimensions is None:
+                preview.review_required.append(key)
+            preview.candidates[key] = AppliedDimension(
+                value=item.value,
+                confidence=item.confidence,
+                origin="agent",
+                reason="large_single_source_change" if large_change else "verified_intensity",
+            )
+        if selected_dimensions is not None and key not in selected_dimensions:
+            supported = False
         if not blocked and supported and item is not None and item.value is not None:
             previous = preview.dimensions.get(key)
             if (
                 previous
+                and selected_dimensions is None
                 and item.origin != "corroborated"
                 and abs(item.value - previous.value) > MAX_SINGLE_SOURCE_CHANGE + 1e-9
             ):
                 reason = "large_single_source_change"
-                preview.review_required.append(key)
             else:
                 preview.dimensions[key] = AppliedDimension(
                     value=item.value,

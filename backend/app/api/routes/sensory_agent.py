@@ -1,7 +1,8 @@
 from datetime import UTC, datetime, timedelta
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,8 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models import Household, SensoryAgentRun, SharedWineIdentity, Wine, WineSensoryProfile
 from app.schemas.sensory_agent import (
+    SensoryApplyRequest,
+    SensoryProfileSnapshot,
     SensoryResearchCandidate,
     SensoryResearchRequest,
     SensoryResearchResult,
@@ -132,6 +135,7 @@ def apply_research(
     wine_id: UUID,
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_app_admin_context),
+    payload: Annotated[SensoryApplyRequest | None, Body()] = None,
 ) -> SensoryResearchRunResponse:
     run = scoped_run(db, context, run_id, lock=True)
     if run.status not in {"completed", "failed"}:
@@ -176,8 +180,12 @@ def apply_research(
     profile = db.scalar(
         select(WineSensoryProfile).where(WineSensoryProfile.identity_id == identity.id)
     )
+    explicit_revision = bool(payload and payload.confirm_protected and payload.dimensions)
     if profile and (
-        profile.validated or profile.source == "manual" or profile.dimensions != result.baseline
+        profile.dimensions != result.baseline
+        or profile.validated != result.baseline_validated
+        or profile.source != result.baseline_source
+        or ((profile.validated or profile.source == "manual") and not explicit_revision)
     ):
         raise HTTPException(409, "Profile was validated or modified; proposal cannot overwrite it")
     from app.services.sensory_application import application_preview
@@ -192,11 +200,34 @@ def apply_research(
         fallback_confidence,
         baseline_provenance=profile.provenance if profile else None,
     )
-    if not preview.eligible:
-        raise HTTPException(422, "No attributable supported intensity updates")
     if result.application is None or preview != result.application:
         raise HTTPException(409, "Application preview has changed; research again")
+    if payload:
+        if any(key not in preview.candidates for key in payload.dimensions):
+            raise HTTPException(422, "Selection contains unsupported or conflicting traits")
+        preview = application_preview(
+            result,
+            fallback,
+            fallback_confidence,
+            baseline_provenance=profile.provenance if profile else None,
+            selected_dimensions=payload.dimensions,
+            confirm_protected=payload.confirm_protected,
+        )
+    if not preview.eligible:
+        raise HTTPException(422, "No attributable supported intensity updates")
     previous_provenance = dict(profile.provenance or {}) if profile else {}
+    if profile:
+        result.previous_profile = SensoryProfileSnapshot(
+            dimensions=dict(profile.dimensions),
+            provenance=previous_provenance,
+            source=profile.source,
+            validated=profile.validated,
+            confidence=profile.confidence,
+            model=profile.model,
+            generated_at=profile.generated_at,
+            replaced_at=datetime.now(UTC),
+            replaced_by=context.user.id,
+        )
     if profile is None:
         profile = WineSensoryProfile(identity_id=identity.id)
         db.add(profile)
@@ -220,6 +251,7 @@ def apply_research(
     profile.model, profile.last_modified_by_user_id = result.model[:120], context.user.id
     profile.generated_at = datetime.now(UTC)
     result.status = "applied"
+    result.application = preview
     run.results = [
         result.model_dump(mode="json") if item["wine_id"] == str(wine_id) else item
         for item in run.results

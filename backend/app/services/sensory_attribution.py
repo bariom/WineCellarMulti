@@ -26,11 +26,21 @@ _MATURITY_DATE = re.compile(
 _DRINKING_ADVICE = re.compile(
     rf"\b(?:not to touch until after|drink after|drink until|best from|best after)\s+{_YEAR}\b"
 )
+_CALENDAR_DATE = re.compile(rf"\b\d{{1,2}}(?:st|nd|rd|th)?\s+{_MONTH}\s+{_YEAR}\b")
 
 
 def edition_number(name: str) -> str:
     match = _EDITION.search(norm(name))
     return (match.group(1) or match.group(2)) if match else ""
+
+
+def source_identity_text(value: str, name: str, producer: str) -> str:
+    """Repair whitespace inside known identity words, never spelling or missing words."""
+    text = norm(value)
+    for word in set(re.findall(r"[a-z]+", norm(name) + " " + norm(producer))):
+        if len(word) >= 4:
+            text = re.sub(r"\b" + r"\s*".join(word) + r"\b", word, text)
+    return text
 
 
 def identifies_wine(excerpt: str, name: str, producer: str) -> bool:
@@ -56,6 +66,10 @@ def attributable(
     Edition-specific NV descriptions are style evidence, never a base-year vintage.
     """
     heading = evidence.attribution_excerpt
+    if not heading or "..." in heading or "\u2026" in heading:
+        return False
+    if allow_review_dates:
+        heading = source_identity_text(heading, name, producer)
     if (
         not heading
         or "..." in heading
@@ -63,7 +77,10 @@ def attributable(
         or not identifies_wine(heading, name, producer)
     ):
         return False
-    text, witness, quote = norm(page), norm(heading), norm(evidence.excerpt)
+    normalize = (
+        (lambda value: source_identity_text(value, name, producer)) if allow_review_dates else norm
+    )
+    text, witness, quote = normalize(page), normalize(heading), normalize(evidence.excerpt)
     if not quote or "..." in evidence.excerpt or "…" in evidence.excerpt:
         return False
     edition = edition_number(name)
@@ -100,6 +117,7 @@ def attributable(
                 section = _REVIEW_DATE.sub(" ", section)
                 section = _MATURITY_DATE.sub(" ", section)
                 section = _DRINKING_ADVICE.sub(" ", section)
+                section = _CALENDAR_DATE.sub(" ", section)
             years = set(re.findall(r"\b(?:19|20)\d{2}\b", section))
             if years - {evidence.vintage}:
                 continue

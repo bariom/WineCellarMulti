@@ -388,8 +388,16 @@ class SensoryEvidenceVerifier:
         if cache_key in self.verdicts:
             return self.verdicts[cache_key]
         page = norm(self.pages[url])
+        normalize = norm
+        if self.result.prompt_version == "12":
+            from app.services.sensory_attribution import source_identity_text
+
+            def normalize(value):
+                return source_identity_text(value, self.result.name, self.result.producer)
+
+            page = normalize(self.pages[url])
         segments = [
-            norm(part) for part in re.split(r"\.{3}|\u2026", evidence.excerpt) if norm(part)
+            normalize(part) for part in re.split(r"\.{3}|\u2026", evidence.excerpt) if norm(part)
         ]
         if not page or not segments:
             warning = "source_excerpt_unverified:" + url
@@ -491,10 +499,25 @@ def build_complete_proposal(
     result.identity_confirmed = verified(output.identity_evidence)
     if result.identity_confirmed:
         result.identity_evidence = output.identity_evidence
+    elif prompt_version == "12":
+        # A verified, exact-vintage section heading is itself identity evidence.
+        # Recover an incorrectly copied separate identity quote without trusting
+        # the model's identity assertion or the URL filename.
+        for _, trait in output.dimensions:
+            if trait is None or not exact_evidence(trait, wine.vintage):
+                continue
+            heading_proof = evidence_from_trait(trait).model_copy(
+                update={"excerpt": trait.attribution_excerpt}
+            )
+            if verified(heading_proof):
+                result.identity_confirmed = True
+                result.identity_evidence = heading_proof
+                break
     result.vintage_confirmed = (
         output.vintage_confirmed
         and result.identity_confirmed
-        and exact_evidence(output.identity_evidence, wine.vintage)
+        and result.identity_evidence is not None
+        and exact_evidence(result.identity_evidence, wine.vintage)
     )
     comparisons = {item.dimension: item for item in output.comparisons}
     for key, trait in output.dimensions:

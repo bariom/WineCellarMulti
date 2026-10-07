@@ -1,0 +1,34 @@
+{
+  "name": "Testamatta", "producer": "Bibi Graetz", "vintage": "2018",
+  "sources": [
+    {
+      "url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20en.pdf",
+      "heading": "BI BI GRAETZ TESTAMATTA 2018",
+      "publisher": "Bibi Graetz", "role": "producer",
+      "observations": [
+        {"dimension": "fruit", "quote": "rich of blackberries and blueberries"},
+        {"dimension": "minerality", "quote": "light mineral undertone"},
+        {"dimension": "tannin", "quote": "silky and important tannins"}
+      ]
+    },
+    {
+      "url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20James%20Suckling_1.pdf",
+      "heading": "BIBI GRAETZ TOSCANA TESTAMATTA 2018",
+      "publisher": "James Suckling", "role": "critic",
+      "observations": [
+        {"dimension": "body", "quote": "full-bodied"},
+        {"dimension": "aromatic_intensity", "quote": "Very subtle aromas"}
+      ]
+    },
+    {
+      "url": "https://www.dunells.com/wine/red/bibi-graetz-testamatta-toscana-igt-2018-bottle-sangiovese",
+      "heading": "BIBI GRAETZ Testamatta, Toscana IGT 2018 Bottle (Sangiovese)",
+      "publisher": "Monica Larner", "role": "critic",
+      "observations": [
+        {"dimension": "acidity", "quote": "bright acidity"},
+        {"dimension": "body", "quote": "Feels light and sculpted", "publisher": "Jane Anson"},
+        {"dimension": "aromatic_intensity", "quote": "perfume that fills the glass", "publisher": "Jane Anson"}
+      ]
+    }
+  ]
+}
