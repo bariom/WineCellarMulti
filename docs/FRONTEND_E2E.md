@@ -135,6 +135,14 @@ wines outside the listed leading regions; they do not predict a rating. Run
 `npx playwright test e2e/taste-origins.spec.ts e2e/taste-profile.spec.ts e2e/taste-profile-layout.spec.ts`
 for the functional and responsive checks.
 
+Preferred grapes are visible outside the collapsed preferences, as ranked
+horizontal bars. Regions, appellations, producers and countries use the same
+chart inside the details. Values show relative accumulated evidence with the
+leading item set to 100; they are not percentages or average ratings. Frequency
+and blends affect the ranking. The layout suite checks raw weights above 1,
+ties, empty data, label/value geometry at 360/390/430/1440 pixels, and the reviewed
+`preferred-grapes-compact.png` baseline at 390 x 844.
+
 Forward a narrower selection or inspect it before execution:
 
 ```powershell

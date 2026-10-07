@@ -4,6 +4,7 @@ import { translate } from "../i18n";
 import type { LegacyTastingClaimResult, LegacyTastingClaimStatus, Locale, TasteProfile, TasteProfileAlgorithmDiagnostics, TasteProfileCollection, TasteProfileEvidence, Wine } from "../types";
 import { api } from "../services/api";
 import { TasteOrigins } from "./TasteOrigins";
+import { PreferenceRankingChart } from "./PreferenceRankingChart";
 
 const WineGeographyMap = lazy(() => import("../views/WineGeographyMap"));
 
@@ -208,7 +209,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
   const visibleStarRatingCount = wines
     ? evidence?.direct_rating_count ?? wines.filter((wine) => Number(wine.rating) > 0).length
     : overall?.star_rating_count ?? 0;
-  const attributeOrder = ["preferred_grapes", "preferred_regions", "preferred_appellations", "preferred_producers", "preferred_countries"];
+  const attributeOrder = ["preferred_regions", "preferred_appellations", "preferred_producers", "preferred_countries"];
   const attributeEntries = overall
     ? attributeOrder.flatMap((key) => overall.attributes[key]?.length
       ? [[key, overall.attributes[key]] as [string, Array<[string, number]>]]
@@ -412,6 +413,11 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
         </div>
       </section>
 
+      <section className="taste-profile-grapes" aria-label={italian ? "Le tue uve preferite" : "Your preferred grapes"}>
+        <PreferenceRankingChart values={overall.attributes.preferred_grapes || []} title={label("preferred_grapes")} locale={locale} />
+        <p>{italian ? "Le uve che emergono dai tuoi giudizi positivi, rispetto alla prima classificata. Contano anche quante volte le hai valutate: non è una media dei voti né una percentuale di gradimento. Nei blend il giudizio riguarda il vino nel suo insieme." : "Grapes emerging from your positive ratings, relative to the top ranked. How often you rated them also matters: this is not an average rating or an enjoyment percentage. For blends, the rating concerns the whole wine."}</p>
+      </section>
+
       {(attributeEntries.length || preferredOrigins.length) ? <section className="taste-profile-geography" aria-labelledby="taste-geography-heading">
         <div className="taste-profile-section-heading">
           <span>{italian ? "Geografia personale" : "Personal geography"}</span>
@@ -425,8 +431,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
         <div className="taste-profile-geography-layout">
           <div className="taste-profile-landmark-grid">
             {attributeEntries.map(([kind, values]) => <article key={kind}>
-              <span>{label(kind)}</span>
-              <div>{values.map(([name]) => <b key={name}>{label(name)}</b>)}</div>
+              <PreferenceRankingChart values={values.map(([name, value]) => [label(name), value])} title={label(kind)} locale={locale} />
             </article>)}
           </div>
           <div className="taste-profile-world-map">

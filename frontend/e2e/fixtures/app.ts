@@ -169,6 +169,7 @@ export const tasteProfileCollection = {
         minerality: { preference: .68, confidence: .69, samples: 15 },
       },
       attributes: {
+        preferred_grapes: [["Merlot", 12], ["Chardonnay", 6], ["Cabernet Sauvignon", 4.5], ["Cabernet Franc", 3], ["Sangiovese", 1.5]],
         preferred_countries: [["Italia", .88], ["Francia", .76], ["Svizzera", .61]],
         preferred_regions: [["Toscana", .82], ["Champagne", .78], ["Piemonte", .72], ["Ticino", .62]],
         preferred_appellations: [["Brunello di Montalcino DOCG", .74], ["Champagne Grand Cru", .70], ["Ticino DOC", .62]],
