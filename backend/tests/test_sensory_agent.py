@@ -285,6 +285,7 @@ def test_duplicate_submission_is_rejected(setup):
     db, context, _ = setup
     first = routes.start_research(SensoryResearchRequest(), BackgroundTasks(), db, context)
     assert first.status == "queued"
+    assert first.max_wines == 10 and first.selected_wines == 1
     with pytest.raises(HTTPException) as exc:
         routes.start_research(SensoryResearchRequest(), BackgroundTasks(), db, context)
     assert exc.value.status_code == 409

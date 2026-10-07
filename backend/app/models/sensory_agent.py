@@ -11,6 +11,10 @@ from app.db.base import Base
 class SensoryAgentRun(Base):
     __tablename__ = "sensory_agent_runs"
 
+    @property
+    def selected_wines(self) -> int:
+        return len(self.wine_ids or [])
+
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     household_id: Mapped[UUID] = mapped_column(
         ForeignKey("households.id", ondelete="CASCADE"), index=True

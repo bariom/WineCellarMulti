@@ -1631,6 +1631,6 @@ export type SensoryResearchResult = {
   sources: Array<{ url: string; title: string }>; model: string; prompt_version: string; cost_usd: string;
 };
 export type SensoryResearchRun = {
-  id: string; status: string; issue: string; max_wines: number; budget_usd: string; cost_usd: string;
+  id: string; status: string; issue: string; max_wines: number; selected_wines: number; budget_usd: string; cost_usd: string;
   results: SensoryResearchResult[]; created_at: string; updated_at: string;
 };

@@ -25,7 +25,7 @@ const result = {
   sources: [{ title: "Scheda tecnica del produttore · 2020", url: "https://producer.example/technical-sheet-2020" }], model: "test", prompt_version: "1", cost_usd: "0.02",
 };
 
-const completed = { id: "run-one", status: "completed", issue: "", max_wines: 10, budget_usd: "1", cost_usd: "0.02", results: [result, { ...result, wine_id: "wine-two", name: "Vino senza annata verificata", status: "incomplete", vintage_confirmed: false }, { ...result, wine_id: "wine-three", name: "Vino senza annata", vintage: "", status: "skipped", issue: "missing_vintage", vintage_confirmed: false, dimensions: {}, aromas: [], sources: [], summary: "", limitations: "", cost_usd: "0" }], created_at: "2026-10-07T08:00:00Z", updated_at: "2026-10-07T08:01:00Z" };
+const completed = { id: "run-one", status: "completed", issue: "", max_wines: 10, selected_wines: 3, budget_usd: "1", cost_usd: "0.02", results: [result, { ...result, wine_id: "wine-two", name: "Vino senza annata verificata", status: "incomplete", vintage_confirmed: false }, { ...result, wine_id: "wine-three", name: "Vino senza annata", vintage: "", status: "skipped", issue: "missing_vintage", vintage_confirmed: false, dimensions: {}, aromas: [], sources: [], summary: "", limitations: "", cost_usd: "0" }], created_at: "2026-10-07T08:00:00Z", updated_at: "2026-10-07T08:01:00Z" };
 
 for (const locale of ["it", "en"]) {
   test(`Sensory agent ${locale}: background research, source review and explicit apply`, async ({ page }, testInfo) => {
@@ -47,6 +47,9 @@ for (const locale of ["it", "en"]) {
     await page.getByRole("button", { name: it ? "Avvia ricerca autonoma" : "Start autonomous research" }).click();
     await expect(page.getByRole("button", { name: it ? "Ricerca in corso…" : "Researching…" })).toBeDisabled();
     await expect(page.getByRole("status")).toContainText(it ? "Ricerca completata" : "Research completed");
+    await expect(page.getByRole("status")).toContainText("3/3");
+    await expect(page.getByRole("status")).toContainText(it ? "1 saltato" : "1 skipped");
+    await expect(page.getByText(it ? /Selezionati 3 vini da valutare, su un massimo di 10/ : /Selected 3 wines to review, with a maximum of 10/)).toBeVisible();
     const proposals = page.getByRole("article");
     await expect(proposals).toHaveCount(3);
     await expect(proposals.nth(1).getByRole("button")).toHaveCount(0);

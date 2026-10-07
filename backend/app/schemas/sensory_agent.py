@@ -80,6 +80,7 @@ class SensoryResearchRunResponse(BaseModel):
     status: str
     issue: str
     max_wines: int
+    selected_wines: int
     budget_usd: Decimal
     cost_usd: Decimal
     results: list[SensoryResearchResult]

@@ -51,6 +51,9 @@ modificate dopo la ricerca. Le proposte applicate non si possono applicare di nu
 
 La selezione deduplica le identità e considera profili mancanti o con confidenza
 inferiore a 0,65. I dati privati delle altre cantine non entrano nella ricerca.
+Il numero impostato è un limite massimo: il rapporto mostra l’avanzamento sui
+vini effettivamente selezionati e conta separatamente quelli saltati. Quando
+il campione è più piccolo del limite, ne spiega le esclusioni.
 È consentita una sola ricerca attiva per cantina. Prima di ciascun vino si
 ricontrollano sessione, appartenenza e ruolo dell'amministratore.
 
