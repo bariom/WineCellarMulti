@@ -181,6 +181,14 @@ class CompletedDimension(BaseModel):
     references: list[ProfileReference] = Field(default_factory=list)
 
 
+class SourceCheck(BaseModel):
+    status: str
+    content_type: str = ""
+    http_status: int | None = None
+    matched_excerpts: int = 0
+    unmatched_excerpts: int = 0
+
+
 class SensoryResearchResult(BaseModel):
     wine_id: UUID
     identity_id: UUID | None = None
@@ -205,6 +213,7 @@ class SensoryResearchResult(BaseModel):
     complete_profile: dict[str, CompletedDimension] = Field(default_factory=dict)
     coverage: dict[str, int] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
+    source_checks: dict[str, SourceCheck] = Field(default_factory=dict)
     prompt_version: str = "2"
     cost_usd: Decimal = Decimal("0")
 

@@ -179,7 +179,7 @@ def apply_research(
     if profile is None:
         profile = WineSensoryProfile(identity_id=identity.id)
         db.add(profile)
-    if result.prompt_version == "4":
+    if result.prompt_version in {"4", "5"}:
         if (
             not result.vintage_confirmed
             or set(result.complete_profile) != set(SENSORY_DIMENSIONS)

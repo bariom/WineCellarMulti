@@ -32,8 +32,8 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
     ? { corroborated: "Riscontri", single_source: "1 fonte", wine_style: "Stile", similar_wines: "Simili", unknown: "" }
     : { corroborated: "Sources", single_source: "1 source", wine_style: "Style", similar_wines: "Similar", unknown: "" };
   const issues: Record<string, string> = it
-    ? { missing_evidence: "Prove mancanti", conflicting_sources: "Fonti discordanti", reference_disagreement: "Riferimenti troppo discordanti", unverified_excerpt: "Citazione non verificabile sulla pagina della fonte", unsupported_intensity: "La descrizione non sostiene l'intensità", historical_or_distant_vintage: "Fonte storica o annata troppo distante" }
-    : { missing_evidence: "Missing evidence", conflicting_sources: "Conflicting sources", reference_disagreement: "Reference wines disagree", unverified_excerpt: "Quotation could not be verified on the source page", unsupported_intensity: "Description does not support intensity", historical_or_distant_vintage: "Historical source or distant vintage" };
+    ? { source_unreadable: "Fonte non leggibile dal server", missing_evidence: "Prove mancanti", conflicting_sources: "Fonti discordanti", reference_disagreement: "Riferimenti troppo discordanti", unverified_excerpt: "Citazione non verificabile sulla pagina della fonte", unsupported_intensity: "La descrizione non sostiene l'intensità", historical_or_distant_vintage: "Fonte storica o annata troppo distante" }
+    : { source_unreadable: "Source could not be read by the server", missing_evidence: "Missing evidence", conflicting_sources: "Conflicting sources", reference_disagreement: "Reference wines disagree", unverified_excerpt: "Quotation could not be verified on the source page", unsupported_intensity: "Description does not support intensity", historical_or_distant_vintage: "Historical source or distant vintage" };
   const reportError = (err: unknown) => setError(err instanceof Error ? err.message : (it ? "Ricerca non disponibile." : "Research unavailable."));
 
   useEffect(() => {
@@ -120,7 +120,8 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
         <p>{it ? "Annata richiesta" : "Requested vintage"}: {result.vintage.trim() || (it ? "Mancante nella scheda vino" : "Missing from wine details")}</p>
         <strong>{labels[result.status] || result.status}</strong>
         {result.coverage && Object.keys(result.coverage).length > 0 && <p className="sensory-research-coverage">{it ? "Completezza" : "Completeness"}: {result.coverage.available}/{result.coverage.total} · {result.coverage.exact_vintage} {it ? "tratti dell'annata" : "vintage traits"} · {result.coverage.corroborated} {it ? "con riscontri indipendenti" : "independently corroborated"} · {result.coverage.estimated} {it ? "stimati" : "estimated"} · {result.coverage.unknown} {it ? "non determinabili" : "undetermined"}</p>}
-        {result.prompt_version === "4" && <p>{it ? "Un profilo completo può contenere stime: completezza e affidabilità sono distinte. I punteggi descrivono il sostegno delle prove, non una probabilità misurata di correttezza." : "A complete profile may contain estimates: completeness and reliability are distinct. Scores describe evidence support, not measured accuracy."}</p>}
+        {["4", "5"].includes(result.prompt_version) && <p>{it ? "Un profilo completo può contenere stime: completezza e affidabilità sono distinte. I punteggi descrivono il sostegno delle prove, non una probabilità misurata di correttezza." : "A complete profile may contain estimates: completeness and reliability are distinct. Scores describe evidence support, not measured accuracy."}</p>}
+        {Object.values(result.source_checks ?? {}).some(check => check.status !== "readable") && <p>{it ? "Alcune fonti non sono state leggibili dal server. La sintesi dell'agente può descriverle, ma non sono utilizzate come prove verificate." : "Some sources could not be read by the server. The agent's summary may describe them, but they are not used as verified evidence."}</p>}
         {result.summary && <p>{result.summary}</p>}
         {result.limitations && <p>{result.limitations}</p>}
         {result.issue === "missing_vintage" ? <p>{it ? "Ricerca non eseguita: inserisci l’annata nella scheda del vino e avvia una nuova ricerca." : "Research skipped: enter the vintage in wine details and start a new run."}</p> : !result.vintage_confirmed && <p>{it ? "Annata non verificata: proposta non applicabile." : "Vintage unverified: proposal cannot be applied."}</p>}
@@ -154,7 +155,10 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
           </div>)}</dl>}
           {!!result.warnings?.length && <p>{it ? "Alcuni valori sono stati scartati perché le citazioni, l'intensità, l'annata o l'accordo tra fonti non erano verificabili o sufficientemente sostenuti." : "Some values were rejected because quotations, intensity, vintage or source agreement could not be verified or sufficiently supported."}</p>}
         </details>}
-        <ul>{result.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || source.url} ↗</a></li>)}</ul>
+        <ul>{result.sources.map(source => {
+          const check = result.source_checks?.[source.url];
+          return <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || source.url} ↗</a>{check && <span> · {check.status === "readable" ? (it ? `Fonte letta: ${check.matched_excerpts} citazioni verificate, ${check.unmatched_excerpts} non corrispondenti` : `Source read: ${check.matched_excerpts} verified quotations, ${check.unmatched_excerpts} unmatched`) : (it ? "Fonte non leggibile" : "Source unreadable")}{check.http_status && check.http_status !== 200 ? ` (HTTP ${check.http_status})` : ""}</span>}</li>;
+        })}</ul>
         {(result.baseline_validated || result.baseline_source === "manual") && <p>{it ? "Ricerca di confronto: il profilo precedente manuale o validato resta conservato." : "Comparison research: the previous manual or validated profile is preserved."}</p>}
         {result.status === "ready" && !result.baseline_validated && result.baseline_source !== "manual" && <button type="button" className="secondary compact" disabled={busy || running} onClick={() => void apply(result.wine_id)}>{it ? "Usa questo profilo" : "Apply this profile"}</button>}
       </article>)}</div>

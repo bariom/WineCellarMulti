@@ -17,11 +17,12 @@ from app.schemas.sensory_agent import (
     ResearchEvidence,
     ResearchTrait,
     SensoryResearchResult,
+    SourceCheck,
     SourceEvidence,
     SourceTrait,
 )
 from app.services.openai_client import OpenAIResponse
-from app.services.score_sources import public_page_text
+from app.services.score_sources import read_public_document
 from app.services.shared_wine_data import normalize_identity_part as norm
 from app.services.taste_profiles import SENSORY_DIMENSIONS
 
@@ -34,8 +35,10 @@ def supports_intensity(dimension: str, trait: SourceTrait) -> bool:
     intensity = bool(
         re.search(
             r"\b(high|low|medium|full|light|firm|strong|powerful|pronounced|marked|vibrant|"
-            r"fresh|some|little|no|without|absent)\b|intens|decis|spiccat|elevat|contenut|"
-            r"scarso|fresc|vivac|legger|pien|medio|mittelschwer|faible|puissant",
+            r"fresh|some|little|hint|subtle|delicate|no|without|absent)\b|intens|decis|"
+            r"spiccat|elevat|contenut|scarso|fresc|vivac|legger|pien|medio|mittelschwer|"
+            r"faible|puissant|ample|moyen|leger|plein|fyllig|medelfyllig|frisk|"
+            r"\b(hog|lag|liten|stor)\b|subtil|kraftig|dezent|ausgepragt|leicht|vollmundig",
             text,
         )
     )
@@ -43,7 +46,9 @@ def supports_intensity(dimension: str, trait: SourceTrait) -> bool:
         intensity = bool(
             re.search(
                 r"(firm|strong|powerful|pronounced|high|low|medium|light|intense)\s+(tannin|tannic)|"
-                r"tannin\w*\s+(decis|intens|robust|legger|elevat|contenut|marcat)",
+                r"tannin\w*\s+(decis|intens|robust|legger|elevat|contenut|marcat|firm|"
+                r"strong|ferme|puissant|fasta|strama|kraftig)|"
+                r"(fasta|strama|kraftiga|fermes|puissants)\s+tannin",
                 text,
             )
         )
@@ -52,8 +57,11 @@ def supports_intensity(dimension: str, trait: SourceTrait) -> bool:
     if dimension == "acidity":
         intensity = bool(
             re.search(
-                r"fresc|vivac|vibrant|fresh|high acidity|low acidity|medium acidity|acidite vive|"
-                r"acidit\w* (elevat|contenut|medio|spiccat)",
+                r"fresh acidity|fresh finish|high\s+(fresh\s+)?acidity|low acidity|medium acidity|"
+                r"acidite (vive|elevee|faible)|"
+                r"acidit\w* (elevat|contenut|medio|spiccat|fresc|vivac)|"
+                r"freschezza|fraicheur|(frisk\w*|hog|lag)\s+(frukt)?syra|"
+                r"(frisch\w*|hoch\w*|niedrig\w*)\s+saure",
                 text,
             )
         )
@@ -75,25 +83,49 @@ def supports_intensity(dimension: str, trait: SourceTrait) -> bool:
         dimension == "body"
         and re.search(r"structur|struttur|persist|long|lung", text)
         and not re.search(
-            r"body|bodied|corpo|pien|full|medium|light|mittelschwer|ample|corpulent", text
+            r"body|bodied|corpo|pien|full|medium|light|mittelschwer|ample|corpulent|corps|"
+            r"fyllig|vollmundig",
+            text,
         )
     ):
         return False
     if dimension == "fruit" and not re.search(
-        r"intens|pronoun|rich|heavy|abundant|juicy|succulent|ricc|evident|fruttat|fruit.forward",
+        r"intens|pronoun|rich|heavy|abundant|juicy|succulent|ricc|evident|fruttat|fruity|fruit.forward|"
+        r"fruktig|fruite|saftig",
         text,
     ):
         return False
     if dimension == "fruit":
         intensity = True  # Fruit-specific intensity terms have passed the guard above.
-    if dimension == "body" and not re.search(r"bodied|body|corpo|pien|corpulent|ample", text):
+    if dimension == "body" and not re.search(
+        r"bodied|body|corpo|pien|corpulent|ample|corps|fyllig|vollmundig|mittelschwer", text
+    ):
         return False
     if dimension == "wood" and not re.search(
-        r"wood|oak|bois|legno|vanill|toast|cedar|tostat", text
+        r"wood|oak|bois|legno|vanill|vanilj|toast|cedar|tostat|ekfat|fatkaraktar|eiche|holz", text
     ):
         return False
     if dimension == "sweetness":
-        intensity = intensity or bool(re.search(r"dry|sweet|secc|dolc|abboccat|amabil", text))
+        intensity = intensity or bool(
+            re.search(r"dry|sweet|secc|dolc|abboccat|amabil|\btorr\w*\b|\bsec\b|trocken", text)
+        )
+    if dimension == "spice" and not re.search(r"spic|spezi|krydd|wurz|epic", text):
+        return False
+    if dimension == "minerality" and not re.search(r"mineral|salin|flint|sapid", text):
+        return False
+    if dimension == "aromatic_intensity":
+        strength = (
+            r"intens\w*|powerful|pronounced|strong|delicat\w*|restrained|"
+            r"puissant\w*|kraftig\w*|stor"
+        )
+        aroma = r"aroma\w*|nose|bouquet|nez|profum\w*|doft\w*|duft\w*|naso"
+        return bool(
+            re.search(
+                rf"({strength})(?:\s+\w+){{0,3}}\s+({aroma})|"
+                rf"({aroma})(?:\s+\w+){{0,3}}\s+({strength})",
+                text,
+            )
+        )
     if (
         dimension == "aromatic_intensity"
         and re.search(r"complex|layers|dimension|variet", text)
@@ -125,6 +157,7 @@ def build_complete_proposal(
     baseline: dict,
     *,
     source_texts: dict[str, str] | None = None,
+    prompt_version: str = "4",
 ) -> SensoryResearchResult:
     # Local import avoids a module cycle; the same public URL policy applies to every source.
     from app.services.sensory_agent import public_source_url
@@ -137,7 +170,7 @@ def build_complete_proposal(
         vintage=wine.vintage,
         baseline=baseline,
         status="no_evidence",
-        prompt_version="4",
+        prompt_version=prompt_version,
         model=response.model,
         cost_usd=response.charged_cost_usd,
         complete_profile={
@@ -162,6 +195,7 @@ def build_complete_proposal(
     }
     used: set[str] = set()
     pages: dict[str, str] = {} if source_texts is None else dict(source_texts)
+    verdicts: dict[tuple[str, str], bool] = {}
 
     def verified(evidence: SourceEvidence) -> bool:
         url = public_source_url(evidence.source_url)
@@ -171,7 +205,23 @@ def build_complete_proposal(
         used.add(url)
         if url not in pages:
             # The reader checks DNS/redirects, pins public addresses, and bounds size/time.
-            pages[url] = public_page_text(url) if len(pages) < 12 and source_texts is None else ""
+            if len(pages) < 12 and source_texts is None:
+                document = read_public_document(url, allow_pdf=True)
+                pages[url] = document.text
+                result.source_checks[url] = SourceCheck(
+                    status=document.status,
+                    content_type=document.content_type,
+                    http_status=document.http_status,
+                )
+            else:
+                pages[url] = ""
+                result.source_checks[url] = SourceCheck(status="limit")
+        check = result.source_checks.setdefault(
+            url, SourceCheck(status="readable" if pages[url] else "empty")
+        )
+        cache_key = (url, evidence.excerpt)
+        if cache_key in verdicts:
+            return verdicts[cache_key]
         page = norm(pages[url])
         segments = [
             norm(part) for part in re.split(r"\.{3}|\u2026", evidence.excerpt) if norm(part)
@@ -180,6 +230,8 @@ def build_complete_proposal(
             warning = "source_excerpt_unverified:" + url
             if warning not in result.warnings:
                 result.warnings.append(warning)
+            check.unmatched_excerpts += 1
+            verdicts[cache_key] = False
             return False
         position = 0
         for segment in segments:
@@ -188,8 +240,12 @@ def build_complete_proposal(
                 warning = "source_excerpt_unverified:" + url
                 if warning not in result.warnings:
                     result.warnings.append(warning)
+                check.unmatched_excerpts += 1
+                verdicts[cache_key] = False
                 return False
             position = found + len(segment)
+        check.matched_excerpts += 1
+        verdicts[cache_key] = True
         return True
 
     result.summary, result.limitations = output.summary, output.limitations
@@ -203,7 +259,12 @@ def build_complete_proposal(
         if trait is None:
             continue
         if not verified(trait):
-            result.complete_profile[key].issue = "unverified_excerpt"
+            result.complete_profile[key].issue = (
+                "source_unreadable"
+                if result.source_checks.get(trait.source_url)
+                and result.source_checks[trait.source_url].status != "readable"
+                else "unverified_excerpt"
+            )
             continue
         if not supports_intensity(key, trait):
             result.complete_profile[key].issue = "unsupported_intensity"

@@ -22,7 +22,7 @@ esistenti. Distribuire anche il frontend aggiornato. Restano valide le impostazi
 4. Revisionare una proposta completa prima di usare **Usa questo profilo**.
    Il salvataggio non equivale alla validazione umana.
 
-## Fasi del percorso v4
+## Fasi del percorso v5
 
 Il prompt versionato `wine.sensory_research` e un contratto JSON rigoroso richiedono
 identificazione, prove per annata, confronto, ricerca mirata delle lacune e fino a
@@ -40,16 +40,28 @@ Il prompt e controlli server respingono confusioni note: tannini morbidi non
 indicano intensita bassa; acidita equilibrata non indica intensita alta;
 complessita o liste di aromi non misurano intensita aromatica; acciaio o assenza
 di affinamento in legno non dimostrano zero aromi di legno. I controlli lessicali
-sono conservativi, non sostituiscono una valutazione sensoriale.
+riconoscono anche descrittori svedesi, francesi e tedeschi, conservando gli estratti
+nella lingua originale. Non convertono freschezza di un aroma fruttato in acidita
+del vino. Sono conservativi, non sostituiscono una valutazione sensoriale.
 
 ### 2. Verifica e confronto delle prove
 
 Gli URL devono comparire nelle fonti effettivamente citate dal provider. Il server
 confronta gli estratti normalizzati con il testo pubblico delle pagine, gestendo
 anche omissioni con puntini. La lettura controlla DNS, IP pubblici e redirect,
-non invia credenziali, limita dimensione e tempo e consulta al massimo 12 pagine.
-Estratti assenti, pagine inaccessibili e contenuti non supportati (inclusi PDF)
-non vengono considerati prove verificate. Il report segnala gli scarti: non si
+non invia credenziali e consulta al massimo 12 fonti. Legge HTML fino a 2 MB e
+PDF fino a 10 MB, anche da endpoint senza estensione .pdf. La nuova dipendenza
+`pypdf` richiede l'aggiornamento delle dipendenze backend o la ricostruzione
+dell'immagine di distribuzione. Il percorso dei punteggi critici conserva il
+precedente limite HTML di 750 KB.
+
+I PDF vengono estratti in un processo separato: massimo 100 pagine, 500.000
+caratteri, 10 secondi e monitoraggio della memoria con arresto oltre 384 MB.
+Documenti cifrati, malformati, fuori limite o privi di testo (scansioni senza OCR)
+non vengono considerati prove. Il rapporto distingue errori di lettura, stato
+HTTP e citazioni che non corrispondono a una fonte leggibile; non mostra questi
+casi indistintamente come mancanza di informazioni sul vino. Il report segnala
+gli scarti: non si
 sostituisce la verifica con una dichiarazione del modello.
 
 Una dimensione corroborata richiede annata esatta, almeno due host ed editori
@@ -99,7 +111,8 @@ ai nuovi valori prove riferite ai precedenti. Il rapporto originale resta conser
 
 Profili manuali o validati, identita cambiate e valori modificati dopo la ricerca
 restano protetti. I rapporti v1-v3 rimangono leggibili e mantengono le precedenti
-regole di applicazione: non ricevono retroattivamente prove o completezza v4.
+regole di applicazione: non ricevono retroattivamente prove o completezza nuova. I rapporti v4 restano compatibili, senza diagnosi
+di lettura aggiunte retroattivamente.
 
 ## Limiti operativi e valutazione
 
@@ -124,7 +137,7 @@ l'applicazione esplicita e la geometria a 360, 390, 430 e 1440 pixel.
 
 ```powershell
 cd backend
-.venv/Scripts/python.exe -m pytest tests/test_sensory_agent.py tests/test_sensory_agent_migration.py tests/test_taste_profiles.py
+.venv/Scripts/python.exe -m pytest tests/test_sensory_agent.py tests/test_sensory_sources.py tests/test_critic_scores.py
 cd ../frontend
 npx.cmd playwright test e2e/sensory-agent.spec.ts e2e/sensory-profiles.spec.ts
 npm.cmd run build

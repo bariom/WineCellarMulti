@@ -733,7 +733,7 @@ def test_api_requires_admin_and_scopes_run_reads(setup):
 
 def test_prompt_has_identity_grounding_language_and_no_invention():
     prompt = wine_sensory_research_prompt(wine_context={"name": "Test wine"}, locale="it")
-    assert prompt.id == "wine.sensory_research" and prompt.version == "4"
+    assert prompt.id == "wine.sensory_research" and prompt.version == "5"
     assert "Italian" in prompt.user and "Test wine" in prompt.user
     assert "Never invent" in prompt.system and "untrusted data" in prompt.system
     assert "Missing evidence means null" in prompt.system and "vintage_confirmed" in prompt.system
@@ -751,6 +751,89 @@ def test_v4_malformed_output_is_rejected(setup):
     assert all(item.value is None for item in result.complete_profile.values())
 
 
+@pytest.mark.parametrize(
+    "dimension,excerpt",
+    [
+        ("body", "Ett fylligt vin"),
+        ("body", "Un vin ample et puissant"),
+        ("body", "Ein vollmundiger Wein"),
+        ("acidity", "Frisk fruktsyra"),
+        ("sweetness", "Torrt vitt vin"),
+        ("fruit", "Fruktig och saftig"),
+        ("fruit", "Fruity with ripe strawberry flavours"),
+        ("wood", "Liten fatkaraktar med vanilj"),
+        ("spice", "a hint of ginger spice"),
+    ],
+)
+def test_intensity_guards_accept_source_language_without_translating_quotes(
+    setup, dimension, excerpt
+):
+    from app.schemas.sensory_agent import SourceTrait
+    from app.services.sensory_completion import supports_intensity
+
+    _, _, wine = setup
+    data = complete_output(wine)["dimensions"][dimension]
+    data["excerpt"] = excerpt
+    assert supports_intensity(dimension, SourceTrait.model_validate(data))
+
+
+def test_fresh_fruit_aroma_does_not_establish_acidity(setup):
+    from app.schemas.sensory_agent import SourceTrait
+    from app.services.sensory_completion import supports_intensity
+
+    _, _, wine = setup
+    data = complete_output(wine)["dimensions"]["acidity"]
+    data["excerpt"] = "Fresh grapefruit and white flower aromas"
+    assert not supports_intensity("acidity", SourceTrait.model_validate(data))
+
+
+@pytest.mark.parametrize(
+    "dimension,excerpt",
+    [
+        ("aromatic_intensity", "Il Palagio: a full-bodied wine with cherry aromas"),
+        ("spice", "Full-bodied with firm tannins"),
+        ("minerality", "A powerful nose of ripe cherry"),
+    ],
+)
+def test_intensity_of_another_trait_cannot_support_the_requested_dimension(
+    setup, dimension, excerpt
+):
+    from app.schemas.sensory_agent import SourceTrait
+    from app.services.sensory_completion import supports_intensity
+
+    _, _, wine = setup
+    data = complete_output(wine)["dimensions"][dimension]
+    data["excerpt"] = excerpt
+    assert not supports_intensity(dimension, SourceTrait.model_validate(data))
+
+
+def test_v5_reports_distinguish_failed_retrieval_from_unmatched_quotations(setup, monkeypatch):
+    import app.services.sensory_completion as completion
+    from app.services.score_sources import DocumentText
+
+    _, _, wine = setup
+    payload = complete_output(wine)
+    monkeypatch.setattr(
+        completion,
+        "read_public_document",
+        lambda url, **kwargs: DocumentText(status="unavailable", http_status=403),
+    )
+    failed = agent.proposal_from_response(wine, response(payload), {}, prompt_version="5")
+    assert failed.prompt_version == "5" and failed.status == "no_evidence"
+    assert failed.complete_profile["tannin"].issue == "source_unreadable"
+    assert all(check.http_status == 403 for check in failed.source_checks.values())
+    monkeypatch.setattr(
+        completion,
+        "read_public_document",
+        lambda url, **kwargs: DocumentText(
+            text="Different text", status="readable", http_status=200
+        ),
+    )
+    unmatched = agent.proposal_from_response(wine, response(payload), {}, prompt_version="5")
+    assert unmatched.complete_profile["tannin"].issue == "unverified_excerpt"
+    assert all(check.unmatched_excerpts > 0 for check in unmatched.source_checks.values())
+
+
 def test_source_page_is_read_once_per_cited_url(setup, monkeypatch):
     import app.services.sensory_completion as completion
 
@@ -763,7 +846,13 @@ def test_source_page_is_read_once_per_cited_url(setup, monkeypatch):
         calls.append(url)
         return pages.get(url, "")
 
-    monkeypatch.setattr(completion, "public_page_text", fetch)
+    from app.services.score_sources import DocumentText
+
+    monkeypatch.setattr(
+        completion,
+        "read_public_document",
+        lambda url, **kwargs: DocumentText(text=fetch(url), status="readable"),
+    )
     result = agent.proposal_from_response(wine, response(payload), {}, prompt_version="4")
     assert result.status == "ready"
     assert len(calls) == len(set(calls)) == 2
@@ -920,9 +1009,14 @@ def test_worker_researches_existing_profiles_without_changing_them(
 ):
     db, context, wine = setup
     import app.services.sensory_completion as completion
+    from app.services.score_sources import DocumentText
 
     monkeypatch.setattr(
-        completion, "public_page_text", lambda url: source_pages(complete_output(wine)).get(url, "")
+        completion,
+        "read_public_document",
+        lambda url, **kwargs: DocumentText(
+            text=source_pages(complete_output(wine)).get(url, ""), status="readable"
+        ),
     )
     profile = WineSensoryProfile(
         identity_id=wine.shared_identity_id,

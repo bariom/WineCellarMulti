@@ -8,7 +8,7 @@ def wine_sensory_research_prompt(*, wine_context: dict, locale: str) -> Prompt:
     requested_vintage = str(wine_context.get("vintage") or "").strip()
     return Prompt(
         id="wine.sensory_research",
-        version="4",
+        version="5",
         system=(
             "Research the expected organoleptic profile of the exact wine, producer and vintage. "
             "Use web search to find both producer technical sheets and independent external "
@@ -79,6 +79,12 @@ def wine_sensory_research_prompt(*, wine_context: dict, locale: str) -> Prompt:
             "For reference records, exact_vintage refers to the reference wine's own vintage, "
             "not the target vintage. Keep excerpts verbatim in the source language so the "
             "server can verify them against the cited public page. Do not paraphrase quotations. "
+            "Identity evidence should quote a contiguous heading or sentence identifying the "
+            "wine and vintage; do not concatenate separate fields into an invented sentence. "
+            "Preserve the source language, including Swedish, French and German intensity "
+            "descriptors. Retrieval failure is not proof that sensory information is absent: "
+            "seek another accessible source for the same claim. Distinguish blend discrepancies "
+            "in supplied metadata from a genuinely ambiguous cuvee; do not change user metadata. "
             "Never invent references or complete their profiles from stereotypes. "
             "Similar-wine estimates "
             "are calculated by Vinaris, not by you. production_style_matches=true only when "

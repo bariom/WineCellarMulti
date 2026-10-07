@@ -1646,6 +1646,7 @@ export type SensoryResearchResult = {
   baseline_source?: string; baseline_validated?: boolean; baseline_confidence?: number | null;
   complete_profile?: Record<string, CompletedSensoryDimension>;
   coverage?: Record<string, number>; warnings?: string[];
+  source_checks?: Record<string, { status: string; content_type: string; http_status: number | null; matched_excerpts: number; unmatched_excerpts: number }>;
   aromas: Array<{ name: string; excerpt: string; source_url: string }>;
   sources: Array<{ url: string; title: string }>; model: string; prompt_version: string; cost_usd: string;
 };

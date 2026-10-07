@@ -3,6 +3,7 @@
 import http.client
 import ipaddress
 import socket
+from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Any, cast
 from urllib.parse import urljoin, urlsplit
@@ -27,7 +28,15 @@ class PageText(HTMLParser):
             self.parts.append(data)
 
 
-def public_page_text(url: str) -> str:
+@dataclass(frozen=True)
+class DocumentText:
+    text: str = ""
+    status: str = "unavailable"
+    content_type: str = ""
+    http_status: int | None = None
+
+
+def read_public_document(url: str, *, allow_pdf: bool = False) -> DocumentText:
     """Pin each connection to a checked public IP, including every redirect."""
     try:
         for _ in range(3):
@@ -38,14 +47,14 @@ def public_page_text(url: str) -> str:
                 or parsed.username
                 or parsed.password
             ):
-                return ""
+                return DocumentText(status="blocked")
             port = parsed.port or (443 if parsed.scheme == "https" else 80)
             if port not in {80, 443}:
-                return ""
+                return DocumentText(status="blocked")
             addresses = socket.getaddrinfo(parsed.hostname, port, type=socket.SOCK_STREAM)
             ips = [str(address[4][0]) for address in addresses]
             if not ips or any(not ipaddress.ip_address(ip).is_global for ip in ips):
-                return ""
+                return DocumentText(status="blocked")
             connection_type = (
                 http.client.HTTPSConnection
                 if parsed.scheme == "https"
@@ -64,29 +73,71 @@ def public_page_text(url: str) -> str:
                     (parsed.path or "/") + (f"?{parsed.query}" if parsed.query else ""),
                     headers={
                         "User-Agent": "Vinaris-ScoreVerification/1.0",
-                        "Accept": "text/html,text/plain",
+                        "Accept": "text/html,text/plain,application/pdf"
+                        if allow_pdf
+                        else "text/html,text/plain",
                     },
                 )
                 response = connection.getresponse()
                 if response.status in {301, 302, 303, 307, 308}:
                     location = response.getheader("Location")
                     if not location:
-                        return ""
+                        return DocumentText(http_status=response.status)
                     url = urljoin(url, location)
                     continue
-                if response.status != 200 or not any(
-                    kind in response.getheader("Content-Type", "")
-                    for kind in ("text/html", "text/plain")
+                content_type = response.getheader("Content-Type", "").lower()
+                if response.status != 200:
+                    return DocumentText(content_type=content_type, http_status=response.status)
+                pdf = "application/pdf" in content_type or (
+                    allow_pdf and content_type.split(";", 1)[0] == "application/octet-stream"
+                )
+                if not (
+                    any(kind in content_type for kind in ("text/html", "text/plain"))
+                    or allow_pdf
+                    and pdf
                 ):
-                    return ""
-                content = response.read(750_001)
-                if len(content) > 750_000:
-                    return ""
+                    return DocumentText(
+                        status="unsupported", content_type=content_type, http_status=200
+                    )
+                limit = (10_000_000 if pdf else 2_000_000) if allow_pdf else 750_000
+                content = response.read(limit + 1)
+                if len(content) > limit:
+                    return DocumentText(
+                        status="too_large", content_type=content_type, http_status=200
+                    )
+                if pdf:
+                    from app.services.pdf_sources import extract_pdf_document
+
+                    extracted = extract_pdf_document(content)
+                    return DocumentText(
+                        text=extracted.text,
+                        status=extracted.status,
+                        content_type=content_type,
+                        http_status=200,
+                    )
                 parser = PageText()
-                parser.feed(content.decode("utf-8", errors="replace"))
-                return " ".join(" ".join(parser.parts).split())
+                charset = "utf-8"
+                if "charset=" in content_type:
+                    charset = content_type.split("charset=", 1)[1].split(";", 1)[0].strip(' "')
+                try:
+                    decoded = content.decode(charset, errors="replace")
+                except LookupError:
+                    decoded = content.decode("utf-8", errors="replace")
+                parser.feed(decoded)
+                value = " ".join(" ".join(parser.parts).split())
+                return DocumentText(
+                    text=value,
+                    status="readable" if value else "empty",
+                    content_type=content_type,
+                    http_status=200,
+                )
             finally:
                 connection.close()
     except (OSError, ValueError, http.client.HTTPException):
-        return ""
-    return ""
+        return DocumentText()
+    return DocumentText()
+
+
+def public_page_text(url: str) -> str:
+    """Keep the critic-score reader's HTML-only contract and size limit."""
+    return read_public_document(url).text

@@ -63,10 +63,12 @@ def proposal_from_response(
     prompt_version: str = "3",
     source_texts: dict[str, str] | None = None,
 ) -> SensoryResearchResult:
-    if prompt_version == "4":
+    if prompt_version in {"4", "5"}:
         from app.services.sensory_completion import build_complete_proposal
 
-        return build_complete_proposal(wine, response, baseline, source_texts=source_texts)
+        return build_complete_proposal(
+            wine, response, baseline, source_texts=source_texts, prompt_version=prompt_version
+        )
     result = SensoryResearchResult(
         wine_id=wine.id,
         identity_id=wine.shared_identity_id,

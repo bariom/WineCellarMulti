@@ -78,6 +78,30 @@ for (const incomplete of [false, true]) {
   });
 }
 
+test("Source diagnostics distinguish blocked retrieval and unmatched quotations", async ({ page }, testInfo) => {
+  await renderPanel(page, "it");
+  const proposal = { ...result, prompt_version: "5", status: "no_evidence", vintage_confirmed: false, confidence: 0, aromas: [],
+    dimensions: {}, comparisons: [], complete_profile: { body: { value: null, origin: "unknown", confidence: 0, issue: "source_unreadable", evidence: [], references: [] } },
+    source_checks: {
+      "https://producer.example/technical-sheet-2020": { status: "unavailable", content_type: "text/html", http_status: 403, matched_excerpts: 0, unmatched_excerpts: 1 },
+      "https://critic.example/review-2020": { status: "readable", content_type: "application/pdf", http_status: 200, matched_excerpts: 2, unmatched_excerpts: 1 },
+    }, sources: [...result.sources, { title: "Nota critica PDF", url: "https://critic.example/review-2020" }] };
+  await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, selected_wines: 1, results: [proposal] }] }));
+  await page.goto("/sensory-agent-test");
+  const article = page.getByRole("article");
+  await expect(article).toContainText("HTTP 403");
+  await expect(article).toContainText("2 citazioni verificate, 1 non corrispondenti");
+  await expect(article).toContainText("La sintesi dell'agente può descriverle");
+  await article.getByText("Confronto e prove", { exact: true }).click();
+  await expect(article).toContainText("Fonte non leggibile dal server");
+  await expect(article.getByRole("button", { name: "Usa questo profilo" })).toHaveCount(0);
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`sources-${width}.png`), fullPage: true });
+  }
+});
+
 for (const locale of ["it", "en"]) {
   test(`Sensory agent ${locale}: background research, source review and explicit apply`, async ({ page }, testInfo) => {
     const it = locale === "it";
