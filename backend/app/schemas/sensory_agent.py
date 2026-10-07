@@ -70,7 +70,7 @@ class SensoryResearchResult(BaseModel):
     aromas: list[ResearchAroma] = Field(default_factory=list)
     sources: list[dict[str, str]] = Field(default_factory=list)
     model: str = ""
-    prompt_version: str = "1"
+    prompt_version: str = "2"
     cost_usd: Decimal = Decimal("0")
 
 

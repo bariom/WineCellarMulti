@@ -188,6 +188,16 @@ def worker_context(
 def research_wine(
     db: Session, context: CurrentContext, wine: Wine, remaining: Decimal
 ) -> SensoryResearchResult | None:
+    if not wine.vintage.strip():
+        return SensoryResearchResult(
+            wine_id=wine.id,
+            identity_id=wine.shared_identity_id,
+            name=wine.name,
+            producer=wine.producer,
+            vintage=wine.vintage,
+            status="skipped",
+            issue="missing_vintage",
+        )
     # Reuse Vinaris provider selection, credit reservation and usage accounting.
     from app.api.routes.ai import (
         create_ai_response,

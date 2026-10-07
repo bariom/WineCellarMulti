@@ -39,6 +39,9 @@ dalla copertura documentata e dalla verifica dell'annata, non una probabilità c
 Un risultato richiede almeno tre dimensioni, una descrizione documentata e l'annata
 verificata per poter essere applicato. Evidenza insufficiente e annate non verificate
 producono proposte incomplete, senza pulsante di applicazione.
+L’annata della scheda vino viene inviata sia nel contesto sia come annata richiesta
+esplicita. Se manca, il vino viene saltato senza chiamate AI o costi: il rapporto
+invita a completare la scheda. Una fonte di un’altra annata non conferma quella richiesta.
 
 Le proposte persistono separatamente dai profili, inclusi fonti, aromi e limiti.
 L'applicazione aggiorna le dimensioni condivise dell'identità vino e mantiene il

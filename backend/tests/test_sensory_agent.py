@@ -232,6 +232,18 @@ def test_research_records_no_result_cost_and_audit(setup, monkeypatch):
     assert result.status == "failed" and result.cost_usd == Decimal("0.02")
     assert audits[0]["feature"] == "sensory_research"
     assert kwargs_seen["max_tool_calls"] == 3 and kwargs_seen["web_search"]
+    assert '"vintage": "2020"' in kwargs_seen["user_prompt"]
+    assert 'Requested vintage (annata richiesta): "2020"' in kwargs_seen["user_prompt"]
+
+
+@pytest.mark.parametrize("vintage", ["", "   "])
+def test_missing_vintage_does_not_call_ai(setup, monkeypatch, vintage):
+    db, context, wine = setup
+    wine.vintage = vintage
+    monkeypatch.setattr(ai, "create_ai_response", lambda *args, **kwargs: pytest.fail("No vintage"))
+    result = agent.research_wine(db, context, wine, Decimal("1"))
+    assert result.status == "skipped" and result.issue == "missing_vintage"
+    assert result.cost_usd == 0
 
 
 def test_worker_persists_proposals_without_mutating_profiles(setup, monkeypatch):
@@ -337,7 +349,7 @@ def test_api_requires_admin_and_scopes_run_reads(setup):
 
 def test_prompt_has_identity_grounding_language_and_no_invention():
     prompt = wine_sensory_research_prompt(wine_context={"name": "Test wine"}, locale="it")
-    assert prompt.id == "wine.sensory_research" and prompt.version == "1"
+    assert prompt.id == "wine.sensory_research" and prompt.version == "2"
     assert "Italian" in prompt.user and "Test wine" in prompt.user
     assert "Never invent" in prompt.system and "untrusted data" in prompt.system
     assert "Missing evidence means null" in prompt.system and "vintage_confirmed" in prompt.system

@@ -68,11 +68,12 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
       <p role="status">{labels[run.status] || run.status} · {run.results.length}/{run.max_wines} {it ? "vini esaminati" : "wines reviewed"} · ${run.cost_usd}</p>
       {run.issue && <p>{run.issue === "budget_limit" ? (it ? "Budget residuo insufficiente per un’altra ricerca." : "Remaining budget is insufficient for another search.") : (it ? "La ricerca si è interrotta. Le proposte già completate restano disponibili." : "Research stopped. Completed proposals remain available.")}</p>}
       <div className="sensory-research-results">{run.results.map(result => <article key={result.wine_id}>
-        <h5>{result.name}</h5><p>{result.producer} · {result.vintage}</p>
+        <h5>{result.name}</h5><p>{result.producer}</p>
+        <p>{it ? "Annata richiesta" : "Requested vintage"}: {result.vintage.trim() || (it ? "Mancante nella scheda vino" : "Missing from wine details")}</p>
         <strong>{labels[result.status] || result.status}</strong>
         {result.summary && <p>{result.summary}</p>}
         {result.limitations && <p>{result.limitations}</p>}
-        {!result.vintage_confirmed && <p>{it ? "Annata non verificata: proposta non applicabile." : "Vintage unverified: proposal cannot be applied."}</p>}
+        {result.issue === "missing_vintage" ? <p>{it ? "Ricerca non eseguita: inserisci l’annata nella scheda del vino e avvia una nuova ricerca." : "Research skipped: enter the vintage in wine details and start a new run."}</p> : !result.vintage_confirmed && <p>{it ? "Annata non verificata: proposta non applicabile." : "Vintage unverified: proposal cannot be applied."}</p>}
         {Object.keys(result.dimensions).length > 0 && <details><summary>{it ? "Confronto e prove" : "Comparison and evidence"}</summary><p>{it ? "Valori stimati su scala 0–1. Attendibilità" : "Estimated values on a 0–1 scale. Confidence"}: {Math.round(result.confidence * 100)}%</p>
           <dl>{Object.entries(result.dimensions).map(([key, trait]) => <div key={key}><dt>{it ? traitsIt[key] || key : key.replace(/_/g, " ")}</dt><dd>{result.baseline[key] ?? "—"} → {trait.value} · {trait.basis === "documented" ? (it ? "Descritto dalla fonte" : "Described by source") : (it ? "Interpretazione" : "Inferred")}<blockquote>{trait.excerpt}</blockquote><a href={trait.source_url} target="_blank" rel="noopener noreferrer">{it ? "Verifica fonte ↗" : "Verify source ↗"}</a></dd></div>)}</dl>
           {result.aromas.length > 0 && <p>{it ? "Aromi descritti" : "Described aromas"}: {result.aromas.map(aroma => aroma.name).join(", ")}</p>}

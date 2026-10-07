@@ -25,7 +25,7 @@ const result = {
   sources: [{ title: "Scheda tecnica del produttore · 2020", url: "https://producer.example/technical-sheet-2020" }], model: "test", prompt_version: "1", cost_usd: "0.02",
 };
 
-const completed = { id: "run-one", status: "completed", issue: "", max_wines: 10, budget_usd: "1", cost_usd: "0.02", results: [result, { ...result, wine_id: "wine-two", name: "Vino senza annata verificata", status: "incomplete", vintage_confirmed: false }], created_at: "2026-10-07T08:00:00Z", updated_at: "2026-10-07T08:01:00Z" };
+const completed = { id: "run-one", status: "completed", issue: "", max_wines: 10, budget_usd: "1", cost_usd: "0.02", results: [result, { ...result, wine_id: "wine-two", name: "Vino senza annata verificata", status: "incomplete", vintage_confirmed: false }, { ...result, wine_id: "wine-three", name: "Vino senza annata", vintage: "", status: "skipped", issue: "missing_vintage", vintage_confirmed: false, dimensions: {}, aromas: [], sources: [], summary: "", limitations: "", cost_usd: "0" }], created_at: "2026-10-07T08:00:00Z", updated_at: "2026-10-07T08:01:00Z" };
 
 for (const locale of ["it", "en"]) {
   test(`Sensory agent ${locale}: background research, source review and explicit apply`, async ({ page }, testInfo) => {
@@ -48,8 +48,12 @@ for (const locale of ["it", "en"]) {
     await expect(page.getByRole("button", { name: it ? "Ricerca in corso…" : "Researching…" })).toBeDisabled();
     await expect(page.getByRole("status")).toContainText(it ? "Ricerca completata" : "Research completed");
     const proposals = page.getByRole("article");
-    await expect(proposals).toHaveCount(2);
+    await expect(proposals).toHaveCount(3);
     await expect(proposals.nth(1).getByRole("button")).toHaveCount(0);
+    await expect(proposals.first()).toContainText(it ? "Annata richiesta: 2020" : "Requested vintage: 2020");
+    await expect(proposals.nth(2)).toContainText(it ? "Mancante nella scheda vino" : "Missing from wine details");
+    await expect(proposals.nth(2)).toContainText(it ? "Ricerca non eseguita" : "Research skipped");
+    await expect(proposals.nth(2).getByRole("button")).toHaveCount(0);
     await proposals.first().getByText(it ? "Confronto e prove" : "Comparison and evidence", { exact: true }).click();
     await expect(proposals.first()).toContainText("0.4 → 0.8");
     await expect(proposals.first()).toContainText(it ? "Interpretazione" : "Inferred");
