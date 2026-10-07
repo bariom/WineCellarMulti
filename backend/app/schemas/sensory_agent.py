@@ -10,6 +10,15 @@ class SensoryResearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     max_wines: int = Field(default=10, ge=1, le=20)
     budget_usd: Decimal = Field(default=Decimal("1"), ge=Decimal("0.05"), le=Decimal("5"))
+    wine_ids: list[UUID] | None = Field(default=None, min_length=1, max_length=20)
+
+
+class SensoryResearchCandidate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    name: str
+    producer: str
+    vintage: str
 
 
 class ResearchEvidence(BaseModel):

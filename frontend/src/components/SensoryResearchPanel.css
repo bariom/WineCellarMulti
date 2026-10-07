@@ -3,7 +3,14 @@
 .sensory-research p { line-height: 1.55; overflow-wrap: anywhere; }
 .sensory-research-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .sensory-research-controls label { display: grid; gap: 6px; flex: 1 1 150px; min-width: 0; }
-.sensory-research-controls input { width: 100%; min-width: 0; box-sizing: border-box; }
+.sensory-research-controls input, .sensory-research-controls select { width: 100%; min-width: 0; box-sizing: border-box; }
+.sensory-research-controls select { min-height: 44px; }
+.sensory-research-picker { flex: 1 1 100%; min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.sensory-research-wine-list { max-height: 280px; overflow-y: auto; }
+.sensory-research-wine-list label { display: flex; align-items: center; gap: 12px; min-height: 44px; padding-block: 8px; border-top: 1px solid var(--border); }
+.sensory-research-wine-list input { width: 20px; min-height: 20px; flex: 0 0 20px; }
+.sensory-research-wine-list span { min-width: 0; overflow-wrap: anywhere; }
+.sensory-research-wine-list small { display: block; margin-top: 4px; }
 .sensory-research button, .sensory-research input { min-height: 44px; }
 .sensory-research-results { display: grid; gap: 16px; }
 .sensory-research-results article { min-width: 0; padding-top: 16px; border-top: 1px solid var(--border); }

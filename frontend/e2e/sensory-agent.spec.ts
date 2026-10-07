@@ -92,3 +92,46 @@ test("Sensory agent exposes startup errors and restores controls", async ({ page
   await expect(page.getByRole("alert")).toContainText("already running");
   await expect(start).toBeEnabled();
 });
+
+for (const locale of ["it", "en"]) {
+  test(`Sensory agent ${locale}: choose wines independently of the automatic sample`, async ({ page }, testInfo) => {
+    const it = locale === "it";
+    await renderPanel(page, locale);
+    let requested: unknown;
+    await page.route("**/api/v1/taste-profile/admin/research-runs**", async route => {
+      if (route.request().url().endsWith("/candidates")) {
+        await route.fulfill({ json: [
+          { id: "poggio", name: "Rosso di Montalcino", producer: "Poggio Landi", vintage: "2016" },
+          { id: "frati", name: "I Frati", producer: "Cà dei Frati", vintage: "2020" },
+          { id: "missing", name: "Senza annata", producer: "Test", vintage: "" },
+        ] });
+      } else if (route.request().method() === "POST") {
+        requested = route.request().postDataJSON();
+        await route.fulfill({ status: 202, json: { ...completed, selected_wines: 1, max_wines: 1 } });
+      } else await route.fulfill({ json: [] });
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/sensory-agent-test");
+    await page.getByLabel(it ? "Vini da analizzare" : "Wines to research", { exact: true }).selectOption("manual");
+    const start = page.getByRole("button", { name: it ? "Avvia ricerca autonoma" : "Start autonomous research" });
+    await expect(start).toBeDisabled();
+    await expect(page.getByRole("checkbox", { name: /Senza annata/ })).toBeDisabled();
+    const filter = page.getByLabel(it ? "Cerca nome, produttore o annata" : "Search name, producer or vintage");
+    await filter.fill("2020");
+    await expect(page.getByRole("checkbox")).toHaveCount(1);
+    await page.getByRole("checkbox", { name: /I Frati/ }).check();
+    await filter.fill("");
+    await expect(page.getByRole("checkbox", { name: /I Frati/ })).toBeChecked();
+    await expect(page.getByRole("checkbox", { name: /Rosso di Montalcino/ })).not.toBeChecked();
+    for (const width of [360, 390, 430, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const list = (await page.getByRole("group", { name: it ? "Scegli fino a 20 vini" : "Choose up to 20 wines" }).boundingBox())!;
+      const button = (await start.boundingBox())!;
+      expect(button.y).toBeGreaterThanOrEqual(list.y + list.height);
+      if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`picker-${width}.png`), fullPage: true });
+    }
+    await start.click();
+    expect(requested).toEqual({ max_wines: 1, budget_usd: "1", wine_ids: ["frati"] });
+  });
+}

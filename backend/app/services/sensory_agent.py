@@ -155,14 +155,23 @@ def proposal_from_response(
     return result
 
 
-def candidate_wines(db: Session, context: CurrentContext, limit: int) -> list[Wine]:
+def candidate_wines(
+    db: Session, context: CurrentContext, limit: int | None, *, wine_ids: list[UUID] | None = None
+) -> list[Wine]:
     candidates: list[Wine] = []
     seen: set[object] = set()
-    for wine in db.scalars(
+    query = (
         select(Wine)
         .where(Wine.household_id == context.household.id)
         .order_by(Wine.created_at, Wine.id)
-    ):
+    )
+    if wine_ids is not None:
+        query = query.where(Wine.id.in_(wine_ids))
+    wines = list(db.scalars(query))
+    if wine_ids is not None:
+        order = {wine_id: index for index, wine_id in enumerate(wine_ids)}
+        wines.sort(key=lambda wine: order[wine.id])
+    for wine in wines:
         identity = wine.shared_identity_id or (wine.producer, wine.name, wine.vintage)
         if identity in seen:
             continue
@@ -171,7 +180,7 @@ def candidate_wines(db: Session, context: CurrentContext, limit: int) -> list[Wi
         if profile and (profile.validated or profile.source == "manual"):
             continue
         candidates.append(wine)
-        if len(candidates) >= limit:
+        if limit is not None and len(candidates) >= limit:
             break
     return candidates
 

@@ -451,3 +451,79 @@ def test_previous_reports_remain_readable():
         }
     )
     assert old.comparisons == [] and old.prompt_version == "2"
+
+
+def test_explicit_selection_only_schedules_requested_wines_in_order(setup):
+    db, context, wine = setup
+    second = make_wine(db, context.household, name="Second wine")
+    db.commit()
+    run = routes.start_research(
+        SensoryResearchRequest(max_wines=2, wine_ids=[second.id, wine.id]),
+        BackgroundTasks(),
+        db,
+        context,
+    )
+    assert run.selected_wines == 2
+    assert db.get(SensoryAgentRun, run.id).wine_ids == [str(second.id), str(wine.id)]
+
+
+@pytest.mark.parametrize("case", ["foreign", "manual", "validated", "missing", "over_limit"])
+def test_explicit_selection_rejects_unavailable_or_protected_wines(setup, case):
+    db, context, wine = setup
+    target_id = wine.id
+    if case == "foreign":
+        other = Household(name="Other")
+        db.add(other)
+        db.flush()
+        target_id = make_wine(db, other, name="Private").id
+    elif case in {"manual", "validated"}:
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                source="manual" if case == "manual" else "ai",
+                validated=case == "validated",
+            )
+        )
+    elif case == "missing":
+        target_id = uuid4()
+    ids = [target_id]
+    if case == "over_limit":
+        ids.append(make_wine(db, context.household, name="Second").id)
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        routes.start_research(
+            SensoryResearchRequest(max_wines=1, wine_ids=ids), BackgroundTasks(), db, context
+        )
+    assert exc.value.status_code == 422
+    assert db.scalar(select(SensoryAgentRun)) is None
+
+
+def test_candidate_endpoint_scopes_and_deduplicates_wines(setup):
+    db, context, wine = setup
+    other = Household(name="Other")
+    db.add(other)
+    db.flush()
+    make_wine(db, other, name="Private")
+    make_wine(db, context.household)
+    protected = make_wine(db, context.household, name="Protected")
+    db.add(WineSensoryProfile(identity_id=protected.shared_identity_id, validated=True))
+    db.commit()
+    app = FastAPI()
+    app.include_router(routes.router)
+    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_current_context] = lambda: context
+    with TestClient(app) as client:
+        url = "/taste-profile/admin/research-runs/candidates"
+        response = client.get(url)
+        assert response.status_code == 200
+        assert [item["id"] for item in response.json()] == [str(wine.id)]
+        context.user.is_app_admin = False
+        assert client.get(url).status_code == 403
+
+
+@pytest.mark.parametrize("ids", [[], [uuid4() for _ in range(21)]])
+def test_explicit_selection_has_bounded_nonempty_request(ids):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        SensoryResearchRequest(wine_ids=ids)

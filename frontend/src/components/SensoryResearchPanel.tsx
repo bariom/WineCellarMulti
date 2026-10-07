@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Locale, SensoryResearchRun } from "../types";
+import type { Locale, SensoryResearchCandidate, SensoryResearchRun } from "../types";
 import { api } from "../services/api";
 import "./SensoryResearchPanel.css";
 
@@ -12,6 +12,14 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
   const [budget, setBudget] = useState("1");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [selectionMode, setSelectionMode] = useState("automatic");
+  const [candidates, setCandidates] = useState<SensoryResearchCandidate[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [candidateError, setCandidateError] = useState("");
+  const manual = selectionMode === "manual";
+  const visibleCandidates = candidates.filter(wine => `${wine.name} ${wine.producer} ${wine.vintage}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const running = run?.status === "queued" || run?.status === "running";
   const skipped = run?.results.filter(result => result.status === "skipped").length ?? 0;
   const labels: Record<string, string> = it
@@ -28,6 +36,20 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
   }, []);
 
   useEffect(() => {
+    if (!manual) return;
+    const controller = new AbortController();
+    setLoadingCandidates(true); setCandidateError("");
+    api<SensoryResearchCandidate[]>("/api/v1/taste-profile/admin/research-runs/candidates", { signal: controller.signal })
+      .then(wines => { if (!controller.signal.aborted) {
+        setCandidates(wines);
+        setSelectedIds(ids => ids.filter(id => wines.some(wine => wine.id === id && wine.vintage.trim())));
+      } })
+      .catch(err => { if (!controller.signal.aborted) setCandidateError(err instanceof Error ? err.message : (it ? "Elenco vini non disponibile." : "Wine list unavailable.")); })
+      .finally(() => { if (!controller.signal.aborted) setLoadingCandidates(false); });
+    return () => controller.abort();
+  }, [manual]);
+
+  useEffect(() => {
     if (!run || !running) return;
     const controller = new AbortController();
     const timer = window.setInterval(() => {
@@ -39,9 +61,10 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
   }, [run?.id, running]);
 
   async function start() {
+    if (manual && (!selectedIds.length || loadingCandidates || candidateError)) return;
     setBusy(true); setError("");
     try {
-      setRun(await api<SensoryResearchRun>("/api/v1/taste-profile/admin/research-runs", { method: "POST", body: JSON.stringify({ max_wines: limit, budget_usd: budget }) }));
+      setRun(await api<SensoryResearchRun>("/api/v1/taste-profile/admin/research-runs", { method: "POST", body: JSON.stringify({ max_wines: manual ? selectedIds.length : limit, budget_usd: budget, ...(manual ? { wine_ids: selectedIds } : {}) }) }));
     } catch (err) { reportError(err); }
     finally { setBusy(false); }
   }
@@ -59,9 +82,23 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
     <h4 id="sensory-research-title">{it ? "Agente del profilo organolettico · Prototipo" : "Organoleptic profile agent · Prototype"}</h4>
     <p>{it ? "Confronta schede del produttore e descrizioni esterne indipendenti per verificare i profili automatici della cantina. Il profilo attuale è una stima non validata." : "Compare producer sheets and independent external tasting notes to verify automatic cellar profiles. The current profile is an unvalidated estimate."}</p>
     <form className="sensory-research-controls" onSubmit={event => { event.preventDefault(); void start(); }}>
-      <label>{it ? "Numero massimo di vini" : "Maximum number of wines"}<input type="number" min="1" max="20" required value={limit} disabled={running || busy} onChange={event => setLimit(Number(event.target.value))} /></label>
+      <label>{it ? "Vini da analizzare" : "Wines to research"}<select aria-label={it ? "Vini da analizzare" : "Wines to research"} value={selectionMode} disabled={running || busy} onChange={event => setSelectionMode(event.target.value)}><option value="automatic">{it ? "Selezione automatica" : "Automatic selection"}</option><option value="manual">{it ? "Scelgo io i vini" : "Choose wines myself"}</option></select></label>
+      {!manual && <label>{it ? "Numero massimo di vini" : "Maximum number of wines"}<input type="number" min="1" max="20" required value={limit} disabled={running || busy} onChange={event => setLimit(Number(event.target.value))} /></label>}
       <label>{it ? "Budget AI (USD)" : "AI budget (USD)"}<input type="number" min="0.05" max="5" step="0.05" required value={budget} disabled={running || busy} onChange={event => setBudget(event.target.value)} /></label>
-      <button type="submit" className="secondary compact" disabled={busy || running}>{running ? (it ? "Ricerca in corso…" : "Researching…") : (it ? "Avvia ricerca autonoma" : "Start autonomous research")}</button>
+      {manual && <fieldset className="sensory-research-picker" disabled={running || busy}>
+        <legend>{it ? "Scegli fino a 20 vini" : "Choose up to 20 wines"}</legend>
+        <label>{it ? "Cerca nome, produttore o annata" : "Search name, producer or vintage"}<input type="search" value={search} onChange={event => setSearch(event.target.value)} /></label>
+        <p>{selectedIds.length}/20 {it ? "vini selezionati" : "wines selected"}</p>
+        {loadingCandidates ? <p>{it ? "Caricamento vini…" : "Loading wines…"}</p> : candidateError ? <p role="alert">{candidateError}</p> : <>
+          <div className="sensory-research-wine-list">{visibleCandidates.map(wine => <label key={wine.id}>
+            <input type="checkbox" checked={selectedIds.includes(wine.id)} disabled={!wine.vintage.trim() || (!selectedIds.includes(wine.id) && selectedIds.length >= 20)} onChange={event => setSelectedIds(ids => event.target.checked ? [...ids, wine.id] : ids.filter(id => id !== wine.id))} />
+            <span><strong>{wine.name}</strong><small>{wine.producer} · {wine.vintage.trim() || (it ? "Annata mancante: completa la scheda" : "Missing vintage: complete wine details")}</small></span>
+          </label>)}</div>
+          {!visibleCandidates.length && <p>{it ? "Nessun vino disponibile per questa ricerca." : "No wines available for this search."}</p>}
+        </>}
+        <p className="muted">{it ? "I profili manuali e validati sono esclusi. Il filtro non modifica i vini già selezionati." : "Manual and validated profiles are excluded. Filtering preserves your selected wines."}</p>
+      </fieldset>}
+      <button type="submit" className="secondary compact" disabled={busy || running || (manual && (!selectedIds.length || loadingCandidates || !!candidateError))}>{running ? (it ? "Ricerca in corso…" : "Researching…") : (it ? "Avvia ricerca autonoma" : "Start autonomous research")}</button>
     </form>
     <p className="muted">{it ? "Massimo 20 vini e 6 consultazioni web per vino. Le ricerche continuano in background; i profili validati e le correzioni manuali sono protetti." : "Up to 20 wines and 6 web tool calls per wine. Research continues in the background; validated profiles and manual corrections are protected."}</p>
     {error && <p role="alert">{error}</p>}

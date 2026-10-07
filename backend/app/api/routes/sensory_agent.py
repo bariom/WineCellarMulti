@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models import Household, SensoryAgentRun, SharedWineIdentity, Wine, WineSensoryProfile
 from app.schemas.sensory_agent import (
+    SensoryResearchCandidate,
     SensoryResearchRequest,
     SensoryResearchResult,
     SensoryResearchRunResponse,
@@ -61,7 +62,15 @@ def start_research(
         expire_interrupted(active)
         if active.status in {"queued", "running"}:
             raise HTTPException(409, "Research is already running for this cellar")
-    candidates = candidate_wines(db, context, payload.max_wines)
+    if payload.wine_ids is not None:
+        requested = list(dict.fromkeys(payload.wine_ids))
+        if len(requested) > payload.max_wines:
+            raise HTTPException(422, "Selected wines exceed the maximum number")
+        candidates = candidate_wines(db, context, None, wine_ids=requested)
+        if {wine.id for wine in candidates} != set(requested):
+            raise HTTPException(422, "Selected wines are unavailable, duplicated or protected")
+    else:
+        candidates = candidate_wines(db, context, payload.max_wines)
     if not candidates:
         raise HTTPException(422, "No unvalidated automatic profiles in this cellar")
     run = SensoryAgentRun(
@@ -94,6 +103,15 @@ def list_research(
         expire_interrupted(run)
     db.commit()
     return [SensoryResearchRunResponse.model_validate(run) for run in runs]
+
+
+@router.get("/candidates", response_model=list[SensoryResearchCandidate])
+def list_candidates(
+    db: Session = Depends(get_db), context: CurrentContext = Depends(require_app_admin_context)
+) -> list[SensoryResearchCandidate]:
+    return [
+        SensoryResearchCandidate.model_validate(wine) for wine in candidate_wines(db, context, None)
+    ]
 
 
 @router.get("/{run_id}", response_model=SensoryResearchRunResponse)

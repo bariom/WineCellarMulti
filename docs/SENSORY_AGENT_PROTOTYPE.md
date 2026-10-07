@@ -17,7 +17,10 @@ Non occorre creare un agente nella dashboard OpenAI o configurare nuove chiavi.
 
 1. Accedere come amministratore applicativo e selezionare la cantina del campione.
 2. Aprire i profili sensoriali nelle impostazioni amministrative.
-3. Lasciare inizialmente 10 vini e verificare il budget, poi avviare la ricerca.
+3. Scegliere **Selezione automatica** oppure **Scelgo io i vini**. Nel secondo caso
+   cercare per nome, produttore o annata e selezionare fino a 20 vini. I vini senza
+   annata sono visibili ma non selezionabili: completare prima la scheda.
+   Verificare il budget, poi avviare la ricerca.
 4. Consultare il confronto con il profilo attuale, gli estratti e i link alle fonti.
 5. Confrontare le proposte con le schede dei produttori e le fonti esterne. Usare **Usa questo profilo**
    solo per una proposta adeguata; la normale validazione del profilo resta separata.
@@ -78,6 +81,11 @@ Gli endpoint `/api/v1/taste-profile/admin/research-runs` richiedono `CurrentCont
 di un amministratore applicativo:
 
 - `POST`: avvia una ricerca (`max_wines`, `budget_usd`), risposta `202`.
+- `GET /candidates`: vini selezionabili della cantina attiva, deduplicati e senza
+  profili manuali o validati. `POST` accetta anche `wine_ids` (1–20 UUID): ricerca
+  esclusivamente quei vini nell'ordine richiesto. ID fuori cantina, protetti,
+  identità duplicate o selezioni oltre `max_wines` vengono rifiutati; non si
+  sostituiscono silenziosamente i vini selezionati con un campione automatico.
 - `GET`: restituisce gli ultimi cinque rapporti della cantina attiva.
 - `GET /{run_id}`: consulta avanzamento e proposte.
 - `POST /{run_id}/wines/{wine_id}/apply`: applica esplicitamente una proposta pronta.

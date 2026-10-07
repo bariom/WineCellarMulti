@@ -1621,6 +1621,7 @@ export type SensoryProfileBaseline = {
   confidence: number;
   is_active: boolean;
 };
+export type SensoryResearchCandidate = { id: string; name: string; producer: string; vintage: string };
 export type SensoryResearchComparison = {
   dimension: string; agreement: "corroborated" | "conflicting" | "single_source";
   independent: boolean; explanation: string; evidence: Array<{ excerpt: string; source_url: string }>;
