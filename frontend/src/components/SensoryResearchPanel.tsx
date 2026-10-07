@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Locale, SensoryResearchCandidate, SensoryResearchRun } from "../types";
 import { api } from "../services/api";
 import "./SensoryResearchPanel.css";
@@ -8,6 +8,14 @@ const traitsIt: Record<string, string> = { body: "Corpo", acidity: "Acidità", t
 export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; onApplied: () => Promise<void> }) {
   const it = locale === "it";
   const [run, setRun] = useState<SensoryResearchRun | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  useEffect(() => { setDetailsOpen(false); }, [run?.id]);
+
+  function setAllDetails(open: boolean) {
+    setDetailsOpen(open);
+    resultsRef.current?.querySelectorAll("details").forEach(detail => { detail.open = open; });
+  }
   const [limit, setLimit] = useState(10);
   const [budget, setBudget] = useState("1");
   const [busy, setBusy] = useState(false);
@@ -124,7 +132,11 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
       <p role="status">{labels[run.status] || run.status} · {run.results.length}/{run.selected_wines} {it ? "vini valutati" : "wines reviewed"}{skipped > 0 ? ` · ${skipped} ${it ? (skipped === 1 ? "saltato" : "saltati") : "skipped"}` : ""} · ${run.cost_usd}</p>
       {run.selected_wines < run.max_wines && <p>{it ? `Selezionati ${run.selected_wines} vini da valutare, su un massimo di ${run.max_wines}. Ogni identità vino viene analizzata una sola volta.` : `Selected ${run.selected_wines} wines to review, with a maximum of ${run.max_wines}. Each wine identity is researched once.`}</p>}
       {run.issue && <p>{run.issue === "budget_limit" ? (it ? "Budget residuo insufficiente per un’altra ricerca." : "Remaining budget is insufficient for another search.") : (it ? "La ricerca si è interrotta. Le proposte già completate restano disponibili." : "Research stopped. Completed proposals remain available.")}</p>}
-      <div className="sensory-research-results">{run.results.map(result => {
+      {run.results.length > 0 && <div className="sensory-research-detail-actions">
+        <button type="button" className="secondary compact" onClick={() => setAllDetails(true)}>{it ? "Apri tutti i dettagli" : "Expand all details"}</button>
+        <button type="button" className="secondary compact" onClick={() => setAllDetails(false)}>{it ? "Chiudi tutti i dettagli" : "Collapse all details"}</button>
+      </div>}
+      <div className="sensory-research-results" ref={resultsRef} key={run.id}>{run.results.map(result => {
         const profile = Object.values(result.complete_profile ?? {});
         const available = profile.filter(item => item.value != null).length;
         const inferred = profile.filter(item => item.value != null && item.origin === "ai_inference").length;
@@ -142,16 +154,16 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
         {Object.values(result.source_checks ?? {}).some(check => check.status !== "readable") && <p>{it ? "Alcune fonti non sono state leggibili dal server. La sintesi dell'agente può descriverle, ma non sono utilizzate come prove verificate." : "Some sources could not be read by the server. The agent's summary may describe them, but they are not used as verified evidence."}</p>}
         {result.prompt_version !== "6" && result.summary && <p>{result.summary}</p>}
         {result.prompt_version !== "6" && result.limitations && <p>{result.limitations}</p>}
-        {(["6", "7", "8", "9"].includes(result.prompt_version) && (result.agent_summary || result.agent_limitations || (result.prompt_version === "6" && (result.summary || result.limitations)))) && <details>
+        {(["6", "7", "8", "9"].includes(result.prompt_version) && (result.agent_summary || result.agent_limitations || (result.prompt_version === "6" && (result.summary || result.limitations)))) && <details open={detailsOpen}>
           <summary>{it ? "Testo proposto dall'agente · non verificato" : "Agent draft text · unverified"}</summary>
           <p>{it ? "Le affermazioni di questo testo non confermano identità, annata o dati analitici: fanno fede le verifiche documentali e le citazioni controllate." : "Claims in this text do not confirm identity, vintage or analytical data: rely on documentary checks and verified quotations."}</p>
           <p>{result.agent_summary || result.summary}</p><p>{result.agent_limitations || result.limitations}</p>
         </details>}
         {result.issue === "missing_vintage" ? <p>{it ? "Ricerca non eseguita: inserisci l’annata nella scheda del vino e avvia una nuova ricerca." : "Research skipped: enter the vintage in wine details and start a new run."}</p> : <p>{result.vintage_confirmed ? (it ? "Annata con riscontro documentale verificato." : "Vintage has verified documentary support.") : ["6", "7", "8", "9"].includes(result.prompt_version) ? (it ? "Annata non verificata dalle fonti: le stime descrivono lo stile atteso, senza confermare le caratteristiche specifiche dell'annata." : "Vintage unverified by sources: estimates describe expected style without confirming vintage-specific characteristics.") : (it ? "Annata non verificata: proposta non applicabile." : "Vintage unverified: proposal cannot be applied.")}</p>}
-        {result.identity_evidence && <details><summary>{it ? "Riscontro sull'identità del vino" : "Wine identity evidence"}</summary><blockquote>{result.identity_evidence.excerpt}</blockquote><a href={result.identity_evidence.source_url} target="_blank" rel="noopener noreferrer">{it ? "Verifica identità ↗" : "Verify identity ↗"}</a></details>}
+        {result.identity_evidence && <details open={detailsOpen}><summary>{it ? "Riscontro sull'identità del vino" : "Wine identity evidence"}</summary><blockquote>{result.identity_evidence.excerpt}</blockquote><a href={result.identity_evidence.source_url} target="_blank" rel="noopener noreferrer">{it ? "Verifica identità ↗" : "Verify identity ↗"}</a></details>}
         {result.identity_ambiguous && <p>{it ? "Identità del vino ambigua: profilo provvisorio, non applicabile finché la cuvée non è chiarita." : "Wine identity ambiguous: provisional profile cannot be applied until the cuvée is clarified."}</p>}
         {result.warnings?.some(warning => warning.startsWith("completion_")) && <p>{it ? "Il completamento non è riuscito o è stato fermato dal budget: resta disponibile la ricerca già effettuata." : "Completion failed or was stopped by the budget: the existing research remains available."}</p>}
-        {(Object.keys(result.dimensions).length > 0 || Object.keys(result.baseline).length > 0 || Object.keys(result.complete_profile ?? {}).length > 0) && <details><summary>{it ? "Confronto e prove" : "Comparison and evidence"}</summary>
+        {(Object.keys(result.dimensions).length > 0 || Object.keys(result.baseline).length > 0 || Object.keys(result.complete_profile ?? {}).length > 0) && <details open={detailsOpen}><summary>{it ? "Confronto e prove" : "Comparison and evidence"}</summary>
           <p>{it ? "Profilo precedente" : "Previous profile"}: {result.baseline_source || (it ? "origine non registrata" : "origin not recorded")} · {result.baseline_validated ? (it ? "validato" : "validated") : (it ? "non validato" : "unvalidated")}{result.baseline_confidence != null && ` · ${it ? "punteggio interno" : "internal score"}: ${Math.round(result.baseline_confidence * 100)}%`}</p>
           <p>{it ? "Gli scostamenti mostrano differenze, non errori accertati: nessuno dei due profili è un riferimento di accuratezza. Un trattino indica un valore non disponibile." : "Differences are not proven errors: neither profile is an accuracy reference. A dash means the value is unavailable."}</p>
           <table className="sensory-research-comparison"><caption>{it ? "Valori precedenti e proposta dell'agente (0–1)" : "Previous values and agent proposal (0–1)"}</caption><thead><tr><th scope="col">{it ? "Caratteristica" : "Trait"}</th><th scope="col">{it ? "Prima" : "Before"}</th><th scope="col">{it ? "Agente" : "Agent"}</th><th scope="col">{it ? "Scarto" : "Change"}</th></tr></thead><tbody>{Object.keys(traitsIt).map(key => {
@@ -174,16 +186,16 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
               {dimension.calculation_method === "verified_descriptor_v1" && <><p>{it ? "Calcolato da descrittori verificati con una scala riproducibile. È una stima, non una misurazione." : "Calculated from verified descriptors using a reproducible scale. This is an estimate, not a measurement."}</p>{dimension.lower != null && dimension.upper != null && <p>{it ? "Intervallo interpretativo" : "Interpretative range"}: {dimension.lower.toFixed(2)}–{dimension.upper.toFixed(2)}</p>}</>}
               {dimension.origin === "ai_inference" && <>
                 <p>{dimension.sensory_support === "context" ? (it ? "La fonte verifica informazioni di contesto, non descrive questa caratteristica del gusto." : "The source verifies context, not this sensory trait.") : dimension.inference_basis ? inferenceBases[dimension.inference_basis] : (it ? "La base dell'inferenza non è registrata separatamente in questo rapporto." : "The inference basis was not recorded separately in this report.")}</p>
-                <details><summary>{it ? "Motivazione proposta dall'agente · non verificata" : "Agent rationale · unverified"}</summary><p>{dimension.rationale}</p></details>
+                <details open={detailsOpen}><summary>{it ? "Motivazione proposta dall'agente · non verificata" : "Agent rationale · unverified"}</summary><p>{dimension.rationale}</p></details>
                 {dimension.lower != null && dimension.upper != null && <p>{it ? "Intervallo plausibile" : "Plausible range"}: {dimension.lower.toFixed(2)}–{dimension.upper.toFixed(2)} · {it ? "non è un intervallo statistico calibrato" : "not a calibrated statistical interval"}</p>}
                 {dimension.issue && <p>{issues[dimension.evidence.length && ["missing_evidence", "unverified_excerpt", "source_unreadable"].includes(dimension.issue) ? "unsupported_intensity" : dimension.issue] || dimension.issue}</p>}
               </>}
-              {!!dimension.context_evidence?.length && <details><summary>{it ? "Contesto verificato · non è una descrizione del tratto" : "Verified context · not a trait description"}</summary>{dimension.context_evidence.map((evidence, index) => <div key={index}><blockquote>{evidence.excerpt}</blockquote><a href={evidence.source_url} target="_blank" rel="noopener noreferrer">{it ? "Verifica contesto ↗" : "Verify context ↗"}</a></div>)}</details>}
+              {!!dimension.context_evidence?.length && <details open={detailsOpen}><summary>{it ? "Contesto verificato · non è una descrizione del tratto" : "Verified context · not a trait description"}</summary>{dimension.context_evidence.map((evidence, index) => <div key={index}><blockquote>{evidence.excerpt}</blockquote><a href={evidence.source_url} target="_blank" rel="noopener noreferrer">{it ? "Verifica contesto ↗" : "Verify context ↗"}</a></div>)}</details>}
               {!!dimension.unverified_evidence?.length && <div className="sensory-research-unverified"><strong>{it ? "Informazioni non verificate: non sono prove" : "Unverified information: not evidence"}</strong>{dimension.unverified_evidence.map((evidence, index) => <div key={index}><blockquote>{evidence.excerpt}</blockquote><p>{evidence.publisher}</p><a href={evidence.source_url} target="_blank" rel="noopener noreferrer">{it ? "Apri fonte non verificata ↗" : "Open unverified source ↗"}</a></div>)}</div>}
               {dimension.references.map(reference => <div key={`${reference.producer}-${reference.name}-${reference.vintage}`}>
                 <p>{reference.name} · {reference.producer} · {reference.vintage || (it ? "stile generale" : "general style")} · {reference.value.toFixed(2)}</p>
                 {reference.identity_evidence && <a href={reference.identity_evidence.source_url} target="_blank" rel="noopener noreferrer">{it ? "Verifica identità del riferimento ↗" : "Verify reference identity ↗"}</a>}
-                {!!reference.production_evidence?.length && <details><summary>{it ? "Confronto dello stile produttivo" : "Production style comparison"}</summary>{reference.production_evidence.map((proof, index) => <div key={index}><blockquote>{proof.excerpt}</blockquote><a href={proof.source_url} target="_blank" rel="noopener noreferrer">{it ? "Verifica fonte ↗" : "Verify source ↗"}</a></div>)}</details>}
+                {!!reference.production_evidence?.length && <details open={detailsOpen}><summary>{it ? "Confronto dello stile produttivo" : "Production style comparison"}</summary>{reference.production_evidence.map((proof, index) => <div key={index}><blockquote>{proof.excerpt}</blockquote><a href={proof.source_url} target="_blank" rel="noopener noreferrer">{it ? "Verifica fonte ↗" : "Verify source ↗"}</a></div>)}</details>}
               </div>)}
               {dimension.evidence.map((evidence, index) => <div key={`${evidence.source_url}-${index}`}><blockquote>{evidence.excerpt}</blockquote><p>{evidence.publisher} · {evidence.vintage || (it ? "senza annata" : "no vintage")}{evidence.published_year ? ` · ${evidence.published_year}` : ""}</p><a href={evidence.source_url} target="_blank" rel="noopener noreferrer">{it ? "Verifica riferimento ↗" : "Verify reference ↗"}</a></div>)}
             </dd>

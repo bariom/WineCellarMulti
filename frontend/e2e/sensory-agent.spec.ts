@@ -400,6 +400,47 @@ for (const locale of ["it", "en"]) {
   });
 }
 
+for (const locale of ["it", "en"]) {
+  test(`Expand and collapse all report details including nested sections (${locale})`, async ({ page }, testInfo) => {
+    await renderPanel(page, locale);
+    const it = locale === "it";
+    const evidence = { excerpt: "Merlot in purezza", source_url: "https://producer.example/2020", scope: "exact_vintage", vintage: "2020", publisher: "Producer", role: "producer" };
+    const proposal = { ...result, prompt_version: "9", agent_summary: "Agent summary for copying", identity_evidence: evidence,
+      complete_profile: { fruit: { value: .5, origin: "ai_inference", confidence: 0, issue: "", sensory_support: "context", rationale: "Detailed reasoning for copying", context_evidence: [evidence], evidence: [], references: [] } } };
+    await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, selected_wines: 2, results: [proposal, { ...proposal, wine_id: "second", name: "Second wine" }] }] }));
+    await page.goto("/sensory-agent-test");
+    const articles = page.getByRole("article");
+    const details = articles.locator("details");
+    await expect(articles).toHaveCount(2);
+    expect(await details.count()).toBeGreaterThan(4);
+    expect(await details.evaluateAll(nodes => nodes.every(node => !(node as HTMLDetailsElement).open))).toBe(true);
+    const expand = page.getByRole("button", { name: it ? "Apri tutti i dettagli" : "Expand all details" });
+    const collapse = page.getByRole("button", { name: it ? "Chiudi tutti i dettagli" : "Collapse all details" });
+    await expand.click();
+    expect(await details.evaluateAll(nodes => nodes.every(node => (node as HTMLDetailsElement).open))).toBe(true);
+    await expect(articles.first().getByText("Detailed reasoning for copying", { exact: true })).toBeVisible();
+    await articles.first().getByText(it ? "Confronto e prove" : "Comparison and evidence", { exact: true }).click();
+    await expand.click();
+    expect(await details.evaluateAll(nodes => nodes.every(node => (node as HTMLDetailsElement).open))).toBe(true);
+    for (const width of [360, 390, 430, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expand.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const a = (await expand.boundingBox())!;
+      const b = (await collapse.boundingBox())!;
+      expect(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y).toBe(true);
+      expect(a.height).toBeGreaterThanOrEqual(44);
+      expect(b.x + b.width).toBeLessThanOrEqual(width);
+      if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`all-details-${locale}-${width}.png`) });
+    }
+    await collapse.click();
+    expect(await details.evaluateAll(nodes => nodes.every(node => !(node as HTMLDetailsElement).open))).toBe(true);
+    await articles.first().getByText(it ? "Confronto e prove" : "Comparison and evidence", { exact: true }).click();
+    await collapse.click();
+    expect(await details.evaluateAll(nodes => nodes.every(node => !(node as HTMLDetailsElement).open))).toBe(true);
+  });
+}
+
 test("Coverage distinguishes source-backed style from model inference in saved reports", async ({ page }) => {
   await renderPanel(page, "en");
   const keys = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];

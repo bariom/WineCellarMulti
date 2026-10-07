@@ -29,3 +29,13 @@
 @media (max-width: 600px) {
   .sensory-research-controls > label:first-child { flex-basis: 100%; }
 }
+.sensory-research-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 12px;
+}
+
+.sensory-research .sensory-research-detail-actions button.secondary.compact {
+  min-height: 44px;
+}

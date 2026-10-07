@@ -19,6 +19,9 @@ esistenti. Distribuire anche il frontend aggiornato. Restano valide le impostazi
    Completare prima le annate mancanti: questi vini vengono saltati senza costo AI.
 3. Avviare la ricerca e consultare completezza, confronto con i valori precedenti,
    provenienza di ciascun tratto, estratti e riferimenti.
+   **Apri tutti i dettagli** espande tutte le sezioni dei vini, incluse motivazioni
+   e contesto, per copiare il rapporto completo. **Chiudi tutti i dettagli** le
+   richiude; ogni sezione resta apribile singolarmente.
 4. Revisionare una proposta completa prima di usare **Usa questo profilo**.
    Il salvataggio non equivale alla validazione umana.
 
