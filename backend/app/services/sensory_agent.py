@@ -70,7 +70,7 @@ def proposal_from_response(
     source_texts: dict[str, str] | None = None,
     document_cache: dict | None = None,
 ) -> SensoryResearchResult:
-    if prompt_version in {"4", "5", "6", "7", "8", "9", "10"}:
+    if prompt_version in {"4", "5", "6", "7", "8", "9", "10", "11"}:
         from app.services.sensory_completion import build_complete_proposal
 
         return build_complete_proposal(
@@ -358,7 +358,7 @@ def complete_with_estimates(
 
 def describe_checked_result(result: SensoryResearchResult, locale: str) -> SensoryResearchResult:
     """Keep provider prose separate from statements derived from actual server checks."""
-    if result.prompt_version not in {"7", "8", "9", "10"}:
+    if result.prompt_version not in {"7", "8", "9", "10", "11"}:
         return result
     if result.agent_summary:
         return result
@@ -375,7 +375,7 @@ def describe_checked_result(result: SensoryResearchResult, locale: str) -> Senso
     result.coverage.update(
         qualitative=qualitative, inferred_grounded=grounded, inferred_unverified=unsupported
     )
-    if result.prompt_version in {"9", "10"}:
+    if result.prompt_version in {"9", "10", "11"}:
         result.coverage.update(
             described_estimates=sum(
                 i.sensory_support == "description" for i in result.complete_profile.values()
@@ -549,6 +549,20 @@ def research_wine(
     result = _research_wine(db, context, wine, remaining)
     if result is not None:
         result.duration_ms = round((perf_counter() - started) * 1000)
+        if result.prompt_version == "11":
+            from app.services.sensory_application import application_preview
+            from app.services.taste_profiles import infer_sensory_profile
+
+            existing = sensory_profile_for_wine(db, wine)
+            fallback, _, confidence = infer_sensory_profile(db, wine)
+            if existing:
+                fallback, confidence = existing.dimensions, existing.confidence
+            result.application = application_preview(
+                result,
+                fallback,
+                confidence,
+                baseline_provenance=existing.provenance if existing else None,
+            )
     return result
 
 

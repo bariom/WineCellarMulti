@@ -1,0 +1,183 @@
+{
+  "evaluation_version": "1",
+  "target": "expected_at_release",
+  "status": "insufficient",
+  "reasons": [
+    "fewer_than_50_independently_reviewed_wines",
+    "fewer_than_5_wines_in_a_category",
+    "insufficient_paired_trait_coverage",
+    "fewer_than_50_wines_with_three_runs_per_method"
+  ],
+  "reviewed_wines": 0,
+  "categories": {
+    "Red": 0,
+    "White": 0,
+    "Rose": 0,
+    "Sparkling": 0,
+    "Sweet": 0,
+    "Fortified": 0
+  },
+  "expert_mean_spread": null,
+  "metrics": {
+    "baseline": {
+      "paired_mae": null,
+      "large_error_rate": null,
+      "reference_coverage": null,
+      "mean_repeat_spread": null,
+      "interpretative_range_coverage": null,
+      "traits": {
+        "body": {
+          "count": 0,
+          "mae": null
+        },
+        "acidity": {
+          "count": 0,
+          "mae": null
+        },
+        "tannin": {
+          "count": 0,
+          "mae": null
+        },
+        "sweetness": {
+          "count": 0,
+          "mae": null
+        },
+        "aromatic_intensity": {
+          "count": 0,
+          "mae": null
+        },
+        "fruit": {
+          "count": 0,
+          "mae": null
+        },
+        "wood": {
+          "count": 0,
+          "mae": null
+        },
+        "spice": {
+          "count": 0,
+          "mae": null
+        },
+        "minerality": {
+          "count": 0,
+          "mae": null
+        }
+      },
+      "categories": {
+        "Red": null,
+        "White": null,
+        "Rose": null,
+        "Sparkling": null,
+        "Sweet": null,
+        "Fortified": null
+      }
+    },
+    "agent": {
+      "paired_mae": null,
+      "large_error_rate": null,
+      "reference_coverage": null,
+      "mean_repeat_spread": null,
+      "interpretative_range_coverage": null,
+      "traits": {
+        "body": {
+          "count": 0,
+          "mae": null
+        },
+        "acidity": {
+          "count": 0,
+          "mae": null
+        },
+        "tannin": {
+          "count": 0,
+          "mae": null
+        },
+        "sweetness": {
+          "count": 0,
+          "mae": null
+        },
+        "aromatic_intensity": {
+          "count": 0,
+          "mae": null
+        },
+        "fruit": {
+          "count": 0,
+          "mae": null
+        },
+        "wood": {
+          "count": 0,
+          "mae": null
+        },
+        "spice": {
+          "count": 0,
+          "mae": null
+        },
+        "minerality": {
+          "count": 0,
+          "mae": null
+        }
+      },
+      "categories": {
+        "Red": null,
+        "White": null,
+        "Rose": null,
+        "Sparkling": null,
+        "Sweet": null,
+        "Fortified": null
+      }
+    },
+    "assisted": {
+      "paired_mae": null,
+      "large_error_rate": null,
+      "reference_coverage": null,
+      "mean_repeat_spread": null,
+      "interpretative_range_coverage": null,
+      "traits": {
+        "body": {
+          "count": 0,
+          "mae": null
+        },
+        "acidity": {
+          "count": 0,
+          "mae": null
+        },
+        "tannin": {
+          "count": 0,
+          "mae": null
+        },
+        "sweetness": {
+          "count": 0,
+          "mae": null
+        },
+        "aromatic_intensity": {
+          "count": 0,
+          "mae": null
+        },
+        "fruit": {
+          "count": 0,
+          "mae": null
+        },
+        "wood": {
+          "count": 0,
+          "mae": null
+        },
+        "spice": {
+          "count": 0,
+          "mae": null
+        },
+        "minerality": {
+          "count": 0,
+          "mae": null
+        }
+      },
+      "categories": {
+        "Red": null,
+        "White": null,
+        "Rose": null,
+        "Sparkling": null,
+        "Sweet": null,
+        "Fortified": null
+      }
+    }
+  },
+  "automatic_rollout": false
+}

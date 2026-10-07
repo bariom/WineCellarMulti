@@ -17,7 +17,6 @@ from app.schemas.sensory_agent import (
 )
 from app.services.sensory_agent import candidate_wines, run_sensory_research
 from app.services.shared_wine_data import normalize_identity_part, resolve_shared_identity
-from app.services.taste_profiles import SENSORY_DIMENSIONS
 
 router = APIRouter(prefix="/taste-profile/admin/research-runs")
 
@@ -147,6 +146,8 @@ def apply_research(
     )
     if result is None or result.status != "ready":
         raise HTTPException(422, "No complete proposal for this wine")
+    if result.prompt_version != "11":
+        raise HTTPException(422, "Research again to use the assisted application policy")
     wine = db.scalar(
         select(Wine)
         .where(Wine.id == wine_id, Wine.household_id == context.household.id)
@@ -176,48 +177,42 @@ def apply_research(
         profile.validated or profile.source == "manual" or profile.dimensions != result.baseline
     ):
         raise HTTPException(409, "Profile was validated or modified; proposal cannot overwrite it")
+    from app.services.sensory_application import application_preview
+    from app.services.taste_profiles import infer_sensory_profile
+
+    fallback, _, fallback_confidence = infer_sensory_profile(db, wine)
+    if profile:
+        fallback, fallback_confidence = profile.dimensions, profile.confidence
+    preview = application_preview(
+        result,
+        fallback,
+        fallback_confidence,
+        baseline_provenance=profile.provenance if profile else None,
+    )
+    if not preview.eligible:
+        raise HTTPException(422, "No attributable supported intensity updates")
+    if result.application is None or preview != result.application:
+        raise HTTPException(409, "Application preview has changed; research again")
+    previous_provenance = dict(profile.provenance or {}) if profile else {}
     if profile is None:
         profile = WineSensoryProfile(identity_id=identity.id)
         db.add(profile)
-    if result.prompt_version in {"4", "5", "6", "7", "8", "9", "10"}:
-        if (
-            (result.prompt_version not in {"6", "7", "8", "9", "10"} and not result.vintage_confirmed)
-            or result.identity_ambiguous
-            or set(result.complete_profile) != set(SENSORY_DIMENSIONS)
-            or any(
-                item.value is None
-                or item.origin == "unknown"
-                or (item.issue and result.prompt_version not in {"6", "7", "8", "9", "10"})
-                or (
-                    item.origin == "ai_inference"
-                    and (
-                        not item.rationale.strip()
-                        or item.lower is None
-                        or item.upper is None
-                        or not item.lower <= item.value <= item.upper
-                    )
-                )
-                for item in result.complete_profile.values()
-            )
-        ):
-            raise HTTPException(422, "Incomplete or unresolved sensory profile")
-        profile.dimensions = {key: item.value for key, item in result.complete_profile.items()}
-        profile.provenance = {
-            key: item.model_dump(mode="json") for key, item in result.complete_profile.items()
-        }
-    else:
-        supported = {
-            item.dimension for item in result.comparisons if item.agreement == "corroborated"
-        }
-        if result.prompt_version == "3" and len(supported) < 3:
-            raise HTTPException(422, "Insufficient corroborated evidence")
-        profile.dimensions = {
-            key: trait.value
-            for key, trait in result.dimensions.items()
-            if result.prompt_version != "3" or key in supported
-        }
-        profile.provenance = {}
-    profile.source, profile.confidence = "ai", result.confidence
+    profile.dimensions = {key: item.value for key, item in preview.dimensions.items()}
+    profile.provenance = {
+        key: (
+            result.complete_profile[key].model_dump(mode="json")
+            if item.origin == "agent"
+            else previous_provenance.get(key)
+            or {
+                "origin": "baseline",
+                "confidence": item.confidence,
+                "calculation_method": "baseline_fallback_v1",
+            }
+        )
+        for key, item in preview.dimensions.items()
+    }
+    profile.source = "hybrid" if preview.retained else "ai"
+    profile.confidence = round(sum(i.confidence for i in preview.dimensions.values()) / 9, 4)
     profile.validated, profile.generation_status = False, "available"
     profile.model, profile.last_modified_by_user_id = result.model[:120], context.user.id
     profile.generated_at = datetime.now(UTC)

@@ -16,6 +16,22 @@ def evidence(excerpt: str, url: str = "https://producer.example/wine") -> Source
     )
 
 
+def test_v2_does_not_turn_firmness_into_tannin_quantity():
+    from app.services.sensory_descriptors import compatible_observations
+
+    assert descriptor_estimate("tannin", [evidence("ripe, firm tannins")], strict=True) is None
+    assert compatible_observations(
+        "tannin", [evidence("High tannins"), evidence("Firm tannins")], strict=True
+    )
+    assert descriptor_estimate("tannin", [evidence("full tannins")], strict=True).value == 0.75
+    assert (
+        descriptor_estimate(
+            "acidity", [evidence("an acidity which is quite fresh")], strict=True
+        ).value
+        == 0.75
+    )
+
+
 @pytest.mark.parametrize(
     ("dimension", "excerpt", "value"),
     [

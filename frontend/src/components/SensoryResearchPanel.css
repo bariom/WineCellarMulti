@@ -12,6 +12,7 @@
 .sensory-research-wine-list span { min-width: 0; overflow-wrap: anywhere; }
 .sensory-research-wine-list small { display: block; margin-top: 4px; }
 .sensory-research button, .sensory-research input { min-height: 44px; }
+.sensory-research button.secondary.compact { min-height: 44px; }
 .sensory-research-results { display: grid; gap: 16px; }
 .sensory-research-results article { min-width: 0; padding-top: 16px; border-top: 1px solid var(--border); }
 .sensory-research-results h5 { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }

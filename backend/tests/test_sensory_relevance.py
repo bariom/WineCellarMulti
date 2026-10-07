@@ -27,6 +27,10 @@ def test_grape_identity_is_context_only(key):
         ("wood", "Aged in oak barrels, with pronounced vanilla aromas", True),
         ("sweetness", "Dried fruit notes", False),
         ("fruit", "Aromi di ciliegia", True),
+        ("spice", "sensazione piperita", True),
+        ("spice", "as well as marzipan and gingerbread", True),
+        ("minerality", "Fine details of crushed rock", True),
+        ("body", "vino rosso strutturato, corposo, fruttato", True),
     ],
 )
 def test_trait_relevance_is_not_numeric_intensity(key, text, expected):

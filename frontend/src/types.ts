@@ -1594,7 +1594,7 @@ export type WineSensoryProfile = {
   validated: boolean;
   generation_status: string;
   generated_at: string;
-  provenance?: Record<string, CompletedSensoryDimension>;
+  provenance?: Record<string, SensoryProfileProvenanceDimension>;
 };
 
 export type WineSensorySignature = Omit<WineSensoryProfile, "name" | "producer" | "vintage">;
@@ -1624,6 +1624,7 @@ export type SensoryProfileBaseline = {
 };
 export type SensoryResearchCandidate = { id: string; name: string; producer: string; vintage: string };
 export type SensorySourceEvidence = {
+  attribution_excerpt?: string;
   excerpt: string; source_url: string; scope: "exact_vintage" | "wine_style" | "other_vintage" | "historical_nv";
   vintage: string; published_year: number | null; publisher: string; role: "producer" | "critic" | "retailer";
 };
@@ -1638,12 +1639,21 @@ export type CompletedSensoryDimension = {
   confidence: number; issue: string; evidence: SensorySourceEvidence[];
   references: Array<{ name: string; producer: string; vintage: string; similarity: number; value: number; evidence: SensorySourceEvidence; identity_evidence?: SensorySourceEvidence | null; production_evidence?: SensorySourceEvidence[] }>;
 };
+export type SensoryProfileProvenanceDimension = Partial<Omit<CompletedSensoryDimension, "origin">> & {
+  origin: CompletedSensoryDimension["origin"] | "baseline";
+  confidence: number;
+};
 export type SensoryResearchComparison = {
   dimension: string; agreement: "corroborated" | "conflicting" | "single_source";
   independent: boolean; explanation: string; evidence: Array<{ excerpt: string; source_url: string }>;
 };
 export type SensoryResearchTrait = { value: number; basis: "documented" | "inferred"; excerpt: string; source_url: string };
 export type SensoryResearchResult = {
+  application?: {
+    policy_version: string; eligible: boolean; reason: string;
+    dimensions: Record<string, { value: number; confidence: number; origin: "agent" | "baseline"; reason: string }>;
+    updated: string[]; retained: string[]; review_required: string[];
+  } | null;
   wine_id: string; identity_id: string | null; name: string; producer: string; vintage: string;
   status: "ready" | "incomplete" | "no_evidence" | "failed" | "skipped" | "applied";
   issue: string; summary: string; limitations: string; vintage_confirmed: boolean; confidence: number;

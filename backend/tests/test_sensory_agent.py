@@ -381,7 +381,13 @@ def source_pages(payload):
         if isinstance(item, dict):
             if "excerpt" in item and "source_url" in item:
                 url = agent.public_source_url(item["source_url"])
-                pages[url] = pages.get(url, "") + " " + item["excerpt"]
+                pages[url] = (
+                    pages.get(url, "")
+                    + " "
+                    + item.get("attribution_excerpt", "")
+                    + " "
+                    + item["excerpt"]
+                )
             for value in item.values():
                 collect(value)
         elif isinstance(item, list):
@@ -390,6 +396,59 @@ def source_pages(payload):
 
     collect(payload)
     return pages
+
+
+def attributed_output(wine):
+    payload = complete_output(wine)
+    heading = f"{wine.producer} {wine.name} {wine.vintage}"
+    payload["identity_evidence"]["excerpt"] = heading
+    # Firmness is texture; quantity must be stated separately.
+    payload["dimensions"]["tannin"]["excerpt"] = "High tannin intensity"
+    for comparison in payload["comparisons"]:
+        if comparison["dimension"] == "tannin":
+            for proof in comparison["evidence"]:
+                proof["excerpt"] = (
+                    "Independent note: " if "critic" in proof["source_url"] else ""
+                ) + "High tannin intensity"
+
+    def attribute(item):
+        if isinstance(item, dict):
+            if "scope" in item:
+                item["attribution_excerpt"] = heading
+            for value in item.values():
+                attribute(value)
+        elif isinstance(item, list):
+            for value in item:
+                attribute(value)
+
+    attribute(payload)
+    return payload
+
+
+def assisted_proposal(db, wine, *, payload=None):
+    from app.services.sensory_application import application_preview
+    from app.services.taste_profiles import infer_sensory_profile
+
+    payload = payload or attributed_output(wine)
+    existing = agent.sensory_profile_for_wine(db, wine)
+    result = agent.proposal_from_response(
+        wine,
+        response(payload),
+        existing.dimensions if existing else {},
+        prompt_version="11",
+        source_texts=source_pages(payload),
+    )
+    result = agent.complete_with_estimates(wine, result, response(completion_output(wine)))
+    result.baseline_source = existing.source if existing else ""
+    result.baseline_validated = bool(existing and existing.validated)
+    fallback, _, confidence = infer_sensory_profile(db, wine)
+    result.application = application_preview(
+        result,
+        existing.dimensions if existing else fallback,
+        existing.confidence if existing else confidence,
+        baseline_provenance=existing.provenance if existing else None,
+    )
+    return result
 
 
 def complete_proposal(wine, payload, *, sources=(), source_texts=None):
@@ -601,7 +660,7 @@ def test_apply_complete_profile_persists_provenance_and_legacy_generator_preserv
     from app.services.taste_profiles import generate_wine_sensory_profile
 
     db, context, wine = setup
-    proposal = complete_proposal(wine, complete_output(wine))
+    proposal = assisted_proposal(db, wine)
     proposal.baseline = {}
     run = SensoryAgentRun(
         household_id=context.household.id,
@@ -678,7 +737,7 @@ def test_validating_preserves_provenance_but_manual_changes_clear_it(setup):
 
 
 def ready_run(db, context, wine):
-    proposal = agent.proposal_from_response(wine, response(output(wine)), {})
+    proposal = assisted_proposal(db, wine)
     run = SensoryAgentRun(
         household_id=context.household.id,
         user_id=context.user.id,
@@ -709,7 +768,9 @@ def test_apply_is_explicit_and_protects_validated_profiles(setup, protected):
         assert result.results[0].status == "applied"
         profile = db.scalar(select(WineSensoryProfile))
         assert (
-            profile.source == "ai" and not profile.validated and profile.dimensions["body"] == 0.7
+            profile.source == "hybrid"
+            and not profile.validated
+            and profile.dimensions["body"] == 0.75
         )
 
 
@@ -736,7 +797,7 @@ def test_api_requires_admin_and_scopes_run_reads(setup):
 
 def test_prompt_has_identity_grounding_language_and_no_invention():
     prompt = wine_sensory_research_prompt(wine_context={"name": "Test wine"}, locale="it")
-    assert prompt.id == "wine.sensory_research" and prompt.version == "10"
+    assert prompt.id == "wine.sensory_research" and prompt.version == "11"
     assert "Italian" in prompt.user and "Test wine" in prompt.user
     assert "Never invent" in prompt.system and "untrusted data" in prompt.system
     assert "Missing evidence means null" in prompt.system and "vintage_confirmed" in prompt.system
@@ -911,12 +972,10 @@ def test_prompt_requires_external_comparison_without_internal_anchoring():
     )
 
 
-def test_apply_does_not_save_uncorroborated_dimensions(setup):
+def test_apply_does_not_replace_unsupported_dimensions(setup):
     db, context, wine = setup
-    payload = output(wine)
-    payload["dimensions"]["fruit"] = dict(payload["dimensions"]["body"], value=0.8)
-    proposal = agent.proposal_from_response(wine, response(payload), {})
-    assert proposal.status == "ready" and "fruit" in proposal.dimensions
+    proposal = assisted_proposal(db, wine)
+    assert proposal.application.dimensions["spice"].origin == "baseline"
     run = SensoryAgentRun(
         household_id=context.household.id,
         user_id=context.user.id,
@@ -927,7 +986,8 @@ def test_apply_does_not_save_uncorroborated_dimensions(setup):
     db.commit()
     routes.apply_research(run.id, wine.id, db, context)
     profile = db.scalar(select(WineSensoryProfile))
-    assert set(profile.dimensions) == {"body", "acidity", "tannin"}
+    assert profile.dimensions["spice"] == 0.38
+    assert profile.provenance["spice"]["origin"] == "baseline"
 
 
 def test_previous_reports_remain_readable():
@@ -1025,7 +1085,7 @@ def test_worker_researches_existing_profiles_without_changing_them(
         completion,
         "read_public_document",
         lambda url, **kwargs: DocumentText(
-            text=source_pages(complete_output(wine)).get(url, ""), status="readable"
+            text=source_pages(attributed_output(wine)).get(url, ""), status="readable"
         ),
     )
     profile = WineSensoryProfile(
@@ -1049,7 +1109,9 @@ def test_worker_researches_existing_profiles_without_changing_them(
 
     def fake_response(*args, **kwargs):
         requests.append(kwargs)
-        return response(complete_output(wine)), "application"
+        return response(
+            attributed_output(wine) if len(requests) == 1 else completion_output(wine)
+        ), "application"
 
     monkeypatch.setattr(ai, "create_ai_response", fake_response)
     monkeypatch.setattr(ai, "record_ai_audit", lambda *args, **kwargs: None)
@@ -1160,21 +1222,11 @@ def test_estimated_profile_apply_preserves_inference_and_blocks_ambiguous_identi
     )
     db.add(run)
     db.commit()
-    if ambiguous:
-        assert result.coverage["available"] == 9 and result.status == "incomplete"
-        with pytest.raises(HTTPException) as exc:
-            routes.apply_research(run.id, wine.id, db, context)
-        assert exc.value.status_code == 422
-        assert agent.sensory_profile_for_wine(db, wine) is None
-    else:
-        applied = routes.apply_research(run.id, wine.id, db, context)
-        assert applied.results[0].status == "applied"
-        profile = agent.sensory_profile_for_wine(db, wine)
-        assert len(profile.dimensions) == 9 and not profile.validated
-        assert profile.provenance["body"]["inference_basis"] == "model_knowledge"
-        assert profile.provenance["body"]["origin"] == "ai_inference"
-        assert profile.provenance["body"]["rationale"]
-        assert profile.provenance["body"]["lower"] == 0.3
+    assert result.coverage["available"] == 9
+    with pytest.raises(HTTPException) as exc:
+        routes.apply_research(run.id, wine.id, db, context)
+    assert exc.value.status_code == 422
+    assert agent.sensory_profile_for_wine(db, wine) is None
 
 
 @pytest.mark.parametrize("failed_completion", [False, True])
@@ -1199,7 +1251,7 @@ def test_research_feedback_loop_accounts_cost_and_keeps_paid_first_pass(
     def fake_response(*args, **kwargs):
         calls.append(kwargs)
         if len(calls) == 1:
-            return response(complete_output(wine)), "application"
+            return response(attributed_output(wine)), "application"
         if failed_completion:
             raise RuntimeError("Provider unavailable")
         return response(completion_output(wine)), "application"
@@ -1286,7 +1338,7 @@ def test_completion_prompt_and_strict_schema():
     prompt = wine_sensory_completion_prompt(
         wine_context={"vintage": "2016"}, feedback={"issue": "source_unreadable"}, locale="it"
     )
-    assert prompt.id == "wine.sensory_completion" and prompt.version == "6"
+    assert prompt.id == "wine.sensory_completion" and prompt.version == "7"
     assert "Italian" in prompt.user and "2016" in prompt.user
     assert "untrusted data" in prompt.system and "must not anchor" in prompt.system
     assert "ALL nine estimates" in prompt.system and "Do not retry Cloudflare" in prompt.system
@@ -1484,7 +1536,7 @@ def test_research_reuses_documents_without_second_paid_web_search(setup, monkeyp
 
     from app.services.score_sources import DocumentText
 
-    payload = complete_output(wine)
+    payload = attributed_output(wine)
     payload["dimensions"]["wood"] = None
     pages = source_pages(payload)
     monkeypatch.setattr(

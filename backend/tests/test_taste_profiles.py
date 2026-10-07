@@ -487,6 +487,31 @@ def test_rebuild_is_private_weighted_and_category_specific() -> None:
     assert profiles["global"].sample_count == 2
 
 
+def test_rebuild_excludes_unsupported_agent_traits() -> None:
+    with Session() as db:
+        household = Household(name="Home")
+        user = User(email="proof@example.test", display_name="Taster", password_hash="x")
+        db.add_all([household, user])
+        db.flush()
+        wine = make_wine(db, household)
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions={"body": 0.75, "minerality": 0.9},
+                confidence=0.8,
+                provenance={"body": {"confidence": 0.55}, "minerality": {"confidence": 0}},
+                generation_status="available",
+            )
+        )
+        add_tasting(db, user, household, wine, 6)
+        add_tasting(db, user, household, wine, 5)
+        db.flush()
+        profiles = rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+        for profile in profiles:
+            assert "body" in profile.dimensions
+            assert "minerality" not in profile.dimensions
+
+
 def test_rebuild_creates_dedicated_profiles_for_rose_and_fortified_wines() -> None:
     db = Session()
     household = Household(name="Home")
@@ -674,6 +699,25 @@ def test_wishlist_taste_match_uses_shared_sensory_profile_without_creating_stock
 
     assert match["score"] is not None
     assert match["score"] > 0.7
+    candidate_profile = db.scalar(
+        select(WineSensoryProfile).where(
+            WineSensoryProfile.identity_id == candidate.shared_identity_id
+        )
+    )
+    candidate_profile.generation_status = "pending"
+    candidate_profile.confidence = 0
+    assert calculate_wishlist_taste_match(db, user.id, wishlist_item)["score"] is not None
+    candidate_profile.generation_status = "available"
+    candidate_profile.confidence = 0.9
+    candidate_profile.provenance = {
+        "body": {"confidence": 0.8},
+        "tannin": {"confidence": 0.8},
+        "fruit": {"confidence": 0.2},
+        "spice": {"confidence": 0},
+    }
+    weighted = calculate_wishlist_taste_match(db, user.id, wishlist_item)
+    assert weighted["score"] is not None
+    assert "spice" not in weighted["matching_traits"]
     db.query(UserTasteProfile).filter(UserTasteProfile.user_id == user.id).delete()
     db.flush()
     unavailable = calculate_wishlist_taste_match(db, user.id, wishlist_item)

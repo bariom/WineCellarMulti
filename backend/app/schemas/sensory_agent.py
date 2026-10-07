@@ -82,7 +82,17 @@ class ResearchOutput(BaseModel):
     aromas: list[ResearchAroma] = Field(max_length=12)
 
 
+def require_evidence_properties(schema: dict) -> None:
+    schema["required"] = list(schema.get("properties", {}))
+
+
 class SourceEvidence(ResearchEvidence):
+    # Provider schemas require every property; old stored reports may omit attribution.
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra=require_evidence_properties,
+    )
+    attribution_excerpt: str = Field(default="", max_length=400)
     scope: Literal["exact_vintage", "wine_style", "other_vintage", "historical_nv"]
     vintage: str = Field(max_length=40)
     published_year: int | None = Field(ge=1900, le=2100)
@@ -240,6 +250,23 @@ class SourceCheck(BaseModel):
     unmatched_excerpts: int = 0
 
 
+class AppliedDimension(BaseModel):
+    value: float = Field(ge=0, le=1)
+    confidence: float = Field(ge=0, le=1)
+    origin: Literal["agent", "baseline"]
+    reason: str
+
+
+class SensoryApplicationPreview(BaseModel):
+    policy_version: str = "1"
+    eligible: bool = False
+    reason: str = ""
+    dimensions: dict[str, AppliedDimension] = Field(default_factory=dict)
+    updated: list[str] = Field(default_factory=list)
+    retained: list[str] = Field(default_factory=list)
+    review_required: list[str] = Field(default_factory=list)
+
+
 class SensoryResearchResult(BaseModel):
     wine_id: UUID
     identity_id: UUID | None = None
@@ -274,6 +301,7 @@ class SensoryResearchResult(BaseModel):
     cost_usd: Decimal = Decimal("0")
     web_search_calls: int = Field(default=0, ge=0)
     duration_ms: int = Field(default=0, ge=0)
+    application: SensoryApplicationPreview | None = None
 
 
 class SensoryResearchRunResponse(BaseModel):

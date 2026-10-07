@@ -10,7 +10,7 @@ from app.services.shared_wine_data import normalize_identity_part as norm
 
 _TRAITS = {
     "body": (
-        r"\bbody\b|bodied|\bcorpo\b|\bcorps\b|mittelschwer|vollmund|fyllig|"
+        r"\bbody\b|bodied|\bcorpo\b|corpos[oa]|\bcorps\b|mittelschwer|vollmund|fyllig|"
         r"\bstructure\b|\bstruttura\b|\bmouth (?:is )?full\b|"
         r"\bpalato (?:ampio|pieno)\b|\bample(?:\s+gras|\s+genereux)* le palais\b"
     ),
@@ -31,9 +31,11 @@ _TRAITS = {
     "wood": r"boise|vanill|cedar|cedro|toast|tostat|oak|wood|legno|holz|eiche",
     "spice": (
         r"\bspic|\bspezi|\bepic|\bwurz|\bkrydd|pepper|\bpepe|poivre|cannell|cinnamon|"
-        r"liquiriz|licorice|liquorice"
+        r"liquiriz|licorice|liquorice|piperit|ginger|zenzer"
     ),
-    "minerality": r"mineral|salin|sapid|flint|pietra focaia|silex|chalk|gess|oyster shell",
+    "minerality": (
+        r"mineral|salin|sapid|flint|pietra focaia|silex|chalk|gess|oyster shell|crushed rock"
+    ),
 }
 
 

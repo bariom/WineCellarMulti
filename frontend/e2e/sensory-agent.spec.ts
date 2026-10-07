@@ -28,7 +28,8 @@ const result = {
       { excerpt: "Rich and full-bodied.", source_url: "https://critic.example/review-2020" },
     ] }],
   aromas: [{ name: "ciliegia", excerpt: "Cherry", source_url: "https://producer.example/technical-sheet-2020" }],
-  sources: [{ title: "Scheda tecnica del produttore · 2020", url: "https://producer.example/technical-sheet-2020" }], model: "test", prompt_version: "1", cost_usd: "0.02",
+  sources: [{ title: "Scheda tecnica del produttore · 2020", url: "https://producer.example/technical-sheet-2020" }], model: "test", prompt_version: "11", cost_usd: "0.02",
+  application: { policy_version: "1", eligible: true, reason: "", updated: ["body", "acidity"], retained: ["wood"], review_required: [], dimensions: { body: { value: .8, confidence: .8, origin: "agent", reason: "verified_intensity" }, acidity: { value: .7, confidence: .55, origin: "agent", reason: "verified_intensity" }, wood: { value: .3, confidence: .35, origin: "baseline", reason: "no_supported_intensity" } } },
 };
 
 const completed = { id: "run-one", status: "completed", issue: "", max_wines: 10, selected_wines: 3, budget_usd: "1", cost_usd: "0.02", results: [result, { ...result, wine_id: "wine-two", name: "Vino senza annata verificata", status: "incomplete", vintage_confirmed: false }, { ...result, wine_id: "wine-three", name: "Vino senza annata", vintage: "", status: "skipped", issue: "missing_vintage", vintage_confirmed: false, dimensions: {}, aromas: [], sources: [], summary: "", limitations: "", cost_usd: "0" }], created_at: "2026-10-07T08:00:00Z", updated_at: "2026-10-07T08:01:00Z" };
@@ -43,7 +44,7 @@ for (const locale of ["it", "en"]) {
       rationale: "Expected style estimate; grape composition is an unverified assumption.",
       lower: .3, upper: .7, evidence: [], references: [],
     }]));
-    const proposal = { ...result, prompt_version: "6", vintage_confirmed: false,
+    const proposal = { ...result, application: undefined, prompt_version: "6", vintage_confirmed: false,
       complete_profile: completeProfile, dimensions: {}, comparisons: [], aromas: [], sources: [],
       coverage: { available: 9, total: 9, exact_vintage: 0, corroborated: 0, estimated: 9, inferred: 9, unknown: 0 },
       confidence: 0, summary: "Expected wine profile, inferred rather than verified.", limitations: "Vintage-specific characteristics are not verified." };
@@ -73,19 +74,19 @@ for (const locale of ["it", "en"]) {
       const table = (await article.getByRole("table").boundingBox())!;
       expect(table.x).toBeGreaterThanOrEqual(card.x);
       expect(table.x + table.width).toBeLessThanOrEqual(card.x + card.width + 1);
-      const button = (await article.getByRole("button").boundingBox())!;
+      const button = (await page.getByRole("button", { name: it ? "Avvia ricerca autonoma" : "Start autonomous research" }).boundingBox())!;
       expect(button.x + button.width).toBeLessThanOrEqual(width);
       if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`inference-${width}.png`), fullPage: true });
     }
-    await article.getByRole("button", { name: it ? "Usa questo profilo" : "Apply this profile" }).click();
-    await expect(article).toContainText(it ? "Profilo utilizzato" : "Profile applied");
-    expect(applied).toBe(true);
+    await expect(article.getByRole("button", { name: it ? "Usa questo profilo" : "Apply this profile" })).toHaveCount(0);
+    await expect(article).toContainText(it ? "Ripeti la ricerca" : "Research again");
+    expect(applied).toBe(false);
   });
 }
 
 test("Ambiguous identity keeps complete estimates provisional", async ({ page }) => {
   await renderPanel(page, "it");
-  const proposal = { ...result, prompt_version: "6", identity_ambiguous: true, status: "incomplete", issue: "ambiguous_identity", coverage: { available: 9, total: 9, inferred: 9, exact_vintage: 0, corroborated: 0, estimated: 9, unknown: 0 } };
+  const proposal = { ...result, application: undefined, prompt_version: "6", identity_ambiguous: true, status: "incomplete", issue: "ambiguous_identity", coverage: { available: 9, total: 9, inferred: 9, exact_vintage: 0, corroborated: 0, estimated: 9, unknown: 0 } };
   await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, results: [proposal] }] }));
   await page.goto("/sensory-agent-test");
   await expect(page.getByRole("article")).toContainText("Identità del vino ambigua");
@@ -109,7 +110,7 @@ for (const incomplete of [false, true]) {
       evidence: [evidence],
       references: index === 0 ? [] : [{ name: "Vino di riferimento", producer: "Produttore esterno", vintage: "2021", similarity: .65, value: .42, evidence, identity_evidence: evidence, production_evidence: [{ ...evidence, excerpt: "Target matured in French oak barrels" }, { ...evidence, excerpt: "Reference matured in French oak barrels" }] }],
     }]));
-    const proposal = { ...result, prompt_version: "4", status: incomplete ? "incomplete" : "ready", complete_profile: completeProfile,
+    const proposal = { ...result, application: undefined, prompt_version: "4", status: incomplete ? "incomplete" : "ready", complete_profile: completeProfile,
       coverage: { available: incomplete ? 8 : 9, total: 9, exact_vintage: 1, corroborated: 1, estimated: incomplete ? 7 : 8, unknown: incomplete ? 1 : 0 },
       warnings: incomplete ? ["tannin:conflicting_sources"] : [] };
     await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, selected_wines: 1, results: [proposal] }] }));
@@ -126,7 +127,10 @@ for (const incomplete of [false, true]) {
     if (incomplete) {
       await expect(article).toContainText("Fonti discordanti");
       await expect(article.getByRole("button", { name: "Usa questo profilo" })).toHaveCount(0);
-    } else await expect(article.getByRole("button", { name: "Usa questo profilo" })).toBeVisible();
+    } else {
+      await expect(article.getByRole("button", { name: "Usa questo profilo" })).toHaveCount(0);
+      await expect(article).toContainText("Ripeti la ricerca");
+    }
     for (const width of [360, 390, 430, 1440]) {
       await page.setViewportSize({ width, height: 844 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -229,6 +233,51 @@ test("Sensory agent exposes startup errors and restores controls", async ({ page
   await start.click();
   await expect(page.getByRole("alert")).toContainText("already running");
   await expect(start).toBeEnabled();
+});
+
+test("Assisted application previews fallback and guards responsive geometry", async ({ page }, testInfo) => {
+  await renderPanel(page, "it");
+  const proposal = { ...result, application: { ...result.application, review_required: ["wood"] } };
+  let applied = false;
+  await page.route("**/api/v1/taste-profile/admin/research-runs**", route => {
+    if (route.request().url().endsWith("/apply")) {
+      applied = true;
+      return route.fulfill({ json: { ...completed, results: [{ ...proposal, status: "applied" }] } });
+    }
+    return route.fulfill({ json: [{ ...completed, results: [proposal] }] });
+  });
+  await page.goto("/sensory-agent-test");
+  const article = page.getByRole("article");
+  await expect(article).toContainText("Aggiornamenti sostenuti da prove: 2");
+  await expect(article).toContainText("Da approfondire prima di sostituire la baseline: Legno");
+  await article.getByText("Valori che verranno utilizzati", { exact: true }).click();
+  const preview = article.getByRole("table", { name: "Anteprima del profilo applicato" });
+  await expect(preview.getByRole("row", { name: /Legno/ })).toContainText("0.30");
+  await expect(preview.getByRole("row", { name: /Legno/ })).toContainText("Baseline");
+  await expect(preview.getByRole("row", { name: /Corpo/ })).toContainText("Agente · prove verificate");
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const table = (await preview.boundingBox())!;
+    const button = (await article.getByRole("button", { name: "Usa questo profilo" }).boundingBox())!;
+    expect(table.x + table.width).toBeLessThanOrEqual(width);
+    expect(button.y).toBeGreaterThanOrEqual(table.y + table.height);
+    expect(button.height).toBeGreaterThanOrEqual(44);
+    expect(button.x + button.width).toBeLessThanOrEqual(width);
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`assisted-${width}.png`), fullPage: true });
+  }
+  await article.getByRole("button", { name: "Usa questo profilo" }).click();
+  await expect(article).toContainText("Profilo utilizzato");
+  expect(applied).toBe(true);
+});
+
+test("Assisted application without supported updates preserves baseline", async ({ page }) => {
+  await renderPanel(page, "it");
+  const proposal = { ...result, application: { ...result.application, eligible: false, reason: "no_supported_updates", updated: [], retained: ["wood"] } };
+  await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, results: [proposal] }] }));
+  await page.goto("/sensory-agent-test");
+  await expect(page.getByRole("article")).toContainText("Nessun aggiornamento applicabile");
+  await expect(page.getByRole("button", { name: "Usa questo profilo" })).toHaveCount(0);
 });
 
 for (const locale of ["it", "en"]) {

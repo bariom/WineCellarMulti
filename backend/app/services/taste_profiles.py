@@ -128,6 +128,29 @@ def validated_dimensions(raw: object) -> dict[str, float]:
     return result
 
 
+def sensory_dimension_confidence(profile: WineSensoryProfile, dimension: str) -> float:
+    """Use trait provenance when present; retain legacy confidence for old profiles."""
+    provenance = profile.provenance or {}
+    if not provenance:
+        return float(profile.confidence)
+    proof = provenance.get(dimension)
+    if not isinstance(proof, dict):
+        return 0.0
+    try:
+        value = float(proof.get("confidence", 0))
+        return value if 0 <= value <= 1 else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def reliable_sensory_dimensions(profile: WineSensoryProfile) -> dict[str, float]:
+    return {
+        key: value
+        for key, value in validated_dimensions(profile.dimensions).items()
+        if sensory_dimension_confidence(profile, key) > 0
+    }
+
+
 def _grape_names(wine: Wine | ExternalWineTasting | WishlistItem) -> list[str]:
     return [
         normalize_identity_part(item.get("name"))
@@ -400,7 +423,7 @@ def validate_taste_profile_algorithms(
             or sensory_profile.generation_status != "available"
         ):
             return
-        dimensions = validated_dimensions(sensory_profile.dimensions)
+        dimensions = reliable_sensory_dimensions(sensory_profile)
         if len(dimensions) < 3:
             return
         observations.append((signal, dimensions, float(sensory_profile.confidence)))
@@ -588,9 +611,11 @@ def rebuild_user_taste_profile(
                     attribute_scores[category][key][value] += weight
             if not profile or profile.generation_status != "available":
                 continue
-            profile_dimensions = validated_dimensions(profile.dimensions)
+            profile_dimensions = reliable_sensory_dimensions(profile)
             for dimension, value in profile_dimensions.items():
-                accumulators[category][dimension].append((weight, value, profile.confidence))
+                accumulators[category][dimension].append(
+                    (weight, value, sensory_dimension_confidence(profile, dimension))
+                )
     rating_rows = db.execute(
         select(UserWineRating, Wine, WineSensoryProfile)
         .join(Wine, Wine.id == UserWineRating.wine_id)
@@ -612,8 +637,10 @@ def rebuild_user_taste_profile(
                     attribute_scores[category][key][value] += weight
             if not profile or profile.generation_status != "available":
                 continue
-            for dimension, value in validated_dimensions(profile.dimensions).items():
-                accumulators[category][dimension].append((weight, value, profile.confidence))
+            for dimension, value in reliable_sensory_dimensions(profile).items():
+                accumulators[category][dimension].append(
+                    (weight, value, sensory_dimension_confidence(profile, dimension))
+                )
     external_rows = db.execute(
         select(ExternalWineTasting, WineSensoryProfile)
         .outerjoin(
@@ -639,8 +666,10 @@ def rebuild_user_taste_profile(
                     attribute_scores[category][key][value] += weight
             if not profile or profile.generation_status != "available":
                 continue
-            for dimension, value in validated_dimensions(profile.dimensions).items():
-                accumulators[category][dimension].append((weight, value, profile.confidence))
+            for dimension, value in reliable_sensory_dimensions(profile).items():
+                accumulators[category][dimension].append(
+                    (weight, value, sensory_dimension_confidence(profile, dimension))
+                )
     existing_profiles = {
         profile.category: profile
         for profile in db.scalars(
@@ -801,7 +830,7 @@ def _calculate_taste_match_from_data(
     direct_weights: list[float],
 ) -> dict:
     dimensions = (
-        validated_dimensions(sensory.dimensions)
+        reliable_sensory_dimensions(sensory)
         if sensory and sensory.generation_status == "available"
         else {}
     )
@@ -837,7 +866,8 @@ def _calculate_taste_match_from_data(
         for key, value in sorted(closeness, key=lambda item: item[1])[:2]
         if value < 0.45
     ]
-    profile_score = sum(value for _, value in closeness) / len(closeness)
+    weights = {key: sensory_dimension_confidence(sensory, key) for key, _ in closeness}
+    profile_score = sum(value * weights[key] for key, value in closeness) / sum(weights.values())
     direct_score = 0.5 + (sum(direct_weights) / len(direct_weights)) / 2 if direct_weights else None
     score = profile_score if direct_score is None else (profile_score * 0.25 + direct_score * 0.75)
     return {
@@ -969,7 +999,7 @@ def calculate_wishlist_taste_match(db: Session, user_id: UUID, item: WishlistIte
         else None
     )
     if sensory is not None and sensory.generation_status == "available":
-        dimensions = validated_dimensions(sensory.dimensions)
+        dimensions = reliable_sensory_dimensions(sensory)
         sensory_confidence = float(sensory.confidence)
     else:
         dimensions, _source, sensory_confidence = infer_sensory_profile(db, item)
@@ -1040,8 +1070,18 @@ def calculate_wishlist_taste_match(db: Session, user_id: UUID, item: WishlistIte
     closeness = [
         (key, 1 - abs(wine_value - preference)) for key, wine_value, preference in compared
     ]
+    weights = {
+        key: (
+            sensory_dimension_confidence(sensory, key)
+            if sensory and sensory.generation_status == "available"
+            else sensory_confidence
+        )
+        for key, _ in closeness
+    }
     return {
-        "score": round(sum(value for _, value in closeness) / len(closeness), 4),
+        "score": round(
+            sum(value * weights[key] for key, value in closeness) / sum(weights.values()), 4
+        ),
         "confidence": round(confidence, 4),
         "matching_traits": [
             key.replace("_", " ")

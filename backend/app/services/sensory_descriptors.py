@@ -73,7 +73,7 @@ def _text(value: str) -> str:
     ).replace("-", " ")
 
 
-def _anchors(dimension: str, text: str) -> set[float]:
+def _anchors(dimension: str, text: str, *, strict: bool = False) -> set[float]:
     if dimension == "body" and evolving_palate(text):
         return set()  # Different phases of the same sip cannot define one fixed body anchor.
     noun = _NOUNS[dimension]
@@ -129,6 +129,8 @@ def _anchors(dimension: str, text: str) -> set[float]:
             ):
                 if re.search(pattern, remaining):
                     result.add(value)
+            if strict and re.search(r"\bcorpos[oa]\b", remaining):
+                result.add(0.75)
         if dimension == "acidity" and re.search(
             r"\b(?:acidity|acidita|acidite) (?:lively|vibrant|vivace|vive|fresca)\b|"
             r"\b(?:lively|vibrant|vivace|vive|fresh|crisp|mouthwatering) "
@@ -136,9 +138,19 @@ def _anchors(dimension: str, text: str) -> set[float]:
             remaining,
         ):
             result.add(0.75)
-        if dimension == "tannin" and re.search(
-            r"\bfirm\s+tannins?\b|\btannins?\s+(?:are\s+)?firm\b", remaining
+        if (
+            strict
+            and dimension == "acidity"
+            and re.search(r"\bacidity\s+(?:which\s+is\s+|is\s+)?(?:quite\s+)?fresh\b", remaining)
         ):
+            result.add(0.75)
+        if (
+            dimension == "tannin"
+            and re.search(r"\bfirm\s+tannins?\b|\btannins?\s+(?:are\s+)?firm\b", remaining)
+            and not strict
+        ):
+            result.add(0.75)
+        if strict and dimension == "tannin" and re.search(r"\bfull\s+tannins?\b", remaining):
             result.add(0.75)
         if dimension == "minerality" and re.search(
             r"\bvery\s+saline\s+(?:finish|palate)\b", remaining
@@ -167,24 +179,32 @@ def evolving_palate(text: str) -> bool:
     )
 
 
-def compatible_observations(dimension: str, evidence: list[SourceEvidence]) -> bool:
+def compatible_observations(
+    dimension: str, evidence: list[SourceEvidence], *, strict: bool = False
+) -> bool:
     """Recognize specific false conflicts, without discarding unknown disagreements."""
-    combined = descriptor_estimate(dimension, evidence)
+    combined = descriptor_estimate(dimension, evidence, strict=strict)
     if combined is not None and combined.conflicting:
         return False
     if dimension == "body" and any(evolving_palate(e.excerpt) for e in evidence):
         return True
     if dimension != "tannin" or combined is None:
         return False
-    unquantified = [e for e in evidence if descriptor_estimate(dimension, [e]) is None]
+    unquantified = [
+        e for e in evidence if descriptor_estimate(dimension, [e], strict=strict) is None
+    ]
+    texture = r"velvet|silky|integrat|morb|vellut|setos|soft|mature|ripe"
+    if strict:
+        texture += r"|firm"
     return bool(unquantified) and all(
-        re.search(r"tannin|\btanins?\b", _text(e.excerpt))
-        and re.search(r"velvet|silky|integrat|morb|vellut|setos|soft|mature|ripe", _text(e.excerpt))
+        re.search(r"tannin|\btanins?\b", _text(e.excerpt)) and re.search(texture, _text(e.excerpt))
         for e in unquantified
     )
 
 
-def descriptor_estimate(dimension: str, evidence: list[SourceEvidence]) -> Estimate | None:
+def descriptor_estimate(
+    dimension: str, evidence: list[SourceEvidence], *, strict: bool = False
+) -> Estimate | None:
     """Map explicit adjacent descriptions to broad, uncalibrated intensity ranges.
 
     Duplicate quotes cannot increase weight. Opposing descriptions are returned as
@@ -200,7 +220,7 @@ def descriptor_estimate(dimension: str, evidence: list[SourceEvidence]) -> Estim
         if text in seen:
             continue
         seen.add(text)
-        anchors = _anchors(dimension, text)
+        anchors = _anchors(dimension, text, strict=strict)
         if anchors:
             values.extend(sorted(anchors))
             accepted.append(item)

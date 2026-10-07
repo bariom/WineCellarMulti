@@ -1,0 +1,210 @@
+[
+  {
+    "case_id": "soffocone-2023",
+    "category": "Red",
+    "experts": [],
+    "predictions": {
+      "baseline": [
+        {
+          "dimensions": {
+            "body": 0.64,
+            "acidity": 0.69,
+            "tannin": 0.64,
+            "sweetness": 0.08,
+            "aromatic_intensity": 0.62,
+            "fruit": 0.67,
+            "wood": 0.38,
+            "spice": 0.46,
+            "minerality": 0.38
+          }
+        }
+      ],
+      "agent": [
+        {
+          "dimensions": {
+            "body": 0.54,
+            "acidity": 0.7,
+            "tannin": 0.55,
+            "sweetness": 0.05,
+            "aromatic_intensity": 0.65,
+            "fruit": 0.65,
+            "wood": 0.35,
+            "spice": 0.25,
+            "minerality": 0.4
+          }
+        }
+      ],
+      "assisted": [
+        {
+          "dimensions": {
+            "body": 0.64,
+            "acidity": 0.69,
+            "tannin": 0.64,
+            "sweetness": 0.08,
+            "aromatic_intensity": 0.62,
+            "fruit": 0.67,
+            "wood": 0.38,
+            "spice": 0.46,
+            "minerality": 0.38
+          }
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "turriga-2007",
+    "category": "Red",
+    "experts": [],
+    "predictions": {
+      "baseline": [
+        {
+          "dimensions": {
+            "body": 0.68,
+            "acidity": 0.55,
+            "tannin": 0.62,
+            "sweetness": 0.08,
+            "aromatic_intensity": 0.62,
+            "fruit": 0.66,
+            "wood": 0.35,
+            "spice": 0.38,
+            "minerality": 0.3
+          }
+        }
+      ],
+      "agent": [
+        {
+          "dimensions": {
+            "body": 0.75,
+            "acidity": 0.57,
+            "tannin": 0.75,
+            "sweetness": 0.1,
+            "aromatic_intensity": 0.72,
+            "fruit": 0.8,
+            "wood": 0.35,
+            "spice": 0.55,
+            "minerality": 0.75
+          }
+        }
+      ],
+      "assisted": [
+        {
+          "dimensions": {
+            "body": 0.68,
+            "acidity": 0.55,
+            "tannin": 0.62,
+            "sweetness": 0.08,
+            "aromatic_intensity": 0.62,
+            "fruit": 0.66,
+            "wood": 0.35,
+            "spice": 0.38,
+            "minerality": 0.3
+          }
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "testamatta-2018",
+    "category": "Red",
+    "experts": [],
+    "predictions": {
+      "baseline": [
+        {
+          "dimensions": {
+            "body": 0.64,
+            "acidity": 0.69,
+            "tannin": 0.64,
+            "sweetness": 0.08,
+            "aromatic_intensity": 0.62,
+            "fruit": 0.67,
+            "wood": 0.38,
+            "spice": 0.46,
+            "minerality": 0.38
+          }
+        }
+      ],
+      "agent": [
+        {
+          "dimensions": {
+            "body": 0.8,
+            "acidity": 0.65,
+            "tannin": 0.7,
+            "sweetness": 0.05,
+            "aromatic_intensity": 0.25,
+            "fruit": 0.75,
+            "wood": 0.35,
+            "spice": 0.35,
+            "minerality": 0.25
+          }
+        }
+      ],
+      "assisted": [
+        {
+          "dimensions": {
+            "body": 0.64,
+            "acidity": 0.69,
+            "tannin": 0.64,
+            "sweetness": 0.08,
+            "aromatic_intensity": 0.62,
+            "fruit": 0.67,
+            "wood": 0.38,
+            "spice": 0.46,
+            "minerality": 0.38
+          }
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "krug-170",
+    "category": "Sparkling",
+    "experts": [],
+    "predictions": {
+      "baseline": [
+        {
+          "dimensions": {
+            "body": 0.41,
+            "acidity": 0.78,
+            "tannin": 0.05,
+            "sweetness": 0.16,
+            "aromatic_intensity": 0.62,
+            "fruit": 0.52,
+            "wood": 0.21,
+            "spice": 0.16,
+            "minerality": 0.6
+          }
+        }
+      ],
+      "agent": [
+        {
+          "dimensions": {
+            "body": 0.7,
+            "acidity": 0.75,
+            "tannin": 0.1,
+            "sweetness": 0.25,
+            "aromatic_intensity": 0.8,
+            "fruit": 0.75,
+            "wood": 0.25,
+            "spice": 0.55,
+            "minerality": 0.55
+          }
+        }
+      ],
+      "assisted": [
+        {
+          "dimensions": {
+            "body": 0.41,
+            "acidity": 0.78,
+            "tannin": 0.05,
+            "sweetness": 0.16,
+            "aromatic_intensity": 0.62,
+            "fruit": 0.52,
+            "wood": 0.21,
+            "spice": 0.16,
+            "minerality": 0.6
+          }
+        }
+      ]
+    }
+  }
+]
