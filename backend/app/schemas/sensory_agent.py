@@ -267,7 +267,15 @@ class SensoryApplicationPreview(BaseModel):
     review_required: list[str] = Field(default_factory=list)
 
 
+class AgentStep(BaseModel):
+    turn: int = Field(ge=1)
+    web_search_calls: int = Field(default=0, ge=0)
+    cost_usd: Decimal = Decimal("0")
+    tools: list[str] = Field(default_factory=list)
+
+
 class SensoryResearchResult(BaseModel):
+    agent_steps: list[AgentStep] = Field(default_factory=list)
     wine_id: UUID
     identity_id: UUID | None = None
     name: str

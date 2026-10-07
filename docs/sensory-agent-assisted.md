@@ -8,6 +8,30 @@ Research reserves both passes, including search context, tool calls and the most
 
 ## What gets applied
 
+New runs use an autonomous OpenAI Responses tool loop (`wine.sensory_autonomous` v1,
+result contract v12). The agent chooses searches, reads discovered HTML/PDF sources,
+submits candidate profiles for server review, receives failed-check feedback and can
+repair its evidence before concluding. Unsupported dimensions remain unknown rather
+than being filled with nine forced inferences. Applying a supported partial proposal
+retains the existing fallback for its gaps. The existing approval flow protects manual
+and validated profiles. Set `WINE_SENSORY_AUTONOMOUS_ENABLED=false` to use the previous
+two-pass researcher; `OPENAI_SENSORY_AGENT_MODEL` selects the autonomous model (default
+`gpt-6.1-sol`). Model/account availability must be checked on deployment.
+
+Each research is bounded to eight model turns, eight web tool calls and twelve public
+documents, with a cost check before every provider request. Every completed provider
+step is billed/audited, including malformed or weak results; unused reservations are
+reused for subsequent wines. Paid checked drafts survive interruption. Step metadata
+contains tool names and cost, never full prompts, arguments or reasoning. The agent
+can return a partial draft when the budget runs out. These bounds do not guarantee
+that a one-dollar budget will cover a multi-step investigation under every price book.
+
+Contract v12 excludes explicitly labelled drinking windows and publication dates from
+vintage-conflict checks, while bare years and other wine/vintage headings still block
+attribution. Quotes must still match actual source text. Review confidence is an
+editorial evidence-support score; reliability must be measured against independent
+expert profiles using the evaluation procedure below.
+
 Research prompt `wine.sensory_research` version 11 and completion prompt `wine.sensory_completion` version 7 retain nine research estimates. Application uses a separate, deterministic policy:
 
 - A quotation must occur in a readable public source. Its `attribution_excerpt` must be a real contiguous heading or sentence identifying producer, cuvée and applicable vintage or edition, before and within 3,000 normalized characters of the quotation. Intervening conflicting years or editions reject exact applicability. This conservative check can reject valid documents; it does not prove an author's accuracy.

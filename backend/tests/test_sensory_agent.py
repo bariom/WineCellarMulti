@@ -46,6 +46,7 @@ def make_wine(db, household, *, name="Barolo"):
 
 @pytest.fixture
 def setup(monkeypatch):
+    monkeypatch.setattr(agent.settings, "wine_sensory_autonomous_enabled", False)
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},

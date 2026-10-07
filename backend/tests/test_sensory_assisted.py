@@ -1,18 +1,25 @@
 import pytest
 from fastapi import HTTPException
-
 from test_sensory_agent import (
     assisted_proposal,
     attributed_output,
     completion_output,
     response,
     source_pages,
-    setup,  # noqa: F401 - shared database fixture
 )
+from test_sensory_agent import (
+    setup as shared_setup,  # noqa: F401 - shared database fixture
+)
+
 from app.api.routes import sensory_agent as routes
 from app.models import SensoryAgentRun, WineSensoryProfile
 from app.services import sensory_agent as agent
 from app.services.sensory_application import application_preview
+
+
+@pytest.fixture
+def setup(request):
+    return request.getfixturevalue("shared_setup")
 
 
 @pytest.mark.parametrize("change", ["identity", "vintage_section", "missing_attribution"])
@@ -69,7 +76,8 @@ def test_fallback_does_not_assign_global_confidence_to_missing_provenance(setup)
     assert preview.dimensions["minerality"].confidence == 0
 
 
-def test_preview_is_rechecked_at_apply_and_preserves_prior_provenance(setup):
+@pytest.mark.parametrize("version", ["11", "12"])
+def test_preview_is_rechecked_at_apply_and_preserves_prior_provenance(setup, version):
     db, context, wine = setup
     profile = WineSensoryProfile(
         identity_id=wine.shared_identity_id,
@@ -81,6 +89,9 @@ def test_preview_is_rechecked_at_apply_and_preserves_prior_provenance(setup):
     db.add(profile)
     db.commit()
     proposal = assisted_proposal(db, wine)
+    proposal.prompt_version = version
+    if version == "12":
+        proposal.status = "incomplete"
     run = SensoryAgentRun(
         household_id=context.household.id,
         user_id=context.user.id,

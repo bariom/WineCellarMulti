@@ -132,6 +132,13 @@ def select_ai_model(
             requested_model=requested, model=cellar_command_model, role="economy"
         )
 
+    # The autonomous sensory pilot selects its reasoning model independently
+    # of the rollout switch for existing AI features. Its own feature flag
+    # restores the previous researcher without changing other workloads.
+    sensory_model = settings.openai_sensory_agent_model.strip()
+    if normalized_task == "sensory_autonomous" and requested == sensory_model:
+        return ModelSelection(requested_model=requested, model=sensory_model, role="balanced")
+
     # This is the immediate rollback switch and intentionally overrides every
     # stored/user model preference.
     if not settings.openai_enable_gpt56:

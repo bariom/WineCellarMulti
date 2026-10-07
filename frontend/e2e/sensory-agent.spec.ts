@@ -34,6 +34,23 @@ const result = {
 
 const completed = { id: "run-one", status: "completed", issue: "", max_wines: 10, selected_wines: 3, budget_usd: "1", cost_usd: "0.02", results: [result, { ...result, wine_id: "wine-two", name: "Vino senza annata verificata", status: "incomplete", vintage_confirmed: false }, { ...result, wine_id: "wine-three", name: "Vino senza annata", vintage: "", status: "skipped", issue: "missing_vintage", vintage_confirmed: false, dimensions: {}, aromas: [], sources: [], summary: "", limitations: "", cost_usd: "0" }], created_at: "2026-10-07T08:00:00Z", updated_at: "2026-10-07T08:01:00Z" };
 
+test("Autonomous partial proposal is reviewable on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await renderPanel(page, "it");
+  const proposal = { ...result, status: "incomplete", prompt_version: "12", duration_ms: 153000,
+    agent_steps: [{ turn: 1, web_search_calls: 2, cost_usd: "0.02", tools: ["read_wine_source"] }],
+  };
+  await page.route("**/api/v1/taste-profile/admin/research-runs**", route => route.fulfill({
+    json: route.request().url().endsWith("/candidates") ? [] : [{ ...completed, results: [proposal] }],
+  }));
+  await page.goto("/sensory-agent-test");
+  await expect(page.getByText(/Ricerca autonoma: 1 passaggio/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Usa questo profilo" })).toBeVisible();
+  await expect(page.getByText(/Ripeti la ricerca per utilizzare/)).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  await page.screenshot({ path: "test-results/sensory-autonomous-mobile.png", fullPage: true });
+});
+
 for (const locale of ["it", "en"]) {
   test(`Complete inferred profile without accessible sources (${locale})`, async ({ page }, testInfo) => {
     await renderPanel(page, locale);

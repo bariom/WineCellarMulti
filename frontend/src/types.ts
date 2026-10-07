@@ -1649,6 +1649,7 @@ export type SensoryResearchComparison = {
 };
 export type SensoryResearchTrait = { value: number; basis: "documented" | "inferred"; excerpt: string; source_url: string };
 export type SensoryResearchResult = {
+  agent_steps?: { turn: number; web_search_calls: number; cost_usd: string; tools: string[] }[];
   application?: {
     policy_version: string; eligible: boolean; reason: string;
     dimensions: Record<string, { value: number; confidence: number; origin: "agent" | "baseline"; reason: string }>;

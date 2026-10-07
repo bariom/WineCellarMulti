@@ -144,9 +144,12 @@ def apply_research(
         ),
         None,
     )
-    if result is None or result.status != "ready":
+    if result is None or (
+        result.status != "ready"
+        and not (result.prompt_version == "12" and result.status == "incomplete")
+    ):
         raise HTTPException(422, "No complete proposal for this wine")
-    if result.prompt_version != "11":
+    if result.prompt_version not in {"11", "12"}:
         raise HTTPException(422, "Research again to use the assisted application policy")
     wine = db.scalar(
         select(Wine)

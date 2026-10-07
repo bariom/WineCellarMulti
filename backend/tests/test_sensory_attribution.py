@@ -40,6 +40,31 @@ def test_identity_witness_cannot_be_fabricated_or_name_a_different_wine():
     assert not attributable(evidence(), page, "Costera", "Argiolas")
 
 
+@pytest.mark.parametrize(
+    "context,accepted",
+    [
+        ("Drink 2025 - 2038 Author, Review.com (Mar 2022)", True),
+        ("Drink 2024 - 2046", True),
+        ("Published Jul 2020", True),
+        ("Maturity Ready - youthful (2024 - 2046)", True),
+        ("A wine not to touch until after 2023", True),
+        ("Drink after 2023 Turriga 2008", False),
+        ("Maturity Ready - youthful (2024 - 2046) Turriga 2008", False),
+        ("Turriga 2008", False),
+        ("The 2008 vintage", False),
+        ("Drink 2025 - 2038 Turriga 2008", False),
+        ("Harvest September 2008", False),
+        ("2020", False),
+    ],
+)
+def test_autonomous_attribution_distinguishes_review_dates_from_vintages(context, accepted):
+    page = f"Argiolas Turriga 2007 {context} Full-bodied"
+    assert (
+        attributable(evidence(), page, "Turriga", "Argiolas", allow_review_dates=True) is accepted
+    )
+    assert not attributable(evidence(), page, "Turriga", "Argiolas")
+
+
 def test_edition_is_identifiable_without_claiming_a_base_harvest_vintage():
     name = "Krug Grande Cuvée ed.170"
     heading = "Krug Grande Cuvée 170ème Édition"

@@ -9,6 +9,23 @@ _EDITION = re.compile(
     r"\b(?:ed(?:ition|izione)?\.?\s*(\d{2,3})|(\d{2,3})\s*(?:eme|e|th)?\s*edition)\b"
 )
 _NOISE = {"di", "de", "del", "della", "du", "la", "le", "il", "the", "ed", "edition", "eme"}
+_YEAR = r"(?:19|20)\d{2}"
+_MONTH = (
+    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
+    r"aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+)
+_DRINKING_DATE = re.compile(
+    rf"\bdrink(?:ing window| from| between)?\s+{_YEAR}(?:\s+(?:to\s+|until\s+)?{_YEAR})?\b"
+)
+_REVIEW_DATE = re.compile(
+    rf"\b(?:com|org|net|reviewed|published|review date)\s+{_MONTH}\s+(?:\d{{1,2}}\s+)?{_YEAR}\b"
+)
+_MATURITY_DATE = re.compile(
+    rf"\bmaturity(?:\s+(?:ready|youthful|mature|not)){{0,3}}\s+{_YEAR}(?:\s+{_YEAR})?\b"
+)
+_DRINKING_ADVICE = re.compile(
+    rf"\b(?:not to touch until after|drink after|drink until|best from|best after)\s+{_YEAR}\b"
+)
 
 
 def edition_number(name: str) -> str:
@@ -25,7 +42,14 @@ def identifies_wine(excerpt: str, name: str, producer: str) -> bool:
     return bool(required) and required <= words and (not edition or edition_number(text) == edition)
 
 
-def attributable(evidence: SourceEvidence, page: str, name: str, producer: str) -> bool:
+def attributable(
+    evidence: SourceEvidence,
+    page: str,
+    name: str,
+    producer: str,
+    *,
+    allow_review_dates: bool = False,
+) -> bool:
     """Require a real identity heading near the quote and reject intervening vintages.
 
     This is a conservative applicability check, not proof of the author's accuracy.
@@ -69,6 +93,13 @@ def attributable(evidence: SourceEvidence, page: str, name: str, producer: str) 
             continue
         section = text[start : position + len(quote)]
         if evidence.scope == "exact_vintage" and evidence.vintage.isdigit():
+            if allow_review_dates:
+                # Only explicitly labelled drinking/review dates can be excluded.
+                # Bare years and other wine headings still block attribution.
+                section = _DRINKING_DATE.sub(" ", section)
+                section = _REVIEW_DATE.sub(" ", section)
+                section = _MATURITY_DATE.sub(" ", section)
+                section = _DRINKING_ADVICE.sub(" ", section)
             years = set(re.findall(r"\b(?:19|20)\d{2}\b", section))
             if years - {evidence.vintage}:
                 continue

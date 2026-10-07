@@ -6,7 +6,7 @@ import logging
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
@@ -48,6 +48,8 @@ class OpenAIResponse:
     task_type: str = "sommelier"
     reasoning_effort: str | None = None
     charged_cost_usd: Decimal = Decimal("0.000000")
+    agent_output: tuple[dict[str, Any], ...] = field(default=(), repr=False)
+    incomplete: bool = False
 
 
 @dataclass(frozen=True)
@@ -156,6 +158,8 @@ def response_body(
     max_output_tokens: int | None = None,
     max_tool_calls: int | None = None,
     input_images: list[tuple[str, bytes]] | None = None,
+    agent_tools: list[dict[str, Any]] | None = None,
+    agent_history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     user_content: str | list[dict[str, Any]] = user_prompt
     if input_images:
@@ -176,6 +180,8 @@ def response_body(
         ],
     }
     parameters = parameters_for_model(model)
+    if agent_history is not None:
+        body["input"] = [{"role": "system", "content": system_prompt}, *agent_history]
     effective_reasoning_effort = reasoning_effort if reasoning_effort is not None else parameters.reasoning_effort
     if effective_reasoning_effort is not None:
         body["reasoning"] = {"effort": effective_reasoning_effort}
@@ -212,6 +218,12 @@ def response_body(
         body["include"] = ["web_search_call.action.sources"]
         if max_tool_calls is not None:
             body["max_tool_calls"] = min(max(int(max_tool_calls), 1), 20)
+    if agent_tools:
+        body["tools"] = [*body.get("tools", []), *agent_tools]
+        body["tool_choice"] = "auto"
+        body["parallel_tool_calls"] = False
+        body["store"] = False
+        body["include"] = [*body.get("include", []), "reasoning.encrypted_content"]
     return body
 
 
@@ -334,6 +346,8 @@ def create_response(
     complexity: str | None = None,
     input_images: list[tuple[str, bytes]] | None = None,
     timeout_seconds: float | None = None,
+    agent_tools: list[dict[str, Any]] | None = None,
+    agent_history: list[dict[str, Any]] | None = None,
 ) -> OpenAIResponse:
     active_api_key = settings.openai_api_key if api_key is None else api_key.strip()
     if not active_api_key:
@@ -371,6 +385,8 @@ def create_response(
                     max_output_tokens=max_output_tokens,
                     max_tool_calls=max_tool_calls,
                     input_images=input_images,
+                    agent_tools=agent_tools,
+                    agent_history=agent_history,
                 ),
                 active_api_key,
                 timeout_seconds=timeout_seconds,
@@ -406,7 +422,7 @@ def create_response(
                 continue
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="OpenAI request failed") from exc
 
-    if payload.get("status") == "incomplete":
+    if payload.get("status") == "incomplete" and not agent_tools:
         incomplete_details = payload.get("incomplete_details")
         incomplete_reason = (
             str(incomplete_details.get("reason") or "")
@@ -420,7 +436,13 @@ def create_response(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
 
     text = extract_response_text(payload)
-    if not text:
+    agent_output = tuple(item for item in payload.get("output", []) if isinstance(item, dict))
+    if not text and not (
+        agent_tools and (
+            payload.get("status") == "incomplete"
+            or any(item.get("type") == "function_call" for item in agent_output)
+        )
+    ):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned an empty response")
     usage = extract_token_usage(payload)
     result = OpenAIResponse(
@@ -436,6 +458,8 @@ def create_response(
         request_id=request_id,
         task_type=task_type,
         reasoning_effort=effective_reasoning_effort,
+        agent_output=agent_output if agent_tools else (),
+        incomplete=payload.get("status") == "incomplete",
     )
     log_ai_request(
         selection=selection,

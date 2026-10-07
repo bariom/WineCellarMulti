@@ -796,6 +796,8 @@ def create_ai_response(
     app_funded: bool = False,
     input_images: list[tuple[str, bytes]] | None = None,
     timeout_seconds: float | None = None,
+    agent_tools: list[dict[str, Any]] | None = None,
+    agent_history: list[dict[str, Any]] | None = None,
 ) -> tuple[Any, str]:
     if app_funded and not is_free_tier(context):
         api_key = settings.openai_api_key.strip()
@@ -817,6 +819,10 @@ def create_ai_response(
             task_type == "cellar_command"
             and requested_model == settings.openai_cellar_command_model.strip()
         )
+        and not (
+            task_type == "sensory_autonomous"
+            and requested_model == settings.openai_sensory_agent_model.strip()
+        )
     ):
         requested_model = ""
     effective_tool_limit = (
@@ -837,8 +843,10 @@ def create_ai_response(
             context,
             model=reservation_model,
             system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            json_schema=json_schema,
+            user_prompt=json.dumps(agent_history) if agent_history is not None else user_prompt,
+            json_schema={"response": json_schema, "tools": agent_tools}
+            if agent_tools
+            else json_schema,
             max_output_tokens=effective_output_limit,
             web_search=web_search,
             max_tool_calls=effective_tool_limit,
@@ -862,6 +870,7 @@ def create_ai_response(
             complexity=complexity,
             input_images=input_images,
             timeout_seconds=timeout_seconds,
+            **({"agent_tools": agent_tools, "agent_history": agent_history} if agent_tools else {}),
         )
         actual_cost = billable_cost_usd(
             user_is_app_admin=context.user.is_app_admin,

@@ -70,7 +70,7 @@ def proposal_from_response(
     source_texts: dict[str, str] | None = None,
     document_cache: dict | None = None,
 ) -> SensoryResearchResult:
-    if prompt_version in {"4", "5", "6", "7", "8", "9", "10", "11"}:
+    if prompt_version in {"4", "5", "6", "7", "8", "9", "10", "11", "12"}:
         from app.services.sensory_completion import build_complete_proposal
 
         return build_complete_proposal(
@@ -358,7 +358,7 @@ def complete_with_estimates(
 
 def describe_checked_result(result: SensoryResearchResult, locale: str) -> SensoryResearchResult:
     """Keep provider prose separate from statements derived from actual server checks."""
-    if result.prompt_version not in {"7", "8", "9", "10", "11"}:
+    if result.prompt_version not in {"7", "8", "9", "10", "11", "12"}:
         return result
     if result.agent_summary:
         return result
@@ -375,7 +375,7 @@ def describe_checked_result(result: SensoryResearchResult, locale: str) -> Senso
     result.coverage.update(
         qualitative=qualitative, inferred_grounded=grounded, inferred_unverified=unsupported
     )
-    if result.prompt_version in {"9", "10", "11"}:
+    if result.prompt_version in {"9", "10", "11", "12"}:
         result.coverage.update(
             described_estimates=sum(
                 i.sensory_support == "description" for i in result.complete_profile.values()
@@ -563,6 +563,11 @@ def research_cost_ceiling(
 
     user_settings = get_or_create_user_ai_settings(db, context)
     provider, _ = select_ai_provider(db, context, user_settings)
+    if settings.wine_sensory_autonomous_enabled:
+        from app.services.sensory_autonomous import minimum_cost
+
+        minimum = minimum_cost(db, context, wine, provider)
+        return max(minimum, remaining if remaining is not None else Decimal("1"))
     if remaining is None:
         return sum(research_costs(db, context, wine, provider), Decimal("0"))
     _, first, completion = affordable_research_limits(db, context, wine, provider, remaining)
@@ -573,10 +578,15 @@ def research_wine(
     db: Session, context: CurrentContext, wine: Wine, remaining: Decimal
 ) -> SensoryResearchResult | None:
     started = perf_counter()
-    result = _research_wine(db, context, wine, remaining)
+    if settings.wine_sensory_autonomous_enabled and wine.vintage.strip():
+        from app.services.sensory_autonomous import research_autonomously
+
+        result = research_autonomously(db, context, wine, remaining)
+    else:
+        result = _research_wine(db, context, wine, remaining)
     if result is not None:
         result.duration_ms = round((perf_counter() - started) * 1000)
-        if result.prompt_version == "11":
+        if result.prompt_version in {"11", "12"}:
             from app.services.sensory_application import application_preview
             from app.services.taste_profiles import infer_sensory_profile
 
