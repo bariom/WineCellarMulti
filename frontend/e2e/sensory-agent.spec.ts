@@ -21,6 +21,11 @@ const result = {
   status: "ready", issue: "", summary: "Un vino strutturato, con acidità fresca e tannino deciso.", limitations: "Profilo atteso: non descrive la singola bottiglia bevuta.",
   vintage_confirmed: true, confidence: .65, baseline: { body: .4 },
   dimensions: { body: { value: .8, basis: "documented", excerpt: "Full-bodied with firm tannins.", source_url: "https://producer.example/technical-sheet-2020" }, acidity: { value: .7, basis: "inferred", excerpt: "Fresh and balanced finish.", source_url: "https://producer.example/technical-sheet-2020" } },
+  comparisons: [{ dimension: "body", agreement: "corroborated", independent: true,
+    explanation: "Producer and independent critic agree on a full body.", evidence: [
+      { excerpt: "Full-bodied with firm tannins.", source_url: "https://producer.example/technical-sheet-2020" },
+      { excerpt: "Rich and full-bodied.", source_url: "https://critic.example/review-2020" },
+    ] }],
   aromas: [{ name: "ciliegia", excerpt: "Cherry", source_url: "https://producer.example/technical-sheet-2020" }],
   sources: [{ title: "Scheda tecnica del produttore · 2020", url: "https://producer.example/technical-sheet-2020" }], model: "test", prompt_version: "1", cost_usd: "0.02",
 };
@@ -60,6 +65,8 @@ for (const locale of ["it", "en"]) {
     await proposals.first().getByText(it ? "Confronto e prove" : "Comparison and evidence", { exact: true }).click();
     await expect(proposals.first()).toContainText("0.4 → 0.8");
     await expect(proposals.first()).toContainText(it ? "Interpretazione" : "Inferred");
+    await expect(proposals.first()).toContainText(it ? "Fonti concordanti" : "Corroborated sources");
+    await expect(proposals.first().getByRole("link", { name: it ? "Confronta fonte ↗" : "Compare source ↗" }).nth(1)).toHaveAttribute("href", "https://critic.example/review-2020");
     await expect(proposals.first().getByRole("link").first()).toHaveAttribute("rel", "noopener noreferrer");
     for (const width of [360, 390, 430, 1440]) {
       await page.setViewportSize({ width, height: 844 });

@@ -1621,11 +1621,16 @@ export type SensoryProfileBaseline = {
   confidence: number;
   is_active: boolean;
 };
+export type SensoryResearchComparison = {
+  dimension: string; agreement: "corroborated" | "conflicting" | "single_source";
+  independent: boolean; explanation: string; evidence: Array<{ excerpt: string; source_url: string }>;
+};
 export type SensoryResearchTrait = { value: number; basis: "documented" | "inferred"; excerpt: string; source_url: string };
 export type SensoryResearchResult = {
   wine_id: string; identity_id: string | null; name: string; producer: string; vintage: string;
   status: "ready" | "incomplete" | "no_evidence" | "failed" | "skipped" | "applied";
   issue: string; summary: string; limitations: string; vintage_confirmed: boolean; confidence: number;
+  comparisons?: SensoryResearchComparison[];
   baseline: Record<string, number>; dimensions: Record<string, SensoryResearchTrait>;
   aromas: Array<{ name: string; excerpt: string; source_url: string }>;
   sources: Array<{ url: string; title: string }>; model: string; prompt_version: string; cost_usd: string;

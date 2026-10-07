@@ -57,17 +57,17 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
 
   return <section className="sensory-research" aria-labelledby="sensory-research-title">
     <h4 id="sensory-research-title">{it ? "Agente del profilo organolettico · Prototipo" : "Organoleptic profile agent · Prototype"}</h4>
-    <p>{it ? "Ricerca descrizioni e schede tecniche per i vini della cantina attiva con profili mancanti o deboli. Confronta le proposte con le fonti prima di utilizzarle." : "Research tasting notes and technical sheets for missing or weak profiles in the active cellar. Compare proposals with sources before applying them."}</p>
+    <p>{it ? "Confronta schede del produttore e descrizioni esterne indipendenti per verificare i profili automatici della cantina. Il profilo attuale è una stima non validata." : "Compare producer sheets and independent external tasting notes to verify automatic cellar profiles. The current profile is an unvalidated estimate."}</p>
     <form className="sensory-research-controls" onSubmit={event => { event.preventDefault(); void start(); }}>
       <label>{it ? "Numero massimo di vini" : "Maximum number of wines"}<input type="number" min="1" max="20" required value={limit} disabled={running || busy} onChange={event => setLimit(Number(event.target.value))} /></label>
       <label>{it ? "Budget AI (USD)" : "AI budget (USD)"}<input type="number" min="0.05" max="5" step="0.05" required value={budget} disabled={running || busy} onChange={event => setBudget(event.target.value)} /></label>
       <button type="submit" className="secondary compact" disabled={busy || running}>{running ? (it ? "Ricerca in corso…" : "Researching…") : (it ? "Avvia ricerca autonoma" : "Start autonomous research")}</button>
     </form>
-    <p className="muted">{it ? "Massimo 20 vini e 3 consultazioni web per vino. Le ricerche continuano in background; i profili validati e le correzioni manuali sono protetti." : "Up to 20 wines and 3 web tool calls per wine. Research continues in the background; validated profiles and manual corrections are protected."}</p>
+    <p className="muted">{it ? "Massimo 20 vini e 6 consultazioni web per vino. Le ricerche continuano in background; i profili validati e le correzioni manuali sono protetti." : "Up to 20 wines and 6 web tool calls per wine. Research continues in the background; validated profiles and manual corrections are protected."}</p>
     {error && <p role="alert">{error}</p>}
     {run && <>
       <p role="status">{labels[run.status] || run.status} · {run.results.length}/{run.selected_wines} {it ? "vini valutati" : "wines reviewed"}{skipped > 0 ? ` · ${skipped} ${it ? (skipped === 1 ? "saltato" : "saltati") : "skipped"}` : ""} · ${run.cost_usd}</p>
-      {run.selected_wines < run.max_wines && <p>{it ? `Selezionati ${run.selected_wines} vini da valutare, su un massimo di ${run.max_wines}. Sono esclusi i duplicati e i profili già sufficienti, manuali o validati.` : `Selected ${run.selected_wines} wines to review, with a maximum of ${run.max_wines}. Duplicates and sufficient, manual or validated profiles are excluded.`}</p>}
+      {run.selected_wines < run.max_wines && <p>{it ? `Selezionati ${run.selected_wines} vini da valutare, su un massimo di ${run.max_wines}. Sono esclusi i duplicati e i profili manuali o validati.` : `Selected ${run.selected_wines} wines to review, with a maximum of ${run.max_wines}. Duplicates and manual or validated profiles are excluded.`}</p>}
       {run.issue && <p>{run.issue === "budget_limit" ? (it ? "Budget residuo insufficiente per un’altra ricerca." : "Remaining budget is insufficient for another search.") : (it ? "La ricerca si è interrotta. Le proposte già completate restano disponibili." : "Research stopped. Completed proposals remain available.")}</p>}
       <div className="sensory-research-results">{run.results.map(result => <article key={result.wine_id}>
         <h5>{result.name}</h5><p>{result.producer}</p>
@@ -76,8 +76,13 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
         {result.summary && <p>{result.summary}</p>}
         {result.limitations && <p>{result.limitations}</p>}
         {result.issue === "missing_vintage" ? <p>{it ? "Ricerca non eseguita: inserisci l’annata nella scheda del vino e avvia una nuova ricerca." : "Research skipped: enter the vintage in wine details and start a new run."}</p> : !result.vintage_confirmed && <p>{it ? "Annata non verificata: proposta non applicabile." : "Vintage unverified: proposal cannot be applied."}</p>}
-        {Object.keys(result.dimensions).length > 0 && <details><summary>{it ? "Confronto e prove" : "Comparison and evidence"}</summary><p>{it ? "Valori stimati su scala 0–1. Attendibilità" : "Estimated values on a 0–1 scale. Confidence"}: {Math.round(result.confidence * 100)}%</p>
+        {Object.keys(result.dimensions).length > 0 && <details><summary>{it ? "Confronto e prove" : "Comparison and evidence"}</summary><p>{it ? "Valori stimati su scala 0–1. Copertura delle prove (non accuratezza misurata)" : "Estimated values on a 0–1 scale. Evidence coverage (not measured accuracy)"}: {Math.round(result.confidence * 100)}%</p>
           <dl>{Object.entries(result.dimensions).map(([key, trait]) => <div key={key}><dt>{it ? traitsIt[key] || key : key.replace(/_/g, " ")}</dt><dd>{result.baseline[key] ?? "—"} → {trait.value} · {trait.basis === "documented" ? (it ? "Descritto dalla fonte" : "Described by source") : (it ? "Interpretazione" : "Inferred")}<blockquote>{trait.excerpt}</blockquote><a href={trait.source_url} target="_blank" rel="noopener noreferrer">{it ? "Verifica fonte ↗" : "Verify source ↗"}</a></dd></div>)}</dl>
+          {result.comparisons?.map(comparison => <div key={comparison.dimension}>
+            <strong>{it ? traitsIt[comparison.dimension] || comparison.dimension : comparison.dimension.replace(/_/g, " ")} · {comparison.agreement === "corroborated" ? (it ? "Fonti concordanti" : "Corroborated sources") : comparison.agreement === "conflicting" ? (it ? "Fonti discordanti" : "Conflicting sources") : (it ? "Prova singola" : "Single source")}</strong>
+            <p>{comparison.explanation}</p>
+            {comparison.evidence.map(evidence => <div key={evidence.source_url}><blockquote>{evidence.excerpt}</blockquote><a href={evidence.source_url} target="_blank" rel="noopener noreferrer">{it ? "Confronta fonte ↗" : "Compare source ↗"}</a></div>)}
+          </div>)}
           {result.aromas.length > 0 && <p>{it ? "Aromi descritti" : "Described aromas"}: {result.aromas.map(aroma => aroma.name).join(", ")}</p>}
         </details>}
         <ul>{result.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || source.url} ↗</a></li>)}</ul>

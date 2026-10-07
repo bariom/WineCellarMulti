@@ -40,6 +40,25 @@ class ResearchDimensions(BaseModel):
     minerality: ResearchTrait | None
 
 
+class ResearchComparison(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    dimension: Literal[
+        "body",
+        "acidity",
+        "tannin",
+        "sweetness",
+        "aromatic_intensity",
+        "fruit",
+        "wood",
+        "spice",
+        "minerality",
+    ]
+    agreement: Literal["corroborated", "conflicting", "single_source"]
+    independent: bool
+    explanation: str = Field(min_length=1, max_length=400)
+    evidence: list[ResearchEvidence] = Field(min_length=1, max_length=4)
+
+
 class ResearchOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(max_length=240)
@@ -49,6 +68,7 @@ class ResearchOutput(BaseModel):
     vintage_confirmed: bool
     summary: str = Field(max_length=1500)
     limitations: str = Field(max_length=800)
+    comparisons: list[ResearchComparison] = Field(max_length=9)
     dimensions: ResearchDimensions
     aromas: list[ResearchAroma] = Field(max_length=12)
 
@@ -70,6 +90,7 @@ class SensoryResearchResult(BaseModel):
     aromas: list[ResearchAroma] = Field(default_factory=list)
     sources: list[dict[str, str]] = Field(default_factory=list)
     model: str = ""
+    comparisons: list[ResearchComparison] = Field(default_factory=list)
     prompt_version: str = "2"
     cost_usd: Decimal = Decimal("0")
 

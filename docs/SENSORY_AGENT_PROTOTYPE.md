@@ -19,13 +19,13 @@ Non occorre creare un agente nella dashboard OpenAI o configurare nuove chiavi.
 2. Aprire i profili sensoriali nelle impostazioni amministrative.
 3. Lasciare inizialmente 10 vini e verificare il budget, poi avviare la ricerca.
 4. Consultare il confronto con il profilo attuale, gli estratti e i link alle fonti.
-5. Confrontare le proposte con le schede dei produttori. Usare **Usa questo profilo**
+5. Confrontare le proposte con le schede dei produttori e le fonti esterne. Usare **Usa questo profilo**
    solo per una proposta adeguata; la normale validazione del profilo resta separata.
 
 ## Comportamento e limiti
 
-Il modello consulta strumenti web in autonomia, fino a tre chiamate per vino,
-privilegiando schede tecniche e descrizioni del produttore. Un prompt versionato
+Il modello consulta strumenti web in autonomia, fino a sei chiamate per vino,
+confrontando schede tecniche e fonti esterne indipendenti. Un prompt versionato
 e un contratto JSON richiedono identità, annata, nove dimensioni sensoriali e aromi.
 La risposta viene validata; i collegamenti devono comparire nelle fonti restituite
 dal provider. URL locali, privati e con credenziali sono esclusi. Le citazioni
@@ -36,8 +36,8 @@ revisione umana nel prototipo.
 I valori 0–1 sono stime normalizzate. Ogni tratto distingue una descrizione esplicita
 della fonte da un'interpretazione. La confidenza è un indicatore euristico derivato
 dalla copertura documentata e dalla verifica dell'annata, non una probabilità calibrata.
-Un risultato richiede almeno tre dimensioni, una descrizione documentata e l'annata
-verificata per poter essere applicato. Evidenza insufficiente e annate non verificate
+Un risultato richiede almeno tre dimensioni corroborate da fonti indipendenti,
+nessun conflitto e l'annata verificata per poter essere applicato. Evidenza insufficiente e annate non verificate
 producono proposte incomplete, senza pulsante di applicazione.
 L’annata della scheda vino viene inviata sia nel contesto sia come annata richiesta
 esplicita. Se manca, il vino viene saltato senza chiamate AI o costi: il rapporto
@@ -49,8 +49,8 @@ profilo da validare. Gli aromi e le prove sono conservati nel rapporto della ric
 Non vengono sovrascritti profili manuali o validati, identità cambiate o dimensioni
 modificate dopo la ricerca. Le proposte applicate non si possono applicare di nuovo.
 
-La selezione deduplica le identità e considera profili mancanti o con confidenza
-inferiore a 0,65. I dati privati delle altre cantine non entrano nella ricerca.
+La selezione deduplica le identità e considera profili mancanti e automatici non validati,
+indipendentemente dalla confidenza interna. I dati privati delle altre cantine non entrano nella ricerca.
 Il numero impostato è un limite massimo: il rapporto mostra l’avanzamento sui
 vini effettivamente selezionati e conta separatamente quelli saltati. Quando
 il campione è più piccolo del limite, ne spiega le esclusioni.
@@ -58,8 +58,8 @@ il campione è più piccolo del limite, ne spiega le esclusioni.
 ricontrollano sessione, appartenenza e ruolo dell'amministratore.
 
 Prima di ogni chiamata si confronta il budget residuo con una stima conservativa
-basata su prezzi correnti, 32.768 token di contesto web, prompt, massimo 3.000 token
-di risposta e tre chiamate web. La spesa effettiva viene registrata anche quando
+basata su prezzi correnti, 32.768 token di contesto web, prompt, massimo 6.000 token
+di risposta e sei chiamate web. La spesa effettiva viene registrata anche quando
 il risultato non è utilizzabile. Il contesto web e gli eventuali fallback sono
 controllati dal provider: la soglia è una protezione applicativa stimata, non un
 limite rigido di fatturazione OpenAI. Nessuna chiamata successiva parte una volta
@@ -97,3 +97,43 @@ qualitativa su 10–20 vini reali va eseguita dal pannello dopo la distribuzione
 
 Riferimenti: [ricerca web OpenAI](https://developers.openai.com/api/docs/guides/tools-web-search),
 [risposte strutturate](https://developers.openai.com/api/docs/guides/structured-outputs).
+
+
+## Ricerca comparativa (prompt v3)
+
+La selezione include tutti i profili automatici non validati, anche con confidence
+interna alta: quella stima non costituisce una prova. Restano protetti i profili
+manuali e validati. Il profilo esistente serve soltanto al confronto nel report,
+non viene inviato al modello.
+
+Per ogni dimensione la ricerca confronta fonti del produttore ed esterne, riferite
+all'annata richiesta. Testi copiati o distribuiti da più siti non valgono come
+prove indipendenti. I confronti riportano estratti, URL, accordo o conflitto e una
+spiegazione. Il server mantiene solo URL citati dalla risposta del provider;
+richiede almeno due host distinti e indipendenza dichiarata per una concordanza.
+Questi controlli non verificano automaticamente la veridicità degli estratti né
+l'indipendenza editoriale: resta necessaria la revisione delle fonti.
+
+Una proposta è applicabile con almeno tre dimensioni corroborate, annata
+confermata e nessun conflitto rilevato. Si salvano solo le dimensioni corroborate,
+senza colmare lacune con il precedente profilo non validato. La confidence indica
+copertura euristica delle prove, non accuratezza misurata. I valori normalizzati
+rimangono stime anche quando l'intensità qualitativa è documentata.
+
+Il limite è sei consultazioni web per vino, entro il budget impostato. I report
+precedenti rimangono leggibili. Non si modificano automaticamente i profili.
+
+
+## Direzione della sostituzione
+
+L'obiettivo è sostituire la generazione da metadati e baseline con ricerca
+specifica per vino e annata, non mantenere due generatori equivalenti. Questo
+passaggio aggiorna il percorso dell'agente; i vecchi endpoint di generazione,
+l'arricchimento delle degustazioni esterne e il fallback di abbinamento non sono
+ancora migrati. Non si considera conclusa la sostituzione.
+
+Prima di attivare il salvataggio autonomo serve un campione di riferimento
+revisionato: verificare identità e annata, fedeltà degli estratti, indipendenza
+editoriale, correttezza delle intensità e astensione nei casi deboli. Il punteggio
+interno di copertura non sostituisce questa valutazione. Per l'automazione serve
+anche una coda durevole che gestisca riavvii, deduplicazione e budget.

@@ -63,7 +63,7 @@ def start_research(
             raise HTTPException(409, "Research is already running for this cellar")
     candidates = candidate_wines(db, context, payload.max_wines)
     if not candidates:
-        raise HTTPException(422, "No missing or low-confidence profiles in this cellar")
+        raise HTTPException(422, "No unvalidated automatic profiles in this cellar")
     run = SensoryAgentRun(
         household_id=context.household.id,
         user_id=context.user.id,
@@ -160,7 +160,14 @@ def apply_research(
     if profile is None:
         profile = WineSensoryProfile(identity_id=identity.id)
         db.add(profile)
-    profile.dimensions = {key: trait.value for key, trait in result.dimensions.items()}
+    supported = {item.dimension for item in result.comparisons if item.agreement == "corroborated"}
+    if result.prompt_version == "3" and len(supported) < 3:
+        raise HTTPException(422, "Insufficient corroborated evidence")
+    profile.dimensions = {
+        key: trait.value
+        for key, trait in result.dimensions.items()
+        if result.prompt_version != "3" or key in supported
+    }
     profile.source, profile.confidence = "ai", result.confidence
     profile.validated, profile.generation_status = False, "available"
     profile.model, profile.last_modified_by_user_id = result.model[:120], context.user.id

@@ -102,6 +102,22 @@ def output(wine):
             key: dict(trait) if key in {"body", "acidity", "tannin"} else None
             for key in agent.ResearchOutput.model_fields["dimensions"].annotation.model_fields
         },
+        "comparisons": [
+            {
+                "dimension": key,
+                "agreement": "corroborated",
+                "independent": True,
+                "explanation": "Independent tasting notes agree.",
+                "evidence": [
+                    {"excerpt": trait["excerpt"], "source_url": trait["source_url"]},
+                    {
+                        "excerpt": "Full body, fresh acidity, firm tannins.",
+                        "source_url": "https://critic.example/2020",
+                    },
+                ],
+            }
+            for key in ("body", "acidity", "tannin")
+        ],
         "aromas": [
             {"name": "ciliegia", "excerpt": "Cherry aromas", "source_url": trait["source_url"]}
         ],
@@ -114,7 +130,10 @@ def response(payload):
         usage=TokenUsage(),
         model="test",
         charged_cost_usd=Decimal("0.02"),
-        web_sources=({"url": "https://producer.example/2020", "title": "Technical sheet 2020"},),
+        web_sources=(
+            {"url": "https://producer.example/2020", "title": "Technical sheet 2020"},
+            {"url": "https://critic.example/2020", "title": "Independent review 2020"},
+        ),
     )
 
 
@@ -124,7 +143,7 @@ def test_verified_proposal_preserves_evidence_and_baseline(setup):
     assert result.status == "ready"
     assert result.baseline == {"body": 0.3}
     assert result.dimensions["body"].value == 0.7
-    assert result.sources[0]["title"] == "Technical sheet 2020"
+    assert any(source["title"] == "Technical sheet 2020" for source in result.sources)
     assert result.cost_usd == Decimal("0.02")
 
 
@@ -159,6 +178,7 @@ def test_untrusted_and_weak_outputs_are_not_ready(setup, change, expected):
             for trait in payload["dimensions"].values():
                 if trait:
                     trait["basis"] = "inferred"
+            payload["comparisons"] = []
         if change == "invalid_value":
             payload["dimensions"]["body"]["value"] = 2
         if change == "unknown_dimension":
@@ -231,7 +251,7 @@ def test_research_records_no_result_cost_and_audit(setup, monkeypatch):
     result = agent.research_wine(db, context, wine, Decimal("1"))
     assert result.status == "failed" and result.cost_usd == Decimal("0.02")
     assert audits[0]["feature"] == "sensory_research"
-    assert kwargs_seen["max_tool_calls"] == 3 and kwargs_seen["web_search"]
+    assert kwargs_seen["max_tool_calls"] == 6 and kwargs_seen["web_search"]
     assert '"vintage": "2020"' in kwargs_seen["user_prompt"]
     assert 'Requested vintage (annata richiesta): "2020"' in kwargs_seen["user_prompt"]
 
@@ -350,7 +370,84 @@ def test_api_requires_admin_and_scopes_run_reads(setup):
 
 def test_prompt_has_identity_grounding_language_and_no_invention():
     prompt = wine_sensory_research_prompt(wine_context={"name": "Test wine"}, locale="it")
-    assert prompt.id == "wine.sensory_research" and prompt.version == "2"
+    assert prompt.id == "wine.sensory_research" and prompt.version == "3"
     assert "Italian" in prompt.user and "Test wine" in prompt.user
     assert "Never invent" in prompt.system and "untrusted data" in prompt.system
     assert "Missing evidence means null" in prompt.system and "vintage_confirmed" in prompt.system
+
+
+@pytest.mark.parametrize("case", ["single", "copied", "same_host", "uncited", "conflict"])
+def test_comparison_requires_independent_verified_sources(setup, case):
+    _, _, wine = setup
+    payload = output(wine)
+    for item in payload["comparisons"]:
+        if case == "single":
+            item["evidence"] = item["evidence"][:1]
+        elif case == "copied":
+            item["independent"] = False
+        elif case == "same_host":
+            item["evidence"][1]["source_url"] = "https://producer.example/2020"
+        elif case == "uncited":
+            item["evidence"][1]["source_url"] = "https://invented.example/2020"
+        else:
+            item["agreement"] = "conflicting"
+    result = agent.proposal_from_response(wine, response(payload), {})
+    assert result.status == "incomplete"
+    assert result.issue == ("conflicting_sources" if case == "conflict" else "weak_evidence")
+
+
+def test_high_confidence_internal_estimates_are_researched(setup):
+    db, context, wine = setup
+    db.add(
+        WineSensoryProfile(
+            identity_id=wine.shared_identity_id,
+            source="ai",
+            confidence=0.95,
+            generation_status="available",
+        )
+    )
+    db.flush()
+    assert [item.id for item in agent.candidate_wines(db, context, 5)] == [wine.id]
+
+
+def test_prompt_requires_external_comparison_without_internal_anchoring():
+    prompt = wine_sensory_research_prompt(wine_context={"vintage": "2016"}, locale="en")
+    assert "independent external" in prompt.system
+    assert "unvalidated" in prompt.system and "must not anchor" in prompt.system
+    assert (
+        "copied producer text" in prompt.system and "contradictory vintage labels" in prompt.system
+    )
+
+
+def test_apply_does_not_save_uncorroborated_dimensions(setup):
+    db, context, wine = setup
+    payload = output(wine)
+    payload["dimensions"]["fruit"] = dict(payload["dimensions"]["body"], value=0.8)
+    proposal = agent.proposal_from_response(wine, response(payload), {})
+    assert proposal.status == "ready" and "fruit" in proposal.dimensions
+    run = SensoryAgentRun(
+        household_id=context.household.id,
+        user_id=context.user.id,
+        status="completed",
+        results=[proposal.model_dump(mode="json")],
+    )
+    db.add(run)
+    db.commit()
+    routes.apply_research(run.id, wine.id, db, context)
+    profile = db.scalar(select(WineSensoryProfile))
+    assert set(profile.dimensions) == {"body", "acidity", "tannin"}
+
+
+def test_previous_reports_remain_readable():
+    from app.schemas.sensory_agent import SensoryResearchResult
+
+    old = SensoryResearchResult.model_validate(
+        {
+            "wine_id": str(uuid4()),
+            "name": "Wine",
+            "producer": "Producer",
+            "vintage": "2020",
+            "status": "ready",
+        }
+    )
+    assert old.comparisons == [] and old.prompt_version == "2"

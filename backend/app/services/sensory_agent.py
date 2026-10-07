@@ -31,7 +31,7 @@ from app.prompts.sensory_agent import wine_sensory_research_prompt
 from app.schemas.sensory_agent import ResearchOutput, SensoryResearchResult
 from app.services.openai_client import OpenAIResponse
 from app.services.shared_wine_data import normalize_identity_part
-from app.services.taste_profiles import infer_sensory_profile, sensory_profile_for_wine
+from app.services.taste_profiles import sensory_profile_for_wine
 
 
 def public_source_url(value: str) -> str:
@@ -66,6 +66,7 @@ def proposal_from_response(
         vintage=wine.vintage,
         status="no_evidence",
         baseline=baseline,
+        prompt_version="3",
         model=response.model,
         cost_usd=response.charged_cost_usd,
     )
@@ -100,6 +101,32 @@ def proposal_from_response(
             aroma.source_url = url
             result.aromas.append(aroma)
             used.add(url)
+    compared: set[str] = set()
+    conflicts = False
+    for comparison in output.comparisons:
+        if comparison.dimension not in result.dimensions or comparison.dimension in compared:
+            continue
+        compared.add(comparison.dimension)
+        evidence = []
+        seen_urls: set[str] = set()
+        for item in comparison.evidence:
+            url = public_source_url(item.source_url)
+            if url in sources and url not in seen_urls and item.excerpt.strip():
+                item.source_url = url
+                evidence.append(item)
+                seen_urls.add(url)
+                used.add(url)
+        comparison.evidence = evidence
+        domains = {urlsplit(item.source_url).hostname.removeprefix("www.") for item in evidence}
+        primary = result.dimensions[comparison.dimension].source_url
+        if primary not in seen_urls or not evidence:
+            continue
+        if comparison.agreement == "corroborated" and (
+            not comparison.independent or len(domains) < 2
+        ):
+            comparison.agreement = "single_source"
+        conflicts |= comparison.agreement == "conflicting"
+        result.comparisons.append(comparison)
     result.sources = [sources[url] for url in sorted(used)]
     if not used or not result.dimensions:
         result.issue = "no_verified_sources"
@@ -107,17 +134,24 @@ def proposal_from_response(
     result.summary = output.summary
     result.limitations = output.limitations
     result.vintage_confirmed = output.vintage_confirmed and bool(wine.vintage.strip())
-    documented = sum(trait.basis == "documented" for trait in result.dimensions.values())
+    corroborated = sum(item.agreement == "corroborated" for item in result.comparisons)
+    # Evidence coverage, not a calibrated probability of sensory accuracy.
     result.confidence = round(
-        min(0.85, 0.45 + 0.3 * documented / 9 + (0.1 if result.vintage_confirmed else 0)), 3
+        min(0.85, 0.2 + 0.55 * corroborated / 9 + (0.1 if result.vintage_confirmed else 0)), 3
     )
     result.status = (
         "ready"
-        if len(result.dimensions) >= 3 and documented and result.vintage_confirmed
+        if corroborated >= 3 and result.vintage_confirmed and not conflicts
         else "incomplete"
     )
     if result.status == "incomplete":
-        result.issue = "weak_evidence" if result.vintage_confirmed else "vintage_unverified"
+        result.issue = (
+            "vintage_unverified"
+            if not result.vintage_confirmed
+            else "conflicting_sources"
+            if conflicts
+            else "weak_evidence"
+        )
     return result
 
 
@@ -134,11 +168,7 @@ def candidate_wines(db: Session, context: CurrentContext, limit: int) -> list[Wi
             continue
         seen.add(identity)
         profile = sensory_profile_for_wine(db, wine)
-        if profile and (
-            profile.validated
-            or profile.source == "manual"
-            or (profile.generation_status == "available" and profile.confidence >= 0.65)
-        ):
+        if profile and (profile.validated or profile.source == "manual"):
             continue
         candidates.append(wine)
         if len(candidates) >= limit:
@@ -210,7 +240,7 @@ def research_wine(
     )
 
     existing = sensory_profile_for_wine(db, wine)
-    baseline = existing.dimensions if existing else infer_sensory_profile(db, wine)[0]
+    baseline = existing.dimensions if existing else {}
     prompt = wine_sensory_research_prompt(
         wine_context={
             "name": wine.name,
@@ -233,8 +263,8 @@ def research_wine(
         model=reservation_pricing_model(model, db),
         input_tokens=32768
         + max(2048, (len(prompt.system) + len(prompt.user) + len(json.dumps(schema))) // 2),
-        output_tokens=3000,
-        web_search_calls=3,
+        output_tokens=6000,
+        web_search_calls=6,
         db=db,
     )
     if estimated_ceiling > remaining:
@@ -249,12 +279,12 @@ def research_wine(
         json_schema=schema,
         web_search=True,
         web_search_use_default_location=False,
-        web_search_context_size="low",
+        web_search_context_size="medium",
         task_type="sensory_profile",
-        max_output_tokens=3000,
-        max_tool_calls=3,
-        reasoning_effort="low",
-        timeout_seconds=90,
+        max_output_tokens=6000,
+        max_tool_calls=6,
+        reasoning_effort="medium",
+        timeout_seconds=180,
     )
     result = proposal_from_response(wine, response, baseline)
     record_ai_audit(
