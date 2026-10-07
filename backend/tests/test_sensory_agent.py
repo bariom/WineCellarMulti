@@ -1278,7 +1278,7 @@ def test_completion_prompt_and_strict_schema():
     prompt = wine_sensory_completion_prompt(
         wine_context={"vintage": "2016"}, feedback={"issue": "source_unreadable"}, locale="it"
     )
-    assert prompt.id == "wine.sensory_completion" and prompt.version == "2"
+    assert prompt.id == "wine.sensory_completion" and prompt.version == "3"
     assert "Italian" in prompt.user and "2016" in prompt.user
     assert "untrusted data" in prompt.system and "must not anchor" in prompt.system
     assert "ALL nine estimates" in prompt.system and "Do not retry Cloudflare" in prompt.system
@@ -1286,6 +1286,8 @@ def test_completion_prompt_and_strict_schema():
     assert "evidence must list verbatim source excerpts" in prompt.system
     assert "including analytical values and production methods" in prompt.system
     assert "Follow vintage_verified" in prompt.system
+    assert "Grape sugar concentration" in prompt.system
+    assert "fermentation can consume it" in prompt.system
     schema = SensoryCompletionOutput.model_json_schema()
     for item in [schema, *schema["$defs"].values()]:
         if item.get("type") == "object":

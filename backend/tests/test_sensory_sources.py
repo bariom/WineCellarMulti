@@ -25,7 +25,7 @@ def pdf_bytes(text="Wine 2023. Full-bodied with firm tannins."):
     )
     stream = DecodedStreamObject()
     stream.set_data(f"BT /F1 12 Tf 20 700 Td ({text}) Tj ET".encode("ascii"))
-    page[NameObject("/Contents")] = stream
+    page[NameObject("/Contents")] = writer._add_object(stream)
     value = BytesIO()
     writer.write(value)
     return value.getvalue()
@@ -74,6 +74,54 @@ def test_actual_pdf_text_can_be_verified_without_changing_score_reader(monkeypat
     assert result.status == "readable" and "Full-bodied with firm tannins" in result.text
     assert result.content_type == "application/pdf" and result.http_status == 200
     assert public_page_text("https://producer.example/sheet.pdf") == ""
+
+
+def test_second_pdf_extraction_recovers_split_words_without_fuzzy_matching(monkeypatch):
+    from pypdf import PageObject
+
+    from app.services.pdf_sources import _extract
+    from app.services.shared_wine_data import normalize_identity_part
+
+    quote = "Its mouth is broad and powerful."
+    monkeypatch.setattr(PageObject, "extract_text", lambda *args, **kwargs: "It s mou th is bro ad")
+    result = _extract(pdf_bytes(quote))
+    assert result["status"] == "readable"
+    assert normalize_identity_part(quote) in normalize_identity_part(result["text"])
+    assert "It s mou th" in result["text"]  # Preserve the original extraction as well.
+    assert "Its mouth is light" not in result["text"]
+
+
+@pytest.mark.parametrize("case", ["failure", "oversized"])
+def test_secondary_pdf_parser_cannot_discard_or_expand_primary_text(monkeypatch, case):
+    from app.services.pdf_sources import MAX_TEXT, _extract
+
+    def alternate(*args, **kwargs):
+        if case == "failure":
+            raise ValueError("Invalid font encoding")
+        return "x" * MAX_TEXT
+
+    monkeypatch.setattr("pdfminer.high_level.extract_text", alternate)
+    result = _extract(pdf_bytes())
+    assert result["status"] == "readable" and "Full-bodied" in result["text"]
+    assert len(result["text"]) < MAX_TEXT
+
+
+def test_secondary_parser_is_not_used_for_long_catalogues(monkeypatch):
+    from pypdf import PdfReader
+
+    from app.services.pdf_sources import _extract
+
+    writer = PdfWriter()
+    for _ in range(6):
+        writer.add_page(PdfReader(BytesIO(pdf_bytes())).pages[0])
+    stream = BytesIO()
+    writer.write(stream)
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("Long catalogues must retain the bounded layout workflow")
+
+    monkeypatch.setattr("pdfminer.high_level.extract_text", unexpected)
+    assert _extract(stream.getvalue())["status"] == "readable"
 
 
 @pytest.mark.parametrize("content", [b"not a PDF", b"%PDF-1.7\ninvalid"])

@@ -43,6 +43,21 @@ def _extract(content: bytes) -> dict:
             return {"status": "too_large", "text": ""}
         parts.append(text)
     value = "\n".join(parts)
+    # Short technical sheets can contain kerning that splits words in pypdf's
+    # layout output. Preserve a second faithful extraction; do not fuzzy-match or
+    # remove word boundaries in source verification. Both parsers run inside the
+    # same bounded child process. Keep layout alone for long tasting catalogues.
+    if len(reader.pages) <= 5:
+        from pdfminer.high_level import extract_text
+
+        try:
+            alternative = extract_text(BytesIO(content), maxpages=5)
+            if alternative.strip() and alternative.strip() != value.strip():
+                if len(value) + len(alternative) + 1 <= MAX_TEXT:
+                    value += "\n" + alternative
+        except Exception:
+            # A secondary parser failure must not discard the primary extraction.
+            pass
     return {"status": "readable" if value.strip() else "empty", "text": value}
 
 
@@ -54,7 +69,7 @@ def extract_pdf_document(content: bytes):
     stopped = Event()
     try:
         with subprocess.Popen(
-            [sys.executable, str(Path(__file__).resolve())],
+            [sys.executable, "-I", str(Path(__file__).resolve())],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,

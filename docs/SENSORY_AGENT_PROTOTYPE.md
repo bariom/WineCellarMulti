@@ -27,7 +27,7 @@ esistenti. Distribuire anche il frontend aggiornato. Restano valide le impostazi
 Il prompt versionato `wine.sensory_research` e un contratto JSON rigoroso richiedono
 identificazione, prove per annata, confronto, ricerca mirata delle lacune e fino a
 cinque riferimenti documentati. Il primo passaggio dispone di sei consultazioni
-web. Se il profilo non è completo, il prompt `wine.sensory_completion` v2 riceve
+web. Se il profilo non è completo, il prompt `wine.sensory_completion` v3 riceve
 gli esiti reali della verifica server, dispone di altre quattro consultazioni per
 cercare alternative e produce tutte le nove intensità attese. Le conversioni
 numeriche restano stime su scala 0-1. Il secondo passaggio non viene eseguito
@@ -226,3 +226,19 @@ Una citazione recuperata nel completamento risolve l'errore del primo tentativo,
 ma lascia esplicita l'intensità non sostenuta: la cronologia delle verifiche
 resta conservata. Le proposte con identità ambigua sono sempre indicate come
 provvisorie e non applicabili, anche quando hanno tutti i nove valori.
+
+### Estrazione delle schede PDF brevi
+
+Per PDF fino a cinque pagine, il lettore conserva sia l'estrazione a impaginazione
+di pypdf sia una seconda estrazione con pdfminer.six. Questo recupera parole
+spezzate dalla spaziatura dei caratteri senza accettare parafrasi o confronti
+approssimativi delle citazioni. I cataloghi lunghi mantengono l'estrazione a
+impaginazione. Entrambi i lettori operano nello stesso processo isolato con
+i limiti esistenti di tempo, memoria e testo; un errore del lettore secondario
+non scarta il testo primario. Aggiornare le dipendenze backend o ricostruire
+l'immagine per installare `pdfminer.six`.
+
+Il completamento v3 precisa che l'appassimento e l'aumento dello zucchero
+nell'uva non documentano il residuo zuccherino o la dolcezza del vino finito.
+La fermentazione può consumare quello zucchero: questi dati produttivi restano
+indizi per una stima, senza diventare misurazioni sensoriali.
