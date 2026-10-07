@@ -505,7 +505,9 @@ def research_wine_context(wine: Wine) -> dict:
     }
 
 
-def research_costs(db: Session, context: CurrentContext, wine: Wine, provider: str):
+def research_costs(
+    db: Session, context: CurrentContext, wine: Wine, provider: str, output_tokens: int = 12000
+):
     from app.api.routes.ai import maximum_billable_cost_usd, reservation_pricing_model
 
     prompt = wine_sensory_research_prompt(
@@ -519,7 +521,7 @@ def research_costs(db: Session, context: CurrentContext, wine: Wine, provider: s
             user_has_active_entitlement=context.has_active_entitlement,
             provider_source=provider,
             model=reservation_pricing_model(settings.openai_economy_model, db),
-            output_tokens=12000,
+            output_tokens=output_tokens,
             db=db,
             input_tokens=input_tokens,
             web_search_calls=calls,
@@ -532,14 +534,39 @@ def research_costs(db: Session, context: CurrentContext, wine: Wine, provider: s
     return first, completion
 
 
-def research_cost_ceiling(db: Session, context: CurrentContext, wine: Wine) -> Decimal:
+def affordable_research_limits(
+    db: Session, context: CurrentContext, wine: Wine, provider: str, remaining: Decimal
+) -> tuple[int, Decimal, Decimal]:
+    # Keep room for structured evidence and reasoning in both passes. Reduce only
+    # the enforced response limits, never the search/context or fallback allowance.
+    low, high = 4096, 12000
+    first, completion = research_costs(db, context, wine, provider, low)
+    if first + completion > remaining:
+        return low, first, completion
+    while low < high:
+        candidate = (low + high + 1) // 2
+        costs = research_costs(db, context, wine, provider, candidate)
+        if sum(costs, Decimal("0")) <= remaining:
+            low = candidate
+        else:
+            high = candidate - 1
+    first, completion = research_costs(db, context, wine, provider, low)
+    return low, first, completion
+
+
+def research_cost_ceiling(
+    db: Session, context: CurrentContext, wine: Wine, remaining: Decimal | None = None
+) -> Decimal:
     if not wine.vintage.strip():
         return Decimal("0")
     from app.api.routes.ai import get_or_create_user_ai_settings, select_ai_provider
 
     user_settings = get_or_create_user_ai_settings(db, context)
     provider, _ = select_ai_provider(db, context, user_settings)
-    return sum(research_costs(db, context, wine, provider), Decimal("0"))
+    if remaining is None:
+        return sum(research_costs(db, context, wine, provider), Decimal("0"))
+    _, first, completion = affordable_research_limits(db, context, wine, provider, remaining)
+    return first + completion
 
 
 def research_wine(
@@ -605,7 +632,9 @@ def _research_wine(
     user_settings = get_or_create_user_ai_settings(db, context)
     provider, _ = select_ai_provider(db, context, user_settings)
     model = settings.openai_economy_model
-    estimated_ceiling, completion_ceiling = research_costs(db, context, wine, provider)
+    output_limit, estimated_ceiling, completion_ceiling = affordable_research_limits(
+        db, context, wine, provider, remaining
+    )
     completion_schema = {
         "name": "wine_sensory_completion",
         "schema": SensoryCompletionOutput.model_json_schema(),
@@ -625,7 +654,7 @@ def _research_wine(
         web_search_use_default_location=False,
         web_search_context_size="medium",
         task_type="sensory_profile",
-        max_output_tokens=12000,
+        max_output_tokens=output_limit,
         max_tool_calls=4,
         reasoning_effort="medium",
         timeout_seconds=240,
@@ -702,7 +731,7 @@ def _research_wine(
             )
             // 2,
         ),
-        output_tokens=12000,
+        output_tokens=output_limit,
         web_search_calls=refinement_calls,
         db=db,
     )
@@ -722,7 +751,7 @@ def _research_wine(
             web_search_use_default_location=False,
             web_search_context_size="medium",
             task_type="sensory_profile",
-            max_output_tokens=12000,
+            max_output_tokens=output_limit,
             max_tool_calls=refinement_calls,
             reasoning_effort="medium",
             timeout_seconds=240,

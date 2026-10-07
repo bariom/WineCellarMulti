@@ -211,6 +211,28 @@ def test_unaffordable_grant_does_not_call_provider(research_setup, monkeypatch):
         assert run.cost_usd == 0 and not run.results
 
 
+def test_adaptive_grants_use_only_unreserved_budget(research_setup, monkeypatch):
+    factory, run_id, household_id, session_id, _ = research_setup
+    calls = []
+
+    def ceiling(db, context, wine, remaining):
+        assert Decimal("0") <= remaining <= Decimal("1")
+        return max(Decimal("0.4"), remaining)
+
+    def research(db, context, wine, grant):
+        calls.append(grant)
+        return result(wine)
+
+    monkeypatch.setattr(agent, "research_cost_ceiling", ceiling)
+    monkeypatch.setattr(agent, "research_wine", research)
+    parallel.run_parallel_research(run_id, household_id, session_id)
+    assert calls == [Decimal("1"), Decimal("0.9"), Decimal("0.8")]
+    with factory() as db:
+        run = db.get(SensoryAgentRun, run_id)
+        assert run.status == "completed" and not run.issue
+        assert run.cost_usd == Decimal("0.3")
+
+
 def test_missing_vintage_uses_zero_grant(research_setup, monkeypatch):
     factory, run_id, household_id, session_id, wine_ids = research_setup
     with factory() as db:

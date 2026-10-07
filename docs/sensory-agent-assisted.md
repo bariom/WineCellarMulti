@@ -4,6 +4,8 @@ The agent is available to application administrators in the sensory profile sett
 
 This release describes the **expected wine style at release**, not the condition of a particular bottle today. Body means perceived palate weight; tannin means perceived astringency intensity; sweetness means perceived palate sweetness; aromatic intensity means nose strength. Fruit, oak and spice describe the prominence of those sensory families. Minerality describes explicitly reported mineral or saline sensations, not a chemical measurement.
 
+Research reserves both passes, including search context, tool calls and the most expensive configured fallback model. When the normal reservation exceeds the remaining run budget, both enforced response limits adapt from 12,000 down to a minimum of 4,096 tokens per pass. Search limits and source verification remain unchanged. The run stops before a paid request if that minimum is still unaffordable; a one-dollar budget is not a guarantee for every model, price book or credit markup configuration.
+
 ## What gets applied
 
 Research prompt `wine.sensory_research` version 11 and completion prompt `wine.sensory_completion` version 7 retain nine research estimates. Application uses a separate, deterministic policy:

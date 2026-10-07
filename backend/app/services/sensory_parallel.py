@@ -79,7 +79,9 @@ def run_parallel_research(run_id: UUID, household_id: UUID, session_id: UUID) ->
                                 next_index += 1
                                 continue
                             grant = (
-                                agent.research_cost_ceiling(db, context, wine)
+                                agent.research_cost_ceiling(
+                                    db, context, wine, run.budget_usd - run.cost_usd - reserved
+                                )
                                 if wine.vintage.strip()
                                 else Decimal("0")
                             )

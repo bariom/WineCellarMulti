@@ -238,6 +238,61 @@ def test_budget_check_prevents_provider_call(setup, monkeypatch):
     assert agent.research_wine(db, context, wine, Decimal("0.1")) is None
 
 
+def test_one_dollar_budget_adapts_both_response_limits(setup, monkeypatch):
+    db, context, wine = setup
+    monkeypatch.setattr(ai, "get_or_create_user_ai_settings", lambda *args: object())
+    monkeypatch.setattr(ai, "select_ai_provider", lambda *args: ("application", "unused"))
+    monkeypatch.setattr(agent.settings, "openai_economy_model", "gpt-6-luna")
+    monkeypatch.setattr(agent.settings, "openai_fallback_model", "gpt-5.5")
+    monkeypatch.setattr(agent.settings, "openai_web_search_tool_cost_usd", "0.01")
+    monkeypatch.setattr(
+        ai,
+        "model_pricing_usd_per_million_tokens",
+        lambda *args: ai.DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS,
+    )
+    original_costs = agent.research_costs(db, context, wine, "application")
+    assert sum(original_costs) > Decimal("1")
+    output_limit, first, completion = agent.affordable_research_limits(
+        db, context, wine, "application", Decimal("1")
+    )
+    assert 4096 <= output_limit < 12000
+    assert first + completion <= Decimal("1")
+    assert sum(agent.research_costs(db, context, wine, "application", output_limit + 1)) > 1
+    seen = []
+
+    def response(*args, **kwargs):
+        seen.append(kwargs)
+        return OpenAIResponse("{}", TokenUsage(), charged_cost_usd=Decimal("0.02")), "application"
+
+    monkeypatch.setattr(ai, "create_ai_response", response)
+    monkeypatch.setattr(ai, "record_ai_audit", lambda *args, **kwargs: None)
+    result = agent.research_wine(db, context, wine, Decimal("1"))
+    assert result is not None
+    assert [call["max_output_tokens"] for call in seen] == [output_limit, output_limit]
+    assert [call["max_tool_calls"] for call in seen] == [4, 2]
+
+
+def test_budget_adaptation_preserves_minimum_and_full_limits(setup, monkeypatch):
+    db, context, wine = setup
+    monkeypatch.setattr(
+        agent,
+        "research_costs",
+        lambda db, context, wine, provider, output_tokens=12000: (
+            Decimal(output_tokens) / Decimal("10000"),
+            Decimal("0.1"),
+        ),
+    )
+    assert agent.affordable_research_limits(db, context, wine, "application", Decimal("2")) == (
+        12000,
+        Decimal("1.2"),
+        Decimal("0.1"),
+    )
+    limit, first, completion = agent.affordable_research_limits(
+        db, context, wine, "application", Decimal("0.1")
+    )
+    assert limit == 4096 and first + completion > Decimal("0.1")
+
+
 def test_research_records_no_result_cost_and_audit(setup, monkeypatch):
     db, context, wine = setup
     monkeypatch.setattr(ai, "get_or_create_user_ai_settings", lambda *args: object())
