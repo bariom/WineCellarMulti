@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Locale, SensoryProfileBaseline, WineSensoryBatchPreview, WineSensoryProfile, WineSensoryProfileSummary } from "../types";
-import { api } from "../services/api";
+import type { Locale, SensoryRefinementRun, SensoryProfileBaseline, WineSensoryBatchPreview, WineSensoryProfile, WineSensoryProfileSummary } from "../types";
+import { ApiError, api } from "../services/api";
 
 const dimensions = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
 const emptyBaseline: Omit<SensoryProfileBaseline, "id"> = { entity_type: "grape", entity_key: "", dimensions: {}, confidence: 0.5, is_active: true };
@@ -27,6 +27,10 @@ export function AdminSensoryProfilesPanel({ locale }: { locale: Locale }) {
   const [busy, setBusy] = useState(false);
   const [rowFeedback, setRowFeedback] = useState<{ id: string; message: string; error: boolean } | null>(null);
 
+  const [refinementId, setRefinementId] = useState<string | null>(() => localStorage.getItem("sensory-refinement-id"));
+  const [refinementMessage, setRefinementMessage] = useState("");
+  function clearRefinement() { localStorage.removeItem("sensory-refinement-id"); setRefinementId(null); setRefinementMessage(""); }
+
   const [offset, setOffset] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,6 +46,49 @@ export function AdminSensoryProfilesPanel({ locale }: { locale: Locale }) {
     finally { setLoading(false); }
   }
   useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    if (!refinementId) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    setBusy(true);
+    async function poll() {
+      try {
+        const run = await api<SensoryRefinementRun>(`/api/v1/taste-profile/admin/refinements/${refinementId}`);
+        if (cancelled) return;
+        if (run.status === "queued" || run.status === "running") {
+          setRefinementMessage(italian ? `Analisi Astra in corso per ${run.name}. Puoi aggiornare la pagina: la ricerca continua.` : `Astra research is running for ${run.name}. You can refresh the page: research continues.`);
+          timer = setTimeout(() => void poll(), 2000);
+          return;
+        }
+        setBusy(false); setRefinementMessage("");
+        if (run.status === "completed" && run.proposal) {
+          setEditing({ ...run.proposal, name: run.name, producer: run.producer, vintage: run.vintage });
+          setRowFeedback({ id: run.identity_id, message: `${italian ? "Approfondimento completato. Stime da verificare" : "Research completed. Estimates need review"} - ${run.proposal.model || "AI"} - $${run.proposal.estimated_cost_usd || "0"}`, error: false });
+        } else {
+          const messages: Record<string, string> = italian ? {
+            no_usable_evidence: "Nessun riscontro utilizzabile trovato. Il profilo resta invariato.",
+            profile_changed: "Il vino o il profilo sono cambiati durante la ricerca. Ripeti l'analisi.",
+            interrupted: "La ricerca si e interrotta. Puoi avviarne una nuova.",
+            session_expired: "La sessione non e piu autorizzata. Accedi di nuovo.",
+            insufficient_credits: "Crediti insufficienti per completare l'analisi.",
+          } : {};
+          clearRefinement();
+          setBatchError(messages[run.issue] || (italian ? "Analisi non completata. Il profilo resta invariato." : "Research failed. The profile is unchanged."));
+        }
+      } catch (error) {
+        if (cancelled) return;
+        if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+          clearRefinement(); setBusy(false);
+          setBatchError(errorMessage(error, italian ? "Analisi non recuperabile." : "Unable to retrieve research."));
+        } else {
+          setRefinementMessage(italian ? "Connessione interrotta: riconnessione all'analisi in corso, senza avviare una nuova ricerca." : "Connection interrupted: reconnecting to the current research without starting another search.");
+          timer = setTimeout(() => void poll(), 5000);
+        }
+      }
+    }
+    void poll();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [refinementId, italian]);
   const editDimension = <T extends { dimensions: Record<string, number | null> }>(dimension: string, value: string, target: T): T => ({ ...target, dimensions: { ...target.dimensions, [dimension]: value === "" ? null : Number(value) } });
   const errorMessage = (error: unknown, fallback: string) => error instanceof Error && error.message ? error.message : fallback;
 
@@ -72,18 +119,29 @@ export function AdminSensoryProfilesPanel({ locale }: { locale: Locale }) {
     setBusy(true); setBatchError("");
     try {
       await api(`/api/v1/taste-profile/admin/profiles/${editing.identity_id}`, { method: "PUT", body: JSON.stringify({ dimensions: editing.dimensions, validated: editing.validated, expected_baseline_revision: editing.is_proposal ? editing.baseline_revision : undefined }) });
-      setEditing(null); await load();
+      setEditing(null); clearRefinement(); await load();
     } catch (error) { setBatchError(errorMessage(error, italian ? "Impossibile salvare il profilo." : "Unable to save profile.")); }
     finally { setBusy(false); }
   }
   async function regenerate(profile: WineSensoryProfile, advanced = false) {
+    if (advanced) {
+      setBusy(true); setBatchError(""); setEditing(null);
+      setRefinementMessage(italian ? "Avvio dell'analisi Astra..." : "Starting Astra research...");
+      try {
+        const run = await api<SensoryRefinementRun>(`/api/v1/taste-profile/admin/profiles/${profile.identity_id}/refinements`, { method: "POST" });
+        localStorage.setItem("sensory-refinement-id", run.id); setRefinementId(run.id);
+      } catch (error) {
+        setBusy(false); setRefinementMessage("");
+        setBatchError(errorMessage(error, italian ? "Impossibile avviare l'analisi." : "Unable to start research."));
+      }
+      return;
+    }
     setBusy(true); setBatchError(""); setBatchResult(null);
     setRowFeedback({ id: profile.identity_id, message: italian ? "Generazione assistita da AI in corso…" : "AI-assisted generation in progress…", error: false });
     try {
-      const result = await api<WineSensoryProfile>(`/api/v1/taste-profile/admin/profiles/${profile.identity_id}/${advanced ? "refine" : "regenerate?allow_ai=true"}`, { method: "POST" });
+      const result = await api<WineSensoryProfile>(`/api/v1/taste-profile/admin/profiles/${profile.identity_id}/regenerate?allow_ai=true`, { method: "POST" });
       if (result.generation_status !== "available") throw new Error(italian ? "Nessun profilo generato. Riprova con AI." : "No profile generated. Retry with AI.");
-      setRowFeedback({ id: profile.identity_id, message: advanced ? `${italian ? "Approfondimento completato. Stime da verificare" : "Research completed. Estimates need review"} · ${result.model || "AI"} · $${result.estimated_cost_usd || "0"}` : italian ? "Profilo generato." : "Profile generated.", error: false });
-      if (advanced) setEditing({ ...profile, ...result, is_proposal: true, baseline_dimensions: result.baseline_dimensions ?? profile.dimensions });
+      setRowFeedback({ id: profile.identity_id, message: italian ? "Profilo generato." : "Profile generated.", error: false });
       await load();
     } catch (error) {
       setRowFeedback({ id: profile.identity_id, message: errorMessage(error, italian ? "Impossibile generare il profilo con AI." : "Unable to generate the profile with AI."), error: true });
@@ -118,10 +176,11 @@ export function AdminSensoryProfilesPanel({ locale }: { locale: Locale }) {
     {preview ? <div className="admin-sensory-feedback admin-sensory-feedback-preview" role="status" aria-live="polite"><strong>{italian ? "Esito dell’anteprima" : "Preview result"}</strong><div className="admin-sensory-feedback-values"><span><b>{preview.missing}</b>{italian ? " senza profilo" : " without a profile"}</span><span><b>{preview.deterministic}</b>{italian ? " generabili ora" : " can be generated now"}</span><span><b>{preview.requires_ai}</b>{italian ? " richiedono AI" : " require AI"}</span></div><p>{preview.missing ? (italian ? "Genera mancanti con AI completa i metadati quando necessario, poi calcola il profilo." : "Generate missing with AI completes metadata when needed, then calculates the profile.") : (italian ? "Non ci sono profili mancanti da generare." : "There are no missing profiles to generate.")}</p></div> : null}
     {batchResult ? <div className="admin-sensory-feedback admin-sensory-feedback-success" role="status" aria-live="polite"><strong>{italian ? "Generazione completata" : "Generation completed"}</strong><div className="admin-sensory-feedback-values"><span><b>{batchResult.processed}</b>{italian ? " esaminati" : " reviewed"}</span><span><b>{batchResult.resolved}</b>{italian ? " profili creati" : " profiles created"}</span><span><b>{batchResult.skipped}</b>{italian ? " saltati" : " skipped"}</span></div><p>{batchResult.processed === 50 ? (italian ? "Ogni esecuzione elabora al massimo 50 vini. Se restano profili mancanti, ripeti l’azione." : "Each run processes up to 50 wines. Repeat the action if profiles are still missing.") : (italian ? "I contatori in alto sono stati aggiornati." : "The counters above have been updated.")}</p></div> : null}
     {approvalResult ? <div className="admin-sensory-feedback admin-sensory-feedback-success" role="status" aria-live="polite"><strong>{italian ? "Approvazione completata" : "Approval completed"}</strong><p>{approvalResult.approved ? (italian ? `${approvalResult.approved} profili approvati.` : `${approvalResult.approved} profiles approved.`) : (italian ? "Non ci sono profili da approvare." : "There are no profiles to approve.")}</p></div> : null}
+    {refinementMessage ? <p role="status" aria-live="polite">{refinementMessage}</p> : null}
     {batchError ? <div className="admin-sensory-feedback admin-sensory-feedback-error" role="alert">{batchError}</div> : null}
-    <details className="settings-help-panel admin-sensory-profile-list"><summary>{italian ? "Profili vino" : "Wine profiles"} ({profiles.length})</summary><div className="member-list">{profiles.map((profile) => <div className="member-row" key={profile.identity_id}><div><strong>{[profile.producer, profile.name, profile.vintage].filter(Boolean).join(" · ")}</strong><span>{profile.source === "metadata" && italian ? "metadati" : label(profile.source)} · {Math.round(profile.confidence * 100)}% · {profile.validated ? (italian ? "validato" : "validated") : (italian ? "da validare" : "unvalidated")}</span></div><div className="member-actions"><button type="button" className="secondary compact" onClick={() => setEditing({ ...profile, dimensions: { ...profile.dimensions } })}>{italian ? "Modifica" : "Edit"}</button><button type="button" className="secondary compact" disabled={busy} title={italian ? "Cerca dati verificati mancanti e ricalcola il profilo; il risultato torna da validare." : "Find missing verified data and recalculate the profile; the result requires validation."} onClick={() => void completeMetadata(profile)}>{italian ? "Completa dati con AI" : "Complete data with AI"}</button><button type="button" className="secondary compact" disabled={busy || profile.validated} title={italian ? "Completa i metadati mancanti con AI e genera il profilo" : "Complete missing metadata with AI and generate the profile"} onClick={() => void regenerate(profile)}>{italian ? "Genera profilo con AI" : "Generate profile with AI"}</button><button type="button" className="secondary compact" disabled={busy} onClick={() => void regenerate(profile, true)}>{italian ? "Approfondisci con Astra" : "Research with Astra"}</button>{rowFeedback?.id === profile.identity_id ? <p role={rowFeedback.error ? "alert" : "status"}>{rowFeedback.message}</p> : null}</div></div>)}</div>
+    <details className="settings-help-panel admin-sensory-profile-list"><summary>{italian ? "Profili vino" : "Wine profiles"} ({profiles.length})</summary><div className="member-list">{profiles.map((profile) => <div className="member-row" key={profile.identity_id}><div><strong>{[profile.producer, profile.name, profile.vintage].filter(Boolean).join(" · ")}</strong><span>{profile.source === "metadata" && italian ? "metadati" : label(profile.source)} · {Math.round(profile.confidence * 100)}% · {profile.validated ? (italian ? "validato" : "validated") : (italian ? "da validare" : "unvalidated")}</span></div><div className="member-actions"><button type="button" className="secondary compact" disabled={busy} onClick={() => setEditing({ ...profile, dimensions: { ...profile.dimensions } })}>{italian ? "Modifica" : "Edit"}</button><button type="button" className="secondary compact" disabled={busy} title={italian ? "Cerca dati verificati mancanti e ricalcola il profilo; il risultato torna da validare." : "Find missing verified data and recalculate the profile; the result requires validation."} onClick={() => void completeMetadata(profile)}>{italian ? "Completa dati con AI" : "Complete data with AI"}</button><button type="button" className="secondary compact" disabled={busy || profile.validated} title={italian ? "Completa i metadati mancanti con AI e genera il profilo" : "Complete missing metadata with AI and generate the profile"} onClick={() => void regenerate(profile)}>{italian ? "Genera profilo con AI" : "Generate profile with AI"}</button><button type="button" className="secondary compact" disabled={busy} onClick={() => void regenerate(profile, true)}>{italian ? "Approfondisci con Astra" : "Research with Astra"}</button>{rowFeedback?.id === profile.identity_id ? <p role={rowFeedback.error ? "alert" : "status"}>{rowFeedback.message}</p> : null}</div></div>)}</div>
     <div className="member-actions" aria-label={italian ? "Pagine dei profili" : "Profile pages"}><button type="button" className="secondary compact" disabled={loading || busy || offset === 0} onClick={() => void load(Math.max(0, offset - 30))}>{italian ? "Precedenti" : "Previous"}</button><span>{italian ? "Pagina" : "Page"} {Math.floor(offset / 30) + 1}</span><button type="button" className="secondary compact" disabled={loading || busy || !hasNext} onClick={() => void load(offset + 30)}>{italian ? "Successivi" : "Next"}</button></div>{profiles.length === 0 ? <p className="empty-state">{italian ? "Nessun profilo corrisponde ai filtri selezionati." : "No profiles match the selected filters."}</p> : null}</details>
-    {editing ? <div className="settings-help-panel"><strong>{editing.name}</strong>{editing.is_proposal ? <p role="status">{italian ? "Proposta di analisi: il profilo attuale resta invariato. Applica solo dopo aver esaminato il confronto e le fonti; i valori applicati saranno una revisione manuale." : "Research proposal: the current profile is unchanged. Apply only after reviewing the comparison and sources; applied values become a manual revision."}</p> : null}{Object.entries(editing.provenance ?? {}).filter(([, item]) => item.calculation_method === "contextual_research_v1").map(([key, item]) => <details key={key}><summary>{label(key)} · {italian ? "Stima da ricerca" : "Research estimate"}: {editing.is_proposal ? `${editing.baseline_dimensions?.[key]?.toFixed(2) ?? "-"} -> ` : ""}{item.value?.toFixed(2)} ({item.lower?.toFixed(2)}–{item.upper?.toFixed(2)})</summary><p>{italian ? "Intervallo interpretativo, non una misura di accuratezza." : "Interpretative range, not an accuracy measurement."}</p><p>{item.rationale}</p>{item.evidence?.map((proof, index) => <div key={index}><blockquote>{proof.excerpt}</blockquote><a href={proof.source_url} target="_blank" rel="noopener noreferrer">{proof.publisher} ↗</a></div>)}</details>)}<div className="detail-grid">{dimensions.map((dimension) => <label key={dimension}><span>{label(dimension)}</span><input type="number" min="0" max="1" step="0.05" value={editing.dimensions[dimension] ?? ""} onChange={(event) => setEditing(editDimension(dimension, event.target.value, editing))} /></label>)}</div><label className="admin-sensory-toggle"><input type="checkbox" checked={editing.validated} onChange={(event) => setEditing({ ...editing, validated: event.target.checked })} /><span>{italian ? "Validato" : "Validated"}</span></label><div className="form-actions"><button type="button" disabled={busy} onClick={() => void saveProfile()}>{editing.is_proposal ? (italian ? "Applica proposta" : "Apply proposal") : (italian ? "Salva" : "Save")}</button><button type="button" className="secondary" onClick={() => setEditing(null)}>{editing.is_proposal ? (italian ? "Scarta proposta" : "Discard proposal") : (italian ? "Annulla" : "Cancel")}</button></div></div> : null}
+    {editing ? <div className="settings-help-panel"><strong>{editing.name}</strong>{editing.is_proposal ? <p role="status">{italian ? "Proposta di analisi: il profilo attuale resta invariato. Applica solo dopo aver esaminato il confronto e le fonti; i valori applicati saranno una revisione manuale." : "Research proposal: the current profile is unchanged. Apply only after reviewing the comparison and sources; applied values become a manual revision."}</p> : null}{Object.entries(editing.provenance ?? {}).filter(([, item]) => item.calculation_method === "contextual_research_v1").map(([key, item]) => <details key={key}><summary>{label(key)} · {italian ? "Stima da ricerca" : "Research estimate"}: {editing.is_proposal ? `${editing.baseline_dimensions?.[key]?.toFixed(2) ?? "-"} -> ` : ""}{item.value?.toFixed(2)} ({item.lower?.toFixed(2)}–{item.upper?.toFixed(2)})</summary><p>{italian ? "Intervallo interpretativo, non una misura di accuratezza." : "Interpretative range, not an accuracy measurement."}</p><p>{item.rationale}</p>{item.evidence?.map((proof, index) => <div key={index}><blockquote>{proof.excerpt}</blockquote><a href={proof.source_url} target="_blank" rel="noopener noreferrer">{proof.publisher} ↗</a></div>)}</details>)}<div className="detail-grid">{dimensions.map((dimension) => <label key={dimension}><span>{label(dimension)}</span><input type="number" min="0" max="1" step="0.05" value={editing.dimensions[dimension] ?? ""} onChange={(event) => setEditing(editDimension(dimension, event.target.value, editing))} /></label>)}</div><label className="admin-sensory-toggle"><input type="checkbox" checked={editing.validated} onChange={(event) => setEditing({ ...editing, validated: event.target.checked })} /><span>{italian ? "Validato" : "Validated"}</span></label><div className="form-actions"><button type="button" disabled={busy} onClick={() => void saveProfile()}>{editing.is_proposal ? (italian ? "Applica proposta" : "Apply proposal") : (italian ? "Salva" : "Save")}</button><button type="button" className="secondary" onClick={() => { setEditing(null); clearRefinement(); }}>{editing.is_proposal ? (italian ? "Scarta proposta" : "Discard proposal") : (italian ? "Annulla" : "Cancel")}</button></div></div> : null}
     <details className="settings-help-panel"><summary>{italian ? "Baseline sensoriali" : "Sensory baselines"}</summary><div className="inline-form admin-sensory-baseline-form"><label><span>{italian ? "Tipo baseline" : "Baseline type"}</span><select value={editor.entity_type} onChange={(event) => editingBaseline ? setEditingBaseline({ ...editingBaseline, entity_type: event.target.value }) : setBaselineDraft({ ...baselineDraft, entity_type: event.target.value })}><option value="grape">{label("grape")}</option><option value="appellation">{label("appellation")}</option><option value="region">{label("region")}</option><option value="wine_type">{label("wine_type")}</option></select></label><label><span>{italian ? "Chiave" : "Key"}</span><input value={editor.entity_key} onChange={(event) => editingBaseline ? setEditingBaseline({ ...editingBaseline, entity_key: event.target.value }) : setBaselineDraft({ ...baselineDraft, entity_key: event.target.value })} /></label><label><span>{italian ? "Confidenza" : "Confidence"}</span><input type="number" min="0" max="1" step="0.05" value={editor.confidence} onChange={(event) => editingBaseline ? setEditingBaseline({ ...editingBaseline, confidence: Number(event.target.value) }) : setBaselineDraft({ ...baselineDraft, confidence: Number(event.target.value) })} /></label><button type="button" disabled={busy} onClick={() => void saveBaseline()}>{editingBaseline ? (italian ? "Salva baseline" : "Save baseline") : (italian ? "Aggiungi baseline" : "Add baseline")}</button></div><div className="detail-grid">{dimensions.map((dimension) => <label key={dimension}><span>{label(dimension)}</span><input type="number" min="0" max="1" step="0.05" value={editor.dimensions[dimension] ?? ""} onChange={(event) => editingBaseline ? setEditingBaseline(editDimension(dimension, event.target.value, editingBaseline)) : setBaselineDraft(editDimension(dimension, event.target.value, baselineDraft))} /></label>)}</div><div className="member-list">{baselines.map((baseline) => <div className="member-row" key={baseline.id}><div><strong>{label(baseline.entity_type)}: {baseline.entity_key}</strong><span>{Math.round(baseline.confidence * 100)}%</span></div><div className="member-actions"><button type="button" className="secondary compact" onClick={() => setEditingBaseline({ ...baseline, dimensions: { ...baseline.dimensions } })}>{italian ? "Modifica" : "Edit"}</button><button type="button" className="danger compact" disabled={busy} onClick={() => void removeBaseline(baseline)}>{italian ? "Elimina" : "Delete"}</button></div></div>)}</div></details>
   </section>;
 }

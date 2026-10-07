@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
 
@@ -37,6 +37,7 @@ from app.models import (
     WineTastingEntry,
 )
 from app.prompts.library import wine_sensory_metadata_prompt, wine_sensory_profile_prompt
+from app.schemas.sensory_refinement_run import SensoryRefinementRunResponse
 from app.schemas.taste_profile import (
     BatchEnrichmentPreview,
     BatchEnrichmentRequest,
@@ -1085,6 +1086,33 @@ def delete_sensory_baseline(
         raise HTTPException(status_code=404, detail="Sensory baseline not found")
     db.delete(baseline)
     db.commit()
+
+
+@router.post(
+    "/admin/profiles/{identity_id}/refinements",
+    status_code=202,
+    response_model=SensoryRefinementRunResponse,
+)
+def start_sensory_refinement(
+    identity_id: UUID,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> SensoryRefinementRunResponse:
+    from app.services.sensory_refinement_jobs import start_refinement
+
+    return start_refinement(db, context, identity_id, background_tasks)
+
+
+@router.get("/admin/refinements/{run_id}", response_model=SensoryRefinementRunResponse)
+def sensory_refinement_status(
+    run_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> SensoryRefinementRunResponse:
+    from app.services.sensory_refinement_jobs import run_response, scoped_run
+
+    return run_response(db, context, scoped_run(db, context, run_id))
 
 
 @router.post("/admin/profiles/{identity_id}/refine", response_model=SensoryProfileResponse)

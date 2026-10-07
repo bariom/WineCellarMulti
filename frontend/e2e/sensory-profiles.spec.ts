@@ -15,6 +15,8 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Panel, {locale:'it'}));
     </script></body></html>` }));
   let researched = false;
+  let starts = 0;
+  let polls = 0;
   let saved = false;
   const original = { identity_id: "test", name: "Testamatta", producer: "Bibi Graetz", vintage: "2018", source: "hybrid", confidence: .72, validated: true, dimensions: { body: .64, fruit: .67 }, generation_status: "available" };
   const refined = { ...original, validated: false, is_proposal: true, baseline_revision: "a".repeat(64), baseline_dimensions: original.dimensions, dimensions: { body: .68, fruit: .67 }, model: "gpt-6-astra", estimated_cost_usd: ".12", provenance: { body: { value: .68, lower: .55, upper: .8, calculation_method: "contextual_research_v1", rationale: "Stima contestuale del peso al palato, con incertezza esplicita.", evidence: [{ excerpt: "Full-bodied with bright acidity", source_url: "https://producer.example/testamatta-2018", publisher: "Produttore" }] } } };
@@ -22,9 +24,15 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
     const url = new URL(route.request().url());
     const path = url.pathname;
     expect(path).not.toContain("research-runs");
-    if (path.endsWith("/refine")) {
+    if (path.endsWith("/refinements")) {
       researched = true;
-      return route.fulfill({ json: refined });
+      starts++;
+      return route.fulfill({ status: 202, json: { id: `job-${starts}`, ...original, status: "queued", issue: "", proposal: null } });
+    }
+    if (path.includes("/admin/refinements/")) {
+      polls++;
+      if (polls === 2) return route.fulfill({ status: 504, body: "Gateway Time-out" });
+      return route.fulfill({ json: { id: `job-${starts}`, ...original, status: polls === 1 ? "running" : "completed", issue: "", proposal: polls === 1 ? null : refined } });
     }
     if (route.request().method() === "PUT") {
       saved = route.request().postDataJSON().validated === true;
@@ -52,6 +60,16 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
   await expect(buttons.nth(1)).toBeEnabled();
   await expect(page.getByRole("button", { name: "Genera profilo con AI", exact: true }).first()).toBeDisabled();
   await buttons.first().click();
+  await expect(page.getByRole("status").filter({ hasText: "Analisi Astra in corso" })).toBeVisible();
+  await page.getByRole("status").filter({ hasText: "Analisi Astra in corso" }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("astra-running-mobile.png") });
+  await page.reload();
+  await expect(page.getByRole("status").filter({ hasText: "Connessione interrotta" })).toBeVisible();
+  await expect(page.getByText(/Proposta di analisi: il profilo attuale resta invariato/)).toBeVisible({ timeout: 15000 });
+  expect(starts).toBe(1);
+  await page.getByText("Profili vino (30)", { exact: true }).click();
+  await page.getByLabel("Cerca vino, produttore o annata").fill("Testamatta");
+  await page.getByLabel("Cerca vino, produttore o annata").press("Enter");
   await expect(page.getByRole("status").filter({ hasText: "gpt-6-astra" })).toBeVisible();
   await expect(page.getByText(/Proposta di analisi: il profilo attuale resta invariato/)).toBeVisible();
   await page.getByRole("button", { name: "Scarta proposta", exact: true }).click();
@@ -68,7 +86,11 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(width);
     }
-    if (width === 390) await page.screenshot({ path: testInfo.outputPath("astra-profile-mobile.png"), fullPage: true });
+    if (width === 390) {
+      await page.getByText("Intervallo interpretativo, non una misura di accuratezza.").scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath("astra-editor-mobile.png") });
+      await page.screenshot({ path: testInfo.outputPath("astra-profile-mobile.png"), fullPage: true });
+    }
   }
   await page.getByLabel("Validato", { exact: true }).check();
   await page.getByRole("button", { name: "Applica proposta", exact: true }).click();

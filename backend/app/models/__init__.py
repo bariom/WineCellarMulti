@@ -25,6 +25,7 @@ from app.models.notification import UserNotification, UserNotificationDismissal
 from app.models.operational_metrics import OperationalAlertState, OperationalMetricSample
 from app.models.passkey import PasskeyChallenge, UserPasskey
 from app.models.sensory_agent import SensoryAgentRun
+from app.models.sensory_refinement import SensoryRefinementRun
 from app.models.session import UserSession
 from app.models.shared_wine_data import SharedWineFact, SharedWineIdentity
 from app.models.storage import CellarBin, CellarLocation, WineStorageAllocation, WineStorageMovement
@@ -59,6 +60,7 @@ from app.models.wine_share import WineShareOffer
 from app.models.wishlist import ExternalWineTasting, WishlistItem, WishlistList
 
 __all__ = [
+    "SensoryRefinementRun",
     "SensoryAgentRun",
     "AiAuditLog",
     "AppAiPricing",

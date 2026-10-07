@@ -21,6 +21,20 @@ optional vintage-specific web search using OPENAI_SENSORY_REFINEMENT_MODEL
 search tool calls, and may take several minutes. It is never triggered by batch
 generation. The separate autonomous-agent panel has been retired.
 
+Refinement runs in the API background after a short HTTP 202 response. The UI
+polls short status requests every two seconds, retrying transient connection or
+gateway errors without resubmitting the paid research. The run ID is kept in the
+browser until the proposal is applied or discarded, so refreshing or reopening
+the panel restores the result. Only the requesting user in the active household
+can retrieve the stored proposal. Repeated submissions for the same active run
+reuse it; only one refinement runs per user and household at a time.
+
+Runs interrupted by an API restart are marked failed after 15 minutes and are
+not automatically retried. This uses the existing FastAPI background-task
+mechanism, not a separate durable worker queue. Deploy migration
+`0116_sensory_refinement` with `alembic upgrade head` before using the updated UI.
+No increase to the Nginx request timeout is needed for this asynchronous flow.
+
 The server checks wine identity, vintage, public source documents and sensory
 quotations. Accepted continuous numerical estimates are model interpretations,
 not measurements or verified numerical intensities. The editor displays their
@@ -37,7 +51,8 @@ revision, with the administrator's validation choice. Changes during research or
 between research and applying the proposal block saving and require a fresh
 analysis. Creating a profile for a missing identity also requires explicit
 application. Historical agent results and
-APIs remain available for compatibility. No database migration is required.
+APIs remain available for compatibility. The old synchronous refinement endpoint
+is retained for compatibility; the updated UI uses the asynchronous endpoints.
 
 Preview and batch generation also include shared identities whose original
 cellar wine has been removed or renamed. Their name, producer, and vintage
@@ -48,7 +63,7 @@ OpenAI key. Local regression checks:
 
 ```text
 cd backend
-.venv/Scripts/python.exe -m pytest tests/test_taste_profiles.py tests/test_sensory_refinement.py
+.venv/Scripts/python.exe -m pytest tests/test_taste_profiles.py tests/test_sensory_refinement.py tests/test_sensory_refinement_jobs.py tests/test_sensory_refinement_migration.py
 cd ../frontend
 npx.cmd playwright test e2e/sensory-profiles.spec.ts
 npm.cmd run build

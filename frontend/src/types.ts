@@ -1583,6 +1583,17 @@ export type TasteMatch = {
 
 export type TasteMatchBatchResponse = { matches: Record<string, TasteMatch> };
 
+export type SensoryRefinementRun = {
+  id: string;
+  identity_id: string;
+  name: string;
+  producer: string;
+  vintage: string;
+  status: "queued" | "running" | "completed" | "failed";
+  issue: string;
+  proposal: WineSensoryProfile | null;
+};
+
 export type WineSensoryProfile = {
   is_proposal?: boolean;
   baseline_revision?: string;
