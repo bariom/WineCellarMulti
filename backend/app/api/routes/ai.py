@@ -799,6 +799,8 @@ def create_ai_response(
     agent_tools: list[dict[str, Any]] | None = None,
     agent_history: list[dict[str, Any]] | None = None,
 ) -> tuple[Any, str]:
+    if task_type in {"sensory_refinement", "sensory_autonomous"} and not settings.wine_sensory_research_enabled:
+        raise HTTPException(503, "Paid sensory research is suspended")
     if app_funded and not is_free_tier(context):
         api_key = settings.openai_api_key.strip()
         if not api_key:

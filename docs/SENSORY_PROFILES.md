@@ -1,5 +1,30 @@
 # Sensory profile generation
 
+Paid experimental sensory research is suspended by default
+(`WINE_SENSORY_RESEARCH_ENABLED=false`). This blocks new legacy agent runs,
+new Astra refinement runs, and paid work reached by queued workers. The admin
+panel hides the Astra action and explains the suspension. Existing runs remain
+readable. `WINE_SENSORY_AI_ENABLED` independently controls ordinary generation;
+baseline blending, metadata completion, and manual validation remain available.
+The detailed research workflow below documents the retained experimental code,
+which requires explicit operator reactivation after evaluation.
+
+Recover qualitative information from an already-paid response without calling
+OpenAI or modifying the database:
+
+```text
+cd backend
+python -m scripts.review_sensory_log "path/to/Pasted text.txt" --output data/sensory-reviews/review.html
+```
+
+This reads public HTML/PDF sources and writes an HTML report plus a JSON report.
+It retains each verified, vintage-attributed quotation independently and reports
+blocked/unmatched sources. Numeric estimates and model rationales are excluded.
+Sources are checked at review time; this cannot reconstruct the original server
+fetches or missing provider source metadata. Reports under `backend/data/` are
+local artifacts and remain untracked. Italian fruit descriptors include more,
+mirtilli, lamponi, fragole and ribes; English “more” alone is not a fruit signal.
+
 The admin panel offers “Genera mancanti con AI” for missing profiles and
 “Genera profilo con AI” for an individual identity. Existing metadata and
 baselines are used first. When insufficient, AI attempts metadata enrichment

@@ -51,6 +51,8 @@ def start_research(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_app_admin_context),
 ) -> SensoryResearchRunResponse:
+    if not settings.wine_sensory_research_enabled:
+        raise HTTPException(503, "Paid sensory research is suspended")
     if not settings.wine_sensory_ai_enabled:
         raise HTTPException(503, "Sensory profile AI generation is disabled")
     # Serialize submissions for this household, including across API processes.

@@ -311,6 +311,7 @@ def test_research_entrypoint_adds_assisted_preview_to_autonomous_results(
     from app.services import sensory_agent as agent
 
     wine, context = setup
+    monkeypatch.setattr(agent.settings, "wine_sensory_research_enabled", True)
     monkeypatch.setattr(agent.settings, "wine_sensory_autonomous_enabled", True)
     runtime = autonomous.WineResearchTools(wine, {"body": 0.64})
     runtime.sources[URL] = {"url": URL, "title": HEADING}

@@ -111,6 +111,8 @@ def refine_profile(db, context, wine, profile):
     )
     from app.services.taste_profiles import infer_sensory_profile, sensory_dimension_confidence
 
+    if not settings.wine_sensory_research_enabled:
+        raise HTTPException(503, "Paid sensory research is suspended")
     if not settings.wine_sensory_ai_enabled:
         raise HTTPException(503, "Sensory profile AI generation is disabled")
     if not wine.vintage.strip():

@@ -27,7 +27,8 @@ _TRAITS = {
     "aromatic_intensity": r"arom[ai]|profum|perfume|bouquet|\bnose\b|\bnaso\b|\bnez\b|duft|doft",
     "fruit": (
         r"frutt|\bfruit\w*|frucht|frukt|cherry|cherries|cilieg|cassis|berry|berries|"
-        r"prun|plum|agrum|citrus|peach|pesca"
+        r"prun|plum|agrum|citrus|peach|pesca|\bmora\b|mirtill|lampon|fragol|ribes|"
+        r"\b(?:di|e|con)\s+more\b|\bmore\s+(?:mature|fresche|selvatiche|nere)\b"
     ),
     "wood": r"boise|vanill|cedar|cedro|toast|tostat|oak|wood|legno|holz|eiche",
     "spice": (

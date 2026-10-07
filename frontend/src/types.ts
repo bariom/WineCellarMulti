@@ -1616,6 +1616,7 @@ export type WineSensoryProfile = {
 export type WineSensorySignature = Omit<WineSensoryProfile, "name" | "producer" | "vintage">;
 
 export type WineSensoryProfileSummary = {
+  research_enabled?: boolean;
   wines_with_profile: number;
   wines_without_profile: number;
   generated_by_ai: number;

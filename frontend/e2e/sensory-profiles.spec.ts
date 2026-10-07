@@ -43,7 +43,7 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
     const profiles = url.searchParams.get("search") === "Testamatta" ? matching
       : url.searchParams.get("offset") === "30" ? [{ ...original, identity_id: "last", name: "Vino oltre i primi trenta" }]
       : [...matching, ...Array.from({ length: 29 }, (_, i) => ({ ...original, identity_id: `wine-${i}`, name: `Vino ${i}` }))];
-    return route.fulfill({ json: path.endsWith("/summary") ? { wines_with_profile: 31 } : path.endsWith("/profiles") ? profiles : [] });
+    return route.fulfill({ json: path.endsWith("/summary") ? { wines_with_profile: 31, research_enabled: true } : path.endsWith("/profiles") ? profiles : [] });
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/sensory-refinement-test");
@@ -97,7 +97,7 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
   expect(saved).toBeTruthy();
 });
 
-test("AI actions send opt-in and show single-wine errors", async ({ page }) => {
+test("AI actions send opt-in and show single-wine errors", async ({ page }, testInfo) => {
   await page.route("**/sensory-test", route => route.fulfill({
     contentType: "text/html",
     body: `<html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
@@ -135,6 +135,8 @@ test("AI actions send opt-in and show single-wine errors", async ({ page }) => {
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/sensory-test");
+  await expect(page.getByRole("button", { name: "Approfondisci con Astra" })).toHaveCount(0);
+  await expect(page.getByText(/Le nuove ricerche sensoriali a pagamento sono sospese/)).toBeVisible();
   page.on("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "Approva tutti da validare" }).click();
   await expect(page.getByText("Approvazione completata", { exact: true })).toBeVisible();
@@ -149,5 +151,6 @@ test("AI actions send opt-in and show single-wine errors", async ({ page }) => {
   for (const width of [360, 390, 430, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width === 390) { await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: testInfo.outputPath("sensory-suspended-mobile.png") }); }
   }
 });

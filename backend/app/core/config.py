@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     openai_value_model: str = "gpt-5.4-mini"
     openai_grape_model: str = "gpt-5.4-nano"
     wine_sensory_ai_enabled: bool = True
+    wine_sensory_research_enabled: bool = False
     wine_sensory_autonomous_enabled: bool = True
     openai_sensory_agent_model: str = "gpt-6.1-sol"
     openai_sensory_refinement_model: str = "gpt-6-astra"

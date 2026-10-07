@@ -9,6 +9,7 @@ from time import perf_counter
 from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID
 
+from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -577,6 +578,8 @@ def research_cost_ceiling(
 def research_wine(
     db: Session, context: CurrentContext, wine: Wine, remaining: Decimal
 ) -> SensoryResearchResult | None:
+    if not settings.wine_sensory_research_enabled:
+        raise HTTPException(503, "Paid sensory research is suspended")
     started = perf_counter()
     if settings.wine_sensory_autonomous_enabled and wine.vintage.strip():
         from app.services.sensory_autonomous import research_autonomously

@@ -833,6 +833,7 @@ def sensory_profile_summary(
     available = [profile for profile in profiles if profile.generation_status == "available"]
     return {
         "wines_with_profile": len(available),
+        "research_enabled": settings.wine_sensory_research_enabled,
         "wines_without_profile": max(0, identities - len(available)),
         "generated_by_ai": sum(profile.source == "ai" for profile in available),
         "inferred_from_metadata": sum(

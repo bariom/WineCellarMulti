@@ -56,6 +56,8 @@ def run_response(db, context, run):
 
 
 def start_refinement(db, context, identity_id, background_tasks):
+    if not settings.wine_sensory_research_enabled:
+        raise HTTPException(503, "Paid sensory research is suspended")
     if not settings.wine_sensory_ai_enabled:
         raise HTTPException(503, "Sensory profile AI generation is disabled")
     wine = db.scalar(
