@@ -33,6 +33,64 @@ const result = {
 
 const completed = { id: "run-one", status: "completed", issue: "", max_wines: 10, selected_wines: 3, budget_usd: "1", cost_usd: "0.02", results: [result, { ...result, wine_id: "wine-two", name: "Vino senza annata verificata", status: "incomplete", vintage_confirmed: false }, { ...result, wine_id: "wine-three", name: "Vino senza annata", vintage: "", status: "skipped", issue: "missing_vintage", vintage_confirmed: false, dimensions: {}, aromas: [], sources: [], summary: "", limitations: "", cost_usd: "0" }], created_at: "2026-10-07T08:00:00Z", updated_at: "2026-10-07T08:01:00Z" };
 
+for (const locale of ["it", "en"]) {
+  test(`Complete inferred profile without accessible sources (${locale})`, async ({ page }, testInfo) => {
+    await renderPanel(page, locale);
+    const it = locale === "it";
+    const keys = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
+    const completeProfile = Object.fromEntries(keys.map(key => [key, {
+      value: .5, origin: "ai_inference", confidence: 0, issue: "source_unreadable",
+      rationale: "Expected style estimate; grape composition is an unverified assumption.",
+      lower: .3, upper: .7, evidence: [], references: [],
+    }]));
+    const proposal = { ...result, prompt_version: "6", vintage_confirmed: false,
+      complete_profile: completeProfile, dimensions: {}, comparisons: [], aromas: [], sources: [],
+      coverage: { available: 9, total: 9, exact_vintage: 0, corroborated: 0, estimated: 9, inferred: 9, unknown: 0 },
+      confidence: 0, summary: "Expected wine profile, inferred rather than verified.", limitations: "Vintage-specific characteristics are not verified." };
+    let applied = false;
+    await page.route("**/api/v1/taste-profile/admin/research-runs**", route => {
+      if (route.request().url().endsWith("/apply")) {
+        applied = true;
+        return route.fulfill({ json: { ...completed, results: [{ ...proposal, status: "applied" }] } });
+      }
+      return route.fulfill({ json: [{ ...completed, selected_wines: 1, results: [proposal] }] });
+    });
+    await page.goto("/sensory-agent-test");
+    const article = page.getByRole("article");
+    await expect(article).toContainText(`${it ? "Completezza" : "Completeness"}: 9/9`);
+    await expect(article).toContainText(it ? "9 tratti sono inferenze" : "9 traits are model inferences");
+    await expect(article).not.toContainText(it ? "proposta non applicabile" : "proposal cannot be applied");
+    await article.getByText(it ? "Confronto e prove" : "Comparison and evidence", { exact: true }).click();
+    await expect(article.getByRole("table").getByRole("row")).toHaveCount(10);
+    await expect(article).toContainText(it ? "Inferenza del modello" : "Model inference");
+    await expect(article).toContainText(it ? "Intervallo plausibile: 0.30–0.70" : "Plausible range: 0.30–0.70");
+    await expect(article).toContainText("unverified assumption");
+    for (const width of [360, 390, 430, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const card = (await article.boundingBox())!;
+      const table = (await article.getByRole("table").boundingBox())!;
+      expect(table.x).toBeGreaterThanOrEqual(card.x);
+      expect(table.x + table.width).toBeLessThanOrEqual(card.x + card.width + 1);
+      const button = (await article.getByRole("button").boundingBox())!;
+      expect(button.x + button.width).toBeLessThanOrEqual(width);
+      if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`inference-${width}.png`), fullPage: true });
+    }
+    await article.getByRole("button", { name: it ? "Usa questo profilo" : "Apply this profile" }).click();
+    await expect(article).toContainText(it ? "Profilo utilizzato" : "Profile applied");
+    expect(applied).toBe(true);
+  });
+}
+
+test("Ambiguous identity keeps complete estimates provisional", async ({ page }) => {
+  await renderPanel(page, "it");
+  const proposal = { ...result, prompt_version: "6", identity_ambiguous: true, status: "incomplete", issue: "ambiguous_identity", coverage: { available: 9, total: 9, inferred: 9, exact_vintage: 0, corroborated: 0, estimated: 9, unknown: 0 } };
+  await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, results: [proposal] }] }));
+  await page.goto("/sensory-agent-test");
+  await expect(page.getByRole("article")).toContainText("Identità del vino ambigua");
+  await expect(page.getByRole("button", { name: "Usa questo profilo" })).toHaveCount(0);
+});
+
 for (const incomplete of [false, true]) {
   test(`Completed sensory profile: provenance and responsive review (${incomplete ? "conflict" : "complete"})`, async ({ page }, testInfo) => {
     await renderPanel(page, "it");

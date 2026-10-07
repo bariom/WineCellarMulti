@@ -2,6 +2,7 @@
 
 import ipaddress
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from urllib.parse import urlsplit, urlunsplit
@@ -27,8 +28,13 @@ from app.models import (
     UserSession,
     Wine,
 )
-from app.prompts.sensory_agent import wine_sensory_research_prompt
-from app.schemas.sensory_agent import CompleteResearchOutput, ResearchOutput, SensoryResearchResult
+from app.prompts.sensory_agent import wine_sensory_completion_prompt, wine_sensory_research_prompt
+from app.schemas.sensory_agent import (
+    CompleteResearchOutput,
+    ResearchOutput,
+    SensoryCompletionOutput,
+    SensoryResearchResult,
+)
 from app.services.openai_client import OpenAIResponse
 from app.services.shared_wine_data import normalize_identity_part
 from app.services.taste_profiles import sensory_profile_for_wine
@@ -62,12 +68,18 @@ def proposal_from_response(
     *,
     prompt_version: str = "3",
     source_texts: dict[str, str] | None = None,
+    document_cache: dict | None = None,
 ) -> SensoryResearchResult:
-    if prompt_version in {"4", "5"}:
+    if prompt_version in {"4", "5", "6"}:
         from app.services.sensory_completion import build_complete_proposal
 
         return build_complete_proposal(
-            wine, response, baseline, source_texts=source_texts, prompt_version=prompt_version
+            wine,
+            response,
+            baseline,
+            source_texts=source_texts,
+            prompt_version=prompt_version,
+            document_cache=document_cache,
         )
     result = SensoryResearchResult(
         wine_id=wine.id,
@@ -163,6 +175,109 @@ def proposal_from_response(
             if conflicts
             else "weak_evidence"
         )
+    return result
+
+
+def complete_with_estimates(
+    wine: Wine,
+    result: SensoryResearchResult,
+    response: OpenAIResponse,
+    *,
+    previous_sources: tuple[dict[str, str], ...] = (),
+    document_cache: dict | None = None,
+) -> SensoryResearchResult:
+    """Keep checked observations and fill gaps with explicitly unvalidated model estimates."""
+    result.cost_usd += response.charged_cost_usd
+    try:
+        output = SensoryCompletionOutput.model_validate_json(response.text)
+    except ValidationError:
+        result.warnings.append("completion_invalid_output")
+        return result
+    if any(
+        normalize_identity_part(getattr(output, key)) != normalize_identity_part(getattr(wine, key))
+        for key in ("name", "producer", "vintage")
+    ):
+        result.warnings.append("completion_identity_mismatch")
+        return result
+    if output.research is not None:
+        checked = proposal_from_response(
+            wine,
+            replace(
+                response,
+                text=output.research.model_dump_json(),
+                web_sources=(*previous_sources, *response.web_sources),
+            ),
+            {},
+            prompt_version="6",
+            document_cache=document_cache,
+        )
+        rank = {
+            "unknown": 0,
+            "similar_wines": 1,
+            "wine_style": 2,
+            "single_source": 3,
+            "corroborated": 4,
+        }
+        for key, item in checked.complete_profile.items():
+            current = result.complete_profile[key]
+            # Refinement cannot silently erase previously observed disagreement.
+            if current.issue in {"conflicting_sources", "reference_disagreement"}:
+                continue
+            if item.issue == "conflicting_sources" or rank[item.origin] > rank[current.origin]:
+                result.complete_profile[key] = item
+                if key in checked.dimensions:
+                    result.dimensions[key] = checked.dimensions[key]
+                else:
+                    result.dimensions.pop(key, None)
+        result.vintage_confirmed |= checked.vintage_confirmed
+        result.sources = list({s["url"]: s for s in [*result.sources, *checked.sources]}.values())
+        for url, check in checked.source_checks.items():
+            previous = result.source_checks.get(url)
+            if previous:
+                check.matched_excerpts = max(check.matched_excerpts, previous.matched_excerpts)
+                check.unmatched_excerpts = max(
+                    check.unmatched_excerpts, previous.unmatched_excerpts
+                )
+            result.source_checks[url] = check
+        result.warnings = list(dict.fromkeys([*result.warnings, *checked.warnings]))
+        comparisons = {c.dimension: c for c in result.comparisons}
+        for comparison in checked.comparisons:
+            previous = comparisons.get(comparison.dimension)
+            if previous is None or previous.agreement != "conflicting":
+                comparisons[comparison.dimension] = comparison
+        result.comparisons = list(comparisons.values())
+        result.aromas = list({a.name: a for a in [*result.aromas, *checked.aromas]}.values())
+    result.summary, result.limitations = output.summary, output.limitations
+    result.identity_ambiguous = output.identity_ambiguous
+    result.model = response.model or result.model
+    for key, estimate in output.estimates:
+        current = result.complete_profile[key]
+        if current.value is not None:
+            continue
+        # These are plausible ranges, not calibrated statistical intervals. Require breadth
+        # even if the provider supplied an unjustifiably narrow range.
+        current.value = round(estimate.value, 2)
+        current.origin = "ai_inference"
+        current.rationale = estimate.rationale
+        current.lower = round(min(estimate.lower, max(0, estimate.value - 0.15)), 2)
+        current.upper = round(max(estimate.upper, min(1, estimate.value + 0.15)), 2)
+        current.confidence = 0  # No verified evidence for this numeric intensity.
+    exact = sum(
+        i.origin in {"corroborated", "single_source"} for i in result.complete_profile.values()
+    )
+    inferred = sum(i.origin == "ai_inference" for i in result.complete_profile.values())
+    result.coverage = {
+        "available": 9,
+        "total": 9,
+        "exact_vintage": exact,
+        "corroborated": sum(i.origin == "corroborated" for i in result.complete_profile.values()),
+        "estimated": 9 - exact,
+        "inferred": inferred,
+        "unknown": 0,
+    }
+    result.confidence = round(sum(i.confidence for i in result.complete_profile.values()) / 9, 3)
+    result.status = "incomplete" if output.identity_ambiguous else "ready"
+    result.issue = "ambiguous_identity" if output.identity_ambiguous else ""
     return result
 
 
@@ -265,18 +380,16 @@ def research_wine(
         web_search_tool_cost_usd,
     )
 
-    prompt = wine_sensory_research_prompt(
-        wine_context={
-            "name": wine.name,
-            "producer": wine.producer,
-            "vintage": wine.vintage,
-            "type": wine.type,
-            "region": wine.region,
-            "appellation": wine.appellation,
-            "grapes": wine.grapes or [],
-        },
-        locale=context.user.locale,
-    )
+    wine_context = {
+        "name": wine.name,
+        "producer": wine.producer,
+        "vintage": wine.vintage,
+        "type": wine.type,
+        "region": wine.region,
+        "appellation": wine.appellation,
+        "grapes": wine.grapes or [],
+    }
+    prompt = wine_sensory_research_prompt(wine_context=wine_context, locale=context.user.locale)
     schema = {"name": "wine_sensory_research", "schema": CompleteResearchOutput.model_json_schema()}
     user_settings = get_or_create_user_ai_settings(db, context)
     provider, _ = select_ai_provider(db, context, user_settings)
@@ -289,10 +402,25 @@ def research_wine(
         input_tokens=32768
         + max(2048, (len(prompt.system) + len(prompt.user) + len(json.dumps(schema))) // 2),
         output_tokens=12000,
-        web_search_calls=10,
+        web_search_calls=6,
         db=db,
     )
-    if estimated_ceiling > remaining:
+    completion_schema = {
+        "name": "wine_sensory_completion",
+        "schema": SensoryCompletionOutput.model_json_schema(),
+    }
+    completion_ceiling = maximum_billable_cost_usd(
+        user_is_app_admin=context.user.is_app_admin,
+        user_has_active_entitlement=context.has_active_entitlement,
+        provider_source=provider,
+        model=reservation_pricing_model(model, db),
+        input_tokens=65536,
+        output_tokens=12000,
+        web_search_calls=4,
+        db=db,
+    )
+    # Reserve room for a useful completed proposal before spending on source research.
+    if estimated_ceiling + completion_ceiling > remaining:
         return None
     response, provider = create_ai_response(
         db,
@@ -307,11 +435,14 @@ def research_wine(
         web_search_context_size="medium",
         task_type="sensory_profile",
         max_output_tokens=12000,
-        max_tool_calls=10,
+        max_tool_calls=6,
         reasoning_effort="medium",
         timeout_seconds=240,
     )
-    result = proposal_from_response(wine, response, baseline, prompt_version=prompt.version)
+    document_cache: dict = {}
+    result = proposal_from_response(
+        wine, response, baseline, prompt_version=prompt.version, document_cache=document_cache
+    )
     result.baseline_source = baseline_source
     result.baseline_validated = baseline_validated
     result.baseline_confidence = baseline_confidence
@@ -322,11 +453,93 @@ def research_wine(
         entity_id=wine.id,
         feature="sensory_research",
         model=response.model or model,
-        summary="Source-backed sensory prototype",
+        summary="Sensory research: source verification",
         usage=response.usage,
         provider_source=provider,
         sources=result.sources,
         extra_cost_usd=web_search_tool_cost_usd(response.web_search_calls),
+    )
+    if result.status == "ready":
+        return result
+    feedback = {
+        "vintage_verified": result.vintage_confirmed,
+        "issue": result.issue,
+        "checked_profile": {
+            key: item.model_dump(mode="json") for key, item in result.complete_profile.items()
+        },
+        "source_checks": {
+            url: check.model_dump(mode="json") for url, check in result.source_checks.items()
+        },
+        "warnings": result.warnings,
+        "unverified_research_summary": result.summary,
+        "research_limitations": result.limitations,
+    }
+    completion_prompt = wine_sensory_completion_prompt(
+        wine_context=wine_context, feedback=feedback, locale=context.user.locale
+    )
+    actual_completion_ceiling = maximum_billable_cost_usd(
+        user_is_app_admin=context.user.is_app_admin,
+        user_has_active_entitlement=context.has_active_entitlement,
+        provider_source=provider,
+        model=reservation_pricing_model(model, db),
+        input_tokens=32768
+        + max(
+            2048,
+            (
+                len(completion_prompt.system)
+                + len(completion_prompt.user)
+                + len(json.dumps(completion_schema))
+            )
+            // 2,
+        ),
+        output_tokens=12000,
+        web_search_calls=4,
+        db=db,
+    )
+    if actual_completion_ceiling > remaining - result.cost_usd:
+        result.warnings.append("completion_budget_limit")
+        return result
+    try:
+        completion_response, completion_provider = create_ai_response(
+            db,
+            context,
+            user_settings,
+            model=model,
+            system_prompt=completion_prompt.system,
+            user_prompt=completion_prompt.user,
+            json_schema=completion_schema,
+            web_search=True,
+            web_search_use_default_location=False,
+            web_search_context_size="medium",
+            task_type="sensory_profile",
+            max_output_tokens=12000,
+            max_tool_calls=4,
+            reasoning_effort="medium",
+            timeout_seconds=240,
+        )
+    except Exception:
+        # A failed refinement must not lose the paid first pass or abort subsequent wines.
+        result.warnings.append("completion_failed")
+        return result
+    result = complete_with_estimates(
+        wine,
+        result,
+        completion_response,
+        previous_sources=response.web_sources,
+        document_cache=document_cache,
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wine",
+        entity_id=wine.id,
+        feature="sensory_research",
+        model=completion_response.model or model,
+        summary="Sensory research: profile completion",
+        usage=completion_response.usage,
+        provider_source=completion_provider,
+        sources=result.sources,
+        extra_cost_usd=web_search_tool_cost_usd(completion_response.web_search_calls),
     )
     return result
 

@@ -1628,7 +1628,8 @@ export type SensorySourceEvidence = {
   vintage: string; published_year: number | null; publisher: string; role: "producer" | "critic" | "retailer";
 };
 export type CompletedSensoryDimension = {
-  value: number | null; origin: "corroborated" | "single_source" | "wine_style" | "similar_wines" | "unknown";
+  value: number | null; origin: "corroborated" | "single_source" | "wine_style" | "similar_wines" | "ai_inference" | "unknown";
+  rationale?: string; lower?: number | null; upper?: number | null;
   confidence: number; issue: string; evidence: SensorySourceEvidence[];
   references: Array<{ name: string; producer: string; vintage: string; similarity: number; value: number; evidence: SensorySourceEvidence; identity_evidence?: SensorySourceEvidence | null; production_evidence?: SensorySourceEvidence[] }>;
 };
@@ -1641,6 +1642,7 @@ export type SensoryResearchResult = {
   wine_id: string; identity_id: string | null; name: string; producer: string; vintage: string;
   status: "ready" | "incomplete" | "no_evidence" | "failed" | "skipped" | "applied";
   issue: string; summary: string; limitations: string; vintage_confirmed: boolean; confidence: number;
+  identity_ambiguous?: boolean;
   comparisons?: SensoryResearchComparison[];
   baseline: Record<string, number>; dimensions: Record<string, SensoryResearchTrait>;
   baseline_source?: string; baseline_validated?: boolean; baseline_confidence?: number | null;

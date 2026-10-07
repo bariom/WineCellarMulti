@@ -22,12 +22,16 @@ esistenti. Distribuire anche il frontend aggiornato. Restano valide le impostazi
 4. Revisionare una proposta completa prima di usare **Usa questo profilo**.
    Il salvataggio non equivale alla validazione umana.
 
-## Fasi del percorso v5
+## Fasi del percorso v6
 
 Il prompt versionato `wine.sensory_research` e un contratto JSON rigoroso richiedono
 identificazione, prove per annata, confronto, ricerca mirata delle lacune e fino a
-cinque riferimenti documentati. Il modello dispone di dieci consultazioni web per
-vino. Le conversioni numeriche restano stime su scala 0-1.
+cinque riferimenti documentati. Il primo passaggio dispone di sei consultazioni
+web. Se il profilo non è completo, il prompt `wine.sensory_completion` v1 riceve
+gli esiti reali della verifica server, dispone di altre quattro consultazioni per
+cercare alternative e produce tutte le nove intensità attese. Le conversioni
+numeriche restano stime su scala 0-1. Il secondo passaggio non viene eseguito
+quando il primo ha già prodotto una proposta completa applicabile.
 
 ### 1. Identificazione e interpretazione
 
@@ -49,7 +53,8 @@ del vino. Sono conservativi, non sostituiscono una valutazione sensoriale.
 Gli URL devono comparire nelle fonti effettivamente citate dal provider. Il server
 confronta gli estratti normalizzati con il testo pubblico delle pagine, gestendo
 anche omissioni con puntini. La lettura controlla DNS, IP pubblici e redirect,
-non invia credenziali e consulta al massimo 12 fonti. Legge HTML fino a 2 MB e
+non invia credenziali e consulta al massimo 12 fonti per vino, condividendo una
+cache fra i due passaggi per non rileggere le stesse pagine. Legge HTML fino a 2 MB e
 PDF fino a 10 MB, anche da endpoint senza estensione .pdf. La nuova dipendenza
 `pypdf` richiede l'aggiornamento delle dipendenze backend o la ricostruzione
 dell'immagine di distribuzione. Il percorso dei punteggi critici conserva il
@@ -72,7 +77,9 @@ Una dimensione corroborata richiede annata esatta, almeno due host ed editori
 distinti, estratti differenti e indipendenza dichiarata dal modello. Testi copiati
 non valgono come corroborazione. L'indipendenza editoriale e la corretta
 interpretazione delle fonti richiedono ancora revisione umana. Una discordanza
-blocca la dimensione e non viene coperta da una media o da riferimenti simili.
+blocca la dimensione documentata e non viene coperta da una media o da riferimenti
+simili. Il completamento può proporre un valore inferito, conservando la
+discordanza e le prove come limiti espliciti.
 
 ### 3. Completamento documentato
 
@@ -88,21 +95,40 @@ due estratti verificati sulla produzione: uno del vino richiesto e uno del
 riferimento; il rapporto conserva e mostra anche queste prove.
 Il valore viene calcolato dal server come mediana, senza usare i profili interni.
 Una dispersione superiore a 0,20 lascia il tratto sconosciuto. Senza riferimenti
-adeguati il sistema si astiene: non forza nove numeri plausibili.
+adeguati il tratto rimane privo di intensità documentata.
+
+Il secondo passaggio completa queste lacune con **inferenze del modello**:
+conoscenza enologica, indizi qualitativi verificati e stile ragionevolmente noto.
+Metadati della scheda, ricordi del modello e descrizioni non verificabili non
+diventano fatti confermati. Ogni inferenza deve avere motivazione, ipotesi e
+intervallo plausibile contenente il valore. Il server impone un'ampiezza prudente
+almeno fino a ±0,15, troncata a 0–1; l'intervallo può essere più largo e non è
+statisticamente calibrato. Un profilo descrive lo stile atteso all'uscita, senza
+inventare lo stato attuale di una bottiglia vecchia o caratteristiche di annata.
+Non sono inventati vini di riferimento, citazioni o prove per giustificare stime.
 
 ### 4. Completezza e provenienza
 
 Il report mostra sempre le nove dimensioni e, per ciascuna, distingue riscontri
-indipendenti, fonte singola, stima di stile, stima da vini simili e non determinabile.
+indipendenti, fonte singola, stima di stile, stima da vini simili, inferenza del
+modello e non determinabile. Motivazioni e intervalli sono visibili nel dettaglio.
 Mostra separatamente tratti dell'annata, stime e lacune. Il confronto precedente /
 agente / scarto serve alla valutazione, senza trattare il precedente come verita.
 
 Il sostegno euristico per tratto e 0,80 per riscontri indipendenti, 0,55 per fonte
 singola dell'annata, 0,35-0,40 per stile e 0,35 per vini simili; il punteggio totale
-include le lacune a zero. Non sono probabilita calibrate di correttezza.
-Un risultato e applicabile solo con nove valori, annata confermata e nessun tratto
-irrisolto. Un profilo completo puo comunque contenere molte stime e richiede
-revisione. Gli aromi restano descrizioni qualitative, con citazioni verificate.
+include lacune e inferenze non verificate a zero. Non sono probabilita calibrate
+di correttezza: zero prove numeriche non significa zero plausibilità del profilo.
+Nel percorso v6 una proposta con nove valori è applicabile anche senza annata
+verificata: è una stima da revisionare e resta non validata. Un'identità realmente
+ambigua produce un profilo completo provvisorio ma blocca l'applicazione.
+Un profilo totalmente inferito ha copertura delle prove zero: i nove valori sono
+visibili e revisionabili, ma non danno peso ai punteggi di compatibilità che
+richiedono confidenza positiva finché non vengono validati. Il salvataggio non
+aumenta automaticamente questo sostegno delle prove.
+I valori verificati del primo passaggio sono conservati; nuove prove possono
+rafforzarli, mentre le discordanze già riscontrate non vengono cancellate.
+Gli aromi restano descrizioni qualitative, con citazioni verificate.
 
 ### 5. Salvataggio e protezione
 
@@ -115,21 +141,28 @@ ai nuovi valori prove riferite ai precedenti. Il rapporto originale resta conser
 
 Profili manuali o validati, identita cambiate e valori modificati dopo la ricerca
 restano protetti. I rapporti v1-v3 rimangono leggibili e mantengono le precedenti
-regole di applicazione: non ricevono retroattivamente prove o completezza nuova. I rapporti v4 restano compatibili, senza diagnosi
-di lettura aggiunte retroattivamente.
+regole di applicazione: non ricevono retroattivamente prove o completezza nuova.
+Anche i rapporti v4-v5 mantengono le regole originali: annata verificata e nessuna
+dimensione irrisolta.
 
 ## Limiti operativi e valutazione
 
 Ogni query privata resta limitata alla cantina attiva e usa CurrentContext.
 Il numero richiesto e un massimo: l'avanzamento usa i vini realmente selezionati.
-Prima di ogni chiamata si ricontrollano ruolo, sessione e budget stimato, includendo
-32.768 token di contesto web, prompt/schema, massimo 12.000 token di risposta e
-dieci chiamate web. La spesa viene registrata anche per risultati inutilizzabili.
+Prima di ciascun vino si controllano ruolo e sessione. Prima di spendere per la
+ricerca si verifica che il budget copra anche il completamento: due richieste,
+massimo 12.000 token di risposta ciascuna, contesto web e dieci chiamate web totali.
+Il completamento ha un margine iniziale di 65.536 token di ingresso e viene
+ricontrollato sul feedback effettivo prima della chiamata. La spesa di entrambi
+i passaggi viene registrata anche per risultati inutilizzabili. Se il secondo
+fallisce, la prima ricerca e il suo costo restano nel rapporto, senza interrompere
+gli altri vini. Le anomalie non avviano retry illimitati.
 La soglia e una stima applicativa, non un limite rigido di fatturazione.
 
 La ricerca rimane esplicita e usa BackgroundTasks del processo API. Non e una
 coda durevole; un riavvio puo interromperla. Le ricerche ferme per un'ora vengono
-segnate interrotte. Nessun retry automatico o salvataggio autonomo dei profili.
+segnate interrotte. È previsto un solo passaggio di completamento con feedback;
+nessun salvataggio autonomo dei profili.
 Le routine storiche restano disponibili per i profili privi di provenienza:
 la loro sostituzione totale e il worker durevole sono interventi distinti.
 

@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class SensoryResearchRequest(BaseModel):
@@ -159,6 +159,45 @@ class CompleteResearchOutput(BaseModel):
     aromas: list[ResearchAroma] = Field(max_length=12)
 
 
+class SensoryEstimate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    value: float = Field(ge=0, le=1, strict=True)
+    lower: float = Field(ge=0, le=1, strict=True)
+    upper: float = Field(ge=0, le=1, strict=True)
+    rationale: str = Field(min_length=20, max_length=600)
+
+    @model_validator(mode="after")
+    def ordered_range(self):
+        if not self.lower <= self.value <= self.upper:
+            raise ValueError("Estimate must be inside its uncertainty range")
+        return self
+
+
+class EstimatedDimensions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    body: SensoryEstimate
+    acidity: SensoryEstimate
+    tannin: SensoryEstimate
+    sweetness: SensoryEstimate
+    aromatic_intensity: SensoryEstimate
+    fruit: SensoryEstimate
+    wood: SensoryEstimate
+    spice: SensoryEstimate
+    minerality: SensoryEstimate
+
+
+class SensoryCompletionOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(max_length=240)
+    producer: str = Field(max_length=240)
+    vintage: str = Field(max_length=40)
+    identity_ambiguous: bool
+    summary: str = Field(min_length=1, max_length=1500)
+    limitations: str = Field(min_length=1, max_length=1500)
+    estimates: EstimatedDimensions
+    research: CompleteResearchOutput | None
+
+
 class ProfileReference(BaseModel):
     name: str
     producer: str
@@ -172,13 +211,16 @@ class ProfileReference(BaseModel):
 
 class CompletedDimension(BaseModel):
     value: float | None = Field(default=None, ge=0, le=1)
-    origin: Literal["corroborated", "single_source", "wine_style", "similar_wines", "unknown"] = (
-        "unknown"
-    )
+    origin: Literal[
+        "corroborated", "single_source", "wine_style", "similar_wines", "ai_inference", "unknown"
+    ] = "unknown"
     confidence: float = Field(default=0, ge=0, le=1)
     issue: str = ""
     evidence: list[SourceEvidence] = Field(default_factory=list)
     references: list[ProfileReference] = Field(default_factory=list)
+    rationale: str = ""
+    lower: float | None = Field(default=None, ge=0, le=1)
+    upper: float | None = Field(default=None, ge=0, le=1)
 
 
 class SourceCheck(BaseModel):
@@ -200,6 +242,7 @@ class SensoryResearchResult(BaseModel):
     summary: str = ""
     limitations: str = ""
     vintage_confirmed: bool = False
+    identity_ambiguous: bool = False
     confidence: float = 0
     baseline: dict[str, float] = Field(default_factory=dict)
     baseline_source: str = ""

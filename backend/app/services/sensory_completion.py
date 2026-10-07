@@ -158,6 +158,7 @@ def build_complete_proposal(
     *,
     source_texts: dict[str, str] | None = None,
     prompt_version: str = "4",
+    document_cache: dict | None = None,
 ) -> SensoryResearchResult:
     # Local import avoids a module cycle; the same public URL policy applies to every source.
     from app.services.sensory_agent import public_source_url
@@ -182,6 +183,7 @@ def build_complete_proposal(
     except ValidationError:
         result.status, result.issue = "failed", "invalid_output"
         return result
+    result.summary, result.limitations = output.summary, output.limitations
     if not output.identity_confirmed or any(
         norm(getattr(output, key)) != norm(getattr(wine, key))
         for key in ("name", "producer", "vintage")
@@ -205,8 +207,17 @@ def build_complete_proposal(
         used.add(url)
         if url not in pages:
             # The reader checks DNS/redirects, pins public addresses, and bounds size/time.
-            if len(pages) < 12 and source_texts is None:
-                document = read_public_document(url, allow_pdf=True)
+            if (
+                len(pages) < 12
+                and source_texts is None
+                and (document_cache is None or url in document_cache or len(document_cache) < 12)
+            ):
+                if document_cache is not None and url in document_cache:
+                    document = document_cache[url]
+                else:
+                    document = read_public_document(url, allow_pdf=True)
+                    if document_cache is not None:
+                        document_cache[url] = document
                 pages[url] = document.text
                 result.source_checks[url] = SourceCheck(
                     status=document.status,
@@ -268,6 +279,7 @@ def build_complete_proposal(
             continue
         if not supports_intensity(key, trait):
             result.complete_profile[key].issue = "unsupported_intensity"
+            result.complete_profile[key].evidence = [evidence_from_trait(trait)]
             result.warnings.append(f"{key}:unsupported_intensity")
             continue
         evidence = evidence_from_trait(trait)

@@ -26,10 +26,11 @@ from app.models import (
     WineSensoryProfile,
 )
 from app.prompts.sensory_agent import wine_sensory_research_prompt
-from app.schemas.sensory_agent import SensoryResearchRequest
+from app.schemas.sensory_agent import CompletedDimension, SensoryResearchRequest
 from app.services import sensory_agent as agent
 from app.services.openai_client import OpenAIResponse, TokenUsage
 from app.services.shared_wine_data import resolve_shared_identity
+from app.services.taste_profiles import SENSORY_DIMENSIONS
 
 
 def make_wine(db, household, *, name="Barolo"):
@@ -252,11 +253,12 @@ def test_research_records_no_result_cost_and_audit(setup, monkeypatch):
     audits = []
     monkeypatch.setattr(ai, "record_ai_audit", lambda *args, **kwargs: audits.append(kwargs))
     result = agent.research_wine(db, context, wine, Decimal("1"))
-    assert result.status == "failed" and result.cost_usd == Decimal("0.02")
+    assert result.status == "failed" and result.cost_usd == Decimal("0.04")
+    assert len(audits) == 2
     assert audits[0]["feature"] == "sensory_research"
-    assert kwargs_seen["max_tool_calls"] == 10 and kwargs_seen["web_search"]
+    assert kwargs_seen["max_tool_calls"] == 4 and kwargs_seen["web_search"]
     assert '"vintage": "2020"' in kwargs_seen["user_prompt"]
-    assert 'Requested vintage (annata richiesta): "2020"' in kwargs_seen["user_prompt"]
+    assert "verification_feedback" in kwargs_seen["user_prompt"]
 
 
 @pytest.mark.parametrize("vintage", ["", "   "])
@@ -733,7 +735,7 @@ def test_api_requires_admin_and_scopes_run_reads(setup):
 
 def test_prompt_has_identity_grounding_language_and_no_invention():
     prompt = wine_sensory_research_prompt(wine_context={"name": "Test wine"}, locale="it")
-    assert prompt.id == "wine.sensory_research" and prompt.version == "5"
+    assert prompt.id == "wine.sensory_research" and prompt.version == "6"
     assert "Italian" in prompt.user and "Test wine" in prompt.user
     assert "Never invent" in prompt.system and "untrusted data" in prompt.system
     assert "Missing evidence means null" in prompt.system and "vintage_confirmed" in prompt.system
@@ -1058,3 +1060,224 @@ def test_worker_researches_existing_profiles_without_changing_them(
     with pytest.raises(HTTPException) as exc:
         routes.apply_research(started.id, wine.id, db, context)
     assert exc.value.status_code == 409
+
+
+def completion_output(wine, *, ambiguous=False, research=None):
+    return {
+        "name": wine.name,
+        "producer": wine.producer,
+        "vintage": wine.vintage,
+        "identity_ambiguous": ambiguous,
+        "summary": "Profilo atteso completo con stime dichiarate.",
+        "limitations": "Intensità inferite; annata e composizione non confermate.",
+        "research": research,
+        "estimates": {
+            key: {
+                "value": 0.5,
+                "lower": 0.3,
+                "upper": 0.7,
+                "rationale": "Stima dello stile atteso; mancano prove sull'intensità.",
+            }
+            for key in SENSORY_DIMENSIONS
+        },
+    }
+
+
+def test_completion_fills_nine_traits_without_sources_and_preserves_baseline(setup):
+    _, _, wine = setup
+    first = agent.proposal_from_response(wine, response({}), {"body": 0.95}, prompt_version="6")
+    completed = agent.complete_with_estimates(wine, first, response(completion_output(wine)))
+    assert completed.status == "ready" and completed.coverage["available"] == 9
+    assert completed.coverage["inferred"] == 9 and not completed.vintage_confirmed
+    assert completed.baseline == {"body": 0.95} and completed.cost_usd == Decimal("0.04")
+    assert completed.confidence == 0 and completed.sources == []
+    for item in completed.complete_profile.values():
+        assert item.origin == "ai_inference" and item.value == 0.5 and item.rationale
+        assert item.lower <= item.value <= item.upper and not item.evidence
+
+
+def test_completion_retains_checked_values_conflicts_and_broadens_narrow_ranges(setup):
+    _, _, wine = setup
+    first = complete_proposal(wine, complete_output(wine))
+    first.complete_profile["tannin"] = CompletedDimension(issue="conflicting_sources")
+    payload = completion_output(wine)
+    payload["estimates"]["tannin"].update(lower=0.5, upper=0.5)
+    completed = agent.complete_with_estimates(wine, first, response(payload))
+    assert completed.complete_profile["body"].value == 0.7
+    tannin = completed.complete_profile["tannin"]
+    assert tannin.origin == "ai_inference" and tannin.issue == "conflicting_sources"
+    assert tannin.lower == 0.35 and tannin.upper == 0.65
+
+
+@pytest.mark.parametrize("invalid", ["missing_trait", "out_of_range", "reversed_range", "identity"])
+def test_completion_rejects_malformed_or_wrong_identity_without_losing_research(setup, invalid):
+    _, _, wine = setup
+    first = complete_proposal(wine, complete_output(wine))
+    payload = completion_output(wine)
+    if invalid == "missing_trait":
+        del payload["estimates"]["fruit"]
+    elif invalid == "out_of_range":
+        payload["estimates"]["fruit"]["value"] = 1.5
+    elif invalid == "reversed_range":
+        payload["estimates"]["fruit"].update(lower=0.9, upper=0.1)
+    else:
+        payload["producer"] = "Another producer"
+    before = first.complete_profile["body"].model_dump()
+    completed = agent.complete_with_estimates(wine, first, response(payload))
+    assert completed.complete_profile["body"].model_dump() == before
+    assert completed.cost_usd == Decimal("0.04") and completed.warnings
+
+
+@pytest.mark.parametrize("ambiguous", [False, True])
+def test_estimated_profile_apply_preserves_inference_and_blocks_ambiguous_identity(
+    setup, ambiguous
+):
+    db, context, wine = setup
+    first = agent.proposal_from_response(wine, response({}), {}, prompt_version="6")
+    result = agent.complete_with_estimates(
+        wine, first, response(completion_output(wine, ambiguous=ambiguous))
+    )
+    run = SensoryAgentRun(
+        household_id=context.household.id,
+        user_id=context.user.id,
+        wine_ids=[str(wine.id)],
+        status="completed",
+        results=[result.model_dump(mode="json")],
+    )
+    db.add(run)
+    db.commit()
+    if ambiguous:
+        assert result.coverage["available"] == 9 and result.status == "incomplete"
+        with pytest.raises(HTTPException) as exc:
+            routes.apply_research(run.id, wine.id, db, context)
+        assert exc.value.status_code == 422
+        assert agent.sensory_profile_for_wine(db, wine) is None
+    else:
+        applied = routes.apply_research(run.id, wine.id, db, context)
+        assert applied.results[0].status == "applied"
+        profile = agent.sensory_profile_for_wine(db, wine)
+        assert len(profile.dimensions) == 9 and not profile.validated
+        assert profile.provenance["body"]["origin"] == "ai_inference"
+        assert profile.provenance["body"]["rationale"]
+        assert profile.provenance["body"]["lower"] == 0.3
+
+
+@pytest.mark.parametrize("failed_completion", [False, True])
+def test_research_feedback_loop_accounts_cost_and_keeps_paid_first_pass(
+    setup, monkeypatch, failed_completion
+):
+    db, context, wine = setup
+    import app.services.sensory_completion as completion
+    from app.services.score_sources import DocumentText
+
+    monkeypatch.setattr(
+        completion,
+        "read_public_document",
+        lambda *args, **kwargs: DocumentText(status="cloudflare_challenge", http_status=403),
+    )
+    monkeypatch.setattr(ai, "get_or_create_user_ai_settings", lambda *args: object())
+    monkeypatch.setattr(ai, "select_ai_provider", lambda *args: ("application", "unused"))
+    monkeypatch.setattr(ai, "maximum_billable_cost_usd", lambda **kwargs: Decimal("0.2"))
+    monkeypatch.setattr(ai, "reservation_pricing_model", lambda *args: "test")
+    calls, audits = [], []
+
+    def fake_response(*args, **kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            return response(complete_output(wine)), "application"
+        if failed_completion:
+            raise RuntimeError("Provider unavailable")
+        return response(completion_output(wine)), "application"
+
+    monkeypatch.setattr(ai, "create_ai_response", fake_response)
+    monkeypatch.setattr(ai, "record_ai_audit", lambda *args, **kwargs: audits.append(kwargs))
+    # A budget covering research alone must prevent spending before completion is affordable.
+    assert agent.research_wine(db, context, wine, Decimal("0.3")) is None and not calls
+    result = agent.research_wine(db, context, wine, Decimal("1"))
+    assert [c["max_tool_calls"] for c in calls] == [6, 4]
+    assert "cloudflare_challenge" in calls[1]["user_prompt"]
+    assert "baseline" not in calls[1]["user_prompt"]
+    if failed_completion:
+        assert result.cost_usd == Decimal("0.02") and len(audits) == 1
+        assert "completion_failed" in result.warnings
+    else:
+        assert result.cost_usd == Decimal("0.04") and len(audits) == 2
+        assert result.coverage["available"] == 9 and result.status == "ready"
+
+
+def test_refinement_verifies_alternative_sources_without_reopening_blocked_pages(
+    setup, monkeypatch
+):
+    _, _, wine = setup
+    from dataclasses import replace
+
+    import app.services.sensory_completion as completion
+    from app.services.score_sources import DocumentText
+
+    payload = complete_output(wine)
+    alternative = json.loads(
+        json.dumps(payload)
+        .replace("producer.example", "alternative.example")
+        .replace("critic.example", "reviewer.example")
+    )
+    pages = source_pages(alternative)
+    reads = []
+
+    def read(url, **kwargs):
+        reads.append(url)
+        if url in pages:
+            return DocumentText(text=pages[url], status="readable")
+        return DocumentText(status="cloudflare_challenge", http_status=403)
+
+    monkeypatch.setattr(completion, "read_public_document", read)
+    cache = {}
+    first = agent.proposal_from_response(
+        wine, response(payload), {}, prompt_version="6", document_cache=cache
+    )
+    assert first.coverage["available"] == 0
+    revised = replace(
+        response(completion_output(wine, research=alternative)),
+        web_sources=tuple({"url": url, "title": "Accessible alternative"} for url in pages),
+    )
+    completed = agent.complete_with_estimates(
+        wine, first, revised, previous_sources=response(payload).web_sources, document_cache=cache
+    )
+    assert completed.status == "ready" and completed.vintage_confirmed
+    assert completed.coverage["inferred"] == 0
+    assert completed.complete_profile["body"].origin == "corroborated"
+    assert completed.complete_profile["body"].value == 0.7
+    assert len(reads) == len(set(reads))
+    assert any(check.status == "cloudflare_challenge" for check in completed.source_checks.values())
+
+
+def test_refinement_uncited_sources_never_become_verified_intensities(setup):
+    _, _, wine = setup
+    from dataclasses import replace
+
+    first = agent.proposal_from_response(wine, response({}), {}, prompt_version="6")
+    supplied = replace(
+        response(completion_output(wine, research=complete_output(wine))), web_sources=()
+    )
+    completed = agent.complete_with_estimates(wine, first, supplied)
+    assert completed.status == "ready" and completed.coverage["inferred"] == 9
+    assert completed.coverage["exact_vintage"] == 0 and not completed.vintage_confirmed
+    assert not completed.sources and not completed.dimensions
+
+
+def test_completion_prompt_and_strict_schema():
+    from app.prompts.sensory_agent import wine_sensory_completion_prompt
+    from app.schemas.sensory_agent import SensoryCompletionOutput
+
+    prompt = wine_sensory_completion_prompt(
+        wine_context={"vintage": "2016"}, feedback={"issue": "source_unreadable"}, locale="it"
+    )
+    assert prompt.id == "wine.sensory_completion" and prompt.version == "1"
+    assert "Italian" in prompt.user and "2016" in prompt.user
+    assert "untrusted data" in prompt.system and "must not anchor" in prompt.system
+    assert "ALL nine estimates" in prompt.system and "Do not retry Cloudflare" in prompt.system
+    assert "not a statistical confidence interval" in prompt.system
+    schema = SensoryCompletionOutput.model_json_schema()
+    for item in [schema, *schema["$defs"].values()]:
+        if item.get("type") == "object":
+            assert item["additionalProperties"] is False
+            assert set(item["required"]) == set(item["properties"])
