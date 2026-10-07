@@ -1621,3 +1621,16 @@ export type SensoryProfileBaseline = {
   confidence: number;
   is_active: boolean;
 };
+export type SensoryResearchTrait = { value: number; basis: "documented" | "inferred"; excerpt: string; source_url: string };
+export type SensoryResearchResult = {
+  wine_id: string; identity_id: string | null; name: string; producer: string; vintage: string;
+  status: "ready" | "incomplete" | "no_evidence" | "failed" | "skipped" | "applied";
+  issue: string; summary: string; limitations: string; vintage_confirmed: boolean; confidence: number;
+  baseline: Record<string, number>; dimensions: Record<string, SensoryResearchTrait>;
+  aromas: Array<{ name: string; excerpt: string; source_url: string }>;
+  sources: Array<{ url: string; title: string }>; model: string; prompt_version: string; cost_usd: string;
+};
+export type SensoryResearchRun = {
+  id: string; status: string; issue: string; max_wines: number; budget_usd: string; cost_usd: string;
+  results: SensoryResearchResult[]; created_at: string; updated_at: string;
+};

@@ -1,0 +1,15 @@
+.sensory-research { margin-block: 20px; padding: 20px; border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.sensory-research h4 { margin: 0; font-size: 1rem; }
+.sensory-research p { line-height: 1.55; overflow-wrap: anywhere; }
+.sensory-research-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.sensory-research-controls label { display: grid; gap: 6px; flex: 1 1 150px; min-width: 0; }
+.sensory-research-controls input { width: 100%; min-width: 0; box-sizing: border-box; }
+.sensory-research button, .sensory-research input { min-height: 44px; }
+.sensory-research-results { display: grid; gap: 16px; }
+.sensory-research-results article { min-width: 0; padding-top: 16px; border-top: 1px solid var(--border); }
+.sensory-research-results h5 { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
+.sensory-research-results dl > div { padding-block: 12px; border-bottom: 1px solid var(--border); }
+.sensory-research-results dt { font-weight: 600; }
+.sensory-research-results dd { margin: 6px 0 0; overflow-wrap: anywhere; }
+.sensory-research-results blockquote { margin: 8px 0; font-style: italic; }
+.sensory-research-results a { overflow-wrap: anywhere; }

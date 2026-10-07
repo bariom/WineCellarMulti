@@ -18,6 +18,7 @@ from app.api.routes import (
     operations,
     public_wine_list,
     sales,
+    sensory_agent,
     session,
     storage,
     support,
@@ -49,6 +50,7 @@ api_router.include_router(storage.router, tags=["storage"])
 api_router.include_router(support.router, tags=["support"])
 api_router.include_router(tags.router, tags=["tags"])
 api_router.include_router(taste_profiles.router, tags=["taste profile"])
+api_router.include_router(sensory_agent.router, tags=["sensory research"])
 api_router.include_router(catalog.router, prefix="/wines", tags=["catalog"])
 api_router.include_router(wines.router, prefix="/wines", tags=["wines"])
 api_router.include_router(coownership.router, tags=["co-ownership"])
