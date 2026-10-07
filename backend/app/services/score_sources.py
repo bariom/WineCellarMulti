@@ -86,6 +86,12 @@ def read_public_document(url: str, *, allow_pdf: bool = False) -> DocumentText:
                     url = urljoin(url, location)
                     continue
                 content_type = response.getheader("Content-Type", "").lower()
+                if response.getheader("cf-mitigated", "").lower() == "challenge":
+                    return DocumentText(
+                        status="cloudflare_challenge",
+                        content_type=content_type,
+                        http_status=response.status,
+                    )
                 if response.status != 200:
                     return DocumentText(content_type=content_type, http_status=response.status)
                 pdf = "application/pdf" in content_type or (
@@ -123,6 +129,20 @@ def read_public_document(url: str, *, allow_pdf: bool = False) -> DocumentText:
                     decoded = content.decode(charset, errors="replace")
                 except LookupError:
                     decoded = content.decode("utf-8", errors="replace")
+                lowered = decoded.lower()
+                if "/cdn-cgi/challenge-platform" in lowered and any(
+                    marker in lowered
+                    for marker in (
+                        "<title>just a moment",
+                        "performing security verification",
+                        "verify you are human",
+                    )
+                ):
+                    return DocumentText(
+                        status="cloudflare_challenge",
+                        content_type=content_type,
+                        http_status=200,
+                    )
                 parser.feed(decoded)
                 value = " ".join(" ".join(parser.parts).split())
                 return DocumentText(

@@ -157,7 +157,10 @@ export function SensoryResearchPanel({ locale, onApplied }: { locale: Locale; on
         </details>}
         <ul>{result.sources.map(source => {
           const check = result.source_checks?.[source.url];
-          return <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || source.url} ↗</a>{check && <span> · {check.status === "readable" ? (it ? `Fonte letta: ${check.matched_excerpts} citazioni verificate, ${check.unmatched_excerpts} non corrispondenti` : `Source read: ${check.matched_excerpts} verified quotations, ${check.unmatched_excerpts} unmatched`) : (it ? "Fonte non leggibile" : "Source unreadable")}{check.http_status && check.http_status !== 200 ? ` (HTTP ${check.http_status})` : ""}</span>}</li>;
+          const sourceStatus = check?.status === "cloudflare_challenge"
+            ? (it ? "Verifica anti-bot richiesta (Cloudflare)" : "Anti-bot verification required (Cloudflare)")
+            : (it ? "Fonte non leggibile" : "Source unreadable");
+          return <li key={source.url}><a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || source.url} ↗</a>{check && <span> · {check.status === "readable" ? (it ? `Fonte letta: ${check.matched_excerpts} citazioni verificate, ${check.unmatched_excerpts} non corrispondenti` : `Source read: ${check.matched_excerpts} verified quotations, ${check.unmatched_excerpts} unmatched`) : sourceStatus}{check.http_status && check.http_status !== 200 ? ` (HTTP ${check.http_status})` : ""}</span>}</li>;
         })}</ul>
         {(result.baseline_validated || result.baseline_source === "manual") && <p>{it ? "Ricerca di confronto: il profilo precedente manuale o validato resta conservato." : "Comparison research: the previous manual or validated profile is preserved."}</p>}
         {result.status === "ready" && !result.baseline_validated && result.baseline_source !== "manual" && <button type="button" className="secondary compact" disabled={busy || running} onClick={() => void apply(result.wine_id)}>{it ? "Usa questo profilo" : "Apply this profile"}</button>}

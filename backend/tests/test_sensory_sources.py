@@ -31,7 +31,9 @@ def pdf_bytes(text="Wine 2023. Full-bodied with firm tannins."):
     return value.getvalue()
 
 
-def mock_document(monkeypatch, content, content_type="application/pdf", status=200, location=None):
+def mock_document(
+    monkeypatch, content, content_type="application/pdf", status=200, location=None, mitigated=""
+):
     monkeypatch.setattr(
         "socket.getaddrinfo", lambda *a, **kw: [(2, 1, 6, "", ("93.184.216.34", 443))]
     )
@@ -41,7 +43,11 @@ def mock_document(monkeypatch, content, content_type="application/pdf", status=2
             self.status = status
 
         def getheader(self, name, default=None):
-            return location if name == "Location" else content_type
+            return {
+                "Location": location,
+                "Content-Type": content_type,
+                "cf-mitigated": mitigated,
+            }.get(name, default)
 
         def read(self, limit):
             return content[:limit]
@@ -115,6 +121,36 @@ def test_forbidden_source_is_distinct_from_malformed_document(monkeypatch):
     mock_document(monkeypatch, b"Forbidden", "text/html", status=403)
     result = read_public_document("https://critic.example/review", allow_pdf=True)
     assert result.status == "unavailable" and result.http_status == 403 and not result.text
+
+
+@pytest.mark.parametrize("status", [200, 403])
+def test_cloudflare_challenge_header_is_never_tasting_evidence(monkeypatch, status):
+    mock_document(
+        monkeypatch, b"Verify you are human", "text/html", status=status, mitigated="challenge"
+    )
+    result = read_public_document("https://critic.example/review", allow_pdf=True)
+    assert result.status == "cloudflare_challenge" and result.http_status == status
+    assert not result.text
+
+
+def test_cloudflare_interstitial_without_header_is_not_readable_wine_content(monkeypatch):
+    mock_document(
+        monkeypatch,
+        b'<title>Just a moment...</title><script src="/cdn-cgi/challenge-platform/test"></script>',
+        "text/html",
+    )
+    result = read_public_document("https://critic.example/review", allow_pdf=True)
+    assert result.status == "cloudflare_challenge" and not result.text
+
+
+def test_regular_page_mentioning_cloudflare_is_still_readable(monkeypatch):
+    mock_document(
+        monkeypatch,
+        b"<p>Full-bodied wine.</p><footer>Protected by Cloudflare</footer>",
+        "text/html",
+    )
+    result = read_public_document("https://critic.example/review", allow_pdf=True)
+    assert result.status == "readable" and "Full-bodied wine" in result.text
 
 
 def test_redirect_to_private_address_remains_blocked(monkeypatch):

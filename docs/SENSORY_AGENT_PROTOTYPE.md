@@ -60,7 +60,11 @@ caratteri, 10 secondi e monitoraggio della memoria con arresto oltre 384 MB.
 Documenti cifrati, malformati, fuori limite o privi di testo (scansioni senza OCR)
 non vengono considerati prove. Il rapporto distingue errori di lettura, stato
 HTTP e citazioni che non corrispondono a una fonte leggibile; non mostra questi
-casi indistintamente come mancanza di informazioni sul vino. Il report segnala
+casi indistintamente come mancanza di informazioni sul vino. Le risposte con
+`cf-mitigated: challenge` e le pagine intermedie Cloudflare riconoscibili sono
+segnalate come verifica anti-bot richiesta, anche con HTTP 200; il loro testo non
+viene mai usato come prova degustativa. Un normale 403 resta un errore di accesso
+generico e non viene attribuito automaticamente a Cloudflare. Il report segnala
 gli scarti: non si
 sostituisce la verifica con una dichiarazione del modello.
 
