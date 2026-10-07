@@ -17,6 +17,7 @@ from app.schemas.sensory_agent import (
 )
 from app.services.sensory_agent import candidate_wines, run_sensory_research
 from app.services.shared_wine_data import normalize_identity_part, resolve_shared_identity
+from app.services.taste_profiles import SENSORY_DIMENSIONS
 
 router = APIRouter(prefix="/taste-profile/admin/research-runs")
 
@@ -178,14 +179,32 @@ def apply_research(
     if profile is None:
         profile = WineSensoryProfile(identity_id=identity.id)
         db.add(profile)
-    supported = {item.dimension for item in result.comparisons if item.agreement == "corroborated"}
-    if result.prompt_version == "3" and len(supported) < 3:
-        raise HTTPException(422, "Insufficient corroborated evidence")
-    profile.dimensions = {
-        key: trait.value
-        for key, trait in result.dimensions.items()
-        if result.prompt_version != "3" or key in supported
-    }
+    if result.prompt_version == "4":
+        if (
+            not result.vintage_confirmed
+            or set(result.complete_profile) != set(SENSORY_DIMENSIONS)
+            or any(
+                item.value is None or item.origin == "unknown" or item.issue
+                for item in result.complete_profile.values()
+            )
+        ):
+            raise HTTPException(422, "Incomplete or unresolved sensory profile")
+        profile.dimensions = {key: item.value for key, item in result.complete_profile.items()}
+        profile.provenance = {
+            key: item.model_dump(mode="json") for key, item in result.complete_profile.items()
+        }
+    else:
+        supported = {
+            item.dimension for item in result.comparisons if item.agreement == "corroborated"
+        }
+        if result.prompt_version == "3" and len(supported) < 3:
+            raise HTTPException(422, "Insufficient corroborated evidence")
+        profile.dimensions = {
+            key: trait.value
+            for key, trait in result.dimensions.items()
+            if result.prompt_version != "3" or key in supported
+        }
+        profile.provenance = {}
     profile.source, profile.confidence = "ai", result.confidence
     profile.validated, profile.generation_status = False, "available"
     profile.model, profile.last_modified_by_user_id = result.model[:120], context.user.id

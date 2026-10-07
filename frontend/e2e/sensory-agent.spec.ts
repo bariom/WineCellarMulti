@@ -33,6 +33,51 @@ const result = {
 
 const completed = { id: "run-one", status: "completed", issue: "", max_wines: 10, selected_wines: 3, budget_usd: "1", cost_usd: "0.02", results: [result, { ...result, wine_id: "wine-two", name: "Vino senza annata verificata", status: "incomplete", vintage_confirmed: false }, { ...result, wine_id: "wine-three", name: "Vino senza annata", vintage: "", status: "skipped", issue: "missing_vintage", vintage_confirmed: false, dimensions: {}, aromas: [], sources: [], summary: "", limitations: "", cost_usd: "0" }], created_at: "2026-10-07T08:00:00Z", updated_at: "2026-10-07T08:01:00Z" };
 
+for (const incomplete of [false, true]) {
+  test(`Completed sensory profile: provenance and responsive review (${incomplete ? "conflict" : "complete"})`, async ({ page }, testInfo) => {
+    await renderPanel(page, "it");
+    const evidence = { scope: "exact_vintage", vintage: "2020", published_year: 2021,
+      publisher: "Cantina di Test", role: "producer", excerpt: "Full-bodied with firm tannins.",
+      source_url: "https://producer.example/technical-sheet-2020" };
+    const keys = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
+    const completeProfile = Object.fromEntries(keys.map((key, index) => [key, {
+      value: incomplete && key === "tannin" ? null : index === 0 ? .8 : .42,
+      origin: incomplete && key === "tannin" ? "unknown" : index === 0 ? "corroborated" : "similar_wines",
+      confidence: index === 0 ? .8 : .35,
+      issue: incomplete && key === "tannin" ? "conflicting_sources" : "",
+      evidence: [evidence],
+      references: index === 0 ? [] : [{ name: "Vino di riferimento", producer: "Produttore esterno", vintage: "2021", similarity: .65, value: .42, evidence, identity_evidence: evidence, production_evidence: [{ ...evidence, excerpt: "Target matured in French oak barrels" }, { ...evidence, excerpt: "Reference matured in French oak barrels" }] }],
+    }]));
+    const proposal = { ...result, prompt_version: "4", status: incomplete ? "incomplete" : "ready", complete_profile: completeProfile,
+      coverage: { available: incomplete ? 8 : 9, total: 9, exact_vintage: 1, corroborated: 1, estimated: incomplete ? 7 : 8, unknown: incomplete ? 1 : 0 },
+      warnings: incomplete ? ["tannin:conflicting_sources"] : [] };
+    await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, selected_wines: 1, results: [proposal] }] }));
+    await page.goto("/sensory-agent-test");
+    const article = page.getByRole("article");
+    await expect(article).toContainText(`Completezza: ${incomplete ? 8 : 9}/9`);
+    await article.getByText("Confronto e prove", { exact: true }).click();
+    await expect(article).toContainText("Stima da vini simili");
+    await expect(article).toContainText("Vino di riferimento");
+    await article.getByText("Confronto dello stile produttivo", { exact: true }).first().click();
+    await expect(article.getByText("Reference matured in French oak barrels", { exact: true }).first()).toBeVisible();
+    const tannin = article.getByRole("table").getByRole("row", { name: /Tannini/ });
+    await expect(tannin).toContainText(incomplete ? "—" : "0.42");
+    if (incomplete) {
+      await expect(article).toContainText("Fonti discordanti");
+      await expect(article.getByRole("button", { name: "Usa questo profilo" })).toHaveCount(0);
+    } else await expect(article.getByRole("button", { name: "Usa questo profilo" })).toBeVisible();
+    for (const width of [360, 390, 430, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const table = (await article.getByRole("table").boundingBox())!;
+      const card = (await article.boundingBox())!;
+      expect(table.x).toBeGreaterThanOrEqual(card.x);
+      expect(table.x + table.width).toBeLessThanOrEqual(card.x + card.width + 1);
+      if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`complete-${width}.png`), fullPage: true });
+    }
+  });
+}
+
 for (const locale of ["it", "en"]) {
   test(`Sensory agent ${locale}: background research, source review and explicit apply`, async ({ page }, testInfo) => {
     const it = locale === "it";

@@ -222,6 +222,7 @@ def sensory_response(profile: WineSensoryProfile) -> SensoryProfileResponse:
     return SensoryProfileResponse(
         identity_id=profile.identity_id,
         dimensions=profile.dimensions or {},
+        provenance=profile.provenance or {},
         source=profile.source,
         confidence=profile.confidence,
         validated=profile.validated,
@@ -927,7 +928,10 @@ def update_sensory_profile(
     context: CurrentContext = Depends(require_app_admin_context),
 ) -> SensoryProfileResponse:
     profile = _admin_profile(identity_id, db)
-    profile.dimensions = validated_dimensions(payload.dimensions)
+    new_dimensions = validated_dimensions(payload.dimensions)
+    if new_dimensions != profile.dimensions:
+        profile.provenance = {}
+    profile.dimensions = new_dimensions
     profile.source = "manual"
     profile.confidence = 1.0 if payload.validated else max(profile.confidence, 0.85)
     profile.validated = (

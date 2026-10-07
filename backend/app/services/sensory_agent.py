@@ -28,7 +28,7 @@ from app.models import (
     Wine,
 )
 from app.prompts.sensory_agent import wine_sensory_research_prompt
-from app.schemas.sensory_agent import ResearchOutput, SensoryResearchResult
+from app.schemas.sensory_agent import CompleteResearchOutput, ResearchOutput, SensoryResearchResult
 from app.services.openai_client import OpenAIResponse
 from app.services.shared_wine_data import normalize_identity_part
 from app.services.taste_profiles import sensory_profile_for_wine
@@ -56,8 +56,17 @@ def public_source_url(value: str) -> str:
 
 
 def proposal_from_response(
-    wine: Wine, response: OpenAIResponse, baseline: dict
+    wine: Wine,
+    response: OpenAIResponse,
+    baseline: dict,
+    *,
+    prompt_version: str = "3",
+    source_texts: dict[str, str] | None = None,
 ) -> SensoryResearchResult:
+    if prompt_version == "4":
+        from app.services.sensory_completion import build_complete_proposal
+
+        return build_complete_proposal(wine, response, baseline, source_texts=source_texts)
     result = SensoryResearchResult(
         wine_id=wine.id,
         identity_id=wine.shared_identity_id,
@@ -262,10 +271,11 @@ def research_wine(
             "type": wine.type,
             "region": wine.region,
             "appellation": wine.appellation,
+            "grapes": wine.grapes or [],
         },
         locale=context.user.locale,
     )
-    schema = {"name": "wine_sensory_research", "schema": ResearchOutput.model_json_schema()}
+    schema = {"name": "wine_sensory_research", "schema": CompleteResearchOutput.model_json_schema()}
     user_settings = get_or_create_user_ai_settings(db, context)
     provider, _ = select_ai_provider(db, context, user_settings)
     model = settings.openai_economy_model
@@ -276,8 +286,8 @@ def research_wine(
         model=reservation_pricing_model(model, db),
         input_tokens=32768
         + max(2048, (len(prompt.system) + len(prompt.user) + len(json.dumps(schema))) // 2),
-        output_tokens=6000,
-        web_search_calls=6,
+        output_tokens=12000,
+        web_search_calls=10,
         db=db,
     )
     if estimated_ceiling > remaining:
@@ -294,12 +304,12 @@ def research_wine(
         web_search_use_default_location=False,
         web_search_context_size="medium",
         task_type="sensory_profile",
-        max_output_tokens=6000,
-        max_tool_calls=6,
+        max_output_tokens=12000,
+        max_tool_calls=10,
         reasoning_effort="medium",
-        timeout_seconds=180,
+        timeout_seconds=240,
     )
-    result = proposal_from_response(wine, response, baseline)
+    result = proposal_from_response(wine, response, baseline, prompt_version=prompt.version)
     result.baseline_source = baseline_source
     result.baseline_validated = baseline_validated
     result.baseline_confidence = baseline_confidence

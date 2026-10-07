@@ -1594,6 +1594,7 @@ export type WineSensoryProfile = {
   validated: boolean;
   generation_status: string;
   generated_at: string;
+  provenance?: Record<string, CompletedSensoryDimension>;
 };
 
 export type WineSensorySignature = Omit<WineSensoryProfile, "name" | "producer" | "vintage">;
@@ -1622,6 +1623,15 @@ export type SensoryProfileBaseline = {
   is_active: boolean;
 };
 export type SensoryResearchCandidate = { id: string; name: string; producer: string; vintage: string };
+export type SensorySourceEvidence = {
+  excerpt: string; source_url: string; scope: "exact_vintage" | "wine_style" | "other_vintage" | "historical_nv";
+  vintage: string; published_year: number | null; publisher: string; role: "producer" | "critic" | "retailer";
+};
+export type CompletedSensoryDimension = {
+  value: number | null; origin: "corroborated" | "single_source" | "wine_style" | "similar_wines" | "unknown";
+  confidence: number; issue: string; evidence: SensorySourceEvidence[];
+  references: Array<{ name: string; producer: string; vintage: string; similarity: number; value: number; evidence: SensorySourceEvidence; identity_evidence?: SensorySourceEvidence | null; production_evidence?: SensorySourceEvidence[] }>;
+};
 export type SensoryResearchComparison = {
   dimension: string; agreement: "corroborated" | "conflicting" | "single_source";
   independent: boolean; explanation: string; evidence: Array<{ excerpt: string; source_url: string }>;
@@ -1634,6 +1644,8 @@ export type SensoryResearchResult = {
   comparisons?: SensoryResearchComparison[];
   baseline: Record<string, number>; dimensions: Record<string, SensoryResearchTrait>;
   baseline_source?: string; baseline_validated?: boolean; baseline_confidence?: number | null;
+  complete_profile?: Record<string, CompletedSensoryDimension>;
+  coverage?: Record<string, number>; warnings?: string[];
   aromas: Array<{ name: string; excerpt: string; source_url: string }>;
   sources: Array<{ url: string; title: string }>; model: string; prompt_version: string; cost_usd: string;
 };

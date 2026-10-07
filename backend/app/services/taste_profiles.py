@@ -230,6 +230,8 @@ def generate_wine_sensory_profile(
 ) -> WineSensoryProfile | None:
     """Resolve once. AI is opt-in and only reached after every free source failed."""
     existing = sensory_profile_for_wine(db, wine, create_identity=True)
+    if existing and existing.provenance:
+        return existing  # Legacy metadata inference must not replace an evidence-led profile.
     if (
         existing
         and existing.validated
@@ -255,6 +257,7 @@ def generate_wine_sensory_profile(
     if existing is None:
         db.add(profile)
     profile.dimensions = dimensions
+    profile.provenance = {}
     profile.source = source
     profile.confidence = confidence
     profile.generation_status = "available"

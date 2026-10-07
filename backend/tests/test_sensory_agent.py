@@ -254,7 +254,7 @@ def test_research_records_no_result_cost_and_audit(setup, monkeypatch):
     result = agent.research_wine(db, context, wine, Decimal("1"))
     assert result.status == "failed" and result.cost_usd == Decimal("0.02")
     assert audits[0]["feature"] == "sensory_research"
-    assert kwargs_seen["max_tool_calls"] == 6 and kwargs_seen["web_search"]
+    assert kwargs_seen["max_tool_calls"] == 10 and kwargs_seen["web_search"]
     assert '"vintage": "2020"' in kwargs_seen["user_prompt"]
     assert 'Requested vintage (annata richiesta): "2020"' in kwargs_seen["user_prompt"]
 
@@ -312,6 +312,366 @@ def test_duplicate_submission_is_rejected(setup):
     with pytest.raises(HTTPException) as exc:
         routes.start_research(SensoryResearchRequest(), BackgroundTasks(), db, context)
     assert exc.value.status_code == 409
+
+
+def source_evidence(
+    *,
+    url="https://producer.example/2020",
+    vintage="2020",
+    scope="exact_vintage",
+    publisher="Producer",
+    excerpt="Wine 2020",
+):
+    return {
+        "source_url": url,
+        "excerpt": excerpt,
+        "vintage": vintage,
+        "scope": scope,
+        "published_year": 2026,
+        "publisher": publisher,
+        "role": "producer",
+    }
+
+
+def complete_output(wine):
+    payload = output(wine)
+    descriptions = {
+        "body": "Full-bodied wine",
+        "acidity": "High fresh acidity",
+        "tannin": "Firm tannins",
+        "sweetness": "Dry wine, low sweetness",
+        "aromatic_intensity": "Intense aromas",
+        "fruit": "Pronounced fruit flavours",
+        "wood": "Pronounced oak aromas",
+        "spice": "Some spice in the finish",
+        "minerality": "Pronounced mineral notes",
+    }
+    payload["identity_evidence"] = source_evidence(vintage=wine.vintage)
+    payload["references"] = []
+    payload["dimensions"] = {
+        key: {
+            **source_evidence(vintage=wine.vintage, excerpt=excerpt),
+            "value": 0.7,
+            "basis": "documented",
+            "intensity_supported": True,
+        }
+        for key, excerpt in descriptions.items()
+    }
+    for comparison in payload["comparisons"]:
+        key = comparison["dimension"]
+        comparison["evidence"] = [
+            source_evidence(vintage=wine.vintage, excerpt=descriptions[key]),
+            source_evidence(
+                url="https://critic.example/2020",
+                vintage=wine.vintage,
+                publisher="Independent critic",
+                excerpt="An independent note: " + descriptions[key],
+            ),
+        ]
+    return payload
+
+
+def source_pages(payload):
+    pages = {}
+
+    def collect(item):
+        if isinstance(item, dict):
+            if "excerpt" in item and "source_url" in item:
+                url = agent.public_source_url(item["source_url"])
+                pages[url] = pages.get(url, "") + " " + item["excerpt"]
+            for value in item.values():
+                collect(value)
+        elif isinstance(item, list):
+            for value in item:
+                collect(value)
+
+    collect(payload)
+    return pages
+
+
+def complete_proposal(wine, payload, *, sources=(), source_texts=None):
+    from dataclasses import replace
+
+    supplied = response(payload)
+    supplied = replace(supplied, web_sources=(*supplied.web_sources, *sources))
+    return agent.proposal_from_response(
+        wine,
+        supplied,
+        {"body": 0.1},
+        prompt_version="4",
+        source_texts=source_pages(payload) if source_texts is None else source_texts,
+    )
+
+
+@pytest.mark.parametrize(
+    "dimension,excerpt",
+    [
+        ("tannin", "Tannini morbidi e vellutati"),
+        ("tannin", "A full-bodied wine with soft tannins"),
+        ("acidity", "buona la morbidezza in equilibrio con l'acidita"),
+        ("aromatic_intensity", "Layers of complexity: cherry, sage and rosemary"),
+        ("aromatic_intensity", "Cherry, sage and rosemary aromas"),
+        ("wood", "Unoaked"),
+        ("body", "Structured wine with a long, persistent finish"),
+        ("fruit", "Cherry, raspberry and plum aromas"),
+    ],
+)
+def test_complete_profile_rejects_known_intensity_confusions(setup, dimension, excerpt):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    payload["dimensions"][dimension]["excerpt"] = excerpt
+    result = complete_proposal(wine, payload)
+    assert result.complete_profile[dimension].value is None
+    assert result.status == "incomplete"
+    assert f"{dimension}:unsupported_intensity" in result.warnings
+
+
+def test_complete_profile_separates_available_exact_and_corroborated(setup):
+    _, _, wine = setup
+    result = complete_proposal(wine, complete_output(wine))
+    assert result.status == "ready"
+    assert result.coverage == {
+        "available": 9,
+        "total": 9,
+        "exact_vintage": 9,
+        "corroborated": 3,
+        "estimated": 0,
+        "unknown": 0,
+    }
+    assert result.complete_profile["body"].origin == "corroborated"
+    assert result.complete_profile["wood"].origin == "single_source"
+    assert result.complete_profile["body"].value == 0.7  # Old estimate is not an input.
+
+
+@pytest.mark.parametrize("year", [2000, None])
+def test_historical_or_undated_nv_cannot_confirm_current_bottling(setup, year):
+    _, _, wine = setup
+    wine.vintage = "NV"
+    payload = complete_output(wine)
+    payload["identity_evidence"]["published_year"] = year
+    for trait in payload["dimensions"].values():
+        trait["published_year"] = year
+    result = complete_proposal(wine, payload)
+    assert not result.vintage_confirmed and result.status != "ready"
+    assert result.coverage["available"] == 0
+
+
+def test_generic_style_never_counts_as_exact_vintage(setup):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    payload["dimensions"]["body"]["scope"] = "wine_style"
+    payload["dimensions"]["body"]["vintage"] = ""
+    result = complete_proposal(wine, payload)
+    assert result.complete_profile["body"].origin == "wine_style"
+    assert result.coverage["estimated"] == 1 and result.coverage["exact_vintage"] == 8
+
+
+def peer_references(wine, payload, *, same_wine=False, spread=False):
+    from copy import deepcopy
+
+    refs, sources = [], []
+    for index in range(3):
+        url = f"https://{'critic' if index else 'producer'}.example/reference-{index}"
+        traits = deepcopy(payload["dimensions"])
+        for trait in traits.values():
+            if trait:
+                trait.update(
+                    source_evidence(
+                        url=url,
+                        vintage="2021",
+                        publisher=f"Publisher {index % 2}",
+                        excerpt=trait["excerpt"],
+                    )
+                )
+                trait["value"] = 0.4 + (index * 0.2 if spread else index * 0.02)
+        refs.append(
+            {
+                "name": wine.name if same_wine else f"Reference {index}",
+                "producer": wine.producer if same_wine else f"Producer {index}",
+                "vintage": "2021",
+                "wine_type": "Red",
+                "appellation": "Ticino",
+                "grapes": ["Merlot"],
+                "identity_confirmed": True,
+                "production_style_matches": True,
+                "identity_evidence": source_evidence(url=url, vintage="2021"),
+                "production_evidence": [
+                    source_evidence(excerpt="Target matured in French oak barrels"),
+                    source_evidence(
+                        url=url, vintage="2021", excerpt="Reference matured in French oak barrels"
+                    ),
+                ],
+                "dimensions": traits,
+            }
+        )
+        sources.append({"url": url, "title": "Documented reference"})
+    payload["references"] = refs
+    return sources
+
+
+def test_peer_completion_is_documented_deterministic_and_never_overwrites_exact(setup):
+    _, _, wine = setup
+    wine.appellation = "Ticino"
+    wine.grapes = [{"name": "Merlot", "percentage": 100}]
+    payload = complete_output(wine)
+    sources = peer_references(wine, payload)
+    for key in payload["dimensions"]:
+        if key != "body":
+            payload["dimensions"][key] = None
+    result = complete_proposal(wine, payload, sources=sources)
+    assert result.status == "ready" and result.coverage["available"] == 9
+    assert result.complete_profile["body"].value == 0.7
+    assert result.complete_profile["acidity"].value == 0.42
+    assert result.complete_profile["acidity"].origin == "similar_wines"
+    assert len(result.complete_profile["acidity"].references) == 3
+    assert result.complete_profile["acidity"].references[0].identity_evidence is not None
+    assert len(result.complete_profile["acidity"].references[0].production_evidence) == 2
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "missing_grapes",
+        "different_type",
+        "different_appellation",
+        "few_references",
+        "uncited",
+        "different_style",
+        "missing_production_evidence",
+        "disagreement",
+    ],
+)
+def test_weak_or_incompatible_reference_wines_cannot_fill_gaps(setup, case):
+    _, _, wine = setup
+    wine.appellation = "Ticino"
+    wine.grapes = [{"name": "Merlot"}]
+    payload = complete_output(wine)
+    sources = peer_references(wine, payload, spread=case == "disagreement")
+    payload["dimensions"]["wood"] = None
+    if case == "missing_grapes":
+        wine.grapes = []
+    elif case == "few_references":
+        payload["references"] = payload["references"][:2]
+    elif case == "uncited":
+        sources = []
+    else:
+        for reference in payload["references"]:
+            if case == "different_type":
+                reference["wine_type"] = "White"
+            if case == "different_appellation":
+                reference["appellation"] = "Bordeaux"
+            if case == "different_style":
+                reference["production_style_matches"] = False
+            if case == "missing_production_evidence":
+                reference["production_evidence"] = []
+    result = complete_proposal(wine, payload, sources=sources)
+    assert result.complete_profile["wood"].value is None and result.status != "ready"
+
+
+def test_conflicts_are_not_erased_by_reference_completion(setup):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    sources = peer_references(wine, payload, same_wine=True)
+    payload["comparisons"][0]["agreement"] = "conflicting"
+    result = complete_proposal(wine, payload, sources=sources)
+    assert result.complete_profile["body"].value is None
+    assert result.complete_profile["body"].issue == "conflicting_sources"
+    assert len(result.complete_profile["body"].evidence) == 2
+    assert (
+        next(item for item in result.comparisons if item.dimension == "body").agreement
+        == "conflicting"
+    )
+    assert result.status != "ready"
+
+
+def test_same_wine_nearby_vintage_is_explicit_style_estimate(setup):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    sources = peer_references(wine, payload, same_wine=True)
+    payload["dimensions"]["wood"] = None
+    result = complete_proposal(wine, payload, sources=sources)
+    assert result.complete_profile["wood"].origin == "wine_style"
+    assert result.complete_profile["wood"].confidence <= 0.4
+
+
+def test_apply_complete_profile_persists_provenance_and_legacy_generator_preserves_it(setup):
+    from app.services.taste_profiles import generate_wine_sensory_profile
+
+    db, context, wine = setup
+    proposal = complete_proposal(wine, complete_output(wine))
+    proposal.baseline = {}
+    run = SensoryAgentRun(
+        household_id=context.household.id,
+        user_id=context.user.id,
+        status="completed",
+        results=[proposal.model_dump(mode="json")],
+    )
+    db.add(run)
+    db.commit()
+    routes.apply_research(run.id, wine.id, db, context)
+    profile = db.scalar(select(WineSensoryProfile))
+    assert len(profile.dimensions) == 9 and len(profile.provenance) == 9
+    assert profile.provenance["body"]["origin"] == "corroborated"
+    assert not profile.validated
+    before = dict(profile.dimensions)
+    assert generate_wine_sensory_profile(db, wine, force_refresh=True) is profile
+    assert profile.dimensions == before
+
+
+def test_complete_schema_requires_nullable_fields_and_forbids_extra_properties():
+    from app.schemas.sensory_agent import CompleteResearchOutput
+
+    schema = CompleteResearchOutput.model_json_schema()
+    for item in [schema, *schema["$defs"].values()]:
+        if item.get("type") == "object":
+            assert set(item["required"]) == set(item["properties"])
+            assert item["additionalProperties"] is False
+
+
+@pytest.mark.parametrize("page_text", ["", "This page says nothing about this wine."])
+def test_cited_url_without_verified_excerpt_cannot_support_a_profile(setup, page_text):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    pages = {url: page_text for url in source_pages(payload)}
+    proposal = complete_proposal(wine, payload, source_texts=pages)
+    assert not proposal.vintage_confirmed
+    assert proposal.status == "no_evidence"
+    assert proposal.coverage["available"] == 0
+    assert any(warning.startswith("source_excerpt_unverified:") for warning in proposal.warnings)
+
+
+def test_validating_preserves_provenance_but_manual_changes_clear_it(setup):
+    from app.api.routes import taste_profiles
+    from app.schemas.taste_profile import SensoryProfileUpdate
+
+    db, context, wine = setup
+    proposal = complete_proposal(wine, complete_output(wine))
+    profile = WineSensoryProfile(
+        identity_id=wine.shared_identity_id,
+        dimensions={key: item.value for key, item in proposal.complete_profile.items()},
+        provenance={
+            key: item.model_dump(mode="json") for key, item in proposal.complete_profile.items()
+        },
+        source="ai",
+        confidence=0.6,
+        generation_status="available",
+    )
+    db.add(profile)
+    db.commit()
+    validated = taste_profiles.update_sensory_profile(
+        wine.shared_identity_id,
+        SensoryProfileUpdate(dimensions=profile.dimensions, validated=True),
+        db,
+        context,
+    )
+    assert len(validated.provenance) == 9 and validated.validated
+    changed = taste_profiles.update_sensory_profile(
+        wine.shared_identity_id,
+        SensoryProfileUpdate(dimensions={**profile.dimensions, "body": 0.2}),
+        db,
+        context,
+    )
+    assert changed.provenance == {} and changed.dimensions["body"] == 0.2
 
 
 def ready_run(db, context, wine):
@@ -373,10 +733,40 @@ def test_api_requires_admin_and_scopes_run_reads(setup):
 
 def test_prompt_has_identity_grounding_language_and_no_invention():
     prompt = wine_sensory_research_prompt(wine_context={"name": "Test wine"}, locale="it")
-    assert prompt.id == "wine.sensory_research" and prompt.version == "3"
+    assert prompt.id == "wine.sensory_research" and prompt.version == "4"
     assert "Italian" in prompt.user and "Test wine" in prompt.user
     assert "Never invent" in prompt.system and "untrusted data" in prompt.system
     assert "Missing evidence means null" in prompt.system and "vintage_confirmed" in prompt.system
+    assert "Research in phases" in prompt.system
+    assert "reference wine's own vintage" in prompt.system
+    assert "Do not paraphrase quotations" in prompt.system
+
+
+def test_v4_malformed_output_is_rejected(setup):
+    _, _, wine = setup
+    result = agent.proposal_from_response(
+        wine, OpenAIResponse("not JSON", TokenUsage()), {}, prompt_version="4", source_texts={}
+    )
+    assert result.status == "failed" and result.issue == "invalid_output"
+    assert all(item.value is None for item in result.complete_profile.values())
+
+
+def test_source_page_is_read_once_per_cited_url(setup, monkeypatch):
+    import app.services.sensory_completion as completion
+
+    _, _, wine = setup
+    payload = complete_output(wine)
+    pages = source_pages(payload)
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        return pages.get(url, "")
+
+    monkeypatch.setattr(completion, "public_page_text", fetch)
+    result = agent.proposal_from_response(wine, response(payload), {}, prompt_version="4")
+    assert result.status == "ready"
+    assert len(calls) == len(set(calls)) == 2
 
 
 @pytest.mark.parametrize("case", ["single", "copied", "same_host", "uncited", "conflict"])
@@ -529,6 +919,11 @@ def test_worker_researches_existing_profiles_without_changing_them(
     setup, monkeypatch, source, validated
 ):
     db, context, wine = setup
+    import app.services.sensory_completion as completion
+
+    monkeypatch.setattr(
+        completion, "public_page_text", lambda url: source_pages(complete_output(wine)).get(url, "")
+    )
     profile = WineSensoryProfile(
         identity_id=wine.shared_identity_id,
         source=source,
@@ -550,7 +945,7 @@ def test_worker_researches_existing_profiles_without_changing_them(
 
     def fake_response(*args, **kwargs):
         requests.append(kwargs)
-        return response(output(wine)), "application"
+        return response(complete_output(wine)), "application"
 
     monkeypatch.setattr(ai, "create_ai_response", fake_response)
     monkeypatch.setattr(ai, "record_ai_audit", lambda *args, **kwargs: None)

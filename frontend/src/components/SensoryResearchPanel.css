@@ -24,6 +24,8 @@
 .sensory-research-comparison caption { text-align: left; font-weight: 600; padding-bottom: 8px; }
 .sensory-research-comparison th, .sensory-research-comparison td { padding: 8px 4px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; text-align: right; }
 .sensory-research-comparison th:first-child { width: 40%; text-align: left; }
+.sensory-research-origin { display: block; font-size: .7rem; font-weight: normal; }
+.sensory-research-coverage { font-weight: 600; }
 @media (max-width: 600px) {
   .sensory-research-controls > label:first-child { flex-basis: 100%; }
 }

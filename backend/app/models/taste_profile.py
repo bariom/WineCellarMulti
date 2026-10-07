@@ -35,6 +35,7 @@ class WineSensoryProfile(Base):
         index=True,
     )
     dimensions: Mapped[dict] = mapped_column(JSON, default=dict)
+    provenance: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
     source: Mapped[str] = mapped_column(String(24), default="metadata", index=True)
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     validated: Mapped[bool] = mapped_column(Boolean, default=False, index=True)

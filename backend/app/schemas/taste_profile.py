@@ -7,10 +7,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.schemas.sensory_agent import CompletedDimension
+
 
 class SensoryProfileResponse(BaseModel):
     identity_id: UUID
     dimensions: dict[str, float | None] = Field(default_factory=dict)
+    provenance: dict[str, CompletedDimension] = Field(default_factory=dict)
     source: str
     confidence: float
     validated: bool

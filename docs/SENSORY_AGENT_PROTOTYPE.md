@@ -1,97 +1,126 @@
-# Agente del profilo organolettico — prototipo
+# Agente del profilo organolettico
 
-Il pannello amministrativo **Profili sensoriali dei vini** contiene la sezione
-**Agente del profilo organolettico · Prototipo**. La ricerca viene avviata esplicitamente
-e riguarda solo la cantina attiva: per impostazione iniziale 10 vini, massimo 20,
-con un budget stimato di 1 USD modificabile tra 0,05 e 5 USD.
+La ricerca del pannello amministrativo costruisce il profilo atteso del vino e
+annata selezionati, confrontando produttore e fonti esterne. Include anche i
+profili manuali e validati per il confronto, senza sovrascriverli. I vecchi valori
+non vengono inviati al modello e non costituiscono riferimenti per il completamento.
 
-## Preparazione e utilizzo
+## Distribuzione e utilizzo
 
-Applicare la nuova migrazione con `alembic upgrade head` da `backend/`, nel normale
-flusso di distribuzione. La revisione è `0114_sensory_agent` e non modifica i vini
-o i profili esistenti. Pubblicare anche il frontend aggiornato.
+Da backend eseguire `alembic upgrade head` nel normale flusso di distribuzione.
+La revisione `0115_sensory_provenance`, successiva a `0114_sensory_agent`, aggiunge
+la provenienza delle dimensioni ai profili condivisi senza modificare i valori
+esistenti. Distribuire anche il frontend aggiornato. Restano valide le impostazioni
+`OPENAI_ECONOMY_MODEL` e `WINE_SENSORY_AI_ENABLED`: nessuna nuova chiave necessaria.
 
-Si usano la selezione del provider, le chiavi configurate e la contabilizzazione AI
-già presenti in Vinaris, con `OPENAI_ECONOMY_MODEL` e `WINE_SENSORY_AI_ENABLED`.
-Non occorre creare un agente nella dashboard OpenAI o configurare nuove chiavi.
+1. Aprire **Profili sensoriali dei vini** come amministratore applicativo.
+2. Scegliere il campione automatico oppure selezionare i vini della cantina attiva.
+   Sono ammessi fino a 20 vini e un budget tra 0,05 e 5 USD, predefinito 1 USD.
+   Completare prima le annate mancanti: questi vini vengono saltati senza costo AI.
+3. Avviare la ricerca e consultare completezza, confronto con i valori precedenti,
+   provenienza di ciascun tratto, estratti e riferimenti.
+4. Revisionare una proposta completa prima di usare **Usa questo profilo**.
+   Il salvataggio non equivale alla validazione umana.
 
-1. Accedere come amministratore applicativo e selezionare la cantina del campione.
-2. Aprire i profili sensoriali nelle impostazioni amministrative.
-3. Scegliere **Selezione automatica** oppure **Scelgo io i vini**. Nel secondo caso
-   cercare per nome, produttore o annata e selezionare fino a 20 vini. I vini senza
-   annata sono visibili ma non selezionabili: completare prima la scheda.
-   Verificare il budget, poi avviare la ricerca.
-4. Consultare il confronto con il profilo attuale, gli estratti e i link alle fonti.
-5. Confrontare le proposte con le schede dei produttori e le fonti esterne. Usare **Usa questo profilo**
-   solo per una proposta adeguata; la normale validazione del profilo resta separata.
+## Fasi del percorso v4
 
-## Comportamento e limiti
+Il prompt versionato `wine.sensory_research` e un contratto JSON rigoroso richiedono
+identificazione, prove per annata, confronto, ricerca mirata delle lacune e fino a
+cinque riferimenti documentati. Il modello dispone di dieci consultazioni web per
+vino. Le conversioni numeriche restano stime su scala 0-1.
 
-Il modello consulta strumenti web in autonomia, fino a sei chiamate per vino,
-confrontando schede tecniche e fonti esterne indipendenti. Un prompt versionato
-e un contratto JSON richiedono identità, annata, nove dimensioni sensoriali e aromi.
-La risposta viene validata; i collegamenti devono comparire nelle fonti restituite
-dal provider. URL locali, privati e con credenziali sono esclusi. Le citazioni
-del provider verificano la provenienza del collegamento, **non certificano da sole
-l'esattezza dell'estratto o della sua interpretazione**: questo è il motivo della
-revisione umana nel prototipo.
+### 1. Identificazione e interpretazione
 
-I valori 0–1 sono stime normalizzate. Ogni tratto distingue una descrizione esplicita
-della fonte da un'interpretazione. La confidenza è un indicatore euristico derivato
-dalla copertura documentata e dalla verifica dell'annata, non una probabilità calibrata.
-Un risultato richiede almeno tre dimensioni corroborate da fonti indipendenti,
-nessun conflitto e l'annata verificata per poter essere applicato. Evidenza insufficiente e annate non verificate
-producono proposte incomplete, senza pulsante di applicazione.
-L’annata della scheda vino viene inviata sia nel contesto sia come annata richiesta
-esplicita. Se manca, il vino viene saltato senza chiamate AI o costi: il rapporto
-invita a completare la scheda. Una fonte di un’altra annata non conferma quella richiesta.
+Nome, produttore e annata devono corrispondere alla richiesta. Le prove distinguono
+annata esatta, stile generale, altre annate e versioni NV storiche. Una nota NV
+senza data o pubblicata oltre tre anni prima non conferma il prodotto attuale.
+Un selettore di annata non rende specifica una descrizione generica.
 
-Le proposte persistono separatamente dai profili, inclusi fonti, aromi e limiti.
-L'applicazione aggiorna le dimensioni condivise dell'identità vino e mantiene il
-profilo da validare. Gli aromi e le prove sono conservati nel rapporto della ricerca.
-Non vengono sovrascritti profili manuali o validati, identità cambiate o dimensioni
-modificate dopo la ricerca. Le proposte applicate non si possono applicare di nuovo.
+Il prompt e controlli server respingono confusioni note: tannini morbidi non
+indicano intensita bassa; acidita equilibrata non indica intensita alta;
+complessita o liste di aromi non misurano intensita aromatica; acciaio o assenza
+di affinamento in legno non dimostrano zero aromi di legno. I controlli lessicali
+sono conservativi, non sostituiscono una valutazione sensoriale.
 
-La selezione deduplica le identità e include tutti i vini, anche con profili manuali
-o validati, indipendentemente dalla confidenza interna. La ricerca non modifica
-il profilo esistente. I dati privati delle altre cantine non entrano nella ricerca.
-Il numero impostato è un limite massimo: il rapporto mostra l’avanzamento sui
-vini effettivamente selezionati e conta separatamente quelli saltati. Quando
-il campione è più piccolo del limite, ne spiega le esclusioni.
-È consentita una sola ricerca attiva per cantina. Prima di ciascun vino si
-ricontrollano sessione, appartenenza e ruolo dell'amministratore.
+### 2. Verifica e confronto delle prove
 
-Prima di ogni chiamata si confronta il budget residuo con una stima conservativa
-basata su prezzi correnti, 32.768 token di contesto web, prompt, massimo 6.000 token
-di risposta e sei chiamate web. La spesa effettiva viene registrata anche quando
-il risultato non è utilizzabile. Il contesto web e gli eventuali fallback sono
-controllati dal provider: la soglia è una protezione applicativa stimata, non un
-limite rigido di fatturazione OpenAI. Nessuna chiamata successiva parte una volta
-esaurita la soglia. Un errore interrompe la ricerca e conserva le proposte completate.
+Gli URL devono comparire nelle fonti effettivamente citate dal provider. Il server
+confronta gli estratti normalizzati con il testo pubblico delle pagine, gestendo
+anche omissioni con puntini. La lettura controlla DNS, IP pubblici e redirect,
+non invia credenziali, limita dimensione e tempo e consulta al massimo 12 pagine.
+Estratti assenti, pagine inaccessibili e contenuti non supportati (inclusi PDF)
+non vengono considerati prove verificate. Il report segnala gli scarti: non si
+sostituisce la verifica con una dichiarazione del modello.
 
-Il prototipo usa `BackgroundTasks` del processo API. Si può lasciare la pagina e
-ritrovare l'ultima ricerca, ma i task non sono una coda durevole: un riavvio può
-interromperli. Le ricerche senza aggiornamenti per un'ora vengono segnate interrotte
-alla successiva lettura o avvio. Non ci sono retry automatici o ricerche programmate.
-Prima dell'attivazione automatica sui nuovi vini, valutare il campione e introdurre
-un worker durevole con politiche di ripresa e deduplicazione dei costi.
+Una dimensione corroborata richiede annata esatta, almeno due host ed editori
+distinti, estratti differenti e indipendenza dichiarata dal modello. Testi copiati
+non valgono come corroborazione. L'indipendenza editoriale e la corretta
+interpretazione delle fonti richiedono ancora revisione umana. Una discordanza
+blocca la dimensione e non viene coperta da una media o da riferimenti simili.
 
-## API e verifiche
+### 3. Completamento documentato
 
-Gli endpoint `/api/v1/taste-profile/admin/research-runs` richiedono `CurrentContext`
-di un amministratore applicativo:
+Le osservazioni dirette vengono conservate. Per le sole lacune si usano prima
+riferimenti dello stesso vino: descrizioni dello stile oppure annate distanti
+al massimo tre anni. Questi valori rimangono stime, non prove sull'annata richiesta.
 
-- `POST`: avvia una ricerca (`max_wines`, `budget_usd`), risposta `202`.
-- `GET /candidates`: vini della cantina attiva, deduplicati, inclusi quelli con
-  profili manuali o validati. `POST` accetta anche `wine_ids` (1–20 UUID): ricerca
-  esclusivamente quei vini nell'ordine richiesto. ID fuori cantina,
-  identità duplicate o selezioni oltre `max_wines` vengono rifiutati; non si
-  sostituiscono silenziosamente i vini selezionati con un campione automatico.
-- `GET`: restituisce gli ultimi cinque rapporti della cantina attiva.
-- `GET /{run_id}`: consulta avanzamento e proposte.
-- `POST /{run_id}/wines/{wine_id}/apply`: applica esplicitamente una proposta pronta.
+In mancanza di riferimenti dello stesso vino, servono almeno tre vini distinti,
+con almeno due editori delle fonti, stesso tipo e denominazione, vitigni noti con
+sovrapposizione Jaccard almeno 0,75, annate entro tre anni e stile produttivo
+compatibile documentato. Identita ed estratti devono essere verificabili. Per vini diversi sono richiesti
+due estratti verificati sulla produzione: uno del vino richiesto e uno del
+riferimento; il rapporto conserva e mostra anche queste prove.
+Il valore viene calcolato dal server come mediana, senza usare i profili interni.
+Una dispersione superiore a 0,20 lascia il tratto sconosciuto. Senza riferimenti
+adeguati il sistema si astiene: non forza nove numeri plausibili.
 
-Verifiche mirate:
+### 4. Completezza e provenienza
+
+Il report mostra sempre le nove dimensioni e, per ciascuna, distingue riscontri
+indipendenti, fonte singola, stima di stile, stima da vini simili e non determinabile.
+Mostra separatamente tratti dell'annata, stime e lacune. Il confronto precedente /
+agente / scarto serve alla valutazione, senza trattare il precedente come verita.
+
+Il sostegno euristico per tratto e 0,80 per riscontri indipendenti, 0,55 per fonte
+singola dell'annata, 0,35-0,40 per stile e 0,35 per vini simili; il punteggio totale
+include le lacune a zero. Non sono probabilita calibrate di correttezza.
+Un risultato e applicabile solo con nove valori, annata confermata e nessun tratto
+irrisolto. Un profilo completo puo comunque contenere molte stime e richiede
+revisione. Gli aromi restano descrizioni qualitative, con citazioni verificate.
+
+### 5. Salvataggio e protezione
+
+L'applicazione esplicita salva tutte le nove dimensioni insieme alla provenienza,
+alle prove e ai riferimenti. Il profilo resta non validato. Le vecchie routine da
+metadati non possono sovrascrivere un profilo con provenienza dell'agente,
+nemmeno con rigenerazione forzata. Validare senza modificare i valori conserva
+le prove; una modifica manuale delle dimensioni le rimuove per non attribuire
+ai nuovi valori prove riferite ai precedenti. Il rapporto originale resta conservato.
+
+Profili manuali o validati, identita cambiate e valori modificati dopo la ricerca
+restano protetti. I rapporti v1-v3 rimangono leggibili e mantengono le precedenti
+regole di applicazione: non ricevono retroattivamente prove o completezza v4.
+
+## Limiti operativi e valutazione
+
+Ogni query privata resta limitata alla cantina attiva e usa CurrentContext.
+Il numero richiesto e un massimo: l'avanzamento usa i vini realmente selezionati.
+Prima di ogni chiamata si ricontrollano ruolo, sessione e budget stimato, includendo
+32.768 token di contesto web, prompt/schema, massimo 12.000 token di risposta e
+dieci chiamate web. La spesa viene registrata anche per risultati inutilizzabili.
+La soglia e una stima applicativa, non un limite rigido di fatturazione.
+
+La ricerca rimane esplicita e usa BackgroundTasks del processo API. Non e una
+coda durevole; un riavvio puo interromperla. Le ricerche ferme per un'ora vengono
+segnate interrotte. Nessun retry automatico o salvataggio autonomo dei profili.
+Le routine storiche restano disponibili per i profili privi di provenienza:
+la loro sostituzione totale e il worker durevole sono interventi distinti.
+
+Le verifiche automatiche coprono schema, fonti assenti o non verificabili,
+interpretazioni ambigue, annate/NV, conflitti, riferimenti deboli, dispersione,
+completamento, persistenza, protezione dalla rigenerazione, modifica manuale e
+migrazione. Il frontend verifica i rapporti vecchi e nuovi, le origini, i conflitti,
+l'applicazione esplicita e la geometria a 360, 390, 430 e 1440 pixel.
 
 ```powershell
 cd backend
@@ -101,64 +130,16 @@ npx.cmd playwright test e2e/sensory-agent.spec.ts e2e/sensory-profiles.spec.ts
 npm.cmd run build
 ```
 
-I test usano risposte deterministiche e non consumano API OpenAI. La valutazione
-qualitativa su 10–20 vini reali va eseguita dal pannello dopo la distribuzione.
+Questi test deterministici non consumano API e non misurano accuratezza reale.
+Per validarla serve un campione revisionato da esperti con riferimento esterno:
+identita/annata, fedelta delle citazioni, indipendenza, origine di ogni valore,
+scarti numerici rispetto al riferimento e corrette astensioni. Completezza e
+copertura da sole non certificano affidabilita e non giustificano salvataggi autonomi.
 
-Riferimenti: [ricerca web OpenAI](https://developers.openai.com/api/docs/guides/tools-web-search),
-[risposte strutturate](https://developers.openai.com/api/docs/guides/structured-outputs).
+## API
 
-
-## Ricerca comparativa (prompt v3)
-
-La selezione include tutti i profili, anche manuali o validati e con confidence
-interna alta: validazione e punteggio precedenti non costituiscono prove per l'agente.
-Restano protetti dalla sovrascrittura i profili manuali e validati.
-Il profilo esistente serve soltanto al confronto nel report,
-non viene inviato al modello.
-
-Per ogni dimensione la ricerca confronta fonti del produttore ed esterne, riferite
-all'annata richiesta. Testi copiati o distribuiti da più siti non valgono come
-prove indipendenti. I confronti riportano estratti, URL, accordo o conflitto e una
-spiegazione. Il server mantiene solo URL citati dalla risposta del provider;
-richiede almeno due host distinti e indipendenza dichiarata per una concordanza.
-Questi controlli non verificano automaticamente la veridicità degli estratti né
-l'indipendenza editoriale: resta necessaria la revisione delle fonti.
-
-Una proposta è applicabile con almeno tre dimensioni corroborate, annata
-confermata e nessun conflitto rilevato. Si salvano solo le dimensioni corroborate,
-senza colmare lacune con il precedente profilo non validato. La confidence indica
-copertura euristica delle prove, non accuratezza misurata. I valori normalizzati
-rimangono stime anche quando l'intensità qualitativa è documentata.
-
-Il limite è sei consultazioni web per vino, entro il budget impostato. I report
-precedenti rimangono leggibili. Non si modificano automaticamente i profili.
-
-
-## Direzione della sostituzione
-
-L'obiettivo è sostituire la generazione da metadati e baseline con ricerca
-specifica per vino e annata, non mantenere due generatori equivalenti. Questo
-passaggio aggiorna il percorso dell'agente; i vecchi endpoint di generazione,
-l'arricchimento delle degustazioni esterne e il fallback di abbinamento non sono
-ancora migrati. Non si considera conclusa la sostituzione.
-
-Prima di attivare il salvataggio autonomo serve un campione di riferimento
-revisionato: verificare identità e annata, fedeltà degli estratti, indipendenza
-editoriale, correttezza delle intensità e astensione nei casi deboli. Il punteggio
-interno di copertura non sostituisce questa valutazione. Per l'automazione serve
-anche una coda durevole che gestisca riavvii, deduplicazione e budget.
-
-## Confronto con i profili precedenti
-
-Ogni nuovo report conserva valori, origine, validazione e punteggio del profilo
-presente prima della ricerca, anche quando la proposta è incompleta o fallisce.
-La tabella mostra tutte le nove dimensioni: valore precedente, proposta e scarto
-con segno. Le dimensioni prive di nuove prove mantengono un trattino nella colonna
-dell'agente; non vengono riempite con valori precedenti. Lo scarto non misura
-l'errore o l'accuratezza dell'agente: entrambi i profili richiedono una verifica
-contro un riferimento esterno. I vecchi report senza questi metadati restano
-leggibili e indicano l'origine come non registrata.
-
-La ricerca include i profili validati ma non li sovrascrive. Per questi risultati
-si presenta il confronto senza pulsante di applicazione; la modifica manuale
-del profilo resta disponibile nel pannello amministrativo.
+Gli endpoint `/api/v1/taste-profile/admin/research-runs` richiedono amministratore
+applicativo e CurrentContext: POST avvia (`max_wines`, `budget_usd`, `wine_ids`
+opzionali); GET elenca gli ultimi cinque rapporti; GET /candidates elenca i vini;
+GET /{run_id} legge un rapporto; POST /{run_id}/wines/{wine_id}/apply applica una
+proposta. Le selezioni fuori cantina, duplicate o oltre limite vengono rifiutate.
