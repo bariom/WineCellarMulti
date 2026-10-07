@@ -1346,6 +1346,7 @@ def test_completion_checks_qualitative_premises_without_validating_intensity(
     assert completed.confidence == 0 and not completed.vintage_confirmed
     if status == "readable":
         assert item.inference_basis == "verified_description" and item.evidence
+        assert item.issue == "unsupported_intensity"
         assert not item.unverified_evidence and completed.coverage["qualitative"] == 2
         assert completed.source_checks[premise["source_url"]].matched_excerpts == 1
     else:
@@ -1379,6 +1380,7 @@ def test_refinement_keeps_new_qualitative_evidence_when_intensity_is_unknown(set
         wine, first, response(completion_output(wine, research=payload)), document_cache={}
     )
     assert completed.complete_profile["wood"].inference_basis == "verified_description"
+    assert completed.complete_profile["wood"].issue == "unsupported_intensity"
     assert completed.complete_profile["wood"].evidence[0].excerpt == "Notes of oak"
     assert completed.coverage["qualitative"] == 1 and completed.confidence == 0
 

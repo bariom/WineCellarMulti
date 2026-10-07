@@ -89,6 +89,8 @@ test("Ambiguous identity keeps complete estimates provisional", async ({ page })
   await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, results: [proposal] }] }));
   await page.goto("/sensory-agent-test");
   await expect(page.getByRole("article")).toContainText("Identità del vino ambigua");
+  await expect(page.getByRole("article")).not.toContainText("Il profilo è utilizzabile");
+  await expect(page.getByRole("article")).toContainText("Il profilo resta provvisorio e non applicabile");
   await expect(page.getByRole("button", { name: "Usa questo profilo" })).toHaveCount(0);
 });
 
@@ -306,7 +308,7 @@ for (const locale of ["it", "en"]) {
       coverage: { available: 9, total: 9, exact_vintage: 0, corroborated: 0, estimated: 9, inferred: 9, unknown: 0, qualitative: 1 },
       source_checks: { [evidence.source_url]: { status: "readable", matched_excerpts: 1, unmatched_excerpts: 0 }, [blocked.source_url]: { status: "cloudflare_challenge", http_status: 403, matched_excerpts: 0, unmatched_excerpts: 1 } },
       complete_profile: Object.fromEntries(["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"].map(key => [key, {
-        value: .5, origin: "ai_inference", confidence: 0, issue: "", rationale: "Expected style estimate with unverified analytical information.", lower: .3, upper: .7, references: [],
+        value: .5, origin: "ai_inference", confidence: 0, issue: key === "wood" ? "unverified_excerpt" : "", rationale: "Expected style estimate with unverified analytical information.", lower: .3, upper: .7, references: [],
         evidence: key === "wood" ? [evidence] : [], unverified_evidence: key === "sweetness" ? [blocked] : [],
         inference_basis: key === "wood" ? "verified_description" : key === "sweetness" ? "unverified_source" : "model_knowledge",
       }])) };
@@ -318,6 +320,8 @@ for (const locale of ["it", "en"]) {
     await expect(article).toContainText(it ? "1/9 tratti con descrizioni qualitative" : "1/9 traits with qualitative descriptions");
     await article.getByText(it ? "Confronto e prove" : "Comparison and evidence", { exact: true }).click();
     await expect(article.getByText(it ? "Stima da descrizioni qualitative verificate; intensità inferita." : "Estimate from verified qualitative descriptions; intensity inferred.", { exact: true })).toBeVisible();
+    await expect(article.getByText(it ? "Citazione non verificabile sulla pagina della fonte" : "Quotation could not be verified on the source page", { exact: true })).toHaveCount(0);
+    await expect(article.getByText(it ? "La descrizione non sostiene l'intensità" : "Description does not support intensity", { exact: true })).toBeVisible();
     await expect(article.getByText(it ? "Informazioni non verificate: non sono prove" : "Unverified information: not evidence", { exact: true })).toBeVisible();
     await expect(article.getByRole("link", { name: it ? "Apri fonte non verificata ↗" : "Open unverified source ↗" })).toHaveAttribute("href", blocked.source_url);
     for (const width of [360, 390, 430, 1440]) {
@@ -332,3 +336,18 @@ for (const locale of ["it", "en"]) {
     await expect(article.getByText(proposal.agent_summary, { exact: true })).toBeVisible();
   });
 }
+
+
+test("Coverage distinguishes source-backed style from model inference in saved reports", async ({ page }) => {
+  await renderPanel(page, "en");
+  const keys = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
+  const proposal = { ...result, prompt_version: "7", coverage: { available: 9, total: 9, exact_vintage: 0, corroborated: 0, estimated: 9, inferred: 5, unknown: 0 },
+    complete_profile: Object.fromEntries(keys.map((key, index) => [key, { value: .5, origin: index < 4 ? "wine_style" : "ai_inference", confidence: index < 4 ? .4 : 0, issue: "", rationale: "Expected style estimate.", evidence: [], references: [] }])) };
+  await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, results: [proposal] }] }));
+  await page.goto("/sensory-agent-test");
+  const article = page.getByRole("article");
+  await expect(article).toContainText("Completeness: 9/9");
+  await expect(article).toContainText("4 source-supported intensities");
+  await expect(article).toContainText("5 model inferences");
+  await expect(article).not.toContainText("9 estimated");
+});

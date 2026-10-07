@@ -217,3 +217,12 @@ Questi campi sono additivi nei risultati e nella provenienza JSON: non richiedon
 una nuova migrazione. Il budget e il massimo di dieci consultazioni web restano
 invariati. Le citazioni non misurano l'accuratezza sensoriale: per stimarla serve
 un campione di profili valutati indipendentemente.
+
+Nel riepilogo, le intensità sostenute da fonti (anche di stile generale) sono
+conteggiate separatamente dalle inferenze del modello. L'etichetta dell'annata
+indica un sottoinsieme e non deve essere sommata alle altre categorie. Questi
+conteggi derivano dalle dimensioni salvate, anche nei rapporti precedenti.
+Una citazione recuperata nel completamento risolve l'errore del primo tentativo,
+ma lascia esplicita l'intensità non sostenuta: la cronologia delle verifiche
+resta conservata. Le proposte con identità ambigua sono sempre indicate come
+provvisorie e non applicabili, anche quando hanno tutti i nove valori.

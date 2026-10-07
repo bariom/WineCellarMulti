@@ -288,6 +288,14 @@ def complete_with_estimates(
             else:
                 current.unverified_evidence.append(premise)
         current.evidence = list({(e.source_url, e.excerpt): e for e in current.evidence}.values())
+        if current.evidence and current.issue in {
+            "missing_evidence",
+            "unverified_excerpt",
+            "source_unreadable",
+        }:
+            # A later verified premise resolves the earlier quotation failure, not the
+            # missing numeric intensity. Keep prior attempts in warnings/source_checks.
+            current.issue = "unsupported_intensity"
         current.inference_basis = (
             "mixed_sources"
             if current.evidence and current.unverified_evidence
