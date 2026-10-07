@@ -54,6 +54,7 @@ def setup(monkeypatch):
     Base.metadata.create_all(engine)
     factory = sessionmaker(bind=engine)
     monkeypatch.setattr(agent, "SessionLocal", factory)
+    monkeypatch.setattr(agent, "research_cost_ceiling", lambda *args: Decimal("0.4"))
     with factory() as db:
         home = Household(name="Cellar")
         user = User(
@@ -256,7 +257,7 @@ def test_research_records_no_result_cost_and_audit(setup, monkeypatch):
     assert result.status == "failed" and result.cost_usd == Decimal("0.04")
     assert len(audits) == 2
     assert audits[0]["feature"] == "sensory_research"
-    assert kwargs_seen["max_tool_calls"] == 4 and kwargs_seen["web_search"]
+    assert kwargs_seen["max_tool_calls"] == 2 and kwargs_seen["web_search"]
     assert '"vintage": "2020"' in kwargs_seen["user_prompt"]
     assert "verification_feedback" in kwargs_seen["user_prompt"]
 
@@ -735,13 +736,17 @@ def test_api_requires_admin_and_scopes_run_reads(setup):
 
 def test_prompt_has_identity_grounding_language_and_no_invention():
     prompt = wine_sensory_research_prompt(wine_context={"name": "Test wine"}, locale="it")
-    assert prompt.id == "wine.sensory_research" and prompt.version == "7"
+    assert prompt.id == "wine.sensory_research" and prompt.version == "8"
     assert "Italian" in prompt.user and "Test wine" in prompt.user
     assert "Never invent" in prompt.system and "untrusted data" in prompt.system
     assert "Missing evidence means null" in prompt.system and "vintage_confirmed" in prompt.system
     assert "Research in phases" in prompt.system
     assert "reference wine's own vintage" in prompt.system
     assert "Do not paraphrase quotations" in prompt.system
+    assert "within four total web tool calls" in prompt.system
+    assert "up to three documented reference wines" in prompt.system
+    assert "importers/distributors" in prompt.system
+    assert "server normalizes explicit anchors" in prompt.system
 
 
 def test_v4_malformed_output_is_rejected(setup):
@@ -1134,7 +1139,7 @@ def test_completion_rejects_malformed_or_wrong_identity_without_losing_research(
 
 
 @pytest.mark.parametrize("ambiguous", [False, True])
-@pytest.mark.parametrize("version", ["6", "7"])
+@pytest.mark.parametrize("version", ["6", "7", "8"])
 def test_estimated_profile_apply_preserves_inference_and_blocks_ambiguous_identity(
     setup, ambiguous, version
 ):
@@ -1201,7 +1206,7 @@ def test_research_feedback_loop_accounts_cost_and_keeps_paid_first_pass(
     # A budget covering research alone must prevent spending before completion is affordable.
     assert agent.research_wine(db, context, wine, Decimal("0.3")) is None and not calls
     result = agent.research_wine(db, context, wine, Decimal("1"))
-    assert [c["max_tool_calls"] for c in calls] == [6, 4]
+    assert [c["max_tool_calls"] for c in calls] == [4, 2]
     assert "cloudflare_challenge" in calls[1]["user_prompt"]
     assert "baseline" not in calls[1]["user_prompt"]
     if failed_completion:
@@ -1278,7 +1283,7 @@ def test_completion_prompt_and_strict_schema():
     prompt = wine_sensory_completion_prompt(
         wine_context={"vintage": "2016"}, feedback={"issue": "source_unreadable"}, locale="it"
     )
-    assert prompt.id == "wine.sensory_completion" and prompt.version == "3"
+    assert prompt.id == "wine.sensory_completion" and prompt.version == "4"
     assert "Italian" in prompt.user and "2016" in prompt.user
     assert "untrusted data" in prompt.system and "must not anchor" in prompt.system
     assert "ALL nine estimates" in prompt.system and "Do not retry Cloudflare" in prompt.system
@@ -1288,6 +1293,9 @@ def test_completion_prompt_and_strict_schema():
     assert "Follow vintage_verified" in prompt.system
     assert "Grape sugar concentration" in prompt.system
     assert "fermentation can consume it" in prompt.system
+    assert "web_search_calls_available, which may be zero" in prompt.system
+    assert "actual server-extracted passages" in prompt.system
+    assert "Never join separate source passages" in prompt.system
     schema = SensoryCompletionOutput.model_json_schema()
     for item in [schema, *schema["$defs"].values()]:
         if item.get("type") == "object":
@@ -1398,3 +1406,104 @@ def test_unreadable_comparison_does_not_create_source_conflict(setup, verified_q
     checked = complete_proposal(wine, payload, source_texts=pages)
     assert checked.complete_profile["body"].issue != "conflicting_sources"
     assert "body:unverified_conflict" in checked.warnings
+
+
+@pytest.mark.parametrize("readable", [True, False])
+def test_v8_explicit_descriptors_use_fixed_scale_only_after_verification(setup, readable):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    for trait in payload["dimensions"].values():
+        trait["intensity_supported"] = False
+        trait["value"] = 0.12
+    result = agent.proposal_from_response(
+        wine,
+        response(payload),
+        {},
+        prompt_version="8",
+        source_texts=source_pages(payload) if readable else {},
+    )
+    body = result.complete_profile["body"]
+    if readable:
+        assert body.value == 0.75 and body.calculation_method == "verified_descriptor_v1"
+        assert body.origin == "single_source" and body.lower == 0.6 and body.upper == 0.9
+        assert result.dimensions["body"].basis == "inferred"
+    else:
+        assert body.value is None and not body.calculation_method
+
+
+def test_v8_completion_uses_verified_premises_instead_of_arbitrary_model_number(setup, monkeypatch):
+    _, _, wine = setup
+    from app.services.score_sources import DocumentText
+
+    premise = source_evidence(vintage=wine.vintage, excerpt="High acidity")
+    monkeypatch.setattr(
+        "app.services.sensory_completion.read_public_document",
+        lambda *args, **kwargs: DocumentText(text=premise["excerpt"], status="readable"),
+    )
+    first = agent.proposal_from_response(wine, response({}), {}, prompt_version="8")
+    payload = completion_output(wine)
+    payload["estimates"]["acidity"].update(value=0.3, lower=0.1, upper=0.6, evidence=[premise])
+    result = agent.complete_with_estimates(wine, first, response(payload), document_cache={})
+    assert result.complete_profile["acidity"].value == 0.75
+    assert result.complete_profile["acidity"].calculation_method == "verified_descriptor_v1"
+    assert result.coverage["inferred"] == 8 and result.coverage["available"] == 9
+    assert result.complete_profile["fruit"].origin == "ai_inference"
+
+
+def test_v8_descriptor_conflict_keeps_full_profile_and_wide_range(setup, monkeypatch):
+    _, _, wine = setup
+    from app.services.score_sources import DocumentText
+
+    premises = [
+        source_evidence(vintage=wine.vintage, excerpt=text)
+        for text in ["High acidity", "Low acidity"]
+    ]
+    monkeypatch.setattr(
+        "app.services.sensory_completion.read_public_document",
+        lambda *args, **kwargs: DocumentText(text="High acidity. Low acidity.", status="readable"),
+    )
+    first = agent.proposal_from_response(wine, response({}), {}, prompt_version="8")
+    payload = completion_output(wine)
+    payload["estimates"]["acidity"]["evidence"] = premises
+    result = agent.complete_with_estimates(wine, first, response(payload), document_cache={})
+    item = result.complete_profile["acidity"]
+    assert item.value == 0.5 and item.origin == "ai_inference" and item.confidence == 0
+    assert item.issue == "conflicting_sources" and item.lower == 0.1 and item.upper == 0.9
+    assert result.coverage["available"] == 9
+
+
+def test_research_reuses_documents_without_second_paid_web_search(setup, monkeypatch):
+    db, context, wine = setup
+    from dataclasses import replace
+
+    from app.services.score_sources import DocumentText
+
+    payload = complete_output(wine)
+    payload["dimensions"]["wood"] = None
+    pages = source_pages(payload)
+    monkeypatch.setattr(
+        "app.services.sensory_completion.read_public_document",
+        lambda url, **kwargs: DocumentText(text=pages[url], status="readable"),
+    )
+    monkeypatch.setattr(ai, "get_or_create_user_ai_settings", lambda *args: object())
+    monkeypatch.setattr(ai, "select_ai_provider", lambda *args: ("application", "unused"))
+    monkeypatch.setattr(ai, "maximum_billable_cost_usd", lambda **kwargs: Decimal("0.1"))
+    monkeypatch.setattr(ai, "reservation_pricing_model", lambda *args: "test")
+    monkeypatch.setattr(ai, "record_ai_audit", lambda *args, **kwargs: None)
+    calls = []
+
+    def respond(*args, **kwargs):
+        calls.append(kwargs)
+        supplied = response(payload if len(calls) == 1 else completion_output(wine))
+        return replace(supplied, web_search_calls=3 if len(calls) == 1 else 0), "application"
+
+    monkeypatch.setattr(ai, "create_ai_response", respond)
+    result = agent.research_wine(db, context, wine, Decimal("1"))
+    assert len(calls) == 2 and calls[0]["max_tool_calls"] == 4
+    assert calls[1]["web_search"] is False and calls[1]["max_tool_calls"] == 0
+    assert (
+        "readable_sources" in calls[1]["user_prompt"]
+        and "Full-bodied wine" in calls[1]["user_prompt"]
+    )
+    assert result.web_search_calls == 3 and result.duration_ms > 0
+    assert result.status == "ready" and result.coverage["available"] == 9

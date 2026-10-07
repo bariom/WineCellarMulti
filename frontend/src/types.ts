@@ -1631,6 +1631,7 @@ export type CompletedSensoryDimension = {
   value: number | null; origin: "corroborated" | "single_source" | "wine_style" | "similar_wines" | "ai_inference" | "unknown";
   rationale?: string; lower?: number | null; upper?: number | null;
   inference_basis?: "verified_description" | "mixed_sources" | "unverified_source" | "model_knowledge" | null;
+  calculation_method?: string;
   unverified_evidence?: SensorySourceEvidence[];
   confidence: number; issue: string; evidence: SensorySourceEvidence[];
   references: Array<{ name: string; producer: string; vintage: string; similarity: number; value: number; evidence: SensorySourceEvidence; identity_evidence?: SensorySourceEvidence | null; production_evidence?: SensorySourceEvidence[] }>;
@@ -1655,6 +1656,7 @@ export type SensoryResearchResult = {
   source_checks?: Record<string, { status: string; content_type: string; http_status: number | null; matched_excerpts: number; unmatched_excerpts: number }>;
   aromas: Array<{ name: string; excerpt: string; source_url: string }>;
   sources: Array<{ url: string; title: string }>; model: string; prompt_version: string; cost_usd: string;
+  web_search_calls?: number; duration_ms?: number;
 };
 export type SensoryResearchRun = {
   id: string; status: string; issue: string; max_wines: number; selected_wines: number; budget_usd: string; cost_usd: string;

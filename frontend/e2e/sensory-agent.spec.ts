@@ -338,6 +338,34 @@ for (const locale of ["it", "en"]) {
 }
 
 
+test("Verified descriptor scale exposes provenance, range and research metrics", async ({ page }, testInfo) => {
+  await renderPanel(page, "en");
+  const evidence = { excerpt: "Full-bodied", source_url: "https://producer.example/2020", scope: "exact_vintage", vintage: "2020", publisher: "Producer", role: "producer" };
+  const keys = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
+  const proposal = { ...result, prompt_version: "8", web_search_calls: 3, duration_ms: 12345,
+    dimensions: { body: { value: .75, basis: "inferred", excerpt: evidence.excerpt, source_url: evidence.source_url } }, comparisons: [], aromas: [],
+    coverage: { available: 9, total: 9, exact_vintage: 1, corroborated: 0, estimated: 8, inferred: 8, unknown: 0 },
+    complete_profile: Object.fromEntries(keys.map(key => [key, key === "body"
+      ? { value: .75, origin: "single_source", confidence: .55, issue: "", calculation_method: "verified_descriptor_v1", lower: .6, upper: .9, evidence: [evidence], references: [] }
+      : { value: .5, origin: "ai_inference", confidence: 0, issue: "", lower: .3, upper: .7, evidence: [], references: [] }])) };
+  await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, results: [proposal] }] }));
+  await page.goto("/sensory-agent-test");
+  const article = page.getByRole("article");
+  await expect(article).toContainText("Research time: 13 s · 3 web tool calls");
+  await article.getByText("Comparison and evidence", { exact: true }).click();
+  await expect(article).toContainText("Calculated from verified descriptors using a reproducible scale. This is an estimate, not a measurement.");
+  await expect(article).toContainText("Interpretative range: 0.60–0.90");
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const card = (await article.boundingBox())!;
+    const table = (await article.getByRole("table").boundingBox())!;
+    expect(table.x).toBeGreaterThanOrEqual(card.x);
+    expect(table.x + table.width).toBeLessThanOrEqual(card.x + card.width + 1);
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`descriptor-${width}.png`), fullPage: true });
+  }
+});
+
 test("Coverage distinguishes source-backed style from model inference in saved reports", async ({ page }) => {
   await renderPanel(page, "en");
   const keys = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];

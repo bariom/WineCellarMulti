@@ -22,16 +22,43 @@ esistenti. Distribuire anche il frontend aggiornato. Restano valide le impostazi
 4. Revisionare una proposta completa prima di usare **Usa questo profilo**.
    Il salvataggio non equivale alla validazione umana.
 
-## Fasi del percorso v7
+## Fasi del percorso v8
 
 Il prompt versionato `wine.sensory_research` e un contratto JSON rigoroso richiedono
 identificazione, prove per annata, confronto, ricerca mirata delle lacune e fino a
-cinque riferimenti documentati. Il primo passaggio dispone di sei consultazioni
-web. Se il profilo non è completo, il prompt `wine.sensory_completion` v3 riceve
-gli esiti reali della verifica server, dispone di altre quattro consultazioni per
-cercare alternative e produce tutte le nove intensità attese. Le conversioni
+tre riferimenti documentati, quando reperiti senza ricerche aggiuntive. Il primo
+passaggio dispone di quattro consultazioni web. Se il profilo non è completo,
+il prompt `wine.sensory_completion` v4 riceve gli esiti della verifica server e
+fino a tre documenti leggibili (6.000 caratteri ciascuno). Con almeno due documenti
+e tre tratti documentati non avvia altre consultazioni; negli altri casi dispone
+di due consultazioni per cercare alternative e produce tutte le nove intensità
+attese. Le conversioni
 numeriche restano stime su scala 0-1. Il secondo passaggio non viene eseguito
 quando il primo ha già prodotto una proposta completa applicabile.
+
+La ricerca privilegia schede accessibili di produttori, importatori e distributori,
+poi recensioni indipendenti. Il server legge fino a tre host contemporaneamente,
+serializza le richieste allo stesso host e riusa i documenti già recuperati per
+quel vino (massimo dodici). Dopo un blocco Cloudflare o HTTP 429 evita ulteriori
+richieste allo stesso host. Una fonte inaccessibile non diventa una prova.
+
+Le descrizioni esplicite verificate vengono convertite con il metodo
+`verified_descriptor_v1`: basso 0,25, medio 0,50, alto 0,75, molto alto 0,90 e
+secco 0,05, dove applicabili. L'intervallo interpretativo è di ±0,15, limitato a
+0–1: non è un intervallo statistico. Le regole distinguono ciascun tratto e non
+deducono intensità dalla sola presenza di un aroma o da una tecnica produttiva.
+Citazioni duplicate non aumentano il peso. Descrizioni contrastanti non vengono
+mediate silenziosamente: resta segnalato il conflitto, con intervallo ampliato;
+un eventuale valore di completamento rimane un'inferenza del modello.
+
+Due vini vengono elaborati contemporaneamente, ciascuno con sessione database e
+contesto autorizzativo propri. Il coordinatore riserva prima il costo massimo
+stimato dei due passaggi, sottrae gli importi delle ricerche in corso dal budget
+disponibile e libera la differenza al completamento. Budget ridotti possono
+rendere seriale l'esecuzione. I risultati vengono salvati progressivamente e
+riordinati secondo la selezione; un errore non elimina i risultati già pagati.
+Il rapporto espone durata per vino e consultazioni web effettivamente riportate.
+Il limite di due lavoratori è per processo API, non una coda distribuita.
 
 ### 1. Identificazione e interpretazione
 
@@ -119,7 +146,7 @@ Il sostegno euristico per tratto e 0,80 per riscontri indipendenti, 0,55 per fon
 singola dell'annata, 0,35-0,40 per stile e 0,35 per vini simili; il punteggio totale
 include lacune e inferenze non verificate a zero. Non sono probabilita calibrate
 di correttezza: zero prove numeriche non significa zero plausibilità del profilo.
-Nei percorsi v6 e v7 una proposta con nove valori è applicabile anche senza annata
+Nei percorsi v6, v7 e v8 una proposta con nove valori è applicabile anche senza annata
 verificata: è una stima da revisionare e resta non validata. Un'identità realmente
 ambigua produce un profilo completo provvisorio ma blocca l'applicazione.
 Un profilo totalmente inferito ha copertura delle prove zero: i nove valori sono
@@ -151,7 +178,7 @@ Ogni query privata resta limitata alla cantina attiva e usa CurrentContext.
 Il numero richiesto e un massimo: l'avanzamento usa i vini realmente selezionati.
 Prima di ciascun vino si controllano ruolo e sessione. Prima di spendere per la
 ricerca si verifica che il budget copra anche il completamento: due richieste,
-massimo 12.000 token di risposta ciascuna, contesto web e dieci chiamate web totali.
+massimo 12.000 token di risposta ciascuna, contesto web e sei chiamate web totali.
 Il completamento ha un margine iniziale di 65.536 token di ingresso e viene
 ricontrollato sul feedback effettivo prima della chiamata. La spesa di entrambi
 i passaggi viene registrata anche per risultati inutilizzabili. Se il secondo
@@ -174,7 +201,7 @@ l'applicazione esplicita e la geometria a 360, 390, 430 e 1440 pixel.
 
 ```powershell
 cd backend
-.venv/Scripts/python.exe -m pytest tests/test_sensory_agent.py tests/test_sensory_sources.py tests/test_critic_scores.py
+.venv/Scripts/python.exe -m pytest tests/test_sensory_agent.py tests/test_sensory_sources.py tests/test_sensory_descriptors.py tests/test_sensory_documents.py tests/test_sensory_parallel.py
 cd ../frontend
 npx.cmd playwright test e2e/sensory-agent.spec.ts e2e/sensory-profiles.spec.ts
 npm.cmd run build

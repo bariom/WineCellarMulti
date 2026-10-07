@@ -151,6 +151,55 @@ def evidence_from_trait(trait: SourceTrait) -> SourceEvidence:
     )
 
 
+def apply_descriptor_estimates(result: SensoryResearchResult, wine: Wine) -> None:
+    """Normalize explicit, verified descriptions; never turn priors into observations."""
+    if result.prompt_version != "8":
+        return
+    from app.services.sensory_descriptors import descriptor_estimate
+
+    for key, item in result.complete_profile.items():
+        if item.references or item.issue in {"conflicting_sources", "reference_disagreement"}:
+            continue
+        applicable = [
+            evidence
+            for evidence in item.evidence
+            if exact_evidence(evidence, wine.vintage)
+            or evidence.scope == "wine_style"
+            or (
+                evidence.scope == "other_vintage"
+                and evidence.vintage.isdigit()
+                and wine.vintage.isdigit()
+                and abs(int(evidence.vintage) - int(wine.vintage)) <= 3
+            )
+        ]
+        estimate = descriptor_estimate(key, applicable)
+        if estimate is None:
+            continue
+        item.calculation_method = "verified_descriptor_v1"
+        item.lower, item.upper = estimate.lower, estimate.upper
+        if estimate.conflicting:
+            if item.origin != "ai_inference":
+                item.value, item.origin = None, "unknown"
+            item.confidence, item.calculation_method = 0, ""
+            item.issue = "conflicting_sources"
+            result.dimensions.pop(key, None)
+            result.warnings.append(f"{key}:conflicting_descriptors")
+            continue
+        if estimate.value is None:
+            continue
+        exact = all(exact_evidence(e, wine.vintage) for e in estimate.evidence)
+        corroborated = exact and item.origin == "corroborated"
+        item.value = estimate.value
+        item.origin = "corroborated" if corroborated else "single_source" if exact else "wine_style"
+        item.confidence = 0.8 if corroborated else 0.55 if exact else 0.4
+        item.issue = ""
+        # This is an explicit conversion of a qualitative descriptor, never a measurement.
+        proof = estimate.evidence[0]
+        result.dimensions[key] = ResearchTrait(
+            value=item.value, basis="inferred", excerpt=proof.excerpt, source_url=proof.source_url
+        )
+
+
 class SensoryEvidenceVerifier:
     """Validate provider-cited excerpts consistently across research and inferred premises."""
 
@@ -290,6 +339,14 @@ def build_complete_proposal(
         for source in response.web_sources
         if (url := public_source_url(str(source.get("url") or "")))
     }
+    if source_texts is None:
+        from app.services.sensory_documents import prefetch_source_documents
+
+        if document_cache is None:
+            document_cache = {}
+        prefetch_source_documents(
+            output.model_dump(), sources, document_cache, read_public_document
+        )
     verifier = SensoryEvidenceVerifier(
         sources, result, source_texts=source_texts, document_cache=document_cache
     )
@@ -516,6 +573,7 @@ def build_complete_proposal(
             result.aromas.append(aroma)
             used.add(url)
     result.sources = [sources[url] for url in sorted(used)]
+    apply_descriptor_estimates(result, wine)
     available = sum(item.value is not None for item in result.complete_profile.values())
     corroborated = sum(item.origin == "corroborated" for item in result.complete_profile.values())
     exact = sum(

@@ -227,6 +227,7 @@ class CompletedDimension(BaseModel):
         | None
     ) = None
     unverified_evidence: list[SourceEvidence] = Field(default_factory=list)
+    calculation_method: str = ""
 
 
 class SourceCheck(BaseModel):
@@ -269,6 +270,8 @@ class SensoryResearchResult(BaseModel):
     source_checks: dict[str, SourceCheck] = Field(default_factory=dict)
     prompt_version: str = "2"
     cost_usd: Decimal = Decimal("0")
+    web_search_calls: int = Field(default=0, ge=0)
+    duration_ms: int = Field(default=0, ge=0)
 
 
 class SensoryResearchRunResponse(BaseModel):

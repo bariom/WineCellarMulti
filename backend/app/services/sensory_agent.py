@@ -5,6 +5,7 @@ import json
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
+from time import perf_counter
 from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID
 
@@ -19,11 +20,10 @@ from app.api.deps import (
     require_app_admin_context,
 )
 from app.core.config import settings
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal as SessionLocal
 from app.models import (
     Household,
     Membership,
-    SensoryAgentRun,
     User,
     UserSession,
     Wine,
@@ -70,7 +70,7 @@ def proposal_from_response(
     source_texts: dict[str, str] | None = None,
     document_cache: dict | None = None,
 ) -> SensoryResearchResult:
-    if prompt_version in {"4", "5", "6", "7"}:
+    if prompt_version in {"4", "5", "6", "7", "8"}:
         from app.services.sensory_completion import build_complete_proposal
 
         return build_complete_proposal(
@@ -189,6 +189,7 @@ def complete_with_estimates(
 ) -> SensoryResearchResult:
     """Keep checked observations and fill gaps with explicitly unvalidated model estimates."""
     result.cost_usd += response.charged_cost_usd
+    result.web_search_calls += response.web_search_calls
     try:
         output = SensoryCompletionOutput.model_validate_json(response.text)
     except ValidationError:
@@ -305,9 +306,26 @@ def complete_with_estimates(
             if current.unverified_evidence
             else "model_knowledge"
         )
-        current.lower = round(min(estimate.lower, max(0, estimate.value - 0.15)), 2)
-        current.upper = round(max(estimate.upper, min(1, estimate.value + 0.15)), 2)
+        current.lower = round(
+            min(
+                estimate.lower,
+                max(0, estimate.value - 0.15),
+                current.lower if current.lower is not None else 1,
+            ),
+            2,
+        )
+        current.upper = round(
+            max(
+                estimate.upper,
+                min(1, estimate.value + 0.15),
+                current.upper if current.upper is not None else 0,
+            ),
+            2,
+        )
         current.confidence = 0  # No verified evidence for this numeric intensity.
+    from app.services.sensory_completion import apply_descriptor_estimates
+
+    apply_descriptor_estimates(result, wine)
     result.sources = list(
         {
             s["url"]: s for s in [*result.sources, *(sources[url] for url in sorted(verifier.used))]
@@ -334,7 +352,7 @@ def complete_with_estimates(
 
 def describe_checked_result(result: SensoryResearchResult, locale: str) -> SensoryResearchResult:
     """Keep provider prose separate from statements derived from actual server checks."""
-    if result.prompt_version != "7":
+    if result.prompt_version not in {"7", "8"}:
         return result
     if result.agent_summary:
         return result
@@ -460,7 +478,66 @@ def worker_context(
     return require_app_admin_context(get_current_context(context))
 
 
+def research_wine_context(wine: Wine) -> dict:
+    return {
+        "name": wine.name,
+        "producer": wine.producer,
+        "vintage": wine.vintage,
+        "type": wine.type,
+        "region": wine.region,
+        "appellation": wine.appellation,
+        "grapes": wine.grapes or [],
+    }
+
+
+def research_costs(db: Session, context: CurrentContext, wine: Wine, provider: str):
+    from app.api.routes.ai import maximum_billable_cost_usd, reservation_pricing_model
+
+    prompt = wine_sensory_research_prompt(
+        wine_context=research_wine_context(wine), locale=context.user.locale
+    )
+    schema = {"name": "wine_sensory_research", "schema": CompleteResearchOutput.model_json_schema()}
+
+    def ceiling(input_tokens: int, calls: int) -> Decimal:
+        return maximum_billable_cost_usd(
+            user_is_app_admin=context.user.is_app_admin,
+            user_has_active_entitlement=context.has_active_entitlement,
+            provider_source=provider,
+            model=reservation_pricing_model(settings.openai_economy_model, db),
+            output_tokens=12000,
+            db=db,
+            input_tokens=input_tokens,
+            web_search_calls=calls,
+        )
+
+    first = ceiling(
+        32768 + max(2048, (len(prompt.system) + len(prompt.user) + len(json.dumps(schema))) // 2), 4
+    )
+    completion = ceiling(65536, 2)
+    return first, completion
+
+
+def research_cost_ceiling(db: Session, context: CurrentContext, wine: Wine) -> Decimal:
+    if not wine.vintage.strip():
+        return Decimal("0")
+    from app.api.routes.ai import get_or_create_user_ai_settings, select_ai_provider
+
+    user_settings = get_or_create_user_ai_settings(db, context)
+    provider, _ = select_ai_provider(db, context, user_settings)
+    return sum(research_costs(db, context, wine, provider), Decimal("0"))
+
+
 def research_wine(
+    db: Session, context: CurrentContext, wine: Wine, remaining: Decimal
+) -> SensoryResearchResult | None:
+    started = perf_counter()
+    result = _research_wine(db, context, wine, remaining)
+    if result is not None:
+        result.duration_ms = round((perf_counter() - started) * 1000)
+    return result
+
+
+def _research_wine(
     db: Session, context: CurrentContext, wine: Wine, remaining: Decimal
 ) -> SensoryResearchResult | None:
     existing = sensory_profile_for_wine(db, wine)
@@ -493,45 +570,17 @@ def research_wine(
         web_search_tool_cost_usd,
     )
 
-    wine_context = {
-        "name": wine.name,
-        "producer": wine.producer,
-        "vintage": wine.vintage,
-        "type": wine.type,
-        "region": wine.region,
-        "appellation": wine.appellation,
-        "grapes": wine.grapes or [],
-    }
+    wine_context = research_wine_context(wine)
     prompt = wine_sensory_research_prompt(wine_context=wine_context, locale=context.user.locale)
     schema = {"name": "wine_sensory_research", "schema": CompleteResearchOutput.model_json_schema()}
     user_settings = get_or_create_user_ai_settings(db, context)
     provider, _ = select_ai_provider(db, context, user_settings)
     model = settings.openai_economy_model
-    estimated_ceiling = maximum_billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
-        user_has_active_entitlement=context.has_active_entitlement,
-        provider_source=provider,
-        model=reservation_pricing_model(model, db),
-        input_tokens=32768
-        + max(2048, (len(prompt.system) + len(prompt.user) + len(json.dumps(schema))) // 2),
-        output_tokens=12000,
-        web_search_calls=6,
-        db=db,
-    )
+    estimated_ceiling, completion_ceiling = research_costs(db, context, wine, provider)
     completion_schema = {
         "name": "wine_sensory_completion",
         "schema": SensoryCompletionOutput.model_json_schema(),
     }
-    completion_ceiling = maximum_billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
-        user_has_active_entitlement=context.has_active_entitlement,
-        provider_source=provider,
-        model=reservation_pricing_model(model, db),
-        input_tokens=65536,
-        output_tokens=12000,
-        web_search_calls=4,
-        db=db,
-    )
     # Reserve room for a useful completed proposal before spending on source research.
     if estimated_ceiling + completion_ceiling > remaining:
         return None
@@ -548,7 +597,7 @@ def research_wine(
         web_search_context_size="medium",
         task_type="sensory_profile",
         max_output_tokens=12000,
-        max_tool_calls=6,
+        max_tool_calls=4,
         reasoning_effort="medium",
         timeout_seconds=240,
     )
@@ -556,6 +605,7 @@ def research_wine(
     result = proposal_from_response(
         wine, response, baseline, prompt_version=prompt.version, document_cache=document_cache
     )
+    result.web_search_calls = response.web_search_calls
     result.baseline_source = baseline_source
     result.baseline_validated = baseline_validated
     result.baseline_confidence = baseline_confidence
@@ -574,7 +624,14 @@ def research_wine(
     )
     if result.status == "ready":
         return describe_checked_result(result, context.user.locale)
+    from app.services.sensory_documents import readable_source_passages
+
+    readable = readable_source_passages(document_cache, wine.name)
+    qualitative = sum(bool(item.evidence) for item in result.complete_profile.values())
+    refinement_calls = 0 if len(readable) >= 2 and qualitative >= 3 else 2
     feedback = {
+        "readable_sources": readable,
+        "web_search_calls_available": refinement_calls,
         "vintage_verified": result.vintage_confirmed,
         "issue": result.issue,
         "checked_profile": {
@@ -606,7 +663,7 @@ def research_wine(
             // 2,
         ),
         output_tokens=12000,
-        web_search_calls=4,
+        web_search_calls=refinement_calls,
         db=db,
     )
     if actual_completion_ceiling > remaining - result.cost_usd:
@@ -621,12 +678,12 @@ def research_wine(
             system_prompt=completion_prompt.system,
             user_prompt=completion_prompt.user,
             json_schema=completion_schema,
-            web_search=True,
+            web_search=refinement_calls > 0,
             web_search_use_default_location=False,
             web_search_context_size="medium",
             task_type="sensory_profile",
             max_output_tokens=12000,
-            max_tool_calls=4,
+            max_tool_calls=refinement_calls,
             reasoning_effort="medium",
             timeout_seconds=240,
         )
@@ -659,44 +716,6 @@ def research_wine(
 
 
 def run_sensory_research(run_id: UUID, household_id: UUID, session_id: UUID) -> None:
-    with SessionLocal() as db:
-        run = db.scalar(
-            select(SensoryAgentRun)
-            .where(SensoryAgentRun.id == run_id, SensoryAgentRun.household_id == household_id)
-            .with_for_update()
-        )
-        if run is None or run.status != "queued":
-            return
-        run.status = "running"
-        db.commit()
-        try:
-            for wine_id in run.wine_ids:
-                db.refresh(run)
-                if run.status != "running":
-                    return
-                context = worker_context(db, household_id, run.user_id, session_id)
-                wine = db.scalar(
-                    select(Wine).where(
-                        Wine.id == UUID(wine_id), Wine.household_id == context.household.id
-                    )
-                )
-                if wine is None:
-                    continue
-                result = research_wine(db, context, wine, run.budget_usd - run.cost_usd)
-                if result is None:
-                    run.issue = "budget_limit"
-                    break
-                run.results = [*run.results, result.model_dump(mode="json")]
-                run.cost_usd += result.cost_usd
-                db.commit()
-                if run.cost_usd >= run.budget_usd:
-                    run.issue = "budget_limit"
-                    break
-            run.status = "completed"
-            db.commit()
-        except Exception:
-            # Preserve proposals without persisting raw provider errors or prompts.
-            db.rollback()
-            db.refresh(run)
-            run.status, run.issue = "failed", "research_failed"
-            db.commit()
+    from app.services.sensory_parallel import run_parallel_research
+
+    run_parallel_research(run_id, household_id, session_id)
