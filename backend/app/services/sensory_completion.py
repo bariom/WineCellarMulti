@@ -153,11 +153,11 @@ def evidence_from_trait(trait: SourceTrait) -> SourceEvidence:
 
 def apply_descriptor_estimates(result: SensoryResearchResult, wine: Wine) -> None:
     """Normalize explicit, verified descriptions; never turn priors into observations."""
-    if result.prompt_version not in {"8", "9"}:
+    if result.prompt_version not in {"8", "9", "10"}:
         return
-    from app.services.sensory_descriptors import descriptor_estimate
+    from app.services.sensory_descriptors import compatible_observations, descriptor_estimate
 
-    if result.prompt_version == "9":
+    if result.prompt_version in {"9", "10"}:
         from app.services.sensory_relevance import describes_trait
 
         for key, item in result.complete_profile.items():
@@ -178,7 +178,7 @@ def apply_descriptor_estimates(result: SensoryResearchResult, wine: Wine) -> Non
                 result.dimensions.pop(key, None)
 
     for key, item in result.complete_profile.items():
-        if item.references or item.issue in {"conflicting_sources", "reference_disagreement"}:
+        if item.references or item.issue == "reference_disagreement":
             continue
         applicable = [
             evidence
@@ -193,6 +193,16 @@ def apply_descriptor_estimates(result: SensoryResearchResult, wine: Wine) -> Non
             )
         ]
         estimate = descriptor_estimate(key, applicable)
+        if item.issue == "conflicting_sources":
+            if result.prompt_version == "10" and compatible_observations(key, applicable):
+                item.issue = "unsupported_intensity"
+                result.comparisons = [c for c in result.comparisons if c.dimension != key]
+                result.warnings = [w for w in result.warnings if w != f"{key}:conflicting_sources"]
+            else:
+                if result.prompt_version == "10" and estimate is not None and estimate.conflicting:
+                    item.lower = min(item.lower if item.lower is not None else 1, estimate.lower)
+                    item.upper = max(item.upper if item.upper is not None else 0, estimate.upper)
+                continue
         if estimate is None:
             continue
         item.calculation_method = "verified_descriptor_v1"
@@ -219,7 +229,35 @@ def apply_descriptor_estimates(result: SensoryResearchResult, wine: Wine) -> Non
             value=item.value, basis="inferred", excerpt=proof.excerpt, source_url=proof.source_url
         )
 
-    if result.prompt_version == "9":
+    if result.prompt_version == "10":
+        # Recompute support after relevance filtering and normalization, using only
+        # remaining explicit intensity anchors. A removed proof cannot corroborate.
+        for key, item in result.complete_profile.items():
+            anchors = [
+                e
+                for e in item.evidence
+                if exact_evidence(e, wine.vintage)
+                and (anchor := descriptor_estimate(key, [e])) is not None
+                and anchor.value is not None
+            ]
+            if item.origin == "corroborated" and not (
+                len({norm(e.publisher) for e in anchors}) >= 2
+                and len({urlsplit(e.source_url).hostname for e in anchors}) >= 2
+                and len({norm(e.excerpt) for e in anchors}) >= 2
+            ):
+                item.origin, item.confidence = "single_source", 0.55
+            for comparison in result.comparisons:
+                if comparison.dimension == key and comparison.agreement != "conflicting":
+                    comparison.independent = item.origin == "corroborated"
+                    comparison.agreement = (
+                        "corroborated" if comparison.independent else "single_source"
+                    )
+                    comparison.evidence = [
+                        ResearchEvidence(excerpt=e.excerpt, source_url=e.source_url)
+                        for e in item.evidence
+                    ]
+
+    if result.prompt_version in {"9", "10"}:
         for item in result.complete_profile.values():
             item.sensory_support = (
                 "intensity"
@@ -469,7 +507,9 @@ def build_complete_proposal(
             value=round(trait.value, 2),
             origin=origin,
             confidence=confidence,
-            evidence=list({item.source_url: item for item in [evidence, *valid]}.values()),
+            evidence=list(
+                {(item.source_url, item.excerpt): item for item in [evidence, *valid]}.values()
+            ),
         )
         result.dimensions[key] = ResearchTrait(
             value=round(trait.value, 2),
@@ -487,7 +527,9 @@ def build_complete_proposal(
                     evidence=[
                         ResearchEvidence(excerpt=item.excerpt, source_url=item.source_url)
                         for item in list(
-                            {item.source_url: item for item in [evidence, *valid]}.values()
+                            {
+                                (item.source_url, item.excerpt): item for item in [evidence, *valid]
+                            }.values()
                         )[:4]
                     ],
                 )

@@ -9,21 +9,31 @@ import re
 from app.services.shared_wine_data import normalize_identity_part as norm
 
 _TRAITS = {
-    "body": r"\bbody\b|bodied|\bcorpo\b|\bcorps\b|mittelschwer|vollmund|fyllig",
-    "acidity": r"acidit|\bsaure\b|syra|freschezza|fraicheur|\bfrische\b",
-    "tannin": r"tannin|tannic|gerbstoff",
+    "body": (
+        r"\bbody\b|bodied|\bcorpo\b|\bcorps\b|mittelschwer|vollmund|fyllig|"
+        r"\bstructure\b|\bstruttura\b|\bmouth (?:is )?full\b|"
+        r"\bpalato (?:ampio|pieno)\b|\bample(?:\s+gras|\s+genereux)* le palais\b"
+    ),
+    "acidity": (
+        r"acidit|\bsaure\b|syra|freschezza|fraicheur|\bfrische\b|"
+        r"\bal palato (?:e )?fresco\b|\bpalate (?:is )?fresh\b(?!\s+(?:fruit|aroma))"
+    ),
+    "tannin": r"tannin|tannic|\btanins?\b|gerbstoff",
     "sweetness": (
         r"sweet|dolce|dolci|douceur|\bsec\b|secco|secca|trocken|\bdry\b|"
         r"residual sugar|zuccheri residui"
     ),
-    "aromatic_intensity": r"aroma|profum|bouquet|\bnose\b|\bnaso\b|\bnez\b|duft|doft",
+    "aromatic_intensity": r"arom[ai]|profum|bouquet|\bnose\b|\bnaso\b|\bnez\b|duft|doft",
     "fruit": (
         r"frutt|\bfruit\w*|frucht|frukt|cherry|cherries|cilieg|cassis|berry|berries|"
         r"prun|plum|agrum|citrus|peach|pesca"
     ),
     "wood": r"boise|vanill|cedar|cedro|toast|tostat|oak|wood|legno|holz|eiche",
-    "spice": r"\bspic|\bspezi|\bepic|\bwurz|\bkrydd|pepper|\bpepe|poivre|cannell|cinnamon",
-    "minerality": r"mineral|salin|sapid|flint|pietra focaia|silex",
+    "spice": (
+        r"\bspic|\bspezi|\bepic|\bwurz|\bkrydd|pepper|\bpepe|poivre|cannell|cinnamon|"
+        r"liquiriz|licorice|liquorice"
+    ),
+    "minerality": r"mineral|salin|sapid|flint|pietra focaia|silex|chalk|gess|oyster shell",
 }
 
 

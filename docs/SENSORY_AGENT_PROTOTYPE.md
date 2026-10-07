@@ -25,13 +25,13 @@ esistenti. Distribuire anche il frontend aggiornato. Restano valide le impostazi
 4. Revisionare una proposta completa prima di usare **Usa questo profilo**.
    Il salvataggio non equivale alla validazione umana.
 
-## Fasi del percorso v9
+## Fasi del percorso v10
 
 Il prompt versionato `wine.sensory_research` e un contratto JSON rigoroso richiedono
 identificazione, prove per annata, confronto, ricerca mirata delle lacune e fino a
 tre riferimenti documentati, quando reperiti senza ricerche aggiuntive. Il primo
 passaggio dispone di quattro consultazioni web. Se il profilo non è completo,
-il prompt `wine.sensory_completion` v5 riceve gli esiti della verifica server e
+il prompt `wine.sensory_completion` v6 riceve gli esiti della verifica server e
 fino a tre documenti leggibili (6.000 caratteri ciascuno). Con almeno due documenti
 e tre tratti documentati non avvia altre consultazioni; negli altri casi dispone
 di due consultazioni per cercare alternative e produce tutte le nove intensità
@@ -81,6 +81,27 @@ generale. Mantiene annata e ambito originali delle prove. Una nota di un'altra
 annata non diventa una conferma sensoriale dell'annata richiesta. I domini bloccati
 da Cloudflare o HTTP 429 vengono passati al completamento per cercare alternative
 e non vengono interrogati nuovamente durante quella ricerca del vino.
+
+### Pertinenza, consistenza e intensità (v10)
+
+Il riconoscimento include le formulazioni italiane, francesi e inglesi verificate
+nei rapporti: «aromi decisi ed intensi», «tanins puissants», «discreet tannins»,
+«lightly spiced», «crisp acidity» e descrizioni francesi del palato ampio.
+«Al palato è fresco» resta una descrizione sensoriale pertinente, senza attribuire
+automaticamente un'intensità numerica; la freschezza di un aroma fruttato non
+documenta l'acidità.
+
+Tannini potenti e vellutati possono coesistere: la consistenza da sola non
+contraddice l'intensità. Descrizioni esplicite di intensità opposte restano
+conflitti, con intervalli che includono le interpretazioni contrastanti. Un sorso
+pieno all'ingresso e poi più snello conserva la descrizione delle sue fasi, senza
+convertirla automaticamente in un unico valore o in fonti discordanti.
+
+La corroborazione e le etichette dei confronti vengono ricalcolate dopo la
+selezione delle prove pertinenti. Una citazione spostata nel contesto non può
+sostenere il livello di confidenza riservato a più riscontri. Restano necessarie
+le verifiche di fonte, annata e indipendenza; le scale sono interpretative e non
+misurazioni. I rapporti già salvati non vengono riscritti.
 
 ### 1. Identificazione e interpretazione
 
@@ -168,7 +189,7 @@ Il sostegno euristico per tratto e 0,80 per riscontri indipendenti, 0,55 per fon
 singola dell'annata, 0,35-0,40 per stile e 0,35 per vini simili; il punteggio totale
 include lacune e inferenze non verificate a zero. Non sono probabilita calibrate
 di correttezza: zero prove numeriche non significa zero plausibilità del profilo.
-Nei percorsi v6–v9 una proposta con nove valori è applicabile anche senza annata
+Nei percorsi v6–v10 una proposta con nove valori è applicabile anche senza annata
 verificata: è una stima da revisionare e resta non validata. Un'identità realmente
 ambigua produce un profilo completo provvisorio ma blocca l'applicazione.
 Un profilo totalmente inferito ha copertura delle prove zero: i nove valori sono

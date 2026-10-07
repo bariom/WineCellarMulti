@@ -342,7 +342,7 @@ test("Verified descriptor scale exposes provenance, range and research metrics",
   await renderPanel(page, "en");
   const evidence = { excerpt: "Full-bodied", source_url: "https://producer.example/2020", scope: "exact_vintage", vintage: "2020", publisher: "Producer", role: "producer" };
   const keys = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
-  const proposal = { ...result, prompt_version: "8", web_search_calls: 3, duration_ms: 12345,
+  const proposal = { ...result, prompt_version: "10", web_search_calls: 3, duration_ms: 12345,
     dimensions: { body: { value: .75, basis: "inferred", excerpt: evidence.excerpt, source_url: evidence.source_url } }, comparisons: [], aromas: [],
     coverage: { available: 9, total: 9, exact_vintage: 1, corroborated: 0, estimated: 8, inferred: 8, unknown: 0 },
     complete_profile: Object.fromEntries(keys.map(key => [key, key === "body"

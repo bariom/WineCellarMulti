@@ -736,7 +736,7 @@ def test_api_requires_admin_and_scopes_run_reads(setup):
 
 def test_prompt_has_identity_grounding_language_and_no_invention():
     prompt = wine_sensory_research_prompt(wine_context={"name": "Test wine"}, locale="it")
-    assert prompt.id == "wine.sensory_research" and prompt.version == "9"
+    assert prompt.id == "wine.sensory_research" and prompt.version == "10"
     assert "Italian" in prompt.user and "Test wine" in prompt.user
     assert "Never invent" in prompt.system and "untrusted data" in prompt.system
     assert "Missing evidence means null" in prompt.system and "vintage_confirmed" in prompt.system
@@ -749,6 +749,7 @@ def test_prompt_has_identity_grounding_language_and_no_invention():
     assert "server normalizes explicit anchors" in prompt.system
     assert "same named cuvee and producer in nearby vintages" in prompt.system
     assert "never relabel" in prompt.system
+    assert "Texture does not contradict intensity" in prompt.system
 
 
 def test_v4_malformed_output_is_rejected(setup):
@@ -1141,7 +1142,7 @@ def test_completion_rejects_malformed_or_wrong_identity_without_losing_research(
 
 
 @pytest.mark.parametrize("ambiguous", [False, True])
-@pytest.mark.parametrize("version", ["6", "7", "8", "9"])
+@pytest.mark.parametrize("version", ["6", "7", "8", "9", "10"])
 def test_estimated_profile_apply_preserves_inference_and_blocks_ambiguous_identity(
     setup, ambiguous, version
 ):
@@ -1285,7 +1286,7 @@ def test_completion_prompt_and_strict_schema():
     prompt = wine_sensory_completion_prompt(
         wine_context={"vintage": "2016"}, feedback={"issue": "source_unreadable"}, locale="it"
     )
-    assert prompt.id == "wine.sensory_completion" and prompt.version == "5"
+    assert prompt.id == "wine.sensory_completion" and prompt.version == "6"
     assert "Italian" in prompt.user and "2016" in prompt.user
     assert "untrusted data" in prompt.system and "must not anchor" in prompt.system
     assert "ALL nine estimates" in prompt.system and "Do not retry Cloudflare" in prompt.system
@@ -1300,6 +1301,7 @@ def test_completion_prompt_and_strict_schema():
     assert "Never join separate source passages" in prompt.system
     assert "alternative domains for blocked_hosts" in prompt.system
     assert "grape, region or aging method is context only" in prompt.system
+    assert "successive phases of a sip" in prompt.system
     schema = SensoryCompletionOutput.model_json_schema()
     for item in [schema, *schema["$defs"].values()]:
         if item.get("type") == "object":
@@ -1606,3 +1608,111 @@ def test_completion_premises_do_not_retry_blocked_host(setup, monkeypatch):
     result = agent.complete_with_estimates(wine, first, response(payload), document_cache=cache)
     assert not reads
     assert result.complete_profile["wood"].sensory_support == "none"
+
+
+@pytest.mark.parametrize(
+    "key,excerpt,expected",
+    [
+        ("aromatic_intensity", "un rosato dagli aromi decisi ed intensi", 0.75),
+        ("tannin", "with discreet tannins", 0.25),
+        ("spice", "Long, lightly spiced finish.", 0.25),
+    ],
+)
+@pytest.mark.parametrize("readable", [True, False])
+def test_v10_report_descriptors_require_verified_sources(setup, key, excerpt, expected, readable):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    payload["dimensions"] = {k: None for k in SENSORY_DIMENSIONS}
+    payload["comparisons"] = []
+    payload["dimensions"][key] = {
+        **source_evidence(vintage=wine.vintage, excerpt=excerpt),
+        "value": 0.5,
+        "basis": "inferred",
+        "intensity_supported": False,
+    }
+    result = agent.proposal_from_response(
+        wine,
+        response(payload),
+        {},
+        prompt_version="10",
+        source_texts=source_pages(payload) if readable else {},
+    )
+    assert result.complete_profile[key].value == (expected if readable else None)
+
+
+@pytest.mark.parametrize(
+    "other,conflict",
+    [
+        ("velvety, well-integrated tannins", False),
+        ("Low tannins", True),
+    ],
+)
+def test_v10_distinguishes_tannin_texture_and_opposing_intensity(setup, other, conflict):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    payload["dimensions"]["tannin"]["excerpt"] = "des tanins puissants"
+    comparison = next(c for c in payload["comparisons"] if c["dimension"] == "tannin")
+    comparison["agreement"] = "conflicting"
+    comparison["evidence"][0]["excerpt"] = "des tanins puissants"
+    comparison["evidence"][1]["excerpt"] = other
+    result = agent.proposal_from_response(
+        wine, response(payload), {}, prompt_version="10", source_texts=source_pages(payload)
+    )
+    item = result.complete_profile["tannin"]
+    assert (item.issue == "conflicting_sources") is conflict
+    assert item.value == (None if conflict else 0.75)
+    assert (
+        any(c.dimension == "tannin" and c.agreement == "conflicting" for c in result.comparisons)
+        is conflict
+    )
+    if conflict:
+        assert item.lower == 0.1 and item.upper == 0.9
+
+
+def test_v10_removed_corroborating_proof_reduces_confidence_and_comparison(setup):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    comparison = next(c for c in payload["comparisons"] if c["dimension"] == "body")
+    comparison["evidence"][1]["excerpt"] = "Made from Merlot"
+    result = agent.proposal_from_response(
+        wine, response(payload), {}, prompt_version="10", source_texts=source_pages(payload)
+    )
+    item = result.complete_profile["body"]
+    assert item.origin == "single_source" and item.confidence == 0.55
+    assert any(e.excerpt == "Made from Merlot" for e in item.context_evidence)
+    compared = next(c for c in result.comparisons if c.dimension == "body")
+    assert compared.agreement == "single_source" and not compared.independent
+    assert all(e.excerpt != "Made from Merlot" for e in compared.evidence)
+
+
+def test_v10_french_palate_description_retains_real_corroboration(setup):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    comparison = next(c for c in payload["comparisons"] if c["dimension"] == "body")
+    comparison["evidence"][1]["excerpt"] = "Ample, gras, généreux, le palais"
+    result = agent.proposal_from_response(
+        wine, response(payload), {}, prompt_version="10", source_texts=source_pages(payload)
+    )
+    body = result.complete_profile["body"]
+    assert body.origin == "corroborated" and body.confidence == 0.8
+    assert not body.context_evidence and len(body.evidence) == 2
+
+
+def test_v10_sip_phases_remain_a_description_without_false_conflict(setup):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    text = "Enters the mouth full and ripe, then turns leaner and tougher"
+    payload["dimensions"]["body"].update(excerpt=text, intensity_supported=False)
+    comparison = next(c for c in payload["comparisons"] if c["dimension"] == "body")
+    comparison["agreement"] = "conflicting"
+    comparison["evidence"][0]["excerpt"] = text
+    comparison["evidence"][1]["excerpt"] = "è ricco e armonioso"
+    result = agent.proposal_from_response(
+        wine, response(payload), {}, prompt_version="10", source_texts=source_pages(payload)
+    )
+    body = result.complete_profile["body"]
+    assert body.value is None and body.sensory_support == "description"
+    assert body.issue != "conflicting_sources"
+    assert not any(
+        c.dimension == "body" and c.agreement == "conflicting" for c in result.comparisons
+    )

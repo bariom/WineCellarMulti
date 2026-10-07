@@ -70,7 +70,7 @@ def proposal_from_response(
     source_texts: dict[str, str] | None = None,
     document_cache: dict | None = None,
 ) -> SensoryResearchResult:
-    if prompt_version in {"4", "5", "6", "7", "8", "9"}:
+    if prompt_version in {"4", "5", "6", "7", "8", "9", "10"}:
         from app.services.sensory_completion import build_complete_proposal
 
         return build_complete_proposal(
@@ -358,7 +358,7 @@ def complete_with_estimates(
 
 def describe_checked_result(result: SensoryResearchResult, locale: str) -> SensoryResearchResult:
     """Keep provider prose separate from statements derived from actual server checks."""
-    if result.prompt_version not in {"7", "8", "9"}:
+    if result.prompt_version not in {"7", "8", "9", "10"}:
         return result
     if result.agent_summary:
         return result
@@ -375,7 +375,7 @@ def describe_checked_result(result: SensoryResearchResult, locale: str) -> Senso
     result.coverage.update(
         qualitative=qualitative, inferred_grounded=grounded, inferred_unverified=unsupported
     )
-    if result.prompt_version == "9":
+    if result.prompt_version in {"9", "10"}:
         result.coverage.update(
             described_estimates=sum(
                 i.sensory_support == "description" for i in result.complete_profile.values()

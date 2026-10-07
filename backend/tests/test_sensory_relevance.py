@@ -11,6 +11,11 @@ def test_grape_identity_is_context_only(key):
 @pytest.mark.parametrize(
     "key,text,expected",
     [
+        ("aromatic_intensity", "un rosato dagli aromi decisi ed intensi", True),
+        ("tannin", "des tanins puissants", True),
+        ("body", "Ample, gras, généreux, le palais", True),
+        ("acidity", "Al palato è fresco", True),
+        ("acidity", "fresh fruit aromas", False),
         ("wood", "un nez boisé et épicé.", True),
         ("spice", "un nez boisé et épicé.", True),
         ("aromatic_intensity", "un nez boisé et épicé.", True),

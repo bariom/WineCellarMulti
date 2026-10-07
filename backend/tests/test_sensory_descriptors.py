@@ -19,6 +19,14 @@ def evidence(excerpt: str, url: str = "https://producer.example/wine") -> Source
 @pytest.mark.parametrize(
     ("dimension", "excerpt", "value"),
     [
+        ("aromatic_intensity", "un rosato dagli aromi decisi ed intensi", 0.75),
+        ("aromatic_intensity", "Intensément aromatique, le nez mêle des fragrances fruitées", 0.75),
+        ("aromatic_intensity", "delicate aromatic profile", 0.25),
+        ("tannin", "des tanins puissants", 0.75),
+        ("tannin", "with discreet tannins", 0.25),
+        ("spice", "Long, lightly spiced finish.", 0.25),
+        ("body", "Ample, gras, généreux, le palais", 0.75),
+        ("acidity", "crisp acidity", 0.75),
         ("body", "Un vino dal corpo pieno.", 0.75),
         ("body", "A light-bodied wine.", 0.25),
         ("body", "A medium-bodied wine.", 0.5),
@@ -54,6 +62,26 @@ def test_explicit_descriptors_have_stable_anchors(dimension, excerpt, value):
     assert result is not None and result.value == value and not result.conflicting
     assert result.lower <= value <= result.upper
     assert result.upper - result.lower >= 0.15
+
+
+def test_sip_progression_is_relevant_but_not_a_fixed_intensity_or_source_conflict():
+    from app.services.sensory_descriptors import compatible_observations
+    from app.services.sensory_relevance import describes_trait
+
+    text = "Enters the mouth full and ripe, then turns leaner and tougher"
+    assert describes_trait("body", text)
+    assert descriptor_estimate("body", [evidence(text)]) is None
+    assert compatible_observations("body", [evidence(text), evidence("è ricco e armonioso")])
+
+
+def test_tannin_texture_does_not_contradict_intensity_but_low_tannins_do():
+    from app.services.sensory_descriptors import compatible_observations
+
+    powerful = evidence("des tanins puissants")
+    assert compatible_observations(
+        "tannin", [powerful, evidence("velvety, well-integrated tannins")]
+    )
+    assert not compatible_observations("tannin", [powerful, evidence("Low tannins")])
 
 
 @pytest.mark.parametrize(

@@ -25,12 +25,14 @@ class Estimate:
 _NOUNS = {
     "body": r"body|bodied|corpo|corps|korper|bouche|palato|mouth|palate",
     "acidity": r"acidity|acidita|acidite|saure|syra|freschezza|fraicheur",
-    "tannin": r"tannins?|tannic|tannini|tannico|tanniques?|gerbstoffe",
+    "tannin": r"tannins?|tanins?|tannic|tannini|tannico|tanniques?|gerbstoffe",
     "sweetness": r"sweetness|dolcezza|douceur|susse",
-    "aromatic_intensity": r"aromas?|aromi|profumi|profumo|nose|naso|nez|bouquet|duft|doft",
+    "aromatic_intensity": (
+        r"aromas?|aromi|aromatic profile|profumi|profumo|nose|naso|nez|bouquet|duft|doft"
+    ),
     "fruit": r"fruit|frutto|frutta|fruits|fruttato|fruity|fruite|frucht|frukt",
     "wood": r"oak|wood|legno|bois|holz|eiche|vanilla|vaniglia|vanille|tostatura",
-    "spice": r"spice|spices|spezie|speziatura|spicy|speziato|epices|epice|wurze|kryddor",
+    "spice": r"spice|spices|spiced|spezie|speziatura|spicy|speziato|epices|epice|wurze|kryddor",
     "minerality": (
         r"minerality|mineralita|mineralite|mineralitat|salinity|salinita|sapidita|mineral|mineralic"
     ),
@@ -42,7 +44,7 @@ _LEVELS = (
     ),
     (
         0.25,
-        r"low|light|slight|subtle|delicate|restrained|bass[oaie]|liev[ei]|legger[oaie]|"
+        r"low|light|lightly|slight|subtle|delicate|discreet|restrained|bass[oaie]|liev[ei]|legger[oaie]|"
         r"delicat[oaie]|tenu[ei]|faible|leger[es]*|discret[es]*|niedrig[ea]*|dezent[ea]*",
     ),
     (
@@ -72,8 +74,20 @@ def _text(value: str) -> str:
 
 
 def _anchors(dimension: str, text: str) -> set[float]:
+    if dimension == "body" and evolving_palate(text):
+        return set()  # Different phases of the same sip cannot define one fixed body anchor.
     noun = _NOUNS[dimension]
     result: set[float] = set()
+    if (
+        dimension == "aromatic_intensity"
+        and not _NEGATION.search(text)
+        and re.search(
+            r"\bintensement aromatique\b|\bintense et elegant,? le bouquet\b|"
+            r"\bpotent aromatic dialogue\b",
+            text,
+        )
+    ):
+        result.add(0.75)
     # This tightly bounded phrase retains an explicit mouth/body attribution across
     # commas. Do not generally bridge commas: "tannins, powerful aromas" describes
     # the aromas, not tannin intensity. Structure alone is not a body anchor.
@@ -82,6 +96,10 @@ def _anchors(dimension: str, text: str) -> set[float]:
             if not _NEGATION.search(sentence) and re.search(
                 r"\b(?:mouth|palate)(?:\s+is)?\s+structured\s*,?\s+broad\s+and\s+powerful\b",
                 sentence,
+            ):
+                result.add(0.75)
+            if not _NEGATION.search(sentence) and re.search(
+                r"\bample(?:\s*,\s*(?:gras|genereux))*\s*,?\s+le palais\b", sentence
             ):
                 result.add(0.75)
     for clause in re.split(r"[.;,:!?\n]|\b(?:but|ma|mais|aber)\b", text):
@@ -113,7 +131,8 @@ def _anchors(dimension: str, text: str) -> set[float]:
                     result.add(value)
         if dimension == "acidity" and re.search(
             r"\b(?:acidity|acidita|acidite) (?:lively|vibrant|vivace|vive|fresca)\b|"
-            r"\b(?:lively|vibrant|vivace|vive|fresh) (?:acidity|acidita|acidite)\b",
+            r"\b(?:lively|vibrant|vivace|vive|fresh|crisp|mouthwatering) "
+            r"(?:acidity|acidita|acidite)\b",
             remaining,
         ):
             result.add(0.75)
@@ -137,6 +156,32 @@ def _anchors(dimension: str, text: str) -> set[float]:
         ):
             result.add(0.05)
     return result
+
+
+def evolving_palate(text: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:mouth|palate|palato)\b.*\b(?:then|poi)\b.*\b(?:leaner|tougher|snello)\b",
+            _text(text),
+        )
+    )
+
+
+def compatible_observations(dimension: str, evidence: list[SourceEvidence]) -> bool:
+    """Recognize specific false conflicts, without discarding unknown disagreements."""
+    combined = descriptor_estimate(dimension, evidence)
+    if combined is not None and combined.conflicting:
+        return False
+    if dimension == "body" and any(evolving_palate(e.excerpt) for e in evidence):
+        return True
+    if dimension != "tannin" or combined is None:
+        return False
+    unquantified = [e for e in evidence if descriptor_estimate(dimension, [e]) is None]
+    return bool(unquantified) and all(
+        re.search(r"tannin|\btanins?\b", _text(e.excerpt))
+        and re.search(r"velvet|silky|integrat|morb|vellut|setos|soft|mature|ripe", _text(e.excerpt))
+        for e in unquantified
+    )
 
 
 def descriptor_estimate(dimension: str, evidence: list[SourceEvidence]) -> Estimate | None:
