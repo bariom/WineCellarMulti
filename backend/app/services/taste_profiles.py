@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime
-from math import exp
+from math import exp, isfinite
 from typing import Any
 from uuid import UUID
 
@@ -197,20 +197,37 @@ def infer_sensory_profile(
 ) -> tuple[dict[str, float], str, float]:
     """Blend explicit reusable baselines; use type defaults only as a last free signal."""
     candidates: list[tuple[float, dict[str, float], float, str]] = []
+    grapes = {
+        normalize_identity_part(item.get("name")): item
+        for item in (getattr(wine, "grapes", []) or [])
+        if isinstance(item, dict) and normalize_identity_part(item.get("name"))
+    }
+    shares: dict[str, float] = {}
+    for name, item in grapes.items():
+        try:
+            lower = float(item["percentage_from"])
+            upper = float(item.get("percentage_to", lower))
+            if not (isfinite(lower) and isfinite(upper) and 0 <= lower <= upper <= 100):
+                break
+            shares[name] = (lower + upper) / 200
+        except (KeyError, TypeError, ValueError):
+            break
+    if len(shares) != len(grapes) or abs(sum(shares.values()) - 1) > 0.005:
+        shares = {name: 1 / len(grapes) for name in grapes}
     lookups = [
-        ("appellation", normalize_identity_part(wine.appellation)),
-        ("region", normalize_identity_part(wine.region)),
-        ("wine_type", normalize_identity_part(normalize_wine_type(wine.type))),
-    ] + [("grape", grape) for grape in _grape_names(wine)]
-    for entity_type, entity_key in lookups:
+        ("appellation", normalize_identity_part(wine.appellation), 1.0),
+        ("region", normalize_identity_part(wine.region), 1.0),
+        ("wine_type", normalize_identity_part(normalize_wine_type(wine.type)), 1.0),
+    ] + [("grape", name, share) for name, share in shares.items()]
+    for entity_type, entity_key, share in lookups:
         if not entity_key:
             continue
         baseline = _baseline_for_value(db, entity_type, entity_key)
         dimensions = validated_dimensions(baseline.dimensions) if baseline else {}
-        if dimensions and baseline is not None:
+        if dimensions and baseline is not None and baseline.confidence > 0 and share > 0:
             candidates.append(
                 (
-                    BASELINE_WEIGHTS.get(entity_type, 0.1),
+                    BASELINE_WEIGHTS.get(entity_type, 0.1) * share,
                     dimensions,
                     baseline.confidence,
                     entity_type,

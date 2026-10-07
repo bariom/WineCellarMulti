@@ -136,6 +136,9 @@ def select_ai_model(
     # of the rollout switch for existing AI features. Its own feature flag
     # restores the previous researcher without changing other workloads.
     sensory_model = settings.openai_sensory_agent_model.strip()
+    refinement_model = settings.openai_sensory_refinement_model.strip()
+    if normalized_task == "sensory_refinement" and requested == refinement_model:
+        return ModelSelection(requested_model=requested, model=refinement_model, role="advanced")
     if normalized_task == "sensory_autonomous" and requested == sensory_model:
         return ModelSelection(requested_model=requested, model=sensory_model, role="balanced")
 

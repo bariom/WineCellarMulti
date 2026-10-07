@@ -1,5 +1,11 @@
 # Assisted sensory profile agent
 
+Historical documentation: the separate agent panel has been retired. Use the
+ordinary generator and optional per-wine Astra research described in
+[Sensory profile generation](SENSORY_PROFILES.md). Existing research records and
+API endpoints are retained for compatibility; the workflow below describes the
+previous interface.
+
 The agent is available to application administrators in the sensory profile settings panel. Start a research run, choose wines and a credit budget, review the evidence and **Values that will be used**, then explicitly apply an eligible proposal or select individual supported traits. A research run does not modify wine profiles. Applying a proposal leaves it unvalidated. Manual and validated profiles require an additional explicit revision confirmation.
 
 This release describes the **expected wine style at release**, not the condition of a particular bottle today. Body means perceived palate weight; tannin means perceived astringency intensity; sweetness means perceived palate sweetness; aromatic intensity means nose strength. Fruit, oak and spice describe the prominence of those sensory families. Minerality describes explicitly reported mineral or saline sensations, not a chemical measurement.

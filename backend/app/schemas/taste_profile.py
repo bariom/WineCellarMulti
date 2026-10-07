@@ -11,6 +11,8 @@ from app.schemas.sensory_agent import CompletedDimension
 
 
 class SensoryProfileResponse(BaseModel):
+    model: str = ""
+    estimated_cost_usd: str = "0"
     identity_id: UUID
     dimensions: dict[str, float | None] = Field(default_factory=dict)
     provenance: dict[str, CompletedDimension] = Field(default_factory=dict)

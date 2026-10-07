@@ -823,6 +823,10 @@ def create_ai_response(
             task_type == "sensory_autonomous"
             and requested_model == settings.openai_sensory_agent_model.strip()
         )
+        and not (
+            task_type == "sensory_refinement"
+            and requested_model == settings.openai_sensory_refinement_model.strip()
+        )
     ):
         requested_model = ""
     effective_tool_limit = (

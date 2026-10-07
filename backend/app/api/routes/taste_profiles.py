@@ -220,6 +220,7 @@ def profile_response(
 
 def sensory_response(profile: WineSensoryProfile) -> SensoryProfileResponse:
     return SensoryProfileResponse(
+        model=profile.model or "",
         identity_id=profile.identity_id,
         dimensions=profile.dimensions or {},
         provenance=profile.provenance or {},
@@ -1044,6 +1045,28 @@ def delete_sensory_baseline(
     db.commit()
 
 
+@router.post("/admin/profiles/{identity_id}/refine", response_model=SensoryProfileResponse)
+def refine_sensory_profile(
+    identity_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> SensoryProfileResponse:
+    from app.services.sensory_refinement import refine_profile
+
+    wine = db.scalar(
+        select(Wine)
+        .where(Wine.shared_identity_id == identity_id, Wine.household_id == context.household.id)
+        .order_by(Wine.created_at.desc())
+    )
+    if wine is None:
+        raise HTTPException(404, "Wine not found in the active cellar")
+    profile = db.scalar(
+        select(WineSensoryProfile).where(WineSensoryProfile.identity_id == identity_id)
+    )
+    generated, cost = refine_profile(db, context, wine, profile)
+    return sensory_response(generated).model_copy(update={"estimated_cost_usd": cost})
+
+
 @router.post("/admin/profiles/{identity_id}/regenerate", response_model=SensoryProfileResponse)
 def regenerate_sensory_profile(
     identity_id: UUID,
@@ -1171,7 +1194,7 @@ def complete_sensory_profile_metadata(
     db.commit()
     db.refresh(generated)
     return SensoryMetadataEnrichmentResponse(
-        **sensory_response(generated).model_dump(),
+        **sensory_response(generated).model_dump(exclude={"estimated_cost_usd"}),
         metadata_updated=updated,
         estimated_cost_usd=str(billed_response.charged_cost_usd if billed_response else 0),
     )

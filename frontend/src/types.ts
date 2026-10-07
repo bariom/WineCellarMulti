@@ -1584,6 +1584,8 @@ export type TasteMatch = {
 export type TasteMatchBatchResponse = { matches: Record<string, TasteMatch> };
 
 export type WineSensoryProfile = {
+  model?: string;
+  estimated_cost_usd?: string;
   identity_id: string;
   name: string;
   producer: string;
