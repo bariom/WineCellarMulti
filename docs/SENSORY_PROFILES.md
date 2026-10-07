@@ -29,9 +29,14 @@ descriptor anchors such as 0.25 or 0.75. Unsupported traits retain their previou
 values. No usable evidence means no profile update, although completed provider
 usage is still billed. The response shows the actual model and charged cost.
 
-Usable estimates are saved to the shared profile as unvalidated and opened for
-review. Manual or validated profiles cannot be overwritten by this operation;
-changes made during research also block saving. Historical agent results and
+Research is available for manual and validated profiles too. It returns a
+proposal without changing or invalidating the current shared profile. The editor
+compares current and proposed values; “Scarta proposta” discards the proposal,
+while “Applica proposta” explicitly saves the selected editor values as a manual
+revision, with the administrator's validation choice. Changes during research or
+between research and applying the proposal block saving and require a fresh
+analysis. Creating a profile for a missing identity also requires explicit
+application. Historical agent results and
 APIs remain available for compatibility. No database migration is required.
 
 Preview and batch generation also include shared identities whose original

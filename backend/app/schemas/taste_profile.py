@@ -11,6 +11,9 @@ from app.schemas.sensory_agent import CompletedDimension
 
 
 class SensoryProfileResponse(BaseModel):
+    is_proposal: bool = False
+    baseline_revision: str = ""
+    baseline_dimensions: dict[str, float | None] = Field(default_factory=dict)
     model: str = ""
     estimated_cost_usd: str = "0"
     identity_id: UUID
@@ -159,6 +162,7 @@ class TasteMatchBatchResponse(BaseModel):
 
 
 class SensoryProfileUpdate(BaseModel):
+    expected_baseline_revision: str | None = Field(default=None, min_length=64, max_length=64)
     dimensions: dict[str, float | None]
     validated: bool | None = None
 

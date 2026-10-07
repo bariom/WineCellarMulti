@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.models import Household, SensoryProfileBaseline, WineSensoryProfile
 from app.prompts.sensory_refinement import wine_sensory_refinement_prompt
 from app.schemas.sensory_refinement import SensoryRefinementOutput
+from app.schemas.taste_profile import SensoryProfileUpdate
 from app.services.ai_models import select_ai_model
 from app.services.openai_client import OpenAIResponse, TokenUsage
 from app.services.score_sources import DocumentText
@@ -164,12 +165,14 @@ def test_refinement_rejects_bad_or_weak_evidence(setup, monkeypatch, change):
     assert exc.value.status_code == 422
 
 
-def test_refinement_route_is_opt_in_billed_and_preserves_other_dimensions(setup, monkeypatch):
+@pytest.mark.parametrize("case", ["metadata", "manual", "validated"])
+def test_refinement_route_is_opt_in_billed_and_preserves_other_dimensions(setup, monkeypatch, case):
     db, context, wine = setup
     profile = WineSensoryProfile(
         identity_id=wine.shared_identity_id,
         dimensions={"body": 0.5, "fruit": 0.6},
-        source="metadata",
+        source="manual" if case == "manual" else "metadata",
+        validated=case == "validated",
         confidence=0.35,
     )
     db.add(profile)
@@ -191,30 +194,81 @@ def test_refinement_route_is_opt_in_billed_and_preserves_other_dimensions(setup,
     assert seen["reasoning_effort"] == "high" and seen["max_tool_calls"] == 5
     assert audit["feature"] == "wine.sensory_refinement" and "system_prompt" not in audit
     assert result.provenance["body"].calculation_method == "contextual_research_v1"
+    assert result.is_proposal and result.baseline_dimensions == {"body": 0.5, "fruit": 0.6}
+    db.refresh(profile)
+    assert profile.dimensions == {"body": 0.5, "fruit": 0.6}
+    assert profile.validated == (case == "validated")
+    assert profile.source == ("manual" if case == "manual" else "metadata")
+    saved = routes.update_sensory_profile(
+        wine.shared_identity_id,
+        SensoryProfileUpdate(
+            dimensions=result.dimensions,
+            validated=False,
+            expected_baseline_revision=result.baseline_revision,
+        ),
+        db,
+        context,
+    )
+    assert saved.dimensions["body"] == 0.68 and not saved.validated
+    with pytest.raises(HTTPException) as exc:
+        routes.update_sensory_profile(
+            wine.shared_identity_id,
+            SensoryProfileUpdate(
+                dimensions=result.dimensions,
+                expected_baseline_revision=result.baseline_revision,
+            ),
+            db,
+            context,
+        )
+    assert exc.value.status_code == 409
 
 
-@pytest.mark.parametrize("case", ["validated", "manual", "other_household"])
-def test_protected_or_foreign_profiles_do_not_make_provider_calls(setup, monkeypatch, case):
+def test_foreign_profiles_do_not_make_provider_calls(setup, monkeypatch):
     db, context, wine = setup
     profile = WineSensoryProfile(
         identity_id=wine.shared_identity_id,
         dimensions={"body": 0.5},
-        source="manual" if case == "manual" else "metadata",
-        validated=case == "validated",
+        source="manual",
+        validated=True,
     )
     db.add(profile)
-    if case == "other_household":
-        other = Household(name="Other")
-        db.add(other)
-        db.flush()
-        wine.household_id = other.id
+    other = Household(name="Other")
+    db.add(other)
+    db.flush()
+    wine.household_id = other.id
     db.commit()
     monkeypatch.setattr(
         ai, "create_ai_response", lambda *args, **kwargs: pytest.fail("Must not call provider")
     )
     with pytest.raises(HTTPException) as exc:
         routes.refine_sensory_profile(wine.shared_identity_id, db, context)
-    assert exc.value.status_code == (404 if case == "other_household" else 409)
+    assert exc.value.status_code == 404
+
+
+def test_missing_profile_is_created_only_when_proposal_is_applied(setup, monkeypatch):
+    from sqlalchemy import select
+
+    db, context, wine = setup
+    source_reader(monkeypatch)
+    monkeypatch.setattr(
+        ai, "create_ai_response", lambda *args, **kwargs: (response(payload()), "credits")
+    )
+    monkeypatch.setattr(ai, "get_or_create_user_ai_settings", lambda *args: object())
+    monkeypatch.setattr(ai, "record_ai_audit", lambda *args, **kwargs: None)
+    result = routes.refine_sensory_profile(wine.shared_identity_id, db, context)
+    assert result.is_proposal and result.baseline_dimensions == {}
+    assert db.scalar(select(WineSensoryProfile)) is None
+    saved = routes.update_sensory_profile(
+        wine.shared_identity_id,
+        SensoryProfileUpdate(
+            dimensions=result.dimensions,
+            validated=True,
+            expected_baseline_revision=result.baseline_revision,
+        ),
+        db,
+        context,
+    )
+    assert saved.validated and saved.dimensions["body"] == 0.68
 
 
 @pytest.mark.parametrize("case", ["invalid_result", "concurrent_validation"])

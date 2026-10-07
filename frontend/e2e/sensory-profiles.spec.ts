@@ -16,8 +16,8 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
     </script></body></html>` }));
   let researched = false;
   let saved = false;
-  const original = { identity_id: "test", name: "Testamatta", producer: "Bibi Graetz", vintage: "2018", source: "metadata", confidence: .4, validated: false, dimensions: { body: .64, fruit: .67 }, generation_status: "available" };
-  const refined = { ...original, dimensions: { body: .68, fruit: .67 }, model: "gpt-6-astra", estimated_cost_usd: ".12", provenance: { body: { value: .68, lower: .55, upper: .8, calculation_method: "contextual_research_v1", rationale: "Stima contestuale del peso al palato, con incertezza esplicita.", evidence: [{ excerpt: "Full-bodied with bright acidity", source_url: "https://producer.example/testamatta-2018", publisher: "Produttore" }] } } };
+  const original = { identity_id: "test", name: "Testamatta", producer: "Bibi Graetz", vintage: "2018", source: "hybrid", confidence: .72, validated: true, dimensions: { body: .64, fruit: .67 }, generation_status: "available" };
+  const refined = { ...original, validated: false, is_proposal: true, baseline_revision: "a".repeat(64), baseline_dimensions: original.dimensions, dimensions: { body: .68, fruit: .67 }, model: "gpt-6-astra", estimated_cost_usd: ".12", provenance: { body: { value: .68, lower: .55, upper: .8, calculation_method: "contextual_research_v1", rationale: "Stima contestuale del peso al palato, con incertezza esplicita.", evidence: [{ excerpt: "Full-bodied with bright acidity", source_url: "https://producer.example/testamatta-2018", publisher: "Produttore" }] } } };
   await page.route("**/api/v1/taste-profile/admin/**", route => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -28,9 +28,10 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
     }
     if (route.request().method() === "PUT") {
       saved = route.request().postDataJSON().validated === true;
+      expect(route.request().postDataJSON().expected_baseline_revision).toBe(refined.baseline_revision);
       return route.fulfill({ json: refined });
     }
-    const matching = [researched ? refined : original, { ...original, identity_id: "protected", name: "Profilo validato", validated: true }];
+    const matching = [saved ? refined : original, { ...original, source: "manual", identity_id: "protected", name: "Profilo validato", validated: true }];
     const profiles = url.searchParams.get("search") === "Testamatta" ? matching
       : url.searchParams.get("offset") === "30" ? [{ ...original, identity_id: "last", name: "Vino oltre i primi trenta" }]
       : [...matching, ...Array.from({ length: 29 }, (_, i) => ({ ...original, identity_id: `wine-${i}`, name: `Vino ${i}` }))];
@@ -48,9 +49,14 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
   await expect(page.getByText("Pagina 1", { exact: true })).toBeVisible();
   await expect(page.getByText("Profili vino (2)", { exact: true })).toBeVisible();
   const buttons = page.getByRole("button", { name: "Approfondisci con Astra", exact: true });
-  await expect(buttons.nth(1)).toBeDisabled();
+  await expect(buttons.nth(1)).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Genera profilo con AI", exact: true }).first()).toBeDisabled();
   await buttons.first().click();
-  await expect(page.getByRole("status")).toContainText("gpt-6-astra");
+  await expect(page.getByRole("status").filter({ hasText: "gpt-6-astra" })).toBeVisible();
+  await expect(page.getByText(/Proposta di analisi: il profilo attuale resta invariato/)).toBeVisible();
+  await page.getByRole("button", { name: "Scarta proposta", exact: true }).click();
+  expect(saved).toBeFalsy();
+  await buttons.first().click();
   await page.getByText(/Corpo · Stima da ricerca/).click();
   await expect(page.getByText("Intervallo interpretativo, non una misura di accuratezza.")).toBeVisible();
   await expect(page.getByRole("link", { name: /Produttore/ })).toHaveAttribute("href", "https://producer.example/testamatta-2018");
@@ -65,7 +71,7 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
     if (width === 390) await page.screenshot({ path: testInfo.outputPath("astra-profile-mobile.png"), fullPage: true });
   }
   await page.getByLabel("Validato", { exact: true }).check();
-  await page.getByRole("button", { name: "Salva", exact: true }).click();
+  await page.getByRole("button", { name: "Applica proposta", exact: true }).click();
   expect(saved).toBeTruthy();
 });
 

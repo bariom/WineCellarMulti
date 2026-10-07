@@ -945,7 +945,32 @@ def update_sensory_profile(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_app_admin_context),
 ) -> SensoryProfileResponse:
-    profile = _admin_profile(identity_id, db)
+    if payload.expected_baseline_revision:
+        from app.services.sensory_refinement import profile_revision
+
+        wine = db.scalar(
+            select(Wine).where(
+                Wine.shared_identity_id == identity_id, Wine.household_id == context.household.id
+            )
+        )
+        if wine is None:
+            raise HTTPException(404, "Wine not found in the active cellar")
+        db.scalar(
+            select(SharedWineIdentity).where(SharedWineIdentity.id == identity_id).with_for_update()
+        )
+        profile = db.scalar(
+            select(WineSensoryProfile)
+            .where(WineSensoryProfile.identity_id == identity_id)
+            .execution_options(populate_existing=True)
+            .with_for_update()
+        )
+        if profile_revision(profile) != payload.expected_baseline_revision:
+            raise HTTPException(409, "Profile changed since research; previous profile retained")
+        if profile is None:
+            profile = WineSensoryProfile(identity_id=identity_id, dimensions={}, confidence=0)
+            db.add(profile)
+    else:
+        profile = _admin_profile(identity_id, db)
     new_dimensions = validated_dimensions(payload.dimensions)
     if new_dimensions != profile.dimensions:
         profile.provenance = {}
@@ -1068,7 +1093,7 @@ def refine_sensory_profile(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_app_admin_context),
 ) -> SensoryProfileResponse:
-    from app.services.sensory_refinement import refine_profile
+    from app.services.sensory_refinement import profile_revision, refine_profile
 
     wine = db.scalar(
         select(Wine)
@@ -1081,7 +1106,14 @@ def refine_sensory_profile(
         select(WineSensoryProfile).where(WineSensoryProfile.identity_id == identity_id)
     )
     generated, cost = refine_profile(db, context, wine, profile)
-    return sensory_response(generated).model_copy(update={"estimated_cost_usd": cost})
+    return sensory_response(generated).model_copy(
+        update={
+            "estimated_cost_usd": cost,
+            "is_proposal": True,
+            "baseline_revision": profile_revision(profile),
+            "baseline_dimensions": dict(profile.dimensions) if profile else {},
+        }
+    )
 
 
 @router.post("/admin/profiles/{identity_id}/regenerate", response_model=SensoryProfileResponse)

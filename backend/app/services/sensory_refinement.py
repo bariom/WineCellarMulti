@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, datetime
+from hashlib import sha256
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -15,6 +16,14 @@ from app.schemas.sensory_refinement import SensoryRefinementOutput
 from app.services.sensory_completion import SensoryEvidenceVerifier, exact_evidence
 from app.services.sensory_relevance import describes_trait
 from app.services.shared_wine_data import normalize_identity_part
+
+
+def profile_revision(profile):
+    snapshot = {
+        key: getattr(profile, key) if profile else None
+        for key in ("dimensions", "provenance", "validated", "source", "confidence")
+    }
+    return sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
 
 
 def checked_estimates(wine, response):
@@ -104,8 +113,6 @@ def refine_profile(db, context, wine, profile):
 
     if not settings.wine_sensory_ai_enabled:
         raise HTTPException(503, "Sensory profile AI generation is disabled")
-    if profile and (profile.validated or profile.source == "manual"):
-        raise HTTPException(409, "Manual or validated profiles are protected")
     if not wine.vintage.strip():
         raise HTTPException(422, "A vintage is required for advanced research")
     identity = (wine.name, wine.producer, wine.vintage, wine.shared_identity_id)
@@ -226,12 +233,17 @@ def refine_profile(db, context, wine, profile):
     for key, item in checked.items():
         dimensions[key] = item.value
         provenance[key] = item.model_dump(mode="json")
-    current = current or WineSensoryProfile(identity_id=wine.shared_identity_id)
-    db.add(current)
-    current.dimensions, current.provenance = dimensions, provenance
-    current.source, current.validated, current.generation_status = "hybrid", False, "available"
-    current.confidence = sum(float(provenance[key].get("confidence", 0)) for key in dimensions) / 9
-    current.model, current.generated_at = response.model[:120], datetime.now(UTC)
-    current.last_modified_by_user_id = context.user.id
-    db.commit()
-    return current, str(response.charged_cost_usd)
+    proposal = WineSensoryProfile(
+        identity_id=wine.shared_identity_id,
+        dimensions=dimensions,
+        provenance=provenance,
+        source="hybrid",
+        validated=False,
+        generation_status="available",
+        confidence=sum(float(provenance[key].get("confidence", 0)) for key in dimensions) / 9,
+        model=response.model[:120],
+        generated_at=datetime.now(UTC),
+    )
+    # A research request only returns a proposal. Applying it uses the ordinary
+    # explicit profile editor, including the administrator's validation choice.
+    return proposal, str(response.charged_cost_usd)
