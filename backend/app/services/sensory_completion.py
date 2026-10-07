@@ -153,9 +153,29 @@ def evidence_from_trait(trait: SourceTrait) -> SourceEvidence:
 
 def apply_descriptor_estimates(result: SensoryResearchResult, wine: Wine) -> None:
     """Normalize explicit, verified descriptions; never turn priors into observations."""
-    if result.prompt_version != "8":
+    if result.prompt_version not in {"8", "9"}:
         return
     from app.services.sensory_descriptors import descriptor_estimate
+
+    if result.prompt_version == "9":
+        from app.services.sensory_relevance import describes_trait
+
+        for key, item in result.complete_profile.items():
+            contextual = [e for e in item.evidence if not describes_trait(key, e.excerpt)]
+            item.context_evidence = list(
+                {
+                    (e.source_url, e.excerpt): e for e in [*item.context_evidence, *contextual]
+                }.values()
+            )
+            item.evidence = [e for e in item.evidence if describes_trait(key, e.excerpt)]
+            if (
+                not item.evidence
+                and not item.references
+                and item.origin not in {"unknown", "ai_inference"}
+            ):
+                item.value, item.origin, item.confidence = None, "unknown", 0
+                item.issue = "unsupported_intensity"
+                result.dimensions.pop(key, None)
 
     for key, item in result.complete_profile.items():
         if item.references or item.issue in {"conflicting_sources", "reference_disagreement"}:
@@ -198,6 +218,28 @@ def apply_descriptor_estimates(result: SensoryResearchResult, wine: Wine) -> Non
         result.dimensions[key] = ResearchTrait(
             value=item.value, basis="inferred", excerpt=proof.excerpt, source_url=proof.source_url
         )
+
+    if result.prompt_version == "9":
+        for item in result.complete_profile.values():
+            item.sensory_support = (
+                "intensity"
+                if item.value is not None and item.origin not in {"ai_inference", "unknown"}
+                else "description"
+                if item.evidence
+                else "context"
+                if item.context_evidence
+                else "none"
+            )
+            if item.origin == "ai_inference":
+                item.inference_basis = (
+                    "mixed_sources"
+                    if item.evidence and item.unverified_evidence
+                    else "verified_description"
+                    if item.evidence
+                    else "unverified_source"
+                    if item.unverified_evidence
+                    else "model_knowledge"
+                )
 
 
 class SensoryEvidenceVerifier:
@@ -247,9 +289,14 @@ class SensoryEvidenceVerifier:
                 if self.document_cache is not None and url in self.document_cache:
                     document = self.document_cache[url]
                 else:
-                    document = read_public_document(url, allow_pdf=True)
-                    if self.document_cache is not None:
-                        self.document_cache[url] = document
+                    from app.services.sensory_documents import prefetch_source_documents
+
+                    if self.document_cache is None:
+                        self.document_cache = {}
+                    prefetch_source_documents(
+                        {"source_url": url}, self.sources, self.document_cache, read_public_document
+                    )
+                    document = self.document_cache[url]
                 self.pages[url] = document.text
                 self.result.source_checks.setdefault(
                     url,

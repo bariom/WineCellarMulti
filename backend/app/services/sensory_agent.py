@@ -70,7 +70,7 @@ def proposal_from_response(
     source_texts: dict[str, str] | None = None,
     document_cache: dict | None = None,
 ) -> SensoryResearchResult:
-    if prompt_version in {"4", "5", "6", "7", "8"}:
+    if prompt_version in {"4", "5", "6", "7", "8", "9"}:
         from app.services.sensory_completion import build_complete_proposal
 
         return build_complete_proposal(
@@ -222,6 +222,12 @@ def complete_with_estimates(
         }
         for key, item in checked.complete_profile.items():
             current = result.complete_profile[key]
+            current.context_evidence = list(
+                {
+                    (e.source_url, e.excerpt): e
+                    for e in [*current.context_evidence, *item.context_evidence]
+                }.values()
+            )
             # Refinement cannot silently erase previously observed disagreement.
             if current.issue in {"conflicting_sources", "reference_disagreement"}:
                 continue
@@ -352,7 +358,7 @@ def complete_with_estimates(
 
 def describe_checked_result(result: SensoryResearchResult, locale: str) -> SensoryResearchResult:
     """Keep provider prose separate from statements derived from actual server checks."""
-    if result.prompt_version not in {"7", "8"}:
+    if result.prompt_version not in {"7", "8", "9"}:
         return result
     if result.agent_summary:
         return result
@@ -369,6 +375,15 @@ def describe_checked_result(result: SensoryResearchResult, locale: str) -> Senso
     result.coverage.update(
         qualitative=qualitative, inferred_grounded=grounded, inferred_unverified=unsupported
     )
+    if result.prompt_version == "9":
+        result.coverage.update(
+            described_estimates=sum(
+                i.sensory_support == "description" for i in result.complete_profile.values()
+            ),
+            context_estimates=sum(
+                i.sensory_support == "context" for i in result.complete_profile.values()
+            ),
+        )
     numeric = sum(
         item.value is not None and item.origin not in {"ai_inference", "unknown"}
         for item in result.complete_profile.values()
@@ -631,6 +646,17 @@ def _research_wine(
     refinement_calls = 0 if len(readable) >= 2 and qualitative >= 3 else 2
     feedback = {
         "readable_sources": readable,
+        "traits_without_sensory_description": [
+            key for key, item in result.complete_profile.items() if not item.evidence
+        ],
+        "blocked_hosts": sorted(
+            {
+                urlsplit(url).hostname or ""
+                for url, check in result.source_checks.items()
+                if check.status in {"cloudflare_challenge", "host_blocked"}
+                or check.http_status == 429
+            }
+        ),
         "web_search_calls_available": refinement_calls,
         "vintage_verified": result.vintage_confirmed,
         "issue": result.issue,

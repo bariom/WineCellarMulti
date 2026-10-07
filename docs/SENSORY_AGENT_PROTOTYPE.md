@@ -22,13 +22,13 @@ esistenti. Distribuire anche il frontend aggiornato. Restano valide le impostazi
 4. Revisionare una proposta completa prima di usare **Usa questo profilo**.
    Il salvataggio non equivale alla validazione umana.
 
-## Fasi del percorso v8
+## Fasi del percorso v9
 
 Il prompt versionato `wine.sensory_research` e un contratto JSON rigoroso richiedono
 identificazione, prove per annata, confronto, ricerca mirata delle lacune e fino a
 tre riferimenti documentati, quando reperiti senza ricerche aggiuntive. Il primo
 passaggio dispone di quattro consultazioni web. Se il profilo non è completo,
-il prompt `wine.sensory_completion` v4 riceve gli esiti della verifica server e
+il prompt `wine.sensory_completion` v5 riceve gli esiti della verifica server e
 fino a tre documenti leggibili (6.000 caratteri ciascuno). Con almeno due documenti
 e tre tratti documentati non avvia altre consultazioni; negli altri casi dispone
 di due consultazioni per cercare alternative e produce tutte le nove intensità
@@ -59,6 +59,25 @@ rendere seriale l'esecuzione. I risultati vengono salvati progressivamente e
 riordinati secondo la selezione; un errore non elimina i risultati già pagati.
 Il rapporto espone durata per vino e consultazioni web effettivamente riportate.
 Il limite di due lavoratori è per processo API, non una coda distribuita.
+
+### Descrizioni sensoriali e contesto (v9)
+
+Ogni tratto distingue intensità sostenuta da fonti, caratteristica descritta con
+intensità stimata, contesto verificato senza descrizione del tratto e assenza di
+descrizioni verificate. La pertinenza viene controllata dal server dopo la verifica
+della citazione. Una menzione del vitigno non conta come descrizione di frutto,
+tannino o spezie; l'affinamento in botte da solo non descrive aromi di legno.
+Le citazioni non pertinenti restano consultabili in `context_evidence`, senza
+incrementare la copertura qualitativa. `sensory_support` registra la distinzione;
+le intensità inferite restano non validate e non acquistano confidenza numerica.
+I conteggi non reinterpretano retroattivamente i rapporti precedenti.
+
+Quando le note dell'annata richiesta sono scarse, la ricerca cerca la stessa
+cuvée e produttore in annate vicine, preferibilmente entro tre anni, e lo stile
+generale. Mantiene annata e ambito originali delle prove. Una nota di un'altra
+annata non diventa una conferma sensoriale dell'annata richiesta. I domini bloccati
+da Cloudflare o HTTP 429 vengono passati al completamento per cercare alternative
+e non vengono interrogati nuovamente durante quella ricerca del vino.
 
 ### 1. Identificazione e interpretazione
 
@@ -146,7 +165,7 @@ Il sostegno euristico per tratto e 0,80 per riscontri indipendenti, 0,55 per fon
 singola dell'annata, 0,35-0,40 per stile e 0,35 per vini simili; il punteggio totale
 include lacune e inferenze non verificate a zero. Non sono probabilita calibrate
 di correttezza: zero prove numeriche non significa zero plausibilità del profilo.
-Nei percorsi v6, v7 e v8 una proposta con nove valori è applicabile anche senza annata
+Nei percorsi v6–v9 una proposta con nove valori è applicabile anche senza annata
 verificata: è una stima da revisionare e resta non validata. Un'identità realmente
 ambigua produce un profilo completo provvisorio ma blocca l'applicazione.
 Un profilo totalmente inferito ha copertura delle prove zero: i nove valori sono
@@ -201,7 +220,7 @@ l'applicazione esplicita e la geometria a 360, 390, 430 e 1440 pixel.
 
 ```powershell
 cd backend
-.venv/Scripts/python.exe -m pytest tests/test_sensory_agent.py tests/test_sensory_sources.py tests/test_sensory_descriptors.py tests/test_sensory_documents.py tests/test_sensory_parallel.py
+.venv/Scripts/python.exe -m pytest tests/test_sensory_agent.py tests/test_sensory_sources.py tests/test_sensory_descriptors.py tests/test_sensory_documents.py tests/test_sensory_parallel.py tests/test_sensory_relevance.py
 cd ../frontend
 npx.cmd playwright test e2e/sensory-agent.spec.ts e2e/sensory-profiles.spec.ts
 npm.cmd run build

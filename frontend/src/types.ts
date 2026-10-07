@@ -1632,6 +1632,8 @@ export type CompletedSensoryDimension = {
   rationale?: string; lower?: number | null; upper?: number | null;
   inference_basis?: "verified_description" | "mixed_sources" | "unverified_source" | "model_knowledge" | null;
   calculation_method?: string;
+  context_evidence?: SensorySourceEvidence[];
+  sensory_support?: "intensity" | "description" | "context" | "none" | null;
   unverified_evidence?: SensorySourceEvidence[];
   confidence: number; issue: string; evidence: SensorySourceEvidence[];
   references: Array<{ name: string; producer: string; vintage: string; similarity: number; value: number; evidence: SensorySourceEvidence; identity_evidence?: SensorySourceEvidence | null; production_evidence?: SensorySourceEvidence[] }>;

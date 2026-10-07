@@ -31,10 +31,15 @@ def prefetch_source_documents(payload: dict, sources: dict, cache: dict, reader)
                 collect(item)
 
     collect(payload)
+    blocked_hosts = {
+        urlsplit(url).netloc
+        for url, doc in cache.items()
+        if doc.status in {"cloudflare_challenge", "host_blocked"} or doc.http_status == 429
+    }
 
     def read_host(urls):
         documents = {}
-        blocked = False
+        blocked = urlsplit(urls[0]).netloc in blocked_hosts
         for url in urls:
             if blocked:
                 documents[url] = DocumentText(status="host_blocked")

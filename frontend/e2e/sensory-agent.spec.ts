@@ -366,6 +366,40 @@ test("Verified descriptor scale exposes provenance, range and research metrics",
   }
 });
 
+for (const locale of ["it", "en"]) {
+  test(`Sensory descriptions are distinct from verified grape context (${locale})`, async ({ page }, testInfo) => {
+    await renderPanel(page, locale);
+    const it = locale === "it";
+    const evidence = { excerpt: "un nez boisé et épicé", source_url: "https://producer.example/2020", scope: "exact_vintage", vintage: "2020", publisher: "Producer", role: "producer" };
+    const grape = { ...evidence, excerpt: "ein reinsortiger Merlot" };
+    const keys = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
+    const proposal = { ...result, prompt_version: "9", dimensions: {}, comparisons: [], aromas: [],
+      coverage: { available: 9, total: 9, exact_vintage: 0, corroborated: 0, estimated: 9, inferred: 9, unknown: 0, qualitative: 1, described_estimates: 1, context_estimates: 1 },
+      complete_profile: Object.fromEntries(keys.map(key => [key, { value: .5, origin: "ai_inference", confidence: 0, issue: "unsupported_intensity", lower: .2, upper: .8, references: [],
+        sensory_support: key === "wood" ? "description" : key === "fruit" ? "context" : "none",
+        evidence: key === "wood" ? [evidence] : [], context_evidence: key === "fruit" ? [grape] : [],
+        inference_basis: key === "wood" ? "verified_description" : "model_knowledge" }])) };
+    await page.route("**/api/v1/taste-profile/admin/research-runs", route => route.fulfill({ json: [{ ...completed, selected_wines: 1, results: [proposal] }] }));
+    await page.goto("/sensory-agent-test");
+    const article = page.getByRole("article");
+    await expect(article).toContainText(it ? "1 caratteristiche descritte con intensità stimata" : "1 described traits with estimated intensity");
+    await article.getByText(it ? "Confronto e prove" : "Comparison and evidence", { exact: true }).click();
+    await expect(article).toContainText(it ? "Caratteristica descritta · intensità stimata" : "Described trait · estimated intensity");
+    await expect(article).toContainText(it ? "La fonte verifica informazioni di contesto, non descrive questa caratteristica del gusto." : "The source verifies context, not this sensory trait.");
+    await article.getByText(it ? "Contesto verificato · non è una descrizione del tratto" : "Verified context · not a trait description", { exact: true }).click();
+    await expect(article.getByText(grape.excerpt, { exact: true })).toBeVisible();
+    for (const width of [360, 390, 430, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const table = (await article.getByRole("table").boundingBox())!;
+      const card = (await article.boundingBox())!;
+      expect(table.x).toBeGreaterThanOrEqual(card.x);
+      expect(table.x + table.width).toBeLessThanOrEqual(card.x + card.width + 1);
+      if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`support-${locale}-${width}.png`), fullPage: true });
+    }
+  });
+}
+
 test("Coverage distinguishes source-backed style from model inference in saved reports", async ({ page }) => {
   await renderPanel(page, "en");
   const keys = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];

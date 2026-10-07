@@ -228,6 +228,8 @@ class CompletedDimension(BaseModel):
     ) = None
     unverified_evidence: list[SourceEvidence] = Field(default_factory=list)
     calculation_method: str = ""
+    context_evidence: list[SourceEvidence] = Field(default_factory=list)
+    sensory_support: Literal["intensity", "description", "context", "none"] | None = None
 
 
 class SourceCheck(BaseModel):

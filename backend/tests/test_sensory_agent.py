@@ -736,7 +736,7 @@ def test_api_requires_admin_and_scopes_run_reads(setup):
 
 def test_prompt_has_identity_grounding_language_and_no_invention():
     prompt = wine_sensory_research_prompt(wine_context={"name": "Test wine"}, locale="it")
-    assert prompt.id == "wine.sensory_research" and prompt.version == "8"
+    assert prompt.id == "wine.sensory_research" and prompt.version == "9"
     assert "Italian" in prompt.user and "Test wine" in prompt.user
     assert "Never invent" in prompt.system and "untrusted data" in prompt.system
     assert "Missing evidence means null" in prompt.system and "vintage_confirmed" in prompt.system
@@ -747,6 +747,8 @@ def test_prompt_has_identity_grounding_language_and_no_invention():
     assert "up to three documented reference wines" in prompt.system
     assert "importers/distributors" in prompt.system
     assert "server normalizes explicit anchors" in prompt.system
+    assert "same named cuvee and producer in nearby vintages" in prompt.system
+    assert "never relabel" in prompt.system
 
 
 def test_v4_malformed_output_is_rejected(setup):
@@ -1139,7 +1141,7 @@ def test_completion_rejects_malformed_or_wrong_identity_without_losing_research(
 
 
 @pytest.mark.parametrize("ambiguous", [False, True])
-@pytest.mark.parametrize("version", ["6", "7", "8"])
+@pytest.mark.parametrize("version", ["6", "7", "8", "9"])
 def test_estimated_profile_apply_preserves_inference_and_blocks_ambiguous_identity(
     setup, ambiguous, version
 ):
@@ -1283,7 +1285,7 @@ def test_completion_prompt_and_strict_schema():
     prompt = wine_sensory_completion_prompt(
         wine_context={"vintage": "2016"}, feedback={"issue": "source_unreadable"}, locale="it"
     )
-    assert prompt.id == "wine.sensory_completion" and prompt.version == "4"
+    assert prompt.id == "wine.sensory_completion" and prompt.version == "5"
     assert "Italian" in prompt.user and "2016" in prompt.user
     assert "untrusted data" in prompt.system and "must not anchor" in prompt.system
     assert "ALL nine estimates" in prompt.system and "Do not retry Cloudflare" in prompt.system
@@ -1296,6 +1298,8 @@ def test_completion_prompt_and_strict_schema():
     assert "web_search_calls_available, which may be zero" in prompt.system
     assert "actual server-extracted passages" in prompt.system
     assert "Never join separate source passages" in prompt.system
+    assert "alternative domains for blocked_hosts" in prompt.system
+    assert "grape, region or aging method is context only" in prompt.system
     schema = SensoryCompletionOutput.model_json_schema()
     for item in [schema, *schema["$defs"].values()]:
         if item.get("type") == "object":
@@ -1507,3 +1511,98 @@ def test_research_reuses_documents_without_second_paid_web_search(setup, monkeyp
     )
     assert result.web_search_calls == 3 and result.duration_ms > 0
     assert result.status == "ready" and result.coverage["available"] == 9
+
+
+@pytest.mark.parametrize(
+    "key,excerpt,support",
+    [
+        ("fruit", "Der Rosso del Principe, ein reinsortiger Merlot", "context"),
+        ("tannin", "Le palais est structuré et long.", "context"),
+        ("spice", "Der Rosso del Principe, ein reinsortiger Merlot", "context"),
+        ("wood", "un nez boisé et épicé.", "description"),
+        ("spice", "un nez boisé et épicé.", "description"),
+        ("body", "mittelschwerer Wein", "intensity"),
+    ],
+)
+@pytest.mark.parametrize("readable", [True, False])
+def test_v9_verified_context_does_not_inflate_sensory_coverage(
+    setup, monkeypatch, key, excerpt, support, readable
+):
+    _, _, wine = setup
+    from app.services.score_sources import DocumentText
+
+    premise = source_evidence(vintage=wine.vintage, excerpt=excerpt)
+    monkeypatch.setattr(
+        "app.services.sensory_completion.read_public_document",
+        lambda *args, **kwargs: DocumentText(
+            text=excerpt if readable else "",
+            status="readable" if readable else "cloudflare_challenge",
+        ),
+    )
+    first = agent.proposal_from_response(wine, response({}), {}, prompt_version="9")
+    payload = completion_output(wine)
+    payload["estimates"][key]["evidence"] = [premise]
+    result = agent.complete_with_estimates(wine, first, response(payload), document_cache={})
+    item = result.complete_profile[key]
+    assert result.coverage["available"] == 9
+    if not readable:
+        assert item.sensory_support == "none"
+        assert not item.context_evidence and not item.evidence
+        assert result.coverage["qualitative"] == 0
+        assert item.unverified_evidence
+        return
+    assert item.sensory_support == support
+    assert result.coverage["qualitative"] == (0 if support == "context" else 1)
+    assert bool(item.context_evidence) == (support == "context")
+    assert bool(item.evidence) == (support != "context")
+    if support != "intensity":
+        assert item.origin == "ai_inference" and item.confidence == 0
+    if support == "description":
+        assert result.coverage["described_estimates"] == 1
+    if support == "context":
+        assert result.coverage["context_estimates"] == 1
+        assert item.inference_basis != "verified_description"
+
+
+def test_v9_nearby_vintage_never_becomes_target_vintage_evidence(setup):
+    _, _, wine = setup
+    payload = complete_output(wine)
+    payload["dimensions"] = {key: None for key in SENSORY_DIMENSIONS}
+    payload["comparisons"] = []
+    payload["dimensions"]["body"] = {
+        **source_evidence(vintage=str(int(wine.vintage) + 1), excerpt="Full-bodied wine"),
+        "scope": "other_vintage",
+        "value": 0.75,
+        "basis": "inferred",
+        "intensity_supported": True,
+    }
+    result = agent.proposal_from_response(
+        wine, response(payload), {}, prompt_version="9", source_texts=source_pages(payload)
+    )
+    assert result.complete_profile["body"].origin == "wine_style"
+    assert result.coverage["exact_vintage"] == 0
+    assert result.complete_profile["body"].evidence[0].vintage != wine.vintage
+
+
+def test_completion_premises_do_not_retry_blocked_host(setup, monkeypatch):
+    _, _, wine = setup
+    from app.services.score_sources import DocumentText
+
+    reads = []
+    monkeypatch.setattr(
+        "app.services.sensory_completion.read_public_document",
+        lambda *args, **kwargs: reads.append(args) or DocumentText(status="unavailable"),
+    )
+    first = agent.proposal_from_response(wine, response({}), {}, prompt_version="9")
+    payload = completion_output(wine)
+    payload["estimates"]["wood"]["evidence"] = [
+        source_evidence(vintage=wine.vintage, excerpt="Notes of oak")
+    ]
+    cache = {
+        "https://producer.example/blocked": DocumentText(
+            status="cloudflare_challenge", http_status=403
+        )
+    }
+    result = agent.complete_with_estimates(wine, first, response(payload), document_cache=cache)
+    assert not reads
+    assert result.complete_profile["wood"].sensory_support == "none"

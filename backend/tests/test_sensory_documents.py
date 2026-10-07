@@ -20,6 +20,19 @@ def test_reader_failure_preserves_other_documents():
     assert cache[urls[1]].text == "Full-bodied"
 
 
+def test_blocked_host_is_not_retried_in_completion():
+    cache = {
+        "https://blocked.example/a": DocumentText(status="cloudflare_challenge", http_status=403)
+    }
+    url = "https://blocked.example/new-vintage"
+
+    def reader(*args, **kwargs):
+        raise AssertionError("Blocked host was retried")
+
+    prefetch_source_documents({"source_url": url}, {url: {}}, cache, reader)
+    assert cache[url].status == "host_blocked"
+
+
 def test_documents_from_different_hosts_overlap_and_are_cached():
     urls = ["https://producer.example/a", "https://critic.example/b"]
     barrier = Barrier(2)
