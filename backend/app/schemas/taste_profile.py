@@ -179,7 +179,11 @@ class SensoryBaselineResponse(SensoryBaselineInput):
     id: UUID
 
 
+SensoryAdminScope = Literal["cellar", "references", "catalog"]
+
+
 class BatchEnrichmentRequest(BaseModel):
+    scope: SensoryAdminScope = "catalog"
     limit: int = Field(default=100, ge=1, le=1000)
     allow_ai: bool = True
 

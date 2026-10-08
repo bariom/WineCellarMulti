@@ -18,14 +18,19 @@ test("Simple workflow previews the shared catalog before batch generation", asyn
   let previewCalls = 0;
   let generationCalls = 0;
   await page.route("**/api/v1/taste-profile/admin/**", route => {
-    const path = new URL(route.request().url()).pathname;
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+    const scope = url.searchParams.get("scope");
+    if (path.endsWith("/summary") || path.endsWith("/profiles") || path.endsWith("/batch-preview")) {
+      expect(["cellar", "references", "catalog"]).toContain(scope);
+    }
     if (path.endsWith("/batch-preview")) {
       previewCalls++;
       if (previewCalls === 1) return route.fulfill({ status: 503, json: { detail: "Anteprima non disponibile" } });
-      return route.fulfill({ json: { missing: generated ? 0 : 8, deterministic: generated ? 0 : 8, requires_ai: 0 } });
+      return route.fulfill({ json: { missing: generated && scope === "cellar" ? 0 : 8, deterministic: generated && scope === "cellar" ? 0 : 8, requires_ai: 0 } });
     }
     if (path.endsWith("/enrich-missing")) {
-      expect(route.request().postDataJSON()).toEqual({ limit: 50, allow_ai: true });
+      expect(route.request().postDataJSON()).toEqual({ limit: 50, allow_ai: true, scope: "cellar" });
       generationCalls++;
       generated = true;
       return route.fulfill({ json: { processed: 8, resolved: 8, ai_generated: 0, skipped: 1 } });
@@ -35,9 +40,11 @@ test("Simple workflow previews the shared catalog before batch generation", asyn
     return route.fulfill({ json: path.endsWith("/summary") ? { wines_with_profile: generated ? 9 : 1, wines_without_profile: generated ? 0 : 8 } : path.endsWith("/profiles") ? [{ identity_id: "test", name: "Testamatta", producer: "Bibi Graetz", vintage: "2018", source: "hybrid", confidence: .72, validated: true, dimensions: { body: .64 } }] : [] });
   });
   await page.goto("/sensory-simple-test");
+  const scopeSelect = page.getByLabel("Su quali vini vuoi lavorare?");
+  await expect(scopeSelect).toHaveValue("cellar");
   const generate = page.getByRole("button", { name: "Genera mancanti con AI", exact: true });
   await expect(generate).toBeDisabled();
-  await expect(page.getByText(/inclusi i vini importati come riferimenti/)).toBeVisible();
+  await expect(page.getByText(/I riferimenti non presenti in questa cantina sono esclusi/)).toBeVisible();
   await expect(page.getByText(/consumare crediti/)).toBeVisible();
   await expect(page.getByText("Baseline sensoriali", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Esamina riscontri", exact: true })).toHaveCount(0);
@@ -67,6 +74,16 @@ test("Simple workflow previews the shared catalog before batch generation", asyn
   await page.getByRole("button", { name: "Mostra anteprima" }).click();
   await expect(page.getByText("Non ci sono profili mancanti da generare.", { exact: true })).toBeVisible();
   await expect(generate).toBeDisabled();
+  await scopeSelect.selectOption("references");
+  await expect(page.getByText(/solo le identità con un dossier importato/)).toBeVisible();
+  await expect(page.getByText("Generazione completata", { exact: true })).not.toBeVisible();
+  await expect(generate).toBeDisabled();
+  await page.getByRole("button", { name: "Mostra anteprima" }).click();
+  await expect(generate).toBeEnabled();
+  await scopeSelect.selectOption("catalog");
+  await expect(page.getByText(/inclusi i riferimenti importati e i vini di altre cantine/)).toBeVisible();
+  await expect(generate).toBeDisabled();
+  expect(generationCalls).toBe(1);
 });
 
 test("Optional Astra refinement opens evidence and protects validated profiles", async ({ page }, testInfo) => {
@@ -209,7 +226,7 @@ test("AI actions send opt-in and show single-wine errors", async ({ page }, test
   await page.goto("/sensory-test");
   await expect(page.getByRole("button", { name: "Approva tutti da validare" })).toHaveCount(0);
   await page.getByLabel("Mostra strumenti avanzati").check();
-  await page.getByText("Approvazione amministrativa in blocco", { exact: true }).click();
+  await page.getByText("Approvazione dell’intero catalogo", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Approfondisci con Astra" })).toHaveCount(0);
   await expect(page.getByText(/Le nuove ricerche sensoriali a pagamento sono sospese/)).toBeVisible();
   page.on("dialog", dialog => dialog.accept());

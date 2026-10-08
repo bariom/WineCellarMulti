@@ -111,6 +111,56 @@ def test_existing_shared_profile_is_reused_without_ai() -> None:
     assert not called
 
 
+def test_admin_scope_separates_cellar_references_and_other_households(monkeypatch):
+    from app.models import SharedWineFact
+
+    db = Session()
+    home, other = Household(name="Active"), Household(name="Other")
+    user = User(email="scope@example.test", display_name="Admin", password_hash="x")
+    db.add_all([home, other, user])
+    db.flush()
+    own = make_wine(db, home, name="Own wine")
+    foreign = make_wine(db, other, name="Foreign wine")
+    reference = make_wine(db, other, name="Reference wine")
+    reference_id = reference.shared_identity_id
+    db.add(SharedWineFact(identity_id=reference_id, feature="sensory_reference", payload={}))
+    db.delete(reference)
+    db.flush()
+    context = SimpleNamespace(user=user, household=home)
+    for scope, count in [("cellar", 1), ("references", 1), ("catalog", 3)]:
+        assert taste_profile_routes.batch_preview(db, context, scope).missing == count
+        assert taste_profile_routes.sensory_profile_summary(db, context, scope)["wines_without_profile"] == count
+        rows = taste_profile_routes.list_sensory_profiles(
+            missing=True, search=None, offset=0, limit=100, db=db, context=context, scope=scope
+        )
+        assert len(rows) == count
+    # Global catalog can use public identities, never another household's metadata.
+    candidates = taste_profile_routes._batch_candidates(db, context, "catalog")
+    foreign_candidate = next(w for w in candidates if w.shared_identity_id == foreign.shared_identity_id)
+    assert foreign_candidate.household_id is None and foreign_candidate.type == ""
+    calls = []
+    original = taste_profile_routes._generate_with_sensory_metadata
+
+    def generate(db, wine, **kwargs):
+        calls.append(wine.shared_identity_id)
+        return original(db, wine, **kwargs)
+
+    monkeypatch.setattr(taste_profile_routes, "_generate_with_sensory_metadata", generate)
+    result = taste_profile_routes.enrich_missing_profiles(
+        BatchEnrichmentRequest(scope="cellar", allow_ai=False), db, context
+    )
+    assert result["resolved"] == 1
+    assert calls == [own.shared_identity_id]
+    assert db.scalar(select(WineSensoryProfile).where(WineSensoryProfile.identity_id == reference_id)) is None
+    assert taste_profile_routes.batch_preview(db, context, "cellar").missing == 0
+    assert taste_profile_routes.batch_preview(db, context, "references").missing == 1
+    # A reference also held in the active cellar belongs to both scopes, once each.
+    held = make_wine(db, home, name="Reference wine")
+    assert held.shared_identity_id == reference_id
+    assert taste_profile_routes.batch_preview(db, context, "cellar").missing == 1
+    assert taste_profile_routes.batch_preview(db, context, "references").missing == 1
+
+
 def test_validated_pending_profile_is_completed_instead_of_reused() -> None:
     db = Session()
     household = Household(name="Home")
@@ -203,7 +253,7 @@ def test_batch_skips_available_profiles_before_applying_ai_limit(monkeypatch) ->
     monkeypatch.setattr(taste_profile_routes.settings, "wine_sensory_ai_batch_max", 1)
 
     result = taste_profile_routes.enrich_missing_profiles(
-        BatchEnrichmentRequest(limit=1), db, SimpleNamespace(user=user)
+        BatchEnrichmentRequest(limit=1), db, SimpleNamespace(user=user, household=household)
     )
 
     assert result == {
@@ -245,7 +295,7 @@ def test_single_regeneration_creates_a_missing_profile_with_ai(monkeypatch) -> N
     monkeypatch.setattr(taste_profile_routes, "_ai_sensory_metadata", lambda _wine: ({}, ""))
 
     response = taste_profile_routes.regenerate_sensory_profile(
-        wine.shared_identity_id, True, db, SimpleNamespace(user=user)
+        wine.shared_identity_id, True, db, SimpleNamespace(user=user, household=household)
     )
 
     assert response.source == "ai"
@@ -280,7 +330,7 @@ def test_regeneration_completes_verified_metadata_before_profile(monkeypatch) ->
     )
 
     response = taste_profile_routes.regenerate_sensory_profile(
-        wine.shared_identity_id, True, db, SimpleNamespace(user=user)
+        wine.shared_identity_id, True, db, SimpleNamespace(user=user, household=household)
     )
 
     assert wine.type == "Red"
@@ -360,7 +410,7 @@ def test_orphan_identity_is_previewed_and_generated_without_creating_a_wine(monk
     identity_id = wine.shared_identity_id
     db.delete(wine)
     db.commit()
-    context = SimpleNamespace(user=user)
+    context = SimpleNamespace(user=user, household=household)
     monkeypatch.setattr(taste_profile_routes, "_ai_sensory_metadata", lambda w: ({}, ""))
     calls = []
 

@@ -10,9 +10,23 @@ The default screen is the ordinary semiautomatic batch workflow: **Mostra
 anteprima**, then **Genera mancanti con AI**. Generation is enabled only after a
 successful preview with missing profiles. Preview is free; generation may use AI
 credits for missing metadata. It does not start in-depth sensory research.
-Counts and generation cover the shared catalog, including imported references,
-not only the active cellar or search results. No individual dossier import or
-review is required. Available profiles are preserved by the existing batch API.
+The default scope is **Cantina attiva**, including archived wines. **Riferimenti
+importati** selects identities with an imported documentary dossier; **Catalogo
+condiviso completo** includes all shared identities, even orphaned identities and
+wines belonging to other cellars. Counts, list, preview and batch generation use
+the selected scope. Search filters narrow only the list. Changing scope clears
+the preview and requires another preview before generation. A wine in both the
+cellar and the reference set retains one shared profile, visible to other cellars
+using that identity. Reference generation is optional. No individual dossier
+import or review is required. Available profiles are preserved by the batch API.
+
+Admin summary, list and batch-preview accept `scope=cellar|references|catalog`;
+enrich-missing accepts the same field in its JSON body. The API default remains
+`catalog` for existing clients; the UI explicitly selects `cellar`. Household wine
+metadata is read only from the current household. Other shared identities use
+catalog metadata carriers rather than reading another household's inventory.
+This requires no database migration. Global administrative approval remains
+explicitly labelled as applying to the entire catalog, regardless of this scope.
 
 Search and manual editing remain available in the default view. Enable **Mostra
 strumenti avanzati** to access individual AI actions, documentary reviews, extra

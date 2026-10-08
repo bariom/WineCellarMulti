@@ -8,7 +8,7 @@ from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from sqlalchemy import String, func, select
+from sqlalchemy import String, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -29,6 +29,7 @@ from app.db.session import get_db
 from app.models import (
     ExternalWineTasting,
     SensoryProfileBaseline,
+    SharedWineFact,
     SharedWineIdentity,
     UserTasteProfile,
     UserWineRating,
@@ -48,6 +49,7 @@ from app.schemas.taste_profile import (
     ExternalTastingEnrichmentResultItem,
     LegacyTastingClaimResponse,
     LegacyTastingClaimStatus,
+    SensoryAdminScope,
     SensoryBaselineInput,
     SensoryBaselineResponse,
     SensoryMetadataEnrichmentResponse,
@@ -793,10 +795,14 @@ def _admin_profile(identity_id: UUID, db: Session) -> WineSensoryProfile:
     return profile
 
 
-def _batch_candidates(db: Session) -> list[Wine]:
+def _batch_candidates(
+    db: Session, context: CurrentContext, scope: SensoryAdminScope = "catalog"
+) -> list[Wine]:
     """One representative per canonical identity, including pre-feature historical wines."""
     candidates: dict[tuple[str, ...], Wine] = {}
-    for wine in db.scalars(select(Wine).order_by(Wine.created_at)):
+    for wine in db.scalars(
+        select(Wine).where(Wine.household_id == context.household.id).order_by(Wine.created_at)
+    ):
         identity = resolve_shared_identity(db, wine, create=False)
         parts = identity_parts(wine)
         key = (str(identity.id),) if identity is not None else parts
@@ -804,7 +810,25 @@ def _batch_candidates(db: Session) -> list[Wine]:
             candidates.setdefault(key, wine)
     # Shared identities survive deletion or renaming of the original cellar wine.
     # They are still shown in the missing list and must remain actionable.
-    for identity in db.scalars(select(SharedWineIdentity)):
+    if scope == "cellar":
+        return list(candidates.values())
+    if scope == "references":
+        reference_ids = set(
+            db.scalars(
+                select(SharedWineFact.identity_id).where(
+                    SharedWineFact.feature == "sensory_reference"
+                )
+            )
+        )
+        candidates = {
+            key: wine
+            for key, wine in candidates.items()
+            if wine.shared_identity_id in reference_ids
+        }
+        identities = select(SharedWineIdentity).where(SharedWineIdentity.id.in_(reference_ids))
+    else:
+        identities = select(SharedWineIdentity)
+    for identity in db.scalars(identities):
         candidates.setdefault((str(identity.id),), _identity_metadata(identity))
     return list(candidates.values())
 
@@ -826,10 +850,18 @@ def _identity_metadata(identity: SharedWineIdentity) -> Wine:
 
 @router.get("/admin/summary")
 def sensory_profile_summary(
-    db: Session = Depends(get_db), context: CurrentContext = Depends(require_app_admin_context)
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+    scope: SensoryAdminScope = "catalog",
 ) -> dict:
-    identities = db.scalar(select(func.count(SharedWineIdentity.id))) or 0
-    profiles = list(db.scalars(select(WineSensoryProfile)))
+    candidates = _batch_candidates(db, context, scope)
+    identities = len(candidates)
+    identity_ids = {wine.shared_identity_id for wine in candidates if wine.shared_identity_id}
+    profiles = list(
+        db.scalars(
+            select(WineSensoryProfile).where(WineSensoryProfile.identity_id.in_(identity_ids))
+        )
+    )
     available = [profile for profile in profiles if profile.generation_status == "available"]
     return {
         "wines_with_profile": len(available),
@@ -861,8 +893,13 @@ def list_sensory_profiles(
     limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_app_admin_context),
+    scope: SensoryAdminScope = "catalog",
 ) -> list[dict]:
     identity_filters = []
+    if scope != "catalog":
+        candidates = _batch_candidates(db, context, scope)
+        ids = {wine.shared_identity_id for wine in candidates if wine.shared_identity_id}
+        identity_filters.append(SharedWineIdentity.id.in_(ids))
     if search and search.strip():
         term = f"%{search.strip()}%"
         identity_filters.append(
@@ -1280,9 +1317,11 @@ def complete_sensory_profile_metadata(
 
 @router.post("/admin/batch-preview", response_model=BatchEnrichmentPreview)
 def batch_preview(
-    db: Session = Depends(get_db), context: CurrentContext = Depends(require_app_admin_context)
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+    scope: SensoryAdminScope = "catalog",
 ) -> BatchEnrichmentPreview:
-    wines = _batch_candidates(db)
+    wines = _batch_candidates(db, context, scope)
     seen: set[tuple[str, ...]] = set()
     missing = deterministic = 0
     for wine in wines:
@@ -1310,7 +1349,7 @@ def enrich_missing_profiles(
     context: CurrentContext = Depends(require_app_admin_context),
 ) -> dict:
     limit = min(payload.limit, settings.wine_sensory_ai_batch_max)
-    wines = _batch_candidates(db)
+    wines = _batch_candidates(db, context, payload.scope)
     seen: set[tuple[str, ...]] = set()
     processed = resolved = ai_generated = skipped = 0
     for wine in wines:
