@@ -31,7 +31,7 @@ def db():
 
 def test_batch_has_sources_and_no_numeric_sensory_claims(db):
     preview = preview_references(db)
-    assert len(preview.rows) == 7
+    assert len(preview.rows) == 15
     assert all(row.status == "new" for row in preview.rows)
     assert all(row.dossier.limitations for row in preview.rows)
     assert all(row.dossier.source_url.scheme == "https" for row in preview.rows)

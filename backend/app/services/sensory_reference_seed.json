@@ -333,6 +333,252 @@
         "Acidità e zucchero analitici non misurano direttamente l’intensità percepita."
       ],
       "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "bollinger-grande-annee-2015",
+      "name": "La Grande Année",
+      "producer": "Bollinger",
+      "vintage": "2015",
+      "country": "France",
+      "source_url": "https://www.champagne-bollinger.com/en/wine/grande-annee-2015/",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Uvaggio": "60% Pinot Noir, 40% Chardonnay",
+        "Dosaggio": "8 g/L; non è una misura dello zucchero residuo",
+        "Vinificazione": "Fermentazione interamente in rovere"
+      },
+      "observations": {
+        "body": "Palato generoso e ricco.",
+        "acidity": "Freschezza agrumata nel finale.",
+        "fruit": "Mela, prugna e piccoli frutti.",
+        "wood": "Sfumature legnose delicate.",
+        "spice": "Vaniglia.",
+        "minerality": "Richiamo allo scisto nel finale."
+      },
+      "limitations": [
+        "Unica nota del produttore; dosaggio e dolcezza percepita non sono equivalenti.",
+        "Sintesi documentale: nessuna intensità sensoriale 0–1 validata."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "ott-chateau-selle-rose-2023",
+      "name": "Château de Selle Rosé",
+      "producer": "Domaines Ott",
+      "vintage": "2023",
+      "country": "France",
+      "source_url": "https://www.domaines-ott.com/wp-content/uploads/2024/05/domaines-ott-fiche-technique-vin-de-provence-chateau-de-selle-rose-2023-fr.pdf",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Uvaggio": "55% Grenache, 25% Cinsault, 14% Mourvèdre, 6% Syrah",
+        "Denominazione": "Côtes de Provence"
+      },
+      "observations": {
+        "fruit": "Frutta bianca ed esotica al naso, frutta estiva al palato.",
+        "minerality": "Sfumature minerali e finale gessoso.",
+        "spice": "Pepe bianco leggero nel finale."
+      },
+      "limitations": [
+        "La scheda non quantifica acidità o zucchero residuo; consistenza setosa non tradotta in corpo numerico.",
+        "Sintesi documentale: nessuna intensità sensoriale 0–1 validata."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "disznoko-aszu-five-2017",
+      "name": "Tokaji Aszú 5 Puttonyos",
+      "producer": "Disznókő",
+      "vintage": "2017",
+      "country": "Hungary",
+      "source_url": "https://www.disznoko.hu/pdf/vin/en/disznok-tokaji-aszu-5-puttonyos-2017-11.pdf",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Affinamento": "Due anni in rovere da 225 L, prevalentemente usato",
+        "Imbottigliamento": "Marzo 2020"
+      },
+      "observations": {
+        "body": "Palato ricco.",
+        "acidity": "Acidità fresca e rotonda.",
+        "fruit": "Albicocca, pesca bianca e prugna verde.",
+        "spice": "Spezie orientali e finale speziato."
+      },
+      "limitations": [
+        "Nota del direttore László Mészáros, settembre 2020.",
+        "La scheda non riporta zucchero residuo; la categoria non viene convertita in dolcezza numerica.",
+        "Sintesi documentale: nessuna intensità sensoriale 0–1 validata."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "ridge-estate-chardonnay-2022",
+      "name": "Estate Chardonnay",
+      "producer": "Ridge Vineyards",
+      "vintage": "2022",
+      "country": "USA",
+      "source_url": "https://www.ridgewine.com/wines/2022-estate-chardonnay/",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Alcol": "14.3% vol",
+        "pH": "3.36",
+        "Acidità totale": "6.61 g/L; base di espressione non dichiarata",
+        "Vitigno": "100% Chardonnay",
+        "Affinamento": "15 mesi in barrique, 15% nuove"
+      },
+      "observations": {
+        "fruit": "Ananas, limone, pera e albicocca.",
+        "wood": "Rovere dolce nella nota olfattiva.",
+        "spice": "Zenzero.",
+        "minerality": "Richiamo alla pietra focaia."
+      },
+      "limitations": [
+        "TA e pH nella sezione vinificazione, momento della misura non specificato.",
+        "Recensioni riprodotte dal produttore, non controllate sui siti originali.",
+        "Le note sono di ottobre 2023 e aprile–maggio 2024.",
+        "Sintesi documentale: nessuna intensità sensoriale 0–1 validata."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto.",
+      "assessments": {
+        "body": {
+          "status": "conflicting",
+          "rationale": "Corpo medio per il produttore e pieno per il recensore: conservare il disaccordo.",
+          "evidence": [
+            {
+              "source_url": "https://www.ridgewine.com/wines/2022-estate-chardonnay/",
+              "publisher": "Ridge Vineyards",
+              "summary": "Corpo medio.",
+              "note_date": "2023-10"
+            },
+            {
+              "source_url": "https://www.ridgewine.com/wines/2022-estate-chardonnay/",
+              "publisher": "Jim Gordon / James Suckling, riprodotto da Ridge",
+              "summary": "Corpo pieno.",
+              "note_date": "2024-05"
+            }
+          ]
+        },
+        "acidity": {
+          "status": "conflicting",
+          "rationale": "Le descrizioni della vivacità divergono; nessuna media automatica.",
+          "evidence": [
+            {
+              "source_url": "https://www.ridgewine.com/wines/2022-estate-chardonnay/",
+              "publisher": "Jim Gordon / James Suckling, riprodotto da Ridge",
+              "summary": "Acidità vivace.",
+              "note_date": "2024-05"
+            },
+            {
+              "source_url": "https://www.ridgewine.com/wines/2022-estate-chardonnay/",
+              "publisher": "Matthew Luczy / Wine Advocate, riprodotto da Ridge",
+              "summary": "Struttura acida morbida e scarsa energia.",
+              "note_date": "2024-04"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "catena-malbec-2022",
+      "name": "Catena Malbec",
+      "producer": "Catena Zapata",
+      "vintage": "2022",
+      "country": "Argentina",
+      "source_url": "https://catenazapata.com/catena-malbec-2022/",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Vitigno": "100% Malbec",
+        "Alcol": "13.7% vol",
+        "Acidità totale": "5.7 g/L; base di espressione non dichiarata",
+        "pH": "3.65",
+        "Affinamento": "11–13 mesi in rovere francese, primo–terzo uso"
+      },
+      "observations": {},
+      "limitations": [
+        "Dossier tecnico senza nota sensoriale specifica sufficiente: nessuna caratteristica proposta.",
+        "pH, acidità totale e uso del legno non quantificano le rispettive percezioni.",
+        "Sintesi documentale: nessuna intensità sensoriale 0–1 validata."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "musar-rose-2017",
+      "name": "Château Musar Rosé",
+      "producer": "Château Musar",
+      "vintage": "2017",
+      "country": "Lebanon",
+      "source_url": "https://chateaumusar.com/wp-content/uploads/2017/06/Chateau-Musar-Rose-2017.pdf",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Alcol": "11.5% vol",
+        "Uvaggio": "60% Obaideh, 37% Merwah, 3% Cinsault",
+        "Affinamento": "12 mesi in rovere nuovo di Nevers"
+      },
+      "observations": {
+        "body": "Il produttore descrive ricchezza e peso glicerico.",
+        "fruit": "Mandarino e cotogna nella nota del produttore.",
+        "wood": "Carattere vanigliato del rovere percepito.",
+        "spice": "Spezie esotiche.",
+        "minerality": "Finale salino."
+      },
+      "limitations": [
+        "Il produttore elenca frutti, mentre la recensione di Pedro Ballesteros Torres (giugno 2020), qui riprodotta, li descrive poco presenti: presenza e intensità sono distinte.",
+        "La dicitura secco non fornisce zucchero residuo misurato.",
+        "Sintesi documentale: nessuna intensità sensoriale 0–1 validata."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "roederer-cristal-2016",
+      "name": "Cristal",
+      "producer": "Louis Roederer",
+      "vintage": "2016",
+      "country": "France",
+      "source_url": "https://www.louis-roederer.com/sites/default/files/pdf/ft_cristal_2016_en.pdf",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Uvaggio": "58% Pinot Noir, 42% Chardonnay",
+        "Dosaggio": "7 g/L; non è una misura dello zucchero residuo",
+        "Vinificazione": "31% del vino in rovere; fermentazione malolattica 0%"
+      },
+      "observations": {
+        "aromatic_intensity": "Bouquet descritto come intenso.",
+        "fruit": "Agrumi, pesca e susina; frutto concentrato al palato.",
+        "minerality": "Finale salino, iodato e gessoso."
+      },
+      "limitations": [
+        "Dosaggio non convertito in dolcezza; quota in rovere non convertita in intensità del legno.",
+        "Unica nota del produttore, senza panel sensoriale misurato.",
+        "Sintesi documentale: nessuna intensità sensoriale 0–1 validata."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "sigalas-santorini-2022",
+      "name": "Santorini",
+      "producer": "Domaine Sigalas",
+      "vintage": "2022",
+      "country": "Greece",
+      "source_url": "https://sigalas-wine.com/wp-content/uploads/2022/02/Santorini_2022_Factsheet_En.pdf",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Vitigno": "100% Assyrtiko",
+        "Alcol": "14.2% vol",
+        "Zucchero residuo": "3.1 g/L",
+        "pH": "3.23",
+        "Acidità totale": "5.8 g/L; base di espressione non dichiarata",
+        "Affinamento": "Tre mesi sui lieviti in acciaio"
+      },
+      "observations": {
+        "body": "Palato ricco.",
+        "acidity": "Acidità vivace.",
+        "fruit": "Pesca e limone.",
+        "minerality": "Mineralità olfattiva intensa e carattere salino al palato."
+      },
+      "limitations": [
+        "Analisi chimiche distinte dalle intensità percepite.",
+        "I punteggi dei concorsi non misurano i nove tratti sensoriali.",
+        "Sintesi documentale: nessuna intensità sensoriale 0–1 validata."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
     }
   ],
   "excluded": [

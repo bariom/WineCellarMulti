@@ -63,12 +63,60 @@ e2e/sensory-profiles.spec.ts`.
 ## Documentary reference pilot
 
 In administration → wine sensory profiles, **Riferimenti documentati e
-rivalidazione** opens a curated seven-wine pilot. Load the preview, inspect each
+rivalidazione** opens a curated fifteen-wine pilot. Load the preview, inspect each
 source and comparison, then select dossiers to import. This uses no paid AI.
 The initial wines are Monte Bello 2022, Riesling Roche Calcaire 2022, Esporão
 Reserva Red 2022, Cloudy Bay Sauvignon Blanc 2024, Vin de Constance 2020,
 Testamatta 2018 and Loimer Kamptal DAC Grüner Veltliner 2024.
 Remaining research candidates are not represented as verified references.
+
+The second batch adds Bollinger La Grande Année 2015, Domaines Ott Château de
+Selle Rosé 2023, Disznókő Tokaji Aszú 5 Puttonyos 2017, Ridge Estate Chardonnay
+2022, Catena Malbec 2022, Château Musar Rosé 2017, Louis Roederer Cristal 2016
+and Domaine Sigalas Santorini 2022. This covers 11 countries and five styles:
+red, white, rosé, sparkling and sweet. The original seven dossiers are unchanged,
+so their existing imports do not acquire content conflicts from this expansion.
+Catena is deliberately a technical-only dossier: its chemistry and barrel aging
+do not authorize sensory updates. Ridge Chardonnay preserves conflicting body
+and acidity descriptions. Champagne dosage is distinguished from residual sugar.
+
+### Reproducible offline comparison
+
+From `backend/`, run:
+
+```text
+python -m scripts.evaluate_sensory_references --output data/reference-report
+pytest tests/test_sensory_reference_evaluation.py tests/test_sensory_references.py tests/test_sensory_review_workflow.py
+```
+
+Open `data/reference-report/report.html`; `report.json` includes every dimension,
+source URL, evidence status, recommendation and the source-bundle checksum.
+The script creates an isolated in-memory database, invokes the actual ordinary
+inference and guided-proposal services, and disposes it afterward. It never reads
+server profiles, changes production data or calls an AI provider. Its controlled
+input uses only the existing wine-type fallback, without grape, appellation or
+region baselines. Therefore it is not a comparison against actual cellar profiles
+or a complete evaluation of all ordinary generation paths.
+
+Results for the 2026-10-08 bundle: 15 wines, 135 traits; 57 retain their fallback
+value with a linked description, one receives an editorial correction, and 77
+remain blocked. The sole numerical proposal is Vin de Constance body 0.52 → 0.60,
+the nearest boundary of the existing experimental band. Evidence statuses are
+59 described, three conflicting, three context-only and 70 missing. Two described
+traits are nevertheless blocked by the existing policy. No new numerical bands
+were introduced to force more corrections.
+
+All 15 references are documentary only. None provides a matched sensory panel
+with comparable measured intensities, so calibration eligibility is zero and
+accuracy is explicitly unmeasurable. More notes improve traceability and expose
+disagreement; these counts do not demonstrate better numerical predictions.
+
+Admin next steps: deploy this bundle, open the reference preview, import desired
+new dossiers, then use **Esamina riscontri** on the exact wine and vintage.
+Review only useful descriptions and corrections; leave unsupported traits for
+later evidence. Ordinary generation remains the operational default. Extending
+automatic numerical correction requires a separately evaluated sensory dataset
+or structured tastings on a shared scale, not more editorial bands alone.
 
 Each wine in the profile list now has **Esamina riscontri**. The read-only,
 application-admin endpoint `GET /api/v1/taste-profile/admin/references/profiles/{identity_id}`
