@@ -15,4 +15,8 @@
 .sensory-wine-review > button { justify-self: start; }
 @media (max-width: 640px) { .admin-sensory-profile-list .member-row { grid-template-columns: minmax(0, 1fr); } }
 .sensory-review-source { margin-block: .7rem; padding-inline-start: .7rem; border-inline-start: 2px solid #a7b5a8; }
+.sensory-guided { min-width: 0; margin-block: 1rem; padding: 1rem; border: 1px solid var(--border, #a7b5a8); border-radius: 12px; overflow-wrap: anywhere; }
+.sensory-guided li { margin-block: .5rem; }
+.sensory-guided button { min-height: 44px; max-width: 100%; white-space: normal; }
+.sensory-guided .sensory-reference-select { display: flex; align-items: center; gap: .7rem; line-height: 1.5; }
 @media (max-width: 480px) { .sensory-references dl > div { grid-template-columns: minmax(0, 1fr); gap: .2rem; } }

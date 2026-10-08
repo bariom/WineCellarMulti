@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.sensory_reference import TraitEvidence
+
 
 class SensoryResearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -221,6 +223,7 @@ class ProfileReference(BaseModel):
 
 
 class CompletedDimension(BaseModel):
+    documentary_evidence: list[TraitEvidence] = Field(default_factory=list)
     value: float | None = Field(default=None, ge=0, le=1)
     origin: Literal[
         "corroborated", "single_source", "wine_style", "similar_wines", "ai_inference", "unknown"

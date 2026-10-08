@@ -1646,6 +1646,7 @@ export type SensorySourceEvidence = {
   vintage: string; published_year: number | null; publisher: string; role: "producer" | "critic" | "retailer";
 };
 export type CompletedSensoryDimension = {
+  documentary_evidence?: SensoryTraitReview["evidence"];
   value: number | null; origin: "corroborated" | "single_source" | "wine_style" | "similar_wines" | "ai_inference" | "unknown";
   rationale?: string; lower?: number | null; upper?: number | null;
   inference_basis?: "verified_description" | "mixed_sources" | "unverified_source" | "model_knowledge" | null;
@@ -1729,4 +1730,13 @@ export type WineEvidenceReview = {
   previously_approved: boolean;
   dossier: SensoryReferencePreview["rows"][number]["dossier"] | null;
   traits: SensoryTraitReview[];
+};
+
+export type GuidedSensoryProposal = {
+  identity_id: string; revision: string; policy: string; previously_approved: boolean;
+  undo_history_id: string | null;
+  choices: Array<{
+    trait: SensoryTraitReview; action: "retain" | "adjust" | "blocked" | "recorded";
+    proposed_value: number | null; lower: number | null; upper: number | null; advice: string;
+  }>;
 };

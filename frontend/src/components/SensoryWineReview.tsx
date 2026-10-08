@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../services/api";
 import type { Locale, SensoryTraitReview, WineEvidenceReview } from "../types";
 import "./SensoryReferencesPanel.css";
+import SensoryReviewWorkflow from "./SensoryReviewWorkflow";
 
 const names: Record<string, string> = { body: "Corpo", acidity: "Acidità", tannin: "Tannini", sweetness: "Dolcezza", aromatic_intensity: "Intensità aromatica", fruit: "Frutto", wood: "Legno", spice: "Spezie", minerality: "Mineralità" };
 
@@ -16,7 +17,7 @@ export function SensoryTraitReviews({ traits, locale }: { traits: SensoryTraitRe
   </section>)}</div>;
 }
 
-export default function SensoryWineReview({ identityId, locale }: { identityId: string; locale: Locale }) {
+export default function SensoryWineReview({ identityId, locale, onChanged }: { identityId: string; locale: Locale; onChanged?: () => void }) {
   const it = locale === "it";
   const [review, setReview] = useState<WineEvidenceReview | null>(null);
   const [open, setOpen] = useState(false);
@@ -35,11 +36,14 @@ export default function SensoryWineReview({ identityId, locale }: { identityId: 
     {error && <p role="alert">{it ? "Impossibile caricare i riscontri. Riprova." : "Unable to load evidence. Try again."}</p>}
     {open && review && <section className="sensory-references" aria-label={it ? "Revisione documentale" : "Documentary review"}>
       <h4>{review.name} · {review.vintage}</h4>
+      <SensoryReviewWorkflow identityId={identityId} locale={locale} onChanged={() => { void load(); onChanged?.(); }} />
       <p>{it ? "Revisione delle fonti curate disponibili, senza nuove ricerche a pagamento. I numeri restano stime da rivalidare; le descrizioni non ne certificano l’accuratezza." : "Review of available curated sources, without new paid research. Numbers remain estimates requiring review; descriptions do not certify their accuracy."}</p>
       {review.previously_approved && <p>{it ? "Approvato in precedenza: la revisione documentale resta necessaria." : "Previously approved: documentary review is still required."}</p>}
       {review.dossier ? <p>{it ? "Fonti controllate il" : "Sources checked on"} {review.dossier.checked_on}. {it ? "Sintesi redazionali in italiano." : "Editorial summaries in Italian."}</p> : <p>{it ? "Nessun dossier per questa esatta identità e annata. Non vengono utilizzate prove di altri vini." : "No dossier for this exact identity and vintage. Evidence from other wines is not substituted."}</p>}
-      <SensoryTraitReviews traits={review.traits} locale={locale} />
-      {review.dossier && <ul>{review.dossier.limitations.map(item => <li key={item}>{item}</li>)}</ul>}
+      <details><summary>{it ? "Consulta il dossier completo e i limiti delle fonti" : "Read the full dossier and source limitations"}</summary>
+        <SensoryTraitReviews traits={review.traits} locale={locale} />
+        {review.dossier && <ul>{review.dossier.limitations.map(item => <li key={item}>{item}</li>)}</ul>}
+      </details>
     </section>}
   </div>;
 }

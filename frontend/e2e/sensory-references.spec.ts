@@ -23,6 +23,10 @@ test("Single wine evidence review keeps numbers and displays conflict, context a
   await page.route("**/api/v1/taste-profile/admin/**", route => {
     expect(route.request().method()).toBe("GET");
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/references/profiles/testamatta/proposal")) {
+      return route.fulfill({ json: { identity_id: "testamatta", revision: "a".repeat(64), policy: "curated_review_v1", previously_approved: true, undo_history_id: null,
+        choices: Object.entries(dossier.assessments).map(([dimension, assessment]) => ({ trait: { dimension, current_value: .64, ...(assessment as object) }, action: (assessment as {status: string}).status === "described" ? "retain" : "blocked", proposed_value: .64, lower: null, upper: null, advice: "Mantieni il valore e collega le prove, dopo averle esaminate." })) } });
+    }
     if (path.endsWith("/references/profiles/testamatta")) {
       requests++;
       if (requests === 1) return route.fulfill({ status: 503, json: { detail: "Unavailable" } });
@@ -39,10 +43,14 @@ test("Single wine evidence review keeps numbers and displays conflict, context a
   await expect(page.getByRole("alert")).toContainText("Impossibile caricare");
   await page.getByRole("button", { name: "Esamina riscontri", exact: true }).click();
   const review = page.getByRole("region", { name: "Revisione documentale", exact: true });
+  await review.getByText("Consulta il dossier completo e i limiti delle fonti", { exact: true }).click();
   await expect(review.getByText("Descrizioni discordanti", { exact: true })).toBeVisible();
   await expect(review.getByText("Valore attuale: 0.64", { exact: false })).toBeVisible();
   await expect(review.getByText("Solo contesto: intensità non determinabile", { exact: true })).toHaveCount(3);
   await expect(review.getByRole("link").first()).toHaveAttribute("href", /^https:\/\/www.bibigraetz.com/);
+  await review.getByText("Consulta il dossier completo e i limiti delle fonti", { exact: true }).click();
+  await review.getByRole("button", { name: "Prepara proposta gratuita" }).click();
+  await expect(review.getByRole("button", { name: "Applica selezione" })).toBeDisabled();
   for (const width of [360, 390, 430, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -56,6 +64,7 @@ test("Single wine evidence review keeps numbers and displays conflict, context a
   await page.getByRole("button", { name: "Chiudi riscontri" }).click();
   await page.getByRole("button", { name: "Esamina riscontri", exact: true }).click();
   await expect(review.getByText("Nessun dossier", { exact: false })).toBeVisible();
+  await review.getByText("Consulta il dossier completo e i limiti delle fonti", { exact: true }).click();
   await expect(review.getByText("Nessun riscontro disponibile", { exact: true })).toHaveCount(9);
   await expect(review.getByText("Valore attuale: 0.64", { exact: false })).toBeVisible();
 });

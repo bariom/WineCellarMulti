@@ -1,5 +1,61 @@
 # Sensory profile generation
 
+## Guided administrator workflow
+
+1. In administration → sensory profiles, search for the wine and open **Profili vino**.
+2. Click **Esamina riscontri**. Check the vintage and source dossier, then
+   **Prepara proposta gratuita**. Importing the reference library is optional.
+3. Inspect each proposed trait. **Mantieni e collega prove** keeps the original
+   number and records its supporting description; **Approva correzione proposta**
+   applies an explicit editorial correction. Conflicts and context-only claims
+   cannot be selected. Nothing is preselected.
+4. Read the counts of changed and retained values, acknowledge review of the
+   shared profile, and click **Applica selezione**. Unselected values stay unchanged.
+5. The result remains an estimate requiring validation. **Annulla ultima
+   applicazione** restores the preceding profile if neither it nor its source
+   proposal has changed. Reloading the proposal also retrieves the latest eligible
+   undo action. Missing evidence means retain the profile and collect more data,
+   not approve all profiles in bulk.
+
+The proposal starts from the stored ordinary profile (including metadata-derived
+profiles). Missing values must first be generated through ordinary generation;
+this workflow does not fill them from sparse descriptions. No provider is called.
+
+`curated_review_v1` is an experimental editorial policy, not a statistically
+calibrated estimator. Reviewed intensity bands are explicitly listed in
+`sensory_review_workflow.py`: Testamatta acidity/tannin and Roche Calcaire acidity
+0.55–0.85; Roche Calcaire dryness 0–0.15; Loimer acidity 0.35–0.70 and dryness
+0–0.20; Vin de Constance body 0.60–0.90. These are policy assumptions interpreting
+descriptions, not numbers reported by sources. Compatible values are retained
+exactly; outliers are proposed at the nearest boundary, never a universal midpoint.
+Other supported descriptions can be attached without changing the number.
+Monte Bello body is explicitly blocked because its dossier contains disagreement.
+
+The seven-wine regression group checks consistency of this policy using controlled
+input profiles; it is not an independent accuracy benchmark and does not establish
+that corrections improve real tasting accuracy. Testamatta's existing acidity
+0.6936 and tannin 0.644 are retained. Auto-generation is not switched to this policy.
+
+GET `.../references/profiles/{id}/proposal`, POST `.../{id}/apply`, and POST
+`.../{id}/undo/{history_id}` require application administrator context. Selection
+and acknowledgement are server-validated. A revision covers the complete stored
+profile, curated dossier and policy; stale proposals fail without writes.
+Application stores selected source summaries as `documentary_evidence`, explicitly
+separate from verbatim quotation fields. Partial provenance preserves legacy
+weights for unselected dimensions; selected confidence and overall confidence
+are capped at 0.45 as a conservative policy weight, not measured accuracy.
+Application sets `validated=false`; approval never certifies sensory measurement.
+
+Snapshots and audit information use existing `SharedWineFact` rows under the
+isolated `sensory_review_history` feature with unique operation keys. They record
+the full preceding dimensions, provenance, source, model, confidence and approval,
+the exact proposal and actor. Undo restores that state and records its actor.
+No household inventory rows are read or changed and no schema migration is needed.
+
+Checks: `pytest tests/test_sensory_review_workflow.py tests/test_sensory_references.py`
+and `npx playwright test e2e/sensory-workflow.spec.ts e2e/sensory-references.spec.ts
+e2e/sensory-profiles.spec.ts`.
+
 ## Documentary reference pilot
 
 In administration → wine sensory profiles, **Riferimenti documentati e
