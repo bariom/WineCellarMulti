@@ -36,6 +36,151 @@ async function openBook(page: Page, mode: "photos" | "empty" | "error" = "photos
   return page.getByRole("dialog", { name: "Momenti", exact: true });
 }
 
+test("polaroid table supports dragging, tasting details and returning to the same arrangement", async ({ page }, testInfo) => {
+  const book = await openBook(page);
+  await book.getByRole("button", { name: "Polaroid", exact: true }).click();
+  const table = book.getByRole("region", { name: "Polaroid" });
+  const card = table.getByRole("button", { name: "Apri degustazione: Una sera sul lago", exact: true });
+  await expect(card).toBeVisible();
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 }]) {
+    await page.setViewportSize(viewport);
+    const fullscreen = (await book.boundingBox())!;
+    expect(fullscreen.x).toBe(0);
+    expect(fullscreen.y).toBe(0);
+    expect(fullscreen.width).toBe(viewport.width);
+    expect(fullscreen.height).toBe(viewport.height);
+    const surface = table.locator(".memory-table-surface");
+    const area = (await surface.boundingBox())!;
+    expect(area.height).toBeGreaterThanOrEqual(viewport.height * (viewport.width >= 900 ? .75 : .65));
+    const close = (await book.getByRole("button", { name: "Chiudi", exact: true }).boundingBox())!;
+    const title = (await book.getByRole("heading", { name: "I miei ricordi", exact: true }).boundingBox())!;
+    expect(title.x + title.width).toBeLessThanOrEqual(close.x);
+    expect((await book.getByRole("search").boundingBox())!.y).toBeGreaterThanOrEqual(title.y + title.height);
+    expect(await book.evaluate(element => element.scrollHeight <= element.clientHeight)).toBe(true);
+    for (const polaroid of await table.locator(".memory-polaroid").all()) {
+      const box = (await polaroid.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(area.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(area.x + area.width);
+      expect(box.y).toBeGreaterThanOrEqual(area.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(area.y + area.height);
+    }
+    expect(await book.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if ([390, 1440].includes(viewport.width)) await page.screenshot({ path: testInfo.outputPath(`polaroid-table-${viewport.width}-review.png`) });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(book).toHaveScreenshot("moments-polaroid-table-compact.png");
+  const before = (await card.boundingBox())!;
+  await page.mouse.move(before.x + before.width / 2, before.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(before.x + before.width / 2 - 35, before.y + 160, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => (await card.boundingBox())!.y).toBeGreaterThan(before.y + 80);
+  const arrangement = await card.evaluate(element => ({ left: element.style.left, top: element.style.top }));
+  await expect(book.getByRole("button", { name: "Torna alle Polaroid" })).toHaveCount(0);
+  await page.waitForTimeout(400); // Drag gestures must not accidentally activate double-click.
+  await card.dblclick();
+  await expect(book.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
+  await expect(book.locator(".memory-book-tasting-details")).toContainText("5 / 6");
+  await expect(book.locator(".memory-book-tasting-details")).toContainText("Brasato");
+  await page.screenshot({ path: testInfo.outputPath("polaroid-tasting-detail-review.png") });
+  await expect(table).toBeHidden();
+  await book.getByRole("button", { name: "Torna alle Polaroid", exact: true }).click();
+  await expect(card).toBeVisible();
+  expect(await card.evaluate(element => ({ left: element.style.left, top: element.style.top }))).toEqual(arrangement);
+  await card.focus();
+  await page.keyboard.press("ArrowLeft");
+  expect(await card.evaluate(element => element.style.left)).not.toEqual(arrangement.left);
+  await page.keyboard.press("Enter");
+  await expect(book.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
+  await book.getByRole("button", { name: "Torna alle Polaroid" }).click();
+  await card.focus();
+  for (let i = 0; i < 20; i++) { await page.keyboard.press("ArrowUp"); await page.keyboard.press("ArrowLeft"); }
+  const edge = (await card.boundingBox())!;
+  const surfaceBounds = (await table.locator(".memory-table-surface").boundingBox())!;
+  expect(edge.x).toBeGreaterThanOrEqual(surfaceBounds.x);
+  expect(edge.y).toBeGreaterThanOrEqual(surfaceBounds.y);
+  expect(edge.x + edge.width).toBeLessThanOrEqual(surfaceBounds.x + surfaceBounds.width);
+  expect(edge.y + edge.height).toBeLessThanOrEqual(surfaceBounds.y + surfaceBounds.height);
+  await book.getByRole("searchbox").fill("Toscana");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(table.locator(".memory-polaroid")).toHaveCount(1);
+  await expect(table).toContainText("Un brindisi in Toscana");
+  await book.getByRole("searchbox").fill("nessun risultato");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(table).toContainText("Nessun ricordo trovato");
+});
+
+test.describe("touch polaroids", () => {
+  test.use({ hasTouch: true });
+  test("double tap opens a tasting and returns to the table", async ({ page }) => {
+    const book = await openBook(page);
+    await book.getByRole("button", { name: "Polaroid", exact: true }).tap();
+    const card = book.getByRole("button", { name: "Apri degustazione: Una sera sul lago" });
+    await expect(card).toBeVisible();
+    const box = (await card.boundingBox())!;
+    const x = box.x + box.width / 2; const y = box.y + 50;
+    const touch = await page.context().newCDPSession(page);
+    await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+    await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x - 25, y: y + 90 }] });
+    await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect.poll(async () => (await card.boundingBox())!.y).toBeGreaterThan(box.y + 70);
+    await expect(book.getByRole("button", { name: "Torna alle Polaroid" })).toHaveCount(0);
+    await card.tap();
+    await card.tap();
+    await expect(book.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
+    await book.getByRole("button", { name: "Torna alle Polaroid" }).tap();
+    await expect(card).toBeVisible();
+  });
+});
+
+test("polaroid table paginates, preserves filters and retries errors", async ({ page }) => {
+  const book = await openBook(page);
+  await page.evaluate(archive => {
+    (window as any).bookMemories = Array.from({ length: 23 }, (_, i) => ({ ...archive.items[0], tasting_id: `table-${i}`, wine_name: `Vino ${i}`, occasion: "", memory_photo_url: "/images/home-tasting-v1.jpg" }));
+  }, tastingArchive);
+  await book.getByRole("button", { name: "Polaroid", exact: true }).click();
+  const table = book.getByRole("region", { name: "Polaroid" });
+  await expect(table.locator(".memory-polaroid")).toHaveCount(20);
+  await table.getByRole("button", { name: "Successivi", exact: true }).click();
+  await expect(table.locator(".memory-polaroid")).toHaveCount(3);
+  await expect(table.getByRole("button", { name: "Successivi" })).toBeDisabled();
+  await table.getByRole("button", { name: "Apri degustazione: Vino 22", exact: true }).dblclick();
+  await expect(book.getByRole("heading", { name: "Vino 22", exact: true })).toBeVisible();
+  await book.getByRole("button", { name: "Torna alle Polaroid" }).click();
+  await expect(table.locator(".memory-polaroid")).toHaveCount(3);
+  await book.getByRole("searchbox").fill("Vino 5");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(table.locator(".memory-polaroid")).toHaveCount(1);
+  await expect(table).toContainText("Vino 5");
+  await book.getByRole("button", { name: "Chiudi", exact: true }).click();
+  await openBook(page, "error");
+  await book.getByRole("button", { name: "Polaroid", exact: true }).click();
+  await expect(table.getByRole("alert")).toBeVisible();
+  await page.evaluate(() => { (window as any).allowBookRetry = true; });
+  await table.getByRole("button", { name: "Riprova" }).click();
+  await expect(table.locator(".memory-polaroid")).toHaveCount(2);
+});
+
+test("memory album and polaroids follow the selected theme", async ({ page }, testInfo) => {
+  const book = await openBook(page);
+  await book.getByRole("button", { name: "Polaroid", exact: true }).click();
+  await expect(book.locator(".memory-polaroid")).toHaveCount(2);
+  for (const theme of ["light", "dark", "private-cellar", "sepia", "burgundy", "champagne"]) {
+    await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
+    await expect.poll(async () => book.evaluate(element => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--text)"; probe.style.backgroundColor = "var(--surface-raised)";
+      element.append(probe);
+      const expected = getComputedStyle(probe);
+      const actual = getComputedStyle(element.querySelector(".memory-polaroid")!);
+      const result = { text: actual.color, paper: actual.backgroundColor, expectedText: expected.color, expectedPaper: expected.backgroundColor };
+      probe.remove(); return result.text === result.expectedText && result.paper === result.expectedPaper;
+    })).toBe(true);
+    if (["dark", "private-cellar"].includes(theme)) await page.screenshot({ path: testInfo.outputPath(`polaroids-${theme}-review.png`) });
+  }
+});
+
 test("browse memories, optionally open the map, and keep layouts inside the viewport", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route(/tile\.openstreetmap\.org/, route => route.fulfill({ status: 204, body: "" }));
@@ -52,7 +197,7 @@ test("browse memories, optionally open the map, and keep layouts inside the view
     const albumTitle = (await book.getByRole("heading", { name: "I miei ricordi", exact: true }).boundingBox())!;
     const close = (await book.getByRole("button", { name: "Chiudi", exact: true }).boundingBox())!;
     const search = (await book.getByRole("search").boundingBox())!;
-    expect(close.y + close.height).toBeLessThanOrEqual(albumTitle.y);
+    expect(albumTitle.x + albumTitle.width).toBeLessThanOrEqual(close.x);
     expect(albumTitle.y + albumTitle.height).toBeLessThanOrEqual(search.y);
     const image = (await book.getByRole("img", { name: "Ricordo: Un brindisi in Toscana", exact: true }).boundingBox())!;
     expect(search.y + search.height).toBeLessThanOrEqual(image.y);
@@ -98,6 +243,10 @@ test("portrait memories keep search, captions and navigation visible without ver
   const book = await openBook(page, "photos", bottle, photo);
   await expect(book.getByRole("heading", { name: "Un brindisi in Toscana" })).toBeVisible();
   await expect.poll(() => book.getByRole("img", { name: "Ricordo: Un brindisi in Toscana", exact: true }).evaluate((image: HTMLImageElement) => image.naturalHeight)).toBe(720);
+  const portrait = book.getByRole("img", { name: "Ricordo: Un brindisi in Toscana", exact: true });
+  await expect(portrait).toHaveCSS("object-fit", "cover");
+  expect(await portrait.evaluate(element => element.getBoundingClientRect().width)).toBeGreaterThan(250);
+
   for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 900 }, { width: 777, height: 918 }]) {
     await page.setViewportSize(viewport);
     for (const filtered of [false, true]) {
@@ -122,6 +271,28 @@ test("portrait memories keep search, captions and navigation visible without ver
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(book).toHaveScreenshot("moments-portrait-compact.png");
+  await book.getByRole("button", { name: "Polaroid", exact: true }).click();
+  const polaroid = book.getByRole("button", { name: "Apri degustazione: Un brindisi in Toscana", exact: true });
+  await polaroid.focus();
+  await page.keyboard.press("Enter");
+  const back = book.getByRole("button", { name: "Torna alle Polaroid" });
+  await expect(back).toBeVisible();
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await book.evaluate(element => { element.scrollTop = 0; });
+    const photo = (await portrait.boundingBox())!;
+    const frame = (await book.getByRole("button", { name: "Apri foto ricordo" }).boundingBox())!;
+    expect(photo.width).toBe(frame.width);
+    expect(photo.height).toBe(frame.height);
+    expect(photo.y).toBeGreaterThanOrEqual((await back.boundingBox())!.y + (await back.boundingBox())!.height);
+    await expect(portrait).toHaveCSS("object-fit", "cover");
+    await expect(book.locator(".memory-book-tasting-details")).toContainText("Brasato");
+    expect(await book.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    if (viewport.width >= 650) expect((await book.getByLabel("Periodo", { exact: true }).boundingBox())!.width).toBeGreaterThanOrEqual(130);
+    if ([390, 1440].includes(viewport.width)) await page.screenshot({ path: testInfo.outputPath(`portrait-tasting-detail-${viewport.width}-review.png`) });
+  }
+  await back.click();
+  await expect(polaroid).toBeVisible();
 });
 
 test("enlarge a memory photo and return to the same filtered memory", async ({ page }, testInfo) => {

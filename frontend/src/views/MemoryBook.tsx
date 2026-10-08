@@ -9,6 +9,7 @@ import { formatMemoryMonth, memoryMonthBounds, parseMemoryMonth } from "../domai
 import "./MemoryBook.css";
 
 const MemoryAtlas = lazy(() => import("../components/MemoryAtlas"));
+const MemoryTable = lazy(() => import("../components/MemoryTable"));
 
 function MemoryWineIdentity({ entry, locale }: { entry: TastingArchiveApiItem; locale: Locale }) {
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -27,6 +28,7 @@ function MemoryWineIdentity({ entry, locale }: { entry: TastingArchiveApiItem; l
 export default function MemoryBook({ locale, onClose, initialIndex = 0 }: { locale: Locale; onClose: () => void; initialIndex?: number }) {
   const it = locale === "it";
   const dialog = useRef<HTMLDialogElement>(null);
+  const tableContainer = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(initialIndex);
   const [page, setPage] = useState<TastingArchivePage | null>(null);
   const [busy, setBusy] = useState(true);
@@ -38,6 +40,8 @@ export default function MemoryBook({ locale, onClose, initialIndex = 0 }: { loca
   const [monthQuery, setMonthQuery] = useState("");
   const [photoOpen, setPhotoOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [tableOpen, setTableOpen] = useState(false);
+  const [tableDetail, setTableDetail] = useState(false);
   useEffect(() => {
     const element = dialog.current!;
     const trigger = document.activeElement as HTMLElement | null;
@@ -68,10 +72,10 @@ export default function MemoryBook({ locale, onClose, initialIndex = 0 }: { loca
     }
   }, [page]);
   const entry = page?.items[0];
-  return createPortal(<dialog ref={dialog} className="memory-book" tabIndex={-1} aria-label={it ? "Momenti" : "Moments"}
+  return createPortal(<dialog ref={dialog} className={`memory-book${tableOpen && !tableDetail ? " memory-book-fullscreen" : !mapOpen ? " memory-book-detail" : ""}`} tabIndex={-1} aria-label={it ? "Momenti" : "Moments"}
     onCancel={event => { event.preventDefault(); if (!photoOpen) onClose(); }}
     onKeyDown={event => {
-      if (photoOpen || mapOpen) return;
+      if (photoOpen || mapOpen || (tableOpen && !tableDetail)) return;
       if (event.target !== event.currentTarget && (event.target as HTMLElement).closest(".memory-location, .memory-book-search")) return;
       if (!busy && !error && event.key === "ArrowLeft" && index > 0) { event.preventDefault(); setIndex(index - 1); }
       if (!busy && !error && event.key === "ArrowRight" && index + 1 < (page?.total || 0)) { event.preventDefault(); setIndex(index + 1); }
@@ -81,6 +85,7 @@ export default function MemoryBook({ locale, onClose, initialIndex = 0 }: { loca
     <form className="memory-book-search" role="search" aria-label={it ? "Cerca nei ricordi" : "Search memories"} onSubmit={event => {
       event.preventDefault();
       setIndex(0);
+      setTableDetail(false);
       setSearchQuery(searchText.trim());
     }}>
       <label className="sr-only" htmlFor="memory-book-query">{it ? "Cerca nei ricordi" : "Search memories"}</label>
@@ -98,20 +103,23 @@ export default function MemoryBook({ locale, onClose, initialIndex = 0 }: { loca
             const month = parseMemoryMonth(text, locale);
             setMonthText(text);
             event.target.setCustomValidity(month === null ? (it ? "Inserisci un mese valido, ad esempio ottobre 2026." : "Enter a valid month, for example October 2026.") : "");
-            if (month !== null) { setMonthQuery(month); setIndex(0); }
+            if (month !== null) { setMonthQuery(month); setIndex(0); setTableDetail(false); }
           }}
           onBlur={event => {
             const month = parseMemoryMonth(event.target.value, locale);
             if (event.target.type === "text" && month) setMonthText(formatMemoryMonth(month, locale));
           }} />
-        <button type="button" className="secondary memory-book-view-toggle" aria-label={mapOpen ? (it ? "Sfoglia le foto" : "Browse photos") : (it ? "Mappa dei ricordi" : "Memory map")} aria-pressed={mapOpen} onClick={() => setMapOpen(value => !value)}><AppIcon name={mapOpen ? "camera" : "location"} size={18} /><span className="memory-book-view-label">{mapOpen ? (it ? "Foto" : "Photos") : (it ? "Mappa" : "Map")}</span></button>
+        <button type="button" className="secondary memory-book-view-toggle" aria-label={tableOpen ? (it ? "Sfoglia le foto" : "Browse photos") : (it ? "Polaroid" : "Polaroids")} aria-pressed={tableOpen} onClick={() => { setTableOpen(value => !value); setTableDetail(false); setMapOpen(false); }}><AppIcon name="camera" size={18} /><span className="memory-book-view-label">{tableOpen ? (it ? "Foto" : "Photos") : (it ? "Polaroid" : "Polaroids")}</span><span className="memory-book-compact-table-label" aria-hidden="true">{tableOpen ? (it ? "Foto" : "Photos") : (it ? "Polaroid" : "Polaroids")}</span></button>
+        <button type="button" className="secondary memory-book-view-toggle" aria-label={mapOpen ? (it ? "Sfoglia le foto" : "Browse photos") : (it ? "Mappa dei ricordi" : "Memory map")} aria-pressed={mapOpen} onClick={() => { setMapOpen(value => !value); setTableOpen(false); setTableDetail(false); }}><AppIcon name={mapOpen ? "camera" : "location"} size={18} /><span className="memory-book-view-label">{mapOpen ? (it ? "Foto" : "Photos") : (it ? "Mappa" : "Map")}</span></button>
       </div>
       {searchQuery || monthQuery ? <div className="memory-book-search-results">
         <span role="status">{!busy && !error ? (page?.total === 1 ? (it ? "1 ricordo trovato" : "1 memory found") : (it ? `${page?.total || 0} ricordi trovati` : `${page?.total || 0} memories found`)) : ""}</span>
-        <button type="button" className="secondary" onClick={() => { setSearchText(""); setSearchQuery(""); setMonthText(""); setMonthQuery(""); dialog.current?.querySelector<HTMLInputElement>("#memory-book-month")?.setCustomValidity(""); setIndex(0); }}>{it ? "Mostra tutti i ricordi" : "Show all memories"}</button>
+        <button type="button" className="secondary" onClick={() => { setSearchText(""); setSearchQuery(""); setMonthText(""); setMonthQuery(""); setTableDetail(false); dialog.current?.querySelector<HTMLInputElement>("#memory-book-month")?.setCustomValidity(""); setIndex(0); }}>{it ? "Mostra tutti i ricordi" : "Show all memories"}</button>
       </div> : null}
     </form>
-    {mapOpen ? <Suspense fallback={<p role="status">{it ? "Caricamento mappa…" : "Loading map…"}</p>}>
+    {tableOpen ? <div ref={tableContainer} className="memory-book-table-container" hidden={tableDetail}><Suspense fallback={<p role="status">{it ? "Preparazione del tavolo…" : "Preparing the table…"}</p>}><MemoryTable key={JSON.stringify([searchQuery, monthQuery])} locale={locale} query={searchQuery} month={monthQuery} onSelect={selectedIndex => { setIndex(selectedIndex); setTableDetail(true); dialog.current?.focus(); }} /></Suspense></div> : null}
+    {tableOpen && tableDetail ? <button type="button" className="memory-book-return" onClick={() => { setTableDetail(false); requestAnimationFrame(() => tableContainer.current?.querySelector<HTMLButtonElement>(`[data-archive-index="${index}"]`)?.focus()); }}>{it ? "Torna alle Polaroid" : "Back to Polaroids"}</button> : null}
+    {tableOpen && !tableDetail ? null : mapOpen ? <Suspense fallback={<p role="status">{it ? "Caricamento mappa…" : "Loading map…"}</p>}>
       <MemoryAtlas locale={locale} query={searchQuery} month={monthQuery} onSelect={selectedIndex => { setIndex(selectedIndex); setMapOpen(false); dialog.current?.focus(); }} />
     </Suspense> : busy ? <p role="status">{it ? "Preparazione dei ricordi…" : "Preparing your memories…"}</p> : error ? <div role="alert"><p>{it ? "Impossibile caricare i ricordi." : "Unable to load memories."}</p><button type="button" onClick={() => setRetry(value => value + 1)}>{it ? "Riprova" : "Try again"}</button></div> : entry ? <>
       <article className="memory-book-page" key={`${entry.source}-${entry.tasting_id}`}>
@@ -124,6 +132,14 @@ export default function MemoryBook({ locale, onClose, initialIndex = 0 }: { loca
           {entry.note ? <p className="memory-book-note">{entry.note}</p> : null}
           {entry.companions ? <p className="memory-book-companions"><AppIcon name="users" size={17} /><span>{it ? "Con " : "With "}{entry.companions}</span></p> : null}
           {entry.memory_photo_location ? <MemoryLocation location={entry.memory_photo_location} locale={locale} /> : null}
+          {tableDetail ? <dl className="memory-book-tasting-details">
+            {entry.enjoyment ? <><dt>{it ? "Gradimento" : "Enjoyment"}</dt><dd>{entry.enjoyment === "positive" ? (it ? "Mi è piaciuto" : "I enjoyed it") : (it ? "Non mi è piaciuto" : "I did not enjoy it")}</dd></> : null}
+            {entry.rating > 0 && entry.score_value == null ? <><dt>{it ? "Valutazione" : "Rating"}</dt><dd>{entry.rating} / 6</dd></> : null}
+            {entry.score_value != null ? <><dt>{it ? "Punteggio" : "Score"}</dt><dd>{entry.score_value}{entry.score_scale ? ` / ${entry.score_scale}` : ""}</dd></> : null}
+            {entry.pairing ? <><dt>{it ? "Abbinamento" : "Pairing"}</dt><dd>{entry.pairing}</dd></> : null}
+            {entry.sommelier_feedback ? <><dt>{it ? "Il sommelier" : "Sommelier"}</dt><dd>{entry.sommelier_feedback}</dd></> : null}
+            {entry.sommelier_pairing_advice ? <><dt>{it ? "Consiglio sull’abbinamento" : "Pairing advice"}</dt><dd>{entry.sommelier_pairing_advice}</dd></> : null}
+          </dl> : null}
         </div>
       </article>
       <nav className="memory-book-navigation" aria-label={it ? "Sfoglia ricordi" : "Browse memories"}>

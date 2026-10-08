@@ -129,7 +129,7 @@ production retains OpenStreetMap attribution and loads live tiles. Memories
 without photo coordinates remain available in the photo book.
 The reviewed `moments-map-compact.png` baseline covers the map with selected
 area previews at 390 x 844.
-The memory book uses a warm paper album presentation, a terracotta gingham edge,
+The memory book uses the active theme for its paper, text, borders and gingham edge,
 italic serif headings, printed-photo borders and quiet underlined search fields.
 Notes read like personal annotations and map previews share the photo-print style.
 It includes compact search and view controls, framed bottle photos, and a contained enlargement hint. Geometry
@@ -373,3 +373,37 @@ before using the new backend.
 
 Run `npm run test:e2e:moments` for uploads, GPS, browsing, missing-location and
 empty/error states, photo editing, responsive geometry and compact visual checks.
+
+### Polaroid a schermo intero
+
+L'album "I miei ricordi" mantiene foto e mappa e aggiunge "Polaroid": una vista a schermo intero con polaroid
+trascinabili con mouse o touch, con doppio clic/doppio tocco per consultare la
+degustazione. "Torna alle Polaroid" conserva le posizioni durante la consultazione;
+le disposizioni sono temporanee e si ricreano cambiando filtri, pagina o vista.
+Da tastiera le frecce spostano la polaroid selezionata e Invio/Spazio aprono il
+dettaglio. Il tavolo carica 20 ricordi alla volta e rispetta ricerca e mese.
+I colori dell'album, del tavolo e dei comandi mappa seguono il tema attivo.
+
+Verifica mirata: `npx playwright test e2e/moments.spec.ts e2e/memories-widget.spec.ts`.
+La suite copre trascinamento, doppio tocco, tastiera, ritorno alla disposizione,
+paginazione, filtri, retry, temi e geometria a 360/390/430 px e desktop.
+
+La vista Polaroid occupa il viewport su mobile e desktop. Lo sfondo usa la texture
+fotografica locale `frontend/public/images/memory-cellar-oak-v1.webp`, in rovere
+scuro con finitura opaca e venature naturali; non richiede immagini o servizi esterni. I test verificano anche
+le dimensioni della vista rispetto al viewport.
+
+La texture premium e stata generata con imagegen (tool integrato) e ottimizzata
+in WebP. Il prompt completo e conservato in
+`docs/memory-cellar-oak-v1.prompt.txt`. Il rendering usa
+`cover` senza ripetizioni del motivo, su mobile e desktop.
+
+In modalita Polaroid la testata e compatta: titolo e chiusura condividono la
+prima riga, ricerca e periodo sono affiancati su desktop. I test riservano al
+tavolo almeno il 75% dell'altezza desktop e il 65% mobile, senza scorrimento
+verticale della vista non filtrata. Foto e dettaglio usano una testata compatta dedicata.
+
+Il dettaglio e la vista foto condividono una testata compatta con titolo e
+chiusura sulla stessa riga. Le anteprime riempiono la fascia fotografica con
+`object-fit: cover`, anche per immagini verticali; il visualizzatore ingrandito
+conserva la foto completa senza ritaglio.
