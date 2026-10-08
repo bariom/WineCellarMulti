@@ -50,6 +50,8 @@ test("Single wine evidence review keeps numbers and displays conflict, context a
   await expect(review.getByRole("link").first()).toHaveAttribute("href", /^https:\/\/www.bibigraetz.com/);
   await review.getByText("Consulta il dossier completo e i limiti delle fonti", { exact: true }).click();
   await review.getByRole("button", { name: "Prepara proposta gratuita" }).click();
+  await expect(review.getByRole("region", { name: "Esito della proposta" })).toContainText("0 correzioni · 5 prove collegabili · 4 caratteristiche da approfondire");
+  await expect(review.getByText("Non sono proposte modifiche ai numeri.", { exact: false })).toBeVisible();
   await expect(review.getByRole("button", { name: "Applica selezione" })).toBeDisabled();
   for (const width of [360, 390, 430, 1280]) {
     await page.setViewportSize({ width, height: 844 });

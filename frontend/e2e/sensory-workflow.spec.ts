@@ -39,6 +39,12 @@ test("Guided review requires selection and acknowledgement and supports stale re
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/workflow-test");
   await page.getByRole("button", { name: "Prepara proposta gratuita" }).click();
+  await expect(page.getByRole("region", { name: "Esito della proposta" })).toContainText("1 correzioni · 1 prove collegabili · 1 caratteristiche da approfondire");
+  const blocked = page.getByText("Da approfondire (1) — valori conservati", { exact: true });
+  await blocked.click();
+  await expect(page.getByText("Nessun aggiornamento proponibile con le prove disponibili.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Caratteristica non applicabile", { exact: false })).toHaveCount(0);
+  await blocked.click();
   const apply = page.getByRole("button", { name: "Applica selezione" });
   await expect(apply).toBeDisabled();
   const acid = page.getByRole("checkbox", { name: "Approva correzione proposta: Acidità" });
@@ -46,7 +52,7 @@ test("Guided review requires selection and acknowledgement and supports stale re
   await acid.check();
   await expect(apply).toBeDisabled();
   await ack.check();
-  await expect(page.getByText("1 caratteristiche selezionate: 1 valori cambiano", { exact: false })).toBeVisible();
+  await expect(page.getByText("Selezionate: 1. Valori da modificare: 1.", { exact: false })).toBeVisible();
   for (const width of [360, 390, 430, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

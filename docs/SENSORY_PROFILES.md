@@ -9,6 +9,10 @@
    number and records its supporting description; **Approva correzione proposta**
    applies an explicit editorial correction. Conflicts and context-only claims
    cannot be selected. Nothing is preselected.
+   The opening summary separates proposed corrections, descriptions that can be
+   linked without changing values, and traits needing more evidence. Corrections
+   appear first; blocked and already-recorded traits and methodological details
+   are collapsed. When no numbers change, the page states that explicitly.
 4. Read the counts of changed and retained values, acknowledge review of the
    shared profile, and click **Applica selezione**. Unselected values stay unchanged.
 5. The result remains an estimate requiring validation. **Annulla ultima
