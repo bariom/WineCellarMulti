@@ -38,6 +38,7 @@ test("Single wine evidence review keeps numbers and displays conflict, context a
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/wine-review-test");
+  await page.getByLabel("Mostra strumenti avanzati").check();
   await page.getByText("Profili vino (1)", { exact: true }).click();
   await page.getByRole("button", { name: "Esamina riscontri", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Impossibile caricare");

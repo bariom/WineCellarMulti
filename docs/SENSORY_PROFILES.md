@@ -2,6 +2,20 @@
 
 ## Guided administrator workflow
 
+The default screen is the ordinary semiautomatic batch workflow: **Mostra
+anteprima**, then **Genera mancanti con AI**. Generation is enabled only after a
+successful preview with missing profiles. Preview is free; generation may use AI
+credits for missing metadata. It does not start in-depth sensory research.
+Counts and generation cover the shared catalog, including imported references,
+not only the active cellar or search results. No individual dossier import or
+review is required. Available profiles are preserved by the existing batch API.
+
+Search and manual editing remain available in the default view. Enable **Mostra
+strumenti avanzati** to access individual AI actions, documentary reviews, extra
+filters, reference imports and baseline editing. Bulk approval is additionally
+collapsed and explicitly described as an administrative decision, not proof of
+accuracy. The optional documentary workflow below is accessed in advanced mode.
+
 1. In administration → sensory profiles, search for the wine and open **Profili vino**.
 2. Click **Esamina riscontri**. Check the vintage and source dossier, then
    **Prepara proposta gratuita**. Importing the reference library is optional.

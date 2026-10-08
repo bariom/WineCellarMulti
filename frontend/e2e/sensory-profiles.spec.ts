@@ -1,5 +1,74 @@
 import { test, expect } from "@playwright/test";
 
+test("Simple workflow previews the shared catalog before batch generation", async ({ page }, testInfo) => {
+  await page.route("**/sensory-simple-test", route => route.fulfill({ contentType: "text/html", body: `
+    <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
+    import RefreshRuntime from '/@react-refresh';
+    RefreshRuntime.injectIntoGlobalHook(window);
+    window.$RefreshReg$ = () => {};
+    window.$RefreshSig$ = () => (type) => type;
+    window.__vite_plugin_react_preamble_installed__ = true;
+    const {default: React} = await import('/node_modules/.vite/deps/react.js');
+    const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
+    const {default: Panel} = await import('/src/components/AdminSensoryProfilesPanel.tsx');
+    await import('/src/styles.css');
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Panel, {locale:'it'}));
+    </script></body></html>` }));
+  let generated = false;
+  let previewCalls = 0;
+  let generationCalls = 0;
+  await page.route("**/api/v1/taste-profile/admin/**", route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/batch-preview")) {
+      previewCalls++;
+      if (previewCalls === 1) return route.fulfill({ status: 503, json: { detail: "Anteprima non disponibile" } });
+      return route.fulfill({ json: { missing: generated ? 0 : 8, deterministic: generated ? 0 : 8, requires_ai: 0 } });
+    }
+    if (path.endsWith("/enrich-missing")) {
+      expect(route.request().postDataJSON()).toEqual({ limit: 50, allow_ai: true });
+      generationCalls++;
+      generated = true;
+      return route.fulfill({ json: { processed: 8, resolved: 8, ai_generated: 0, skipped: 1 } });
+    }
+    expect(route.request().method()).toBe("GET");
+    expect(path).not.toContain("references");
+    return route.fulfill({ json: path.endsWith("/summary") ? { wines_with_profile: generated ? 9 : 1, wines_without_profile: generated ? 0 : 8 } : path.endsWith("/profiles") ? [{ identity_id: "test", name: "Testamatta", producer: "Bibi Graetz", vintage: "2018", source: "hybrid", confidence: .72, validated: true, dimensions: { body: .64 } }] : [] });
+  });
+  await page.goto("/sensory-simple-test");
+  const generate = page.getByRole("button", { name: "Genera mancanti con AI", exact: true });
+  await expect(generate).toBeDisabled();
+  await expect(page.getByText(/inclusi i vini importati come riferimenti/)).toBeVisible();
+  await expect(page.getByText(/consumare crediti/)).toBeVisible();
+  await expect(page.getByText("Baseline sensoriali", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Esamina riscontri", exact: true })).toHaveCount(0);
+  for (const width of [360, 390, 430, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const batch = page.getByRole("region", { name: "1. Controlla i mancanti" });
+    const heading = (await batch.getByRole("heading").boundingBox())!;
+    const preview = (await batch.getByRole("button", { name: "Mostra anteprima" }).boundingBox())!;
+    const action = (await generate.boundingBox())!;
+    const overlaps = (a: typeof action, b: typeof action) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+    expect(overlaps(heading, preview)).toBe(false);
+    expect(overlaps(preview, action)).toBe(false);
+    expect(action.height).toBeGreaterThanOrEqual(44);
+    if (width === 390 || width === 1280) await page.screenshot({ path: testInfo.outputPath(`simple-${width}.png`), fullPage: true });
+  }
+  await page.getByRole("button", { name: "Mostra anteprima" }).click();
+  await expect(page.getByRole("alert")).toHaveText("Anteprima non disponibile");
+  await expect(generate).toBeDisabled();
+  await page.getByRole("button", { name: "Mostra anteprima" }).click();
+  await expect(generate).toBeEnabled();
+  expect(generationCalls).toBe(0);
+  await generate.click();
+  await expect(page.getByText("Generazione completata", { exact: true })).toBeVisible();
+  await expect(generate).toBeDisabled();
+  expect(generationCalls).toBe(1);
+  await page.getByRole("button", { name: "Mostra anteprima" }).click();
+  await expect(page.getByText("Non ci sono profili mancanti da generare.", { exact: true })).toBeVisible();
+  await expect(generate).toBeDisabled();
+});
+
 test("Optional Astra refinement opens evidence and protects validated profiles", async ({ page }, testInfo) => {
   await page.route("**/sensory-refinement-test", route => route.fulfill({ contentType: "text/html", body: `
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
@@ -47,6 +116,7 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/sensory-refinement-test");
+  await page.getByLabel("Mostra strumenti avanzati").check();
   await page.getByText("Profili vino (30)", { exact: true }).click();
   await page.getByRole("button", { name: "Successivi", exact: true }).click();
   await expect(page.getByText(/Vino oltre i primi trenta/)).toBeVisible();
@@ -64,6 +134,7 @@ test("Optional Astra refinement opens evidence and protects validated profiles",
   await page.getByRole("status").filter({ hasText: "Analisi Astra in corso" }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("astra-running-mobile.png") });
   await page.reload();
+  await page.getByLabel("Mostra strumenti avanzati").check();
   await expect(page.getByRole("status").filter({ hasText: "Connessione interrotta" })).toBeVisible();
   await expect(page.getByText(/Proposta di analisi: il profilo attuale resta invariato/)).toBeVisible({ timeout: 15000 });
   expect(starts).toBe(1);
@@ -120,6 +191,7 @@ test("AI actions send opt-in and show single-wine errors", async ({ page }, test
     const url = new URL(route.request().url());
     let body: unknown = [];
     if (url.pathname.endsWith("/summary")) body = { wines_with_profile: 0, wines_without_profile: 1 };
+    else if (url.pathname.endsWith("/batch-preview")) body = { missing: 1, deterministic: 0, requires_ai: 1 };
     else if (url.pathname.endsWith("/regenerate")) {
       single = url.searchParams.get("allow_ai") === "true";
       await route.fulfill({ status: 503, json: { detail: "AI temporaneamente non disponibile" } });
@@ -135,6 +207,9 @@ test("AI actions send opt-in and show single-wine errors", async ({ page }, test
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/sensory-test");
+  await expect(page.getByRole("button", { name: "Approva tutti da validare" })).toHaveCount(0);
+  await page.getByLabel("Mostra strumenti avanzati").check();
+  await page.getByText("Approvazione amministrativa in blocco", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Approfondisci con Astra" })).toHaveCount(0);
   await expect(page.getByText(/Le nuove ricerche sensoriali a pagamento sono sospese/)).toBeVisible();
   page.on("dialog", dialog => dialog.accept());
@@ -145,6 +220,8 @@ test("AI actions send opt-in and show single-wine errors", async ({ page }, test
   await page.getByRole("button", { name: "Genera profilo con AI", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveText("AI temporaneamente non disponibile");
   expect(single).toBe(true);
+  await expect(page.getByRole("button", { name: "Genera mancanti con AI" })).toBeDisabled();
+  await page.getByRole("button", { name: "Mostra anteprima" }).click();
   await page.getByRole("button", { name: "Genera mancanti con AI" }).click();
   await expect(page.getByText("Generazione completata", { exact: true })).toBeVisible();
   expect(batch).toBe(true);
