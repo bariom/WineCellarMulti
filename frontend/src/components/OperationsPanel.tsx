@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import type { Locale, OperationalMetricsOverview, UserActivityLogEntry } from "../types";
 import { LoadingState } from "./AppUi";
 import { api } from "../services/api";
@@ -6,6 +6,9 @@ import "./OperationsPanel.css";
 
 type OperationsPanelProps = {
   locale: Locale;
+  sensoryProfiles?: ReactNode;
+  catalogManagement?: ReactNode;
+  catalogPendingCount?: number;
   overview: OperationalMetricsOverview | null;
   activity: UserActivityLogEntry[];
   onRefresh: () => void | Promise<void>;
@@ -206,8 +209,9 @@ function activityLabel(action: string, locale: Locale) {
   return (labels[action] || labels.app_action)[locale === "it" ? 0 : 1];
 }
 
-export function OperationsPanel({ locale, overview, activity, onRefresh }: OperationsPanelProps) {
+export function OperationsPanel({ locale, overview, activity, onRefresh, sensoryProfiles, catalogManagement, catalogPendingCount = 0 }: OperationsPanelProps) {
   const isItalian = locale === "it";
+  const [area, setArea] = useState("overview");
   const [monitorToken, setMonitorToken] = useState("");
   const [monitorTokenError, setMonitorTokenError] = useState("");
   const [monitorTokens, setMonitorTokens] = useState<MonitorDeviceToken[]>([]);
@@ -443,94 +447,187 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
         </button>
       </div>
       <p className="settings-help-copy">
-        {isItalian ? "Strumenti amministrativi e dati aggregati riservati all'app-admin." : "Administrative tools and aggregate data restricted to the app admin."}
+        {isItalian ? "Controlla l’attività di Vinaris e scegli l’area su cui lavorare." : "Check Vinaris activity and choose an area to work on."}
       </p>
-      <section className="operations-monitor-token" aria-label="Vinaris Monitor">
-        <div><strong>Vinaris Monitor</strong><small>{isItalian ? "Crea un token revocabile per l'app Android in sola lettura." : "Create a revocable read-only token for the Android app."}</small></div>
-        <button type="button" className="secondary compact" onClick={() => void createMonitorToken()}>{isItalian ? "Crea token" : "Create token"}</button>
-        {monitorToken ? <code>{monitorToken}</code> : null}
-        {monitorToken ? <small className="operations-monitor-token-warning">{isItalian ? "Copialo ora: non sarà mostrato di nuovo." : "Copy it now: it will not be shown again."}</small> : null}
-        {monitorTokenError ? <small className="operations-monitor-token-error">{monitorTokenError}</small> : null}
-        {monitorTokens.length ? <div className="operations-monitor-token-list">
-          <strong>{isItalian ? "Dispositivi autorizzati" : "Authorised devices"}</strong>
-          {monitorTokens.map((deviceToken) => <div className={deviceToken.revoked_at ? "revoked" : ""} key={deviceToken.id}>
-            <span><b>{deviceToken.label}</b><small>{deviceToken.revoked_at ? (isItalian ? "Revocato" : "Revoked") : (deviceToken.last_used_at ? `${isItalian ? "Ultimo utilizzo" : "Last used"}: ${new Date(deviceToken.last_used_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}` : (isItalian ? "Mai utilizzato" : "Never used"))}</small></span>
-            {!deviceToken.revoked_at ? <button type="button" className="secondary compact" onClick={() => void revokeMonitorToken(deviceToken)}>{isItalian ? "Revoca" : "Revoke"}</button> : null}
-          </div>)}
-        </div> : null}
-      </section>
-      <section className="operations-wine-pulse" aria-label="Vinaris Wine Pulse">
-        <div className="operations-wine-pulse-heading">
-          <div>
-            <strong>Vinaris Wine Pulse</strong>
-            <small>{isItalian ? "Raccolta autonoma, selezione AI e stato delle fonti." : "Autonomous collection, AI selection and source health."}</small>
-          </div>
-          <span className={winePulseStatus?.latest_run?.status === "completed" ? "healthy" : "warning"}>
-            {winePulseStatus?.latest_run?.status || (isItalian ? "Mai eseguito" : "Never run")}
-          </span>
+      <nav className="operations-areas" aria-label={isItalian ? "Aree operative" : "Operations areas"}>
+        {[
+          ["overview", isItalian ? "Panoramica" : "Overview", isItalian ? "Attività e prestazioni" : "Activity and performance"],
+          ["catalog", isItalian ? "Catalogo vini" : "Wine catalog", isItalian ? "Profili e provenienza" : "Profiles and origins"],
+          ["pulse", "Wine Pulse", isItalian ? "Notizie e fonti" : "News and sources"],
+          ["costs", isItalian ? "Costi AI" : "AI costs", isItalian ? "Spesa e listino" : "Spending and pricing"],
+          ["devices", isItalian ? "Dispositivi" : "Devices", isItalian ? "Accessi a Monitor" : "Monitor access"],
+        ].map(([id, title, description], index) => <button type="button" key={id} aria-pressed={area === id} aria-controls={`operations-area-${id}`} onClick={() => setArea(id)}>
+          <span className="operations-area-number">0{index + 1}</span><strong>{title}</strong>{id === "catalog" && catalogPendingCount > 0 ? <span className="operations-pending">{catalogPendingCount} {isItalian ? "da approvare" : "pending"}</span> : null}<small>{description}</small>
+        </button>)}
+      </nav>
+      <section id="operations-area-overview" className="operations-area" hidden={area !== "overview"} aria-label={isItalian ? "Panoramica" : "Overview"}>
+        <div className="operations-area-intro"><h4>{isItalian ? "Il quadro generale" : "At a glance"}</h4><p>{isItalian ? "Utilizzo dell’applicazione, tempi di risposta e attività recente." : "Application usage, response times and recent activity."}</p></div>
+        {overview ? <>
+        <div className="operations-overview-kpis">
+          <div><span>{isItalian ? "Utenti abilitati" : "Enabled users"}</span><strong>{overview.business.users_enabled}</strong></div>
+          <div><span>{isItalian ? "Cantine" : "Cellars"}</span><strong>{overview.business.households_total}</strong></div>
+          <div><span>{isItalian ? "Bottiglie in cantina" : "Bottles in cellar"}</span><strong>{overview.business.bottles_in_cellar}</strong></div>
+          <div><span>{isItalian ? "Azioni AI · 30 giorni" : "AI actions · 30 days"}</span><strong>{overview.business.ai_requests_30d}</strong></div>
         </div>
-        {winePulseStatus ? (
-          <div className="operations-wine-pulse-metrics">
-            <div><span>{isItalian ? "Pubblicate" : "Published"}</span><strong>{winePulseStatus.published}</strong></div>
-            <div><span>{isItalian ? "Fonti attive" : "Active sources"}</span><strong>{winePulseStatus.sources.filter((source) => source.enabled).length}</strong></div>
-            <div><span>{isItalian ? "Nuove nell’ultimo ciclo" : "New in latest run"}</span><strong>{winePulseStatus.latest_run?.stats.new || 0}</strong></div>
-            <div><span>{isItalian ? "Elaborate dall’AI" : "AI processed"}</span><strong>{winePulseStatus.latest_run?.stats.ai_processed || 0}</strong></div>
-            <div><span>{isItalian ? "Prossimo ciclo" : "Next cycle"}</span><strong>{nextWinePulseCycle?.window || "—"}</strong>{nextWinePulseCycle ? <small>{nextWinePulseCycle.day} · {nextWinePulseCycle.timezone}</small> : null}</div>
-          </div>
-        ) : <LoadingState label={isItalian ? "Carico Wine Pulse" : "Loading Wine Pulse"} compact />}
-        {winePulseStatus?.sources.some((source) => source.last_error) ? (
-          <details>
-            <summary>{isItalian ? "Fonti da controllare" : "Sources requiring attention"}</summary>
-            {winePulseStatus.sources.filter((source) => source.last_error).map((source) => (
-              <p key={source.id}><strong>{source.name}</strong><span>{source.last_error}</span></p>
-            ))}
-          </details>
-        ) : null}
-        {winePulseStatus?.latest_run?.stats.source_details ? (
-          <details className="operations-wine-pulse-source-details">
-            <summary>{isItalian ? "Esito fonti ultimo ciclo" : "Latest source results"}</summary>
-            {Object.entries(winePulseStatus.latest_run.stats.source_details).map(([sourceId, source]) => (
-              <p key={sourceId}>
-                <strong>{source.name}</strong>
-                <span>{isItalian
-                  ? `${source.fetched} letti · ${source.new} nuovi · ${source.accepted} validati · ${source.rejected + source.prefiltered} scartati · ${source.published} pubblicati`
-                  : `${source.fetched} fetched · ${source.new} new · ${source.accepted} accepted · ${source.rejected + source.prefiltered} rejected · ${source.published} published`}</span>
-                {source.error ? <small>{source.error}</small> : null}
-              </p>
-            ))}
-          </details>
-        ) : null}
-        {winePulseStatus?.latest_run?.completed_at ? <small>{isItalian ? "Ultimo ciclo" : "Latest run"}: {new Date(winePulseStatus.latest_run.completed_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}</small> : null}
+          <section className="operations-section operations-api-section" aria-labelledby="operations-api-heading">
+            <div className="operations-api-heading">
+              <div>
+                <h4 id="operations-api-heading">{isItalian ? "Prestazioni API" : "API performance"}</h4>
+                <p>{isItalian ? "Solo richieste a /api/v1/. Finestra mobile di 15 minuti." : "Only /api/v1/ requests. Rolling 15-minute window."}</p>
+              </div>
+              <time dateTime={overview.collected_at}>{new Date(overview.collected_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}</time>
+            </div>
+            <div className="operations-api-metrics">
+              <div><span>P50</span><strong>{overview.application.interactive_p50_duration_ms ?? "—"}{overview.application.interactive_p50_duration_ms !== null && overview.application.interactive_p50_duration_ms !== undefined ? " ms" : ""}</strong></div>
+              <div><span>P95</span><strong>{overview.application.interactive_p95_duration_ms ?? "—"}{overview.application.interactive_p95_duration_ms !== null && overview.application.interactive_p95_duration_ms !== undefined ? " ms" : ""}</strong></div>
+              <div><span>{isItalian ? "Campioni" : "Samples"}</span><strong>{overview.application.interactive_requests_recent ?? "—"}</strong></div>
+              <div><span>{isItalian ? "Lente" : "Slow"}</span><strong>{overview.application.slow_requests_recent ?? "—"}</strong></div>
+            </div>
+            {(overview.application.interactive_slowest_recent || []).length ? (
+              <details className="operations-api-slow-requests">
+                <summary>{isItalian ? "Campioni interattivi più lenti" : "Slowest interactive samples"}</summary>
+                <div>
+                  {(overview.application.interactive_slowest_recent || []).map((sample, index) => (
+                    <article key={`${sample.recorded_at}-${sample.path}-${index}`}>
+                      <code>{sample.method} {sample.path}</code>
+                      <span>{Math.round(sample.duration_ms)} ms · {sample.status_code}</span>
+                      <time dateTime={sample.recorded_at}>{new Date(sample.recorded_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}</time>
+                    </article>
+                  ))}
+                </div>
+              </details>
+            ) : <p className="operations-api-empty">{isItalian ? "Nessun campione lento nella finestra attuale." : "No slow samples in the current window."}</p>}
+          </section>
+        <details className="operations-disclosure"><summary>{isItalian ? "Statistiche del catalogo e delle cantine" : "Catalog and cellar statistics"}</summary>
+          <section className="operations-section operations-business-section" aria-labelledby="operations-business-heading">
+            <h4 id="operations-business-heading">{isItalian ? "Dati Vinaris" : "Vinaris data"}</h4>
+            <div className="operations-business-grid">
+              <div>
+                <span>{isItalian ? "Utenti abilitati" : "Enabled users"}</span>
+                <strong>{overview.business.users_enabled}</strong>
+                <small>{overview.business.users_total} {isItalian ? "totali" : "total"}{overview.business.users_blocked ? ` · ${overview.business.users_blocked} ${isItalian ? "bloccati" : "blocked"}` : ""}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Cantine" : "Cellars"}</span>
+                <strong>{overview.business.households_total}</strong>
+                <small>{overview.business.households_total ? (overview.business.users_enabled / overview.business.households_total).toFixed(1) : "—"} {isItalian ? "utenti per cantina" : "users per cellar"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Inventario globale" : "Global inventory"}</span>
+                <strong>{overview.business.bottles_total}</strong>
+                <small>{overview.business.wines_total} {isItalian ? "record vino · demo e test inclusi" : "wine records · demo and tests included"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Bottiglie in cantina" : "Bottles in cellar"}</span>
+                <strong>{overview.business.bottles_in_cellar}</strong>
+                <small>{overview.business.bottles_total ? `${Math.round((overview.business.bottles_in_cellar / overview.business.bottles_total) * 100)}%` : "—"} {isItalian ? "dell'inventario" : "of inventory"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Da ritirare" : "To collect"}</span>
+                <strong>{overview.business.bottles_to_collect}</strong>
+                <small>{isItalian ? "bottiglie" : "bottles"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Consegne future" : "Future deliveries"}</span>
+                <strong>{overview.business.bottles_in_future_deliveries}</strong>
+                <small>{isItalian ? "bottiglie attese" : "expected bottles"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Degustazioni · 30 giorni" : "Tastings · 30 days"}</span>
+                <strong>{overview.business.tastings_30d}</strong>
+                <small>{overview.business.tastings_total} {isItalian ? "storiche" : "all time"}</small>
+              </div>
+              <div>
+                <span>Wishlist</span>
+                <strong>{overview.business.wishlist_items_total}</strong>
+                <small>{isItalian ? "vini desiderati" : "desired wines"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Azioni AI · 30 giorni" : "AI actions · 30 days"}</span>
+                <strong>{overview.business.ai_requests_30d}</strong>
+                <small>{successRate(overview.business.ai_successes_30d, overview.business.ai_requests_30d)} {isItalian ? "riuscite" : "successful"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Ricerche vino per nome · 30 giorni" : "Wine name searches · 30 days"}</span>
+                <strong>{overview.business.wine_name_searches_30d}</strong>
+                <small>{usd(overview.business.wine_name_search_cost_30d_usd, locale)} {isItalian ? "costo applicazione" : "application cost"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Fotografie bottiglia" : "Bottle photographs"}</span>
+                <strong>{overview.business.wine_photos_total}</strong>
+                <small>{isItalian ? "attualmente archiviate" : "currently stored"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Etichette · 30 giorni" : "Labels · 30 days"}</span>
+                <strong>{overview.business.label_recognitions_30d}</strong>
+                <small>{successRate(overview.business.label_recognition_successes_30d, overview.business.label_recognitions_30d)} {isItalian ? "riconosciute" : "recognised"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Comproprietà attive" : "Active co-ownerships"}</span>
+                <strong>{overview.business.coownership_active}</strong>
+                <small>{overview.business.coownership_pending} {isItalian ? "in attesa" : "pending"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Densità cantina" : "Cellar density"}</span>
+                <strong>{overview.business.households_total ? (overview.business.bottles_total / overview.business.households_total).toFixed(1) : "—"}</strong>
+                <small>{isItalian ? "bottiglie per cantina" : "bottles per cellar"}</small>
+              </div>
+            </div>
+            <details className="operations-household-inventory">
+              <summary>{isItalian ? "Ripartizione inventario per cantina" : "Inventory by cellar"}</summary>
+              <div>
+                {(overview.business.household_inventory || []).map((household) => (
+                  <article key={household.name}>
+                    <span>
+                      <span><strong>{household.name}</strong>{household.is_demo ? <em>{isItalian ? "demo" : "demo"}</em> : null}</span>
+                      {household.user_name || household.user_email ? (
+                        <small className="operations-household-user">
+                          {household.user_name || (isItalian ? "Utente senza nome" : "Unnamed user")}
+                          {household.user_email ? ` · ${household.user_email}` : ""}
+                        </small>
+                      ) : (
+                        <small className="operations-household-user muted">{isItalian ? "Nessun utente associato" : "No associated user"}</small>
+                      )}
+                    </span>
+                    <small>{household.wine_records} {isItalian ? "record vino" : "wine records"}</small>
+                    <b>{household.bottles} {isItalian ? "bottiglie" : "bottles"}</b>
+                  </article>
+                ))}
+              </div>
+            </details>
+          </section>
+        </details>
+          <section className="operations-section operations-activity-section" aria-labelledby="operations-activity-heading">
+            <div className="operations-activity-heading">
+              <div>
+                <h4 id="operations-activity-heading">{isItalian ? "Attività recente degli utenti" : "Recent user activity"}</h4>
+                <p>{isItalian ? "Solo azioni che modificano dati e completate con successo." : "Successful actions that modify data only."}</p>
+              </div>
+              <span>{activity.length}</span>
+            </div>
+            {activity.length ? (
+              <div className="operations-activity-list">
+                {activity.map((entry) => (
+                  <article key={entry.id}>
+                    <div>
+                      <strong>{entry.user_display_name || entry.user_email}</strong>
+                      <span>{activityLabel(entry.action, locale)}</span>
+                    </div>
+                    <time dateTime={entry.created_at}>{new Intl.DateTimeFormat(isItalian ? "it-CH" : "en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(entry.created_at))}</time>
+                  </article>
+                ))}
+              </div>
+            ) : <p className="operations-activity-empty">{isItalian ? "Nessuna attività registrata per ora." : "No activity recorded yet."}</p>}
+          </section>        </> : <LoadingState label={isItalian ? "Caricamento dati…" : "Loading data…"} />}
+
       </section>
-      <section className="operations-ai-pricing" aria-label={isItalian ? "Listino modelli AI" : "AI model price book"}>
-        <div className="operations-ai-pricing-heading">
-          <div>
-            <strong>{isItalian ? "Listino modelli AI" : "AI model price book"}</strong>
-            <small>{isItalian ? "USD per un milione di token, elaborazione standard. I valori arrivano dal listino ufficiale e richiedono comunque il tuo salvataggio." : "USD per one million tokens, standard processing. Values come from the official price list and still require your save."}</small>
-          </div>
-          <div>
-            <button type="button" className="secondary compact" disabled={Boolean(aiPricingBusy)} onClick={() => void refreshOfficialPricing()}>
-              {aiPricingBusy === "refresh" ? (isItalian ? "Aggiorno…" : "Refreshing…") : (isItalian ? "Aggiorna dal listino ufficiale" : "Refresh from official price list")}
-            </button>
-            <button type="button" className="compact" disabled={Boolean(aiPricingBusy)} onClick={() => void saveAiPricing()}>
-              {aiPricingBusy === "save" ? (isItalian ? "Salvo…" : "Saving…") : (isItalian ? "Salva listino" : "Save price book")}
-            </button>
-          </div>
-        </div>
-        <div className="inline-form">
-          <label>
-            <span>{isItalian ? "Margine AI Pack abbonati (%)" : "Subscriber AI Pack markup (%)"}</span>
-            <input type="number" min="0" step="0.01" value={aiPackMarkupDraft} onChange={(event) => setAiPackMarkupDraft(event.target.value)} />
-          </label>
-          <label>
-            <span>{isItalian ? "Margine AI Pack piano gratuito (%)" : "Free-tier AI Pack markup (%)"}</span>
-            <input type="number" min="0" step="0.01" value={freeTierAiPackMarkupDraft} onChange={(event) => setFreeTierAiPackMarkupDraft(event.target.value)} />
-          </label>
-        </div>
-        <textarea value={aiPricingDraft} onChange={(event) => setAiPricingDraft(event.target.value)} spellCheck={false} aria-label={isItalian ? "JSON listino modelli AI" : "AI model price book JSON"} />
-        {aiPricingUpdatedAt ? <small>{isItalian ? "Ultimo salvataggio" : "Last saved"}: {new Date(aiPricingUpdatedAt).toLocaleString(isItalian ? "it-CH" : "en-GB")}</small> : null}
-        {aiPricingError ? <p role="alert">{aiPricingError}</p> : null}
-      </section>
+      <section id="operations-area-catalog" className="operations-area" hidden={area !== "catalog"} aria-label={isItalian ? "Catalogo vini" : "Wine catalog"}>
+        <div className="operations-area-intro"><h4>{isItalian ? "Qualità del catalogo" : "Catalog quality"}</h4><p>{isItalian ? "Genera i profili mancanti o completa i luoghi di provenienza. Scegli lo strumento necessario." : "Generate missing profiles or complete places of origin. Choose the tool you need."}</p></div>
+        {catalogManagement}
+        <details className="operations-disclosure"><summary><strong>{isItalian ? "Profili sensoriali" : "Sensory profiles"}</strong><span>{isItalian ? "Generazione semiautomatica e revisione facoltativa" : "Semiautomatic generation and optional review"}</span></summary>
+          {sensoryProfiles}
+        </details>
+        <details className="operations-disclosure"><summary><strong>{isItalian ? "Vigneti e provenienza" : "Vineyards and origins"}</strong><span>{isItalian ? "Localizzazione dei vini e ricerca geografica" : "Wine locations and geographic research"}</span></summary>
       <section className="operations-vineyards" aria-label={isItalian ? "Origine geografica dei vini" : "Wine geographic origin"}>
         <div className="operations-vineyards-heading">
           <div>
@@ -647,134 +744,57 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
         ) : null}
         {vineyardError ? <p role="alert">{vineyardError}</p> : null}
       </section>
-      {overview ? (
-        <>
-          <section className="operations-section operations-api-section" aria-labelledby="operations-api-heading">
-            <div className="operations-api-heading">
-              <div>
-                <h4 id="operations-api-heading">{isItalian ? "Prestazioni API" : "API performance"}</h4>
-                <p>{isItalian ? "Solo richieste a /api/v1/. Finestra mobile di 15 minuti." : "Only /api/v1/ requests. Rolling 15-minute window."}</p>
-              </div>
-              <time dateTime={overview.collected_at}>{new Date(overview.collected_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}</time>
-            </div>
-            <div className="operations-api-metrics">
-              <div><span>P50</span><strong>{overview.application.interactive_p50_duration_ms ?? "—"}{overview.application.interactive_p50_duration_ms !== null && overview.application.interactive_p50_duration_ms !== undefined ? " ms" : ""}</strong></div>
-              <div><span>P95</span><strong>{overview.application.interactive_p95_duration_ms ?? "—"}{overview.application.interactive_p95_duration_ms !== null && overview.application.interactive_p95_duration_ms !== undefined ? " ms" : ""}</strong></div>
-              <div><span>{isItalian ? "Campioni" : "Samples"}</span><strong>{overview.application.interactive_requests_recent ?? "—"}</strong></div>
-              <div><span>{isItalian ? "Lente" : "Slow"}</span><strong>{overview.application.slow_requests_recent ?? "—"}</strong></div>
-            </div>
-            {(overview.application.interactive_slowest_recent || []).length ? (
-              <details className="operations-api-slow-requests">
-                <summary>{isItalian ? "Campioni interattivi più lenti" : "Slowest interactive samples"}</summary>
-                <div>
-                  {(overview.application.interactive_slowest_recent || []).map((sample, index) => (
-                    <article key={`${sample.recorded_at}-${sample.path}-${index}`}>
-                      <code>{sample.method} {sample.path}</code>
-                      <span>{Math.round(sample.duration_ms)} ms · {sample.status_code}</span>
-                      <time dateTime={sample.recorded_at}>{new Date(sample.recorded_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}</time>
-                    </article>
-                  ))}
-                </div>
-              </details>
-            ) : <p className="operations-api-empty">{isItalian ? "Nessun campione lento nella finestra attuale." : "No slow samples in the current window."}</p>}
-          </section>
-          <section className="operations-section operations-business-section" aria-labelledby="operations-business-heading">
-            <h4 id="operations-business-heading">{isItalian ? "Dati Vinaris" : "Vinaris data"}</h4>
-            <div className="operations-business-grid">
-              <div>
-                <span>{isItalian ? "Utenti abilitati" : "Enabled users"}</span>
-                <strong>{overview.business.users_enabled}</strong>
-                <small>{overview.business.users_total} {isItalian ? "totali" : "total"}{overview.business.users_blocked ? ` · ${overview.business.users_blocked} ${isItalian ? "bloccati" : "blocked"}` : ""}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Cantine" : "Cellars"}</span>
-                <strong>{overview.business.households_total}</strong>
-                <small>{overview.business.households_total ? (overview.business.users_enabled / overview.business.households_total).toFixed(1) : "—"} {isItalian ? "utenti per cantina" : "users per cellar"}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Inventario globale" : "Global inventory"}</span>
-                <strong>{overview.business.bottles_total}</strong>
-                <small>{overview.business.wines_total} {isItalian ? "record vino · demo e test inclusi" : "wine records · demo and tests included"}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Bottiglie in cantina" : "Bottles in cellar"}</span>
-                <strong>{overview.business.bottles_in_cellar}</strong>
-                <small>{overview.business.bottles_total ? `${Math.round((overview.business.bottles_in_cellar / overview.business.bottles_total) * 100)}%` : "—"} {isItalian ? "dell'inventario" : "of inventory"}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Da ritirare" : "To collect"}</span>
-                <strong>{overview.business.bottles_to_collect}</strong>
-                <small>{isItalian ? "bottiglie" : "bottles"}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Consegne future" : "Future deliveries"}</span>
-                <strong>{overview.business.bottles_in_future_deliveries}</strong>
-                <small>{isItalian ? "bottiglie attese" : "expected bottles"}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Degustazioni · 30 giorni" : "Tastings · 30 days"}</span>
-                <strong>{overview.business.tastings_30d}</strong>
-                <small>{overview.business.tastings_total} {isItalian ? "storiche" : "all time"}</small>
-              </div>
-              <div>
-                <span>Wishlist</span>
-                <strong>{overview.business.wishlist_items_total}</strong>
-                <small>{isItalian ? "vini desiderati" : "desired wines"}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Azioni AI · 30 giorni" : "AI actions · 30 days"}</span>
-                <strong>{overview.business.ai_requests_30d}</strong>
-                <small>{successRate(overview.business.ai_successes_30d, overview.business.ai_requests_30d)} {isItalian ? "riuscite" : "successful"}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Ricerche vino per nome · 30 giorni" : "Wine name searches · 30 days"}</span>
-                <strong>{overview.business.wine_name_searches_30d}</strong>
-                <small>{usd(overview.business.wine_name_search_cost_30d_usd, locale)} {isItalian ? "costo applicazione" : "application cost"}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Fotografie bottiglia" : "Bottle photographs"}</span>
-                <strong>{overview.business.wine_photos_total}</strong>
-                <small>{isItalian ? "attualmente archiviate" : "currently stored"}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Etichette · 30 giorni" : "Labels · 30 days"}</span>
-                <strong>{overview.business.label_recognitions_30d}</strong>
-                <small>{successRate(overview.business.label_recognition_successes_30d, overview.business.label_recognitions_30d)} {isItalian ? "riconosciute" : "recognised"}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Comproprietà attive" : "Active co-ownerships"}</span>
-                <strong>{overview.business.coownership_active}</strong>
-                <small>{overview.business.coownership_pending} {isItalian ? "in attesa" : "pending"}</small>
-              </div>
-              <div>
-                <span>{isItalian ? "Densità cantina" : "Cellar density"}</span>
-                <strong>{overview.business.households_total ? (overview.business.bottles_total / overview.business.households_total).toFixed(1) : "—"}</strong>
-                <small>{isItalian ? "bottiglie per cantina" : "bottles per cellar"}</small>
-              </div>
-            </div>
-            <details className="operations-household-inventory">
-              <summary>{isItalian ? "Ripartizione inventario per cantina" : "Inventory by cellar"}</summary>
-              <div>
-                {(overview.business.household_inventory || []).map((household) => (
-                  <article key={household.name}>
-                    <span>
-                      <span><strong>{household.name}</strong>{household.is_demo ? <em>{isItalian ? "demo" : "demo"}</em> : null}</span>
-                      {household.user_name || household.user_email ? (
-                        <small className="operations-household-user">
-                          {household.user_name || (isItalian ? "Utente senza nome" : "Unnamed user")}
-                          {household.user_email ? ` · ${household.user_email}` : ""}
-                        </small>
-                      ) : (
-                        <small className="operations-household-user muted">{isItalian ? "Nessun utente associato" : "No associated user"}</small>
-                      )}
-                    </span>
-                    <small>{household.wine_records} {isItalian ? "record vino" : "wine records"}</small>
-                    <b>{household.bottles} {isItalian ? "bottiglie" : "bottles"}</b>
-                  </article>
-                ))}
-              </div>
-            </details>
-          </section>
+        </details>
+      </section>
+      <section id="operations-area-pulse" className="operations-area" hidden={area !== "pulse"} aria-label={isItalian ? "Wine Pulse" : "Wine Pulse"}>
+      <section className="operations-wine-pulse" aria-label="Vinaris Wine Pulse">
+        <div className="operations-wine-pulse-heading">
+          <div>
+            <strong>Vinaris Wine Pulse</strong>
+            <small>{isItalian ? "Raccolta autonoma, selezione AI e stato delle fonti." : "Autonomous collection, AI selection and source health."}</small>
+          </div>
+          <span className={winePulseStatus?.latest_run?.status === "completed" ? "healthy" : "warning"}>
+            {winePulseStatus?.latest_run?.status || (isItalian ? "Mai eseguito" : "Never run")}
+          </span>
+        </div>
+        {winePulseStatus ? (
+          <div className="operations-wine-pulse-metrics">
+            <div><span>{isItalian ? "Pubblicate" : "Published"}</span><strong>{winePulseStatus.published}</strong></div>
+            <div><span>{isItalian ? "Fonti attive" : "Active sources"}</span><strong>{winePulseStatus.sources.filter((source) => source.enabled).length}</strong></div>
+            <div><span>{isItalian ? "Nuove nell’ultimo ciclo" : "New in latest run"}</span><strong>{winePulseStatus.latest_run?.stats.new || 0}</strong></div>
+            <div><span>{isItalian ? "Elaborate dall’AI" : "AI processed"}</span><strong>{winePulseStatus.latest_run?.stats.ai_processed || 0}</strong></div>
+            <div><span>{isItalian ? "Prossimo ciclo" : "Next cycle"}</span><strong>{nextWinePulseCycle?.window || "—"}</strong>{nextWinePulseCycle ? <small>{nextWinePulseCycle.day} · {nextWinePulseCycle.timezone}</small> : null}</div>
+          </div>
+        ) : <LoadingState label={isItalian ? "Carico Wine Pulse" : "Loading Wine Pulse"} compact />}
+        {winePulseStatus?.sources.some((source) => source.last_error) ? (
+          <details>
+            <summary>{isItalian ? "Fonti da controllare" : "Sources requiring attention"}</summary>
+            {winePulseStatus.sources.filter((source) => source.last_error).map((source) => (
+              <p key={source.id}><strong>{source.name}</strong><span>{source.last_error}</span></p>
+            ))}
+          </details>
+        ) : null}
+        {winePulseStatus?.latest_run?.stats.source_details ? (
+          <details className="operations-wine-pulse-source-details">
+            <summary>{isItalian ? "Esito fonti ultimo ciclo" : "Latest source results"}</summary>
+            {Object.entries(winePulseStatus.latest_run.stats.source_details).map(([sourceId, source]) => (
+              <p key={sourceId}>
+                <strong>{source.name}</strong>
+                <span>{isItalian
+                  ? `${source.fetched} letti · ${source.new} nuovi · ${source.accepted} validati · ${source.rejected + source.prefiltered} scartati · ${source.published} pubblicati`
+                  : `${source.fetched} fetched · ${source.new} new · ${source.accepted} accepted · ${source.rejected + source.prefiltered} rejected · ${source.published} published`}</span>
+                {source.error ? <small>{source.error}</small> : null}
+              </p>
+            ))}
+          </details>
+        ) : null}
+        {winePulseStatus?.latest_run?.completed_at ? <small>{isItalian ? "Ultimo ciclo" : "Latest run"}: {new Date(winePulseStatus.latest_run.completed_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}</small> : null}
+      </section>
+
+      </section>
+      <section id="operations-area-costs" className="operations-area" hidden={area !== "costs"} aria-label={isItalian ? "Costi AI" : "AI costs"}>
+        <div className="operations-area-intro"><h4>{isItalian ? "Spesa e tariffe AI" : "AI spending and rates"}</h4><p>{isItalian ? "Controlla i costi sostenuti. Apri il listino solo per aggiornare prezzi e margini." : "Review spending. Open the price book to update prices and margins."}</p></div>
+        {overview ? <>
           <section className="operations-openai-cost" aria-label={isItalian ? "Costi OpenAI" : "OpenAI costs"}>
             <div>
               <span>{isItalian ? "Costi OpenAI" : "OpenAI costs"}</span>
@@ -789,30 +809,56 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
               </div>
             ) : <p>{isItalian ? "Configura OPENAI_ADMIN_KEY sul server per visualizzare i costi." : "Configure OPENAI_ADMIN_KEY on the server to view costs."}</p>}
           </section>
-          <section className="operations-section operations-activity-section" aria-labelledby="operations-activity-heading">
-            <div className="operations-activity-heading">
-              <div>
-                <h4 id="operations-activity-heading">{isItalian ? "Attività recente degli utenti" : "Recent user activity"}</h4>
-                <p>{isItalian ? "Solo azioni che modificano dati e completate con successo." : "Successful actions that modify data only."}</p>
-              </div>
-              <span>{activity.length}</span>
-            </div>
-            {activity.length ? (
-              <div className="operations-activity-list">
-                {activity.map((entry) => (
-                  <article key={entry.id}>
-                    <div>
-                      <strong>{entry.user_display_name || entry.user_email}</strong>
-                      <span>{activityLabel(entry.action, locale)}</span>
-                    </div>
-                    <time dateTime={entry.created_at}>{new Intl.DateTimeFormat(isItalian ? "it-CH" : "en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(entry.created_at))}</time>
-                  </article>
-                ))}
-              </div>
-            ) : <p className="operations-activity-empty">{isItalian ? "Nessuna attività registrata per ora." : "No activity recorded yet."}</p>}
-          </section>
-        </>
-      ) : <LoadingState label={isItalian ? "Caricamento dati…" : "Loading data…"} />}
+        </> : <LoadingState label={isItalian ? "Caricamento costi…" : "Loading costs…"} />}
+        <details className="operations-disclosure"><summary>{isItalian ? "Configura listino e margini" : "Configure prices and margins"}</summary>
+      <section className="operations-ai-pricing" aria-label={isItalian ? "Listino modelli AI" : "AI model price book"}>
+        <div className="operations-ai-pricing-heading">
+          <div>
+            <strong>{isItalian ? "Listino modelli AI" : "AI model price book"}</strong>
+            <small>{isItalian ? "USD per un milione di token, elaborazione standard. I valori arrivano dal listino ufficiale e richiedono comunque il tuo salvataggio." : "USD per one million tokens, standard processing. Values come from the official price list and still require your save."}</small>
+          </div>
+          <div>
+            <button type="button" className="secondary compact" disabled={Boolean(aiPricingBusy)} onClick={() => void refreshOfficialPricing()}>
+              {aiPricingBusy === "refresh" ? (isItalian ? "Aggiorno…" : "Refreshing…") : (isItalian ? "Aggiorna dal listino ufficiale" : "Refresh from official price list")}
+            </button>
+            <button type="button" className="compact" disabled={Boolean(aiPricingBusy)} onClick={() => void saveAiPricing()}>
+              {aiPricingBusy === "save" ? (isItalian ? "Salvo…" : "Saving…") : (isItalian ? "Salva listino" : "Save price book")}
+            </button>
+          </div>
+        </div>
+        <div className="inline-form">
+          <label>
+            <span>{isItalian ? "Margine AI Pack abbonati (%)" : "Subscriber AI Pack markup (%)"}</span>
+            <input type="number" min="0" step="0.01" value={aiPackMarkupDraft} onChange={(event) => setAiPackMarkupDraft(event.target.value)} />
+          </label>
+          <label>
+            <span>{isItalian ? "Margine AI Pack piano gratuito (%)" : "Free-tier AI Pack markup (%)"}</span>
+            <input type="number" min="0" step="0.01" value={freeTierAiPackMarkupDraft} onChange={(event) => setFreeTierAiPackMarkupDraft(event.target.value)} />
+          </label>
+        </div>
+        <textarea value={aiPricingDraft} onChange={(event) => setAiPricingDraft(event.target.value)} spellCheck={false} aria-label={isItalian ? "JSON listino modelli AI" : "AI model price book JSON"} />
+        {aiPricingUpdatedAt ? <small>{isItalian ? "Ultimo salvataggio" : "Last saved"}: {new Date(aiPricingUpdatedAt).toLocaleString(isItalian ? "it-CH" : "en-GB")}</small> : null}
+        {aiPricingError ? <p role="alert">{aiPricingError}</p> : null}
+      </section>
+        </details>
+      </section>
+      <section id="operations-area-devices" className="operations-area" hidden={area !== "devices"} aria-label={isItalian ? "Dispositivi" : "Devices"}>
+      <section className="operations-monitor-token" aria-label="Vinaris Monitor">
+        <div><strong>Vinaris Monitor</strong><small>{isItalian ? "Crea un token revocabile per l'app Android in sola lettura." : "Create a revocable read-only token for the Android app."}</small></div>
+        <button type="button" className="secondary compact" onClick={() => void createMonitorToken()}>{isItalian ? "Crea token" : "Create token"}</button>
+        {monitorToken ? <code>{monitorToken}</code> : null}
+        {monitorToken ? <small className="operations-monitor-token-warning">{isItalian ? "Copialo ora: non sarà mostrato di nuovo." : "Copy it now: it will not be shown again."}</small> : null}
+        {monitorTokenError ? <small className="operations-monitor-token-error">{monitorTokenError}</small> : null}
+        {monitorTokens.length ? <div className="operations-monitor-token-list">
+          <strong>{isItalian ? "Dispositivi autorizzati" : "Authorised devices"}</strong>
+          {monitorTokens.map((deviceToken) => <div className={deviceToken.revoked_at ? "revoked" : ""} key={deviceToken.id}>
+            <span><b>{deviceToken.label}</b><small>{deviceToken.revoked_at ? (isItalian ? "Revocato" : "Revoked") : (deviceToken.last_used_at ? `${isItalian ? "Ultimo utilizzo" : "Last used"}: ${new Date(deviceToken.last_used_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}` : (isItalian ? "Mai utilizzato" : "Never used"))}</small></span>
+            {!deviceToken.revoked_at ? <button type="button" className="secondary compact" onClick={() => void revokeMonitorToken(deviceToken)}>{isItalian ? "Revoca" : "Revoke"}</button> : null}
+          </div>)}
+        </div> : null}
+      </section>
+
+      </section>
     </section>
   );
 }

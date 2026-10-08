@@ -31,6 +31,14 @@ is 5173; set `PLAYWRIGHT_PORT` to choose another local server port. An explicit
 
 ## Feature commands
 
+Operations: `npx playwright test e2e/operations.spec.ts` checks the complete
+administrator screen: overview, catalog approval/search, sensory profiles,
+vineyard tools, Wine Pulse, AI costs/pricing and Monitor devices. The areas keep
+form drafts while switching and do not submit writes on navigation. Coverage
+includes 360/390/430 px and desktop, navigation geometry, overflow and a reviewed
+390 px overview baseline. Ordinary sensory workflow tests remain in
+`e2e/sensory-profiles.spec.ts` and the documentary review suites.
+
 Wine Pulse uses the full application width, with a desktop story index and a
 two-column article grid. Search and the unread filter apply to loaded stories;
 the topic and current/archive controls query the server. Read marks last for the

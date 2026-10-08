@@ -14935,87 +14935,6 @@ export function App() {
                 </section>
               ) : null}
 
-              {settingsTab === "operations" && canAppAdmin ? (
-                <section className="settings-card settings-card-wide settings-admin-card">
-                  <div className="settings-card-heading">
-                    <div>
-                      <span>{t("labelRecognitionAccess")}</span>
-                      <h3>{t("pendingCatalogEntries")}</h3>
-                    </div>
-                    <div className="member-actions">
-                      <strong>{pendingCatalogEntries.length}</strong>
-                      <button type="button" className="secondary compact" disabled={saving} onClick={() => loadPendingCatalogEntries(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load catalog entries"))}>
-                        {t("loadingData")}
-                      </button>
-                    </div>
-                  </div>
-                  {pendingCatalogEntries.length ? (
-                    <div className="member-list">
-                      {pendingCatalogEntries.map((entry) => (
-                        <div className="member-row" key={entry.id || `${entry.producer}-${entry.name}`}>
-                          <div>
-                            <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
-                            <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
-                            {entry.country || entry.grapes_text ? <span>{[entry.country, entry.grapes_text].filter(Boolean).join(" - ")}</span> : null}
-                          </div>
-                          <div className="member-actions">
-                            <button type="button" className="compact" disabled={saving} onClick={() => approveCatalogEntry(entry)}>
-                              {t("approveCatalogEntry")}
-                            </button>
-                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteCatalogEntry(entry)}>
-                              {t("rejectCatalogEntry")}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="empty-state">{t("noPendingCatalogEntries")}</p>
-                  )}
-                </section>
-              ) : null}
-
-              {settingsTab === "operations" && canAppAdmin ? (
-                <section className="settings-card settings-card-wide">
-                  <div className="settings-card-heading">
-                    <div>
-                      <span>{t("labelRecognitionAccess")}</span>
-                      <h3>{t("catalogAdminSearch")}</h3>
-                      <small>{t("catalogAdminSearchHelp")}</small>
-                    </div>
-                  </div>
-                  <form className="inline-row-form" onSubmit={(event) => { event.preventDefault(); searchCatalogAdminEntries().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to search catalog")); }}>
-                    <input value={catalogAdminQuery} onChange={(event) => setCatalogAdminQuery(event.target.value)} placeholder="Dogaia, 36 lune..." />
-                    <button type="submit" className="secondary compact" disabled={saving || !catalogAdminQuery.trim()}>{t("search")}</button>
-                  </form>
-                  {catalogAdminResults.length ? (
-                    <div className="member-list">
-                      {catalogAdminResults.map((entry) => (
-                        <div className="member-row" key={entry.id || `${entry.producer}-${entry.name}`}>
-                          <div>
-                            <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
-                            <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
-                            <span className={entry.is_active ? "status-pill configured" : "status-pill"}>{entry.is_active ? "active" : "pending"}</span>
-                          </div>
-                          <div className="member-actions">
-                            {!entry.is_active ? (
-                              <button type="button" className="compact" disabled={saving} onClick={() => approveCatalogEntry(entry)}>
-                                {t("approveCatalogEntry")}
-                              </button>
-                            ) : null}
-                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteCatalogEntry(entry)}>
-                              {t("deleteCatalogEntry")}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : catalogAdminQuery.trim() ? (
-                    <p className="empty-state">{t("noCatalogAdminResults")}</p>
-                  ) : null}
-                </section>
-              ) : null}
-
               {settingsTab === "sharing" ? (
               <details className="settings-card settings-card-wide cellar-settings-section" open={coOwnershipLibraryVisible} onToggle={(event) => setCoOwnershipLibraryVisible((event.currentTarget as HTMLDetailsElement).open)}>
                 <summary><span>{locale === "it" ? "Comproprietà" : "Co-ownership"}</span><strong>{locale === "it" ? "I miei accordi" : "My agreements"}</strong><small>{myCoOwnershipAgreements.length} {locale === "it" ? "accordi personali" : "personal agreements"}</small></summary>
@@ -15078,8 +14997,87 @@ export function App() {
               {settingsTab === "operations" && canAppAdmin ? (
                 <>
                   <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento operatività…" : "Loading operations…"} />}>
-                    <AdminSensoryProfilesPanel locale={locale} />
-                    <OperationsPanel locale={locale} overview={operationsOverview} activity={userActivity} onRefresh={loadOperationsMetrics} />
+                    <OperationsPanel locale={locale} overview={operationsOverview} activity={userActivity} onRefresh={loadOperationsMetrics} sensoryProfiles={<AdminSensoryProfilesPanel locale={locale} />} catalogPendingCount={pendingCatalogEntries.length} catalogManagement={<>
+                      <details className="operations-disclosure"><summary>{locale === "it" ? "Nuovi vini da approvare" : "New wines to approve"}</summary>
+<section className="settings-card settings-card-wide settings-admin-card">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("labelRecognitionAccess")}</span>
+                      <h3>{t("pendingCatalogEntries")}</h3>
+                    </div>
+                    <div className="member-actions">
+                      <strong>{pendingCatalogEntries.length}</strong>
+                      <button type="button" className="secondary compact" disabled={saving} onClick={() => loadPendingCatalogEntries(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load catalog entries"))}>
+                        {t("loadingData")}
+                      </button>
+                    </div>
+                  </div>
+                  {pendingCatalogEntries.length ? (
+                    <div className="member-list">
+                      {pendingCatalogEntries.map((entry) => (
+                        <div className="member-row" key={entry.id || `${entry.producer}-${entry.name}`}>
+                          <div>
+                            <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
+                            <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
+                            {entry.country || entry.grapes_text ? <span>{[entry.country, entry.grapes_text].filter(Boolean).join(" - ")}</span> : null}
+                          </div>
+                          <div className="member-actions">
+                            <button type="button" className="compact" disabled={saving} onClick={() => approveCatalogEntry(entry)}>
+                              {t("approveCatalogEntry")}
+                            </button>
+                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteCatalogEntry(entry)}>
+                              {t("rejectCatalogEntry")}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="empty-state">{t("noPendingCatalogEntries")}</p>
+                  )}
+                </section>
+                      </details>
+                      <details className="operations-disclosure"><summary>{locale === "it" ? "Cerca e gestisci le schede" : "Search and manage entries"}</summary>
+<section className="settings-card settings-card-wide">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("labelRecognitionAccess")}</span>
+                      <h3>{t("catalogAdminSearch")}</h3>
+                      <small>{t("catalogAdminSearchHelp")}</small>
+                    </div>
+                  </div>
+                  <form className="inline-row-form" onSubmit={(event) => { event.preventDefault(); searchCatalogAdminEntries().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to search catalog")); }}>
+                    <input value={catalogAdminQuery} onChange={(event) => setCatalogAdminQuery(event.target.value)} placeholder="Dogaia, 36 lune..." />
+                    <button type="submit" className="secondary compact" disabled={saving || !catalogAdminQuery.trim()}>{t("search")}</button>
+                  </form>
+                  {catalogAdminResults.length ? (
+                    <div className="member-list">
+                      {catalogAdminResults.map((entry) => (
+                        <div className="member-row" key={entry.id || `${entry.producer}-${entry.name}`}>
+                          <div>
+                            <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
+                            <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
+                            <span className={entry.is_active ? "status-pill configured" : "status-pill"}>{entry.is_active ? "active" : "pending"}</span>
+                          </div>
+                          <div className="member-actions">
+                            {!entry.is_active ? (
+                              <button type="button" className="compact" disabled={saving} onClick={() => approveCatalogEntry(entry)}>
+                                {t("approveCatalogEntry")}
+                              </button>
+                            ) : null}
+                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteCatalogEntry(entry)}>
+                              {t("deleteCatalogEntry")}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : catalogAdminQuery.trim() ? (
+                    <p className="empty-state">{t("noCatalogAdminResults")}</p>
+                  ) : null}
+                </section>
+                      </details>
+                    </>} />
                   </Suspense>
                 </>
               ) : null}

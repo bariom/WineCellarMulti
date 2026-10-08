@@ -2,6 +2,10 @@
 
 ## Guided administrator workflow
 
+Access: **Impostazioni → Operatività → Catalogo vini → Profili sensoriali**.
+Operations opens on the application overview; catalog tools are grouped separately
+from Wine Pulse, AI pricing and Monitor device administration.
+
 The default screen is the ordinary semiautomatic batch workflow: **Mostra
 anteprima**, then **Genera mancanti con AI**. Generation is enabled only after a
 successful preview with missing profiles. Preview is free; generation may use AI
