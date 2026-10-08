@@ -36,6 +36,41 @@ async function openBook(page: Page, mode: "photos" | "empty" | "error" = "photos
   return page.getByRole("dialog", { name: "Momenti", exact: true });
 }
 
+test("polaroid captions fit medium and long titles without clipping or covering dates", async ({ page }, testInfo) => {
+  const book = await openBook(page);
+  const titles = ["Cena", "Aperitivo a San Quirico d'Orcia", "Una degustazione speciale con gli amici nella cantina di famiglia", "Una serata indimenticabile alla scoperta delle grandi annate, tra racconti dei produttori, piatti della tradizione e brindisi con tutti gli amici"];
+  await page.evaluate(({ archive, titles }) => {
+    (window as any).bookMemories = titles.map((occasion, i) => ({ ...archive.items[0], tasting_id: `caption-${i}`, occasion, memory_photo_url: "/images/home-tasting-v1.jpg" }));
+  }, { archive: tastingArchive, titles });
+  await book.getByRole("button", { name: "Polaroid", exact: true }).click();
+  await expect(book.locator(".memory-polaroid")).toHaveCount(titles.length);
+  const fontSizes: number[] = [];
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    for (const title of titles) {
+      const card = book.getByRole("button", { name: `Apri degustazione: ${title}`, exact: true });
+      await card.focus();
+      await page.keyboard.press("ArrowRight"); // Bring each overlapping photo forward for review.
+      await expect.poll(() => card.evaluate(element => {
+        const caption = element.querySelector<HTMLSpanElement>(".memory-polaroid-caption")!;
+        const date = element.querySelector("time")!;
+        return caption.scrollHeight <= caption.clientHeight && caption.scrollWidth <= caption.clientWidth
+          && caption.offsetTop + caption.scrollHeight <= date.offsetTop;
+      })).toBe(true);
+      const font = await card.locator(".memory-polaroid-caption").evaluate(element => parseFloat(getComputedStyle(element).fontSize));
+      expect(font).toBeGreaterThanOrEqual(11);
+      if (title === titles[1]) fontSizes.push(font);
+      if ([390, 1440].includes(viewport.width) && title === titles[1]) await card.screenshot({ path: testInfo.outputPath(`caption-${viewport.width}-review.png`) });
+    }
+    expect(await book.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
+  expect(fontSizes[3]).toBeGreaterThan(fontSizes[0]);
+  await page.keyboard.press("Enter");
+  await expect(book.getByRole("heading", { name: titles[3], exact: true })).toBeVisible();
+  await book.getByRole("button", { name: "Torna alle Polaroid" }).click();
+  await expect(book.locator(".memory-polaroid")).toHaveCount(4);
+});
+
 test("polaroid table supports dragging, tasting details and returning to the same arrangement", async ({ page }, testInfo) => {
   const book = await openBook(page);
   await book.getByRole("button", { name: "Polaroid", exact: true }).click();

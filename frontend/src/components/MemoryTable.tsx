@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../services/api";
 import { memoryMonthBounds } from "../domain/memoryPeriod";
 import type { Locale, TastingArchivePage } from "../types";
@@ -6,6 +6,46 @@ import "./MemoryTable.css";
 
 type Position = { x: number; y: number; z: number };
 const pageSize = 20;
+
+function PolaroidCaption({ text }: { text: string }) {
+  const caption = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const element = caption.current!;
+    const card = element.parentElement!;
+    let width = 0;
+    let disposed = false;
+    function fit() {
+      if (disposed || !card.clientWidth) return;
+      card.style.removeProperty("--polaroid-height");
+      element.style.fontSize = "";
+      const maximum = parseFloat(getComputedStyle(element).fontSize);
+      let low = Math.min(11, maximum);
+      let high = maximum;
+      const fits = () => element.scrollHeight <= element.clientHeight && element.scrollWidth <= element.clientWidth;
+      element.style.fontSize = `${low}px`;
+      if (!fits()) {
+        // Preserve readability and the entire caption for exceptionally long names.
+        card.style.setProperty("--polaroid-height", `${204 + element.scrollHeight - element.clientHeight}px`);
+        return;
+      }
+      while (high - low > .1) {
+        const size = (low + high) / 2;
+        element.style.fontSize = `${size}px`;
+        if (fits()) low = size;
+        else high = size;
+      }
+      element.style.fontSize = `${low}px`;
+    }
+    fit();
+    const observer = new ResizeObserver(() => {
+      if (card.clientWidth !== width) { width = card.clientWidth; fit(); }
+    });
+    observer.observe(card);
+    void document.fonts.ready.then(fit);
+    return () => { disposed = true; observer.disconnect(); };
+  }, [text]);
+  return <span ref={caption} className="memory-polaroid-caption">{text}</span>;
+}
 
 export default function MemoryTable({ locale, query, month, onSelect }: {
   locale: Locale; query: string; month: string; onSelect: (index: number) => void;
@@ -53,7 +93,7 @@ export default function MemoryTable({ locale, query, month, onSelect }: {
           }
           return <button type="button" key={id} data-archive-index={offset + index} className={`memory-polaroid${dragging === id ? " is-dragging" : ""}`}
             aria-label={it ? `Apri degustazione: ${entry.occasion || entry.wine_name}` : `Open tasting: ${entry.occasion || entry.wine_name}`}
-            style={{ left: `calc((100% - var(--polaroid-width) - 24px) * ${position.x} + 12px)`, top: `calc((100% - 244px) * ${position.y} + 14px)`, zIndex: position.z, transform: `rotate(${[-5, 4, -3, 6, -2][index % 5]}deg)` }}
+            style={{ left: `calc((100% - var(--polaroid-width) - 24px) * ${position.x} + 12px)`, top: `calc((100% - var(--polaroid-height, 204px) - 40px) * ${position.y} + 14px)`, zIndex: position.z, transform: `rotate(${[-5, 4, -3, 6, -2][index % 5]}deg)` }}
             onPointerDown={event => {
               if (!event.isPrimary || event.button !== 0) return;
               event.currentTarget.setPointerCapture(event.pointerId);
@@ -65,7 +105,7 @@ export default function MemoryTable({ locale, query, month, onSelect }: {
               if (!active || active.id !== id || active.pointer !== event.pointerId || !surface.current) return;
               const dx = event.clientX - active.x; const dy = event.clientY - active.y;
               if (Math.hypot(dx, dy) > 5) active.moved = true;
-              if (active.moved) move(active.start.x + dx / Math.max(1, surface.current.clientWidth - event.currentTarget.offsetWidth - 24), active.start.y + dy / Math.max(1, surface.current.clientHeight - 244));
+              if (active.moved) move(active.start.x + dx / Math.max(1, surface.current.clientWidth - event.currentTarget.offsetWidth - 24), active.start.y + dy / Math.max(1, surface.current.clientHeight - event.currentTarget.offsetHeight - 40));
             }}
             onPointerUp={event => {
               const active = drag.current;
@@ -88,7 +128,7 @@ export default function MemoryTable({ locale, query, month, onSelect }: {
               if (delta) { event.preventDefault(); event.stopPropagation(); move(position.x + delta[0], position.y + delta[1]); }
             }}>
             <img src={entry.memory_photo_url} alt="" draggable={false} loading="lazy" />
-            <span>{entry.occasion || entry.wine_name}</span>
+            <PolaroidCaption text={entry.occasion || entry.wine_name} />
             <time dateTime={entry.consumed_at}>{new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${entry.consumed_at.slice(0, 10)}T12:00:00`))}</time>
           </button>;
         })}

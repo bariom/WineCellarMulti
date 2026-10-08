@@ -407,3 +407,9 @@ Il dettaglio e la vista foto condividono una testata compatta con titolo e
 chiusura sulla stessa riga. Le anteprime riempiono la fascia fotografica con
 `object-fit: cover`, anche per immagini verticali; il visualizzatore ingrandito
 conserva la foto completa senza ritaglio.
+
+Le didascalie delle Polaroid adattano il carattere allo spazio misurato dopo
+il caricamento dei font e al cambio di larghezza. Il testo completo rimane
+visibile senza line-clamp: per titoli eccezionalmente lunghi la cornice cresce
+prima di scendere sotto 11 px. I test controllano titoli medi e lunghi, date
+separate, ridimensionamento desktop/mobile e ritorno dal dettaglio.
