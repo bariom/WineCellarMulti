@@ -1694,3 +1694,23 @@ export type SensoryResearchRun = {
   id: string; status: string; issue: string; max_wines: number; selected_wines: number; budget_usd: string; cost_usd: string;
   results: SensoryResearchResult[]; created_at: string; updated_at: string;
 };
+export type SensoryReferencePreview = {
+  revision: string;
+  profiles_to_review: number;
+  previously_approved_profiles: number;
+  excluded: string[];
+  rows: Array<{
+    status: "new" | "matched" | "imported" | "conflict";
+    identity_id: string | null;
+    existing_dimensions: Record<string, number | null>;
+    previously_approved: boolean;
+    review_status: "needs_evidence_review";
+    conflicts: string[];
+    dossier: {
+      id: string; name: string; producer: string; vintage: string; country: string;
+      source_url: string; checked_on: string;
+      analytical: Record<string, string>; observations: Record<string, string>;
+      limitations: string[]; reuse: string;
+    };
+  }>;
+};

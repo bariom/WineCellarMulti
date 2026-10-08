@@ -1,5 +1,50 @@
 # Sensory profile generation
 
+## Documentary reference pilot
+
+In administration → wine sensory profiles, **Riferimenti documentati e
+rivalidazione** opens a curated five-wine pilot. Load the preview, inspect each
+source and comparison, then select dossiers to import. This uses no paid AI.
+The initial wines are Monte Bello 2022, Riesling Roche Calcaire 2022, Esporão
+Reserva Red 2022, Cloudy Bay Sauvignon Blanc 2024 and Vin de Constance 2020.
+Remaining research candidates are not represented as verified references.
+
+Previous manual approvals are historical decisions, not evidence of accuracy.
+The pilot counts all existing profiles as requiring evidence review, including
+previously approved profiles. It preserves their values and historical flags;
+it does not silently reset approvals or claim to have revalidated them.
+Matching dossiers show the nine current dimensions alongside qualitative
+observations and missing evidence. Analytical acidity, residual sugar, and
+production methods are not converted into 0–1 sensory intensities.
+
+Application-admin-only GET/POST `/api/v1/taste-profile/admin/references` previews
+and imports selected server-owned dossiers. Imports require a current preview
+revision. Unknown selections, ambiguous names, changed dossiers and stale
+previews are rejected; repeated imports are idempotent. Conflicts require
+catalog identity/source review before proceeding, without automatic merging.
+No household inventory records or numeric profiles are written.
+
+The version-controlled seed is `backend/app/services/sensory_reference_seed.json`.
+Sources were editorially checked on the displayed date, not fetched live during
+import. Each dossier records attribution, analytical units, observations and
+limitations. It is stored as a `SharedWineFact` with feature `sensory_reference`,
+outside the automatic shared-feature application pipeline. Existing tables
+support this payload, so no schema migration is needed. Updating a seed dossier
+does not overwrite an imported edition; the preview reports a conflict.
+
+This is a documentary foundation, not a calibrated worldwide benchmark or a
+completed revalidation workflow. Further batches, independent tasting evidence
+and an evaluated calibration method are needed before changing generation.
+Kaggle's noncommercial dataset and synthetic Oenra notes are excluded. Public
+producer pages are cited with brief editorial summaries; no open license for
+their full text is asserted.
+
+Targeted checks:
+`pytest tests/test_sensory_references.py` and
+`npx playwright test e2e/sensory-references.spec.ts e2e/sensory-profiles.spec.ts`.
+
+## Ordinary generation and retained research
+
 Paid experimental sensory research is suspended by default
 (`WINE_SENSORY_RESEARCH_ENABLED=false`). This blocks new legacy agent runs,
 new Astra refinement runs, and paid work reached by queued workers. The admin

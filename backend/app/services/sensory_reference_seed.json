@@ -1,0 +1,151 @@
+{
+  "wines": [
+    {
+      "id": "ridge-monte-bello-2022",
+      "name": "Monte Bello",
+      "producer": "Ridge Vineyards",
+      "vintage": "2022",
+      "country": "USA",
+      "source_url": "https://www.ridgewine.com/wines/2022-monte-bello/?trade=1",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Alcol": "13.8% vol",
+        "pH": "3.36",
+        "Acidità totale": "9.13 g/L; base di espressione non dichiarata",
+        "Uvaggio": "86% Cabernet Sauvignon, 10% Merlot, 2% Petit Verdot, 2% Cabernet Franc",
+        "Affinamento": "21 mesi; rovere nuovo 95% americano, 5% francese"
+      },
+      "observations": {
+        "body": "Pieno secondo il produttore; medio secondo Boone e Pursehouse, riprodotti nella stessa pagina. Disaccordo da conservare.",
+        "acidity": "Il produttore descrive acidità sostenuta.",
+        "tannin": "Tannini levigati secondo il produttore.",
+        "fruit": "Mora e ribes nero nella nota del produttore.",
+        "wood": "Rovere tostato percepito nella nota del produttore."
+      },
+      "limitations": [
+        "TA e pH sono riportati nella sezione vinificazione; il momento della misura non è specificato.",
+        "Descrizione del produttore datata novembre 2024; non misura lo stato attuale della bottiglia.",
+        "Recensioni ospitate sulla stessa pagina, non verificate sui siti originali.",
+        "Il corpo è controverso; nessuna intensità 0–1 convalidata."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "zind-roche-calcaire-2022",
+      "name": "Riesling Roche Calcaire",
+      "producer": "Zind-Humbrecht",
+      "vintage": "2022",
+      "country": "France",
+      "source_url": "https://www.zindhumbrecht.fr/en/our-bio-dynamic-wines/509-riesling-roche-calcaire-2022.html",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Alcol": "13.1% vol",
+        "Zucchero residuo": "<0.5 g/L (limite superiore, non valore esatto)",
+        "pH": "2.94",
+        "Acidità totale": "4.8 g/L H2SO4; equivalente dichiarato 7.3 g/L acido tartarico",
+        "Vitigno": "Riesling"
+      },
+      "observations": {
+        "sweetness": "Finale secco secondo il produttore.",
+        "acidity": "Acidità vivace secondo il produttore.",
+        "fruit": "Agrumi nella nota del produttore.",
+        "minerality": "Sfumature minerali leggere secondo il produttore."
+      },
+      "limitations": [
+        "Nota del produttore: gennaio 2024.",
+        "Le due unità di acidità non sono intercambiabili senza conversione.",
+        "Mancano misure sensoriali indipendenti."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "esporao-reserva-red-2022",
+      "name": "Reserva Red",
+      "producer": "Esporão",
+      "vintage": "2022",
+      "country": "Portugal",
+      "source_url": "https://esporao.com/en/wine/esporao-reserva-red/2022",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Alcol": "14% vol",
+        "Zuccheri riduttori": "0.6 g/L",
+        "pH": "3.61",
+        "Acidità totale": "5.7 g/L; base di espressione non dichiarata",
+        "Affinamento": "12 mesi rovere americano e francese, 20% nuovo; almeno 6 mesi in bottiglia"
+      },
+      "observations": {
+        "body": "Corpo consistente secondo il produttore.",
+        "tannin": "Tannini fini e vivaci secondo il produttore.",
+        "fruit": "Frutti rossi secondo il produttore.",
+        "spice": "Note speziate secondo il produttore."
+      },
+      "limitations": [
+        "Percentuali dei vitigni non dichiarate.",
+        "Presenza di rovere in cantina non quantifica il gusto di legno.",
+        "Mancano misure sensoriali indipendenti."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "cloudy-bay-sauvignon-2024",
+      "name": "Sauvignon Blanc",
+      "producer": "Cloudy Bay",
+      "vintage": "2024",
+      "country": "New Zealand",
+      "source_url": "https://www.cloudybay.com/drupal/sites/default/files/2025-04/CloudyBay-TastingNotes-SauvignonBlanc-2024.pdf",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Alcol": "13.5% vol",
+        "pH": "3.1",
+        "Acidità totale": "6.7 g/L; base di espressione non dichiarata",
+        "Fermentazione": "Prevalentemente acciaio; circa 1.5% in grandi tini di rovere"
+      },
+      "observations": {
+        "aromatic_intensity": "Naso inizialmente contenuto che si apre nel bicchiere, secondo il produttore.",
+        "fruit": "Agrumi e frutta a nocciolo secondo il produttore.",
+        "acidity": "Freschezza citrina secondo il produttore.",
+        "minerality": "Margine salino secondo il produttore."
+      },
+      "limitations": [
+        "Zucchero residuo non dichiarato.",
+        "Intensità al palato e intensità olfattiva non sono equivalenti.",
+        "Mancano misure sensoriali indipendenti."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "klein-vin-de-constance-2020",
+      "name": "Vin de Constance",
+      "producer": "Klein Constantia",
+      "vintage": "2020",
+      "country": "South Africa",
+      "source_url": "https://www.kleinconstantia.com/wp-content/uploads/2025/09/Klein-Constantia-Vin-de-Constance-2020.pdf",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Alcol": "13.5% vol",
+        "Zucchero residuo": "172 g/L",
+        "pH": "3.92",
+        "Acidità totale": "6.3 g/L; base di espressione non dichiarata",
+        "Vitigno": "Muscat de Frontignan"
+      },
+      "observations": {
+        "body": "Corpo pieno e consistenza setosa secondo il produttore.",
+        "sweetness": "Dolcezza bilanciata da salinità secondo il produttore.",
+        "fruit": "Frutta candita e a nocciolo secondo il produttore.",
+        "spice": "Zenzero candito secondo il produttore."
+      },
+      "limitations": [
+        "Zucchero analitico e dolcezza percepita sono grandezze diverse.",
+        "Mancano misure sensoriali indipendenti."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    }
+  ],
+  "excluded": [
+    "Ferrari Perlé 2018: il PDF candidato restituisce 404; sospeso in attesa di una fonte accessibile.",
+    "Tio Pepe, Taylor's 20 Year Old Tawny, Graham Beck Brut: lotto non identificato; non equiparare a una specifica annata.",
+    "Kaggle Wine Reviews: licenza non commerciale; escluso dalla base di produzione.",
+    "Oenra: dati sintetici; esclusi come riferimento di vini reali.",
+    "Gli altri candidati della ricerca restano da verificare e non sono inclusi in questo primo lotto."
+  ]
+}

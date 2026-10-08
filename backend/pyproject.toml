@@ -44,6 +44,7 @@ include = ["app*"]
 
 [tool.setuptools.package-data]
 app = ["wine_catalog.json"]
+"app.services" = ["sensory_reference_seed.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
