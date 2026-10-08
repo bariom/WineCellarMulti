@@ -8,16 +8,94 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import SharedWineFact, SharedWineIdentity, WineSensoryProfile
-from app.schemas.sensory_reference import ReferenceDossier, ReferencePreview, ReferenceRow
+from app.schemas.sensory_reference import (
+    DIMENSIONS,
+    ReferenceDossier,
+    ReferencePreview,
+    ReferenceRow,
+    TraitEvidence,
+    TraitReview,
+    WineEvidenceReview,
+)
 from app.services.shared_wine_data import identity_key, normalize_identity_part
 
 FEATURE = "sensory_reference"
 BUNDLE = Path(__file__).with_name("sensory_reference_seed.json")
+
+
+def review_traits(dossier: ReferenceDossier | None, dimensions: dict) -> list[TraitReview]:
+    rows = []
+    for dimension in DIMENSIONS:
+        assessment = dossier.assessments.get(dimension) if dossier else None
+        trait = TraitReview(
+            dimension=dimension,
+            current_value=dimensions.get(dimension),
+            status="no_evidence",
+            rationale="Nessun riscontro documentato per questa caratteristica.",
+        )
+        if assessment:
+            trait.status = assessment.status
+            trait.rationale = assessment.rationale
+            trait.evidence = assessment.evidence
+        elif dossier and dimension in dossier.observations:
+            trait.status = "described"
+            trait.rationale = "Descrizione qualitativa: non convalida l’intensità numerica."
+            trait.evidence = [
+                TraitEvidence(
+                    source_url=dossier.source_url,
+                    publisher=dossier.producer,
+                    summary=dossier.observations[dimension],
+                )
+            ]
+        rows.append(trait)
+    return rows
+
+
+def review_wine(db: Session, identity_id: UUID) -> WineEvidenceReview | None:
+    # Global identity, not a household Wine; caller requires application admin.
+    identity = db.get(SharedWineIdentity, identity_id)
+    if identity is None:
+        return None
+    profile = db.scalar(
+        select(WineSensoryProfile).where(WineSensoryProfile.identity_id == identity_id)
+    )
+    dossier = None
+    # Exact identity only: no evidence transfer across vintages, producers or aliases.
+    for raw in json.loads(BUNDLE.read_text(encoding="utf-8"))["wines"]:
+        candidate = ReferenceDossier.model_validate(raw)
+        parts = (
+            normalize_identity_part(candidate.name),
+            normalize_identity_part(candidate.producer),
+            normalize_identity_part(candidate.vintage),
+        )
+        if identity.identity_key == identity_key(parts):
+            dossier = candidate
+            break
+    return WineEvidenceReview(
+        identity_id=str(identity_id),
+        name=identity.name,
+        producer=identity.producer,
+        vintage=identity.vintage,
+        previously_approved=bool(profile and profile.validated),
+        dossier=dossier,
+        traits=review_traits(dossier, profile.dimensions if profile else {}),
+    )
+
+
+def equivalent_dossier(payload: dict, dossier: ReferenceDossier) -> bool:
+    try:
+        return ReferenceDossier.model_validate(payload.get("dossier")).model_dump(
+            mode="json"
+        ) == dossier.model_dump(mode="json")
+    except ValidationError:
+        return False
 
 
 def preview_references(db: Session) -> ReferencePreview:
@@ -55,11 +133,7 @@ def preview_references(db: Session) -> ReferencePreview:
                 )
             )
             if fact:
-                row.status = (
-                    "imported"
-                    if fact.payload.get("dossier") == dossier.model_dump(mode="json")
-                    else "conflict"
-                )
+                row.status = "imported" if equivalent_dossier(fact.payload, dossier) else "conflict"
                 if row.status == "conflict":
                     row.conflicts = [
                         "Dossier già presente con contenuti diversi: nessuna sovrascrittura."
@@ -70,6 +144,7 @@ def preview_references(db: Session) -> ReferencePreview:
             if profile:
                 row.existing_dimensions = profile.dimensions or {}
                 row.previously_approved = profile.validated
+        row.traits = review_traits(dossier, row.existing_dimensions)
         rows.append(row)
     payload = {"rows": [r.model_dump(mode="json") for r in rows], "excluded": bundle["excluded"]}
     revision = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
@@ -122,6 +197,12 @@ def import_references(db: Session, revision: str, ids: list[str], actor: str) ->
             )
             db.add(identity)
             db.flush()
+        source_pairs = {(str(d.source_url), d.producer)}
+        source_pairs.update(
+            (str(proof.source_url), proof.publisher)
+            for assessment in d.assessments.values()
+            for proof in assessment.evidence
+        )
         db.add(
             SharedWineFact(
                 identity_id=identity.id,
@@ -134,11 +215,12 @@ def import_references(db: Session, revision: str, ids: list[str], actor: str) ->
                 },
                 sources=[
                     {
-                        "url": str(d.source_url),
-                        "publisher": d.producer,
+                        "url": url,
+                        "publisher": publisher,
                         "checked_on": d.checked_on.isoformat(),
                         "method": "editorial_review",
                     }
+                    for url, publisher in sorted(source_pairs)
                 ],
                 verified_at=datetime.combine(d.checked_on, datetime.min.time(), tzinfo=UTC),
             )

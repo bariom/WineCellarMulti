@@ -1706,6 +1706,7 @@ export type SensoryReferencePreview = {
     previously_approved: boolean;
     review_status: "needs_evidence_review";
     conflicts: string[];
+    traits: SensoryTraitReview[];
     dossier: {
       id: string; name: string; producer: string; vintage: string; country: string;
       source_url: string; checked_on: string;
@@ -1713,4 +1714,19 @@ export type SensoryReferencePreview = {
       limitations: string[]; reuse: string;
     };
   }>;
+};
+
+export type SensoryTraitReview = {
+  dimension: string;
+  current_value: number | null;
+  status: "described" | "conflicting" | "context_only" | "no_evidence";
+  rationale: string;
+  numerical_validation: "not_validated";
+  evidence: Array<{ source_url: string; publisher: string; summary: string; note_date: string | null }>;
+};
+export type WineEvidenceReview = {
+  identity_id: string; name: string; producer: string; vintage: string;
+  previously_approved: boolean;
+  dossier: SensoryReferencePreview["rows"][number]["dossier"] | null;
+  traits: SensoryTraitReview[];
 };

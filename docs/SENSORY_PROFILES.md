@@ -3,11 +3,34 @@
 ## Documentary reference pilot
 
 In administration → wine sensory profiles, **Riferimenti documentati e
-rivalidazione** opens a curated five-wine pilot. Load the preview, inspect each
+rivalidazione** opens a curated seven-wine pilot. Load the preview, inspect each
 source and comparison, then select dossiers to import. This uses no paid AI.
 The initial wines are Monte Bello 2022, Riesling Roche Calcaire 2022, Esporão
-Reserva Red 2022, Cloudy Bay Sauvignon Blanc 2024 and Vin de Constance 2020.
+Reserva Red 2022, Cloudy Bay Sauvignon Blanc 2024, Vin de Constance 2020,
+Testamatta 2018 and Loimer Kamptal DAC Grüner Veltliner 2024.
 Remaining research candidates are not represented as verified references.
+
+Each wine in the profile list now has **Esamina riscontri**. The read-only,
+application-admin endpoint `GET /api/v1/taste-profile/admin/references/profiles/{identity_id}`
+compares its current nine values against the currently shipped curated dossier,
+even before import. Matching requires exact normalized name, producer and vintage;
+missing dossiers retain all current values with nine explicit no-evidence entries.
+This reads the curated bundle, not live websites or an AI provider. Imported
+editions remain unchanged when a new curated edition is shipped.
+
+Per-trait editorial assessments distinguish a documented description, conflicting
+descriptions, contextual information and missing evidence. Each assessment cites
+its actual publisher, source URL and note date when available. These statuses
+describe the evidence, not the accuracy of the baseline number. Numerical
+validation remains `not_validated` for every trait. Import records all cited
+publishers, without counting republished reviews as independent confirmations.
+
+Testamatta 2018 is the first detailed example: body descriptions disagree;
+aromatic intensity, dryness classification and barrel aging provide insufficient
+support for a numeric intensity. Fruit, acidity, tannin, spice and mineral
+descriptions are retained with their sources. No automatic 0.25/0.75 mapping or
+profile update is performed. Earlier imports without the optional assessment
+field remain recognized; genuine content changes continue to produce conflicts.
 
 Previous manual approvals are historical decisions, not evidence of accuracy.
 The pilot counts all existing profiles as requiring evidence review, including

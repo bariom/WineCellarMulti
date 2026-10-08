@@ -139,6 +139,200 @@
         "Mancano misure sensoriali indipendenti."
       ],
       "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "bibi-graetz-testamatta-2018",
+      "name": "Testamatta",
+      "producer": "Bibi Graetz",
+      "vintage": "2018",
+      "country": "Italy",
+      "source_url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20en.pdf",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Uvaggio": "100% Sangiovese",
+        "Affinamento": "Due anni in barrique usate secondo la scheda del produttore"
+      },
+      "observations": {},
+      "assessments": {
+        "body": {
+          "status": "conflicting",
+          "rationale": "Le descrizioni del peso al palato divergono. Non mediare e non sostituire automaticamente il valore attuale.",
+          "evidence": [
+            {
+              "source_url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20James%20Suckling_1.pdf",
+              "publisher": "James Suckling, riprodotto da Bibi Graetz",
+              "summary": "Corpo pieno, struttura serrata.",
+              "note_date": "2020-07 (data riportata da BBR)"
+            },
+            {
+              "source_url": "https://www.bbr.com/products-20188214515-2018-testamatta-bibi-graetz-tuscany-italy",
+              "publisher": "Stephen Brook / Decanter, riprodotto da BBR",
+              "summary": "Interpretazione relativamente leggera, con concentrazione e finezza.",
+              "note_date": "2022-03"
+            }
+          ]
+        },
+        "acidity": {
+          "status": "described",
+          "rationale": "Freschezza e acidità sono descritte; manca una misura dell’intensità percepita.",
+          "evidence": [
+            {
+              "source_url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20en.pdf",
+              "publisher": "Bibi Graetz",
+              "summary": "Il produttore sottolinea la freschezza.",
+              "note_date": null
+            },
+            {
+              "source_url": "https://www.bbr.com/products-20188214515-2018-testamatta-bibi-graetz-tuscany-italy",
+              "publisher": "Kerin O’Keefe, riprodotta da BBR",
+              "summary": "Acidità vivace nella nota di degustazione.",
+              "note_date": "2021-02"
+            }
+          ]
+        },
+        "tannin": {
+          "status": "described",
+          "rationale": "Consistenza e presenza dei tannini sono documentate, non una loro intensità sulla scala Vinaris.",
+          "evidence": [
+            {
+              "source_url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20en.pdf",
+              "publisher": "Bibi Graetz",
+              "summary": "Tannini importanti e setosi.",
+              "note_date": null
+            },
+            {
+              "source_url": "https://www.bbr.com/products-20188214515-2018-testamatta-bibi-graetz-tuscany-italy",
+              "publisher": "Jane Anson, riprodotta da BBR",
+              "summary": "Tannini fini e setosi, ancora esigenti.",
+              "note_date": "2022-03"
+            }
+          ]
+        },
+        "sweetness": {
+          "status": "context_only",
+          "rationale": "La classificazione commerciale secco non determina zucchero residuo o dolcezza numerica.",
+          "evidence": [
+            {
+              "source_url": "https://www.bbr.com/products-20188214515-2018-testamatta-bibi-graetz-tuscany-italy",
+              "publisher": "Berry Bros. & Rudd",
+              "summary": "Classificato come vino secco.",
+              "note_date": null
+            }
+          ]
+        },
+        "aromatic_intensity": {
+          "status": "context_only",
+          "rationale": "Sottile descrive anche finezza e sviluppo. L’intensità generale citata dal produttore non è una misura olfattiva: nessuna conversione automatica in 0,25.",
+          "evidence": [
+            {
+              "source_url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20James%20Suckling_1.pdf",
+              "publisher": "James Suckling, riprodotto da Bibi Graetz",
+              "summary": "Aromi delicati, da svilupparsi in bottiglia.",
+              "note_date": "2020-07 (data riportata da BBR)"
+            },
+            {
+              "source_url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20en.pdf",
+              "publisher": "Bibi Graetz",
+              "summary": "Intensità pronunciata, senza separare naso e palato.",
+              "note_date": null
+            }
+          ]
+        },
+        "fruit": {
+          "status": "described",
+          "rationale": "Presenza fruttata documentata in più osservazioni; intensità non misurata.",
+          "evidence": [
+            {
+              "source_url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20en.pdf",
+              "publisher": "Bibi Graetz",
+              "summary": "Mora e mirtillo.",
+              "note_date": null
+            },
+            {
+              "source_url": "https://www.bbr.com/products-20188214515-2018-testamatta-bibi-graetz-tuscany-italy",
+              "publisher": "Kerin O’Keefe, riprodotta da BBR",
+              "summary": "Lampone e ciliegia al palato.",
+              "note_date": "2021-02"
+            }
+          ]
+        },
+        "wood": {
+          "status": "context_only",
+          "rationale": "L’affinamento in legno non dimostra quanto legno si percepisca nel vino.",
+          "evidence": [
+            {
+              "source_url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20en.pdf",
+              "publisher": "Bibi Graetz",
+              "summary": "Due anni in barrique usate.",
+              "note_date": null
+            }
+          ]
+        },
+        "spice": {
+          "status": "described",
+          "rationale": "Un descrittore speziato non quantifica l’intensità complessiva delle spezie.",
+          "evidence": [
+            {
+              "source_url": "https://www.bbr.com/products-20188214515-2018-testamatta-bibi-graetz-tuscany-italy",
+              "publisher": "Kerin O’Keefe, riprodotta da BBR",
+              "summary": "Liquirizia nella descrizione del palato.",
+              "note_date": "2021-02"
+            }
+          ]
+        },
+        "minerality": {
+          "status": "described",
+          "rationale": "Le sfumature minerali sono documentate, ma con accenti diversi. Non sono una misura chimica né una scala quantitativa condivisa.",
+          "evidence": [
+            {
+              "source_url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20en.pdf",
+              "publisher": "Bibi Graetz",
+              "summary": "Sottofondo minerale leggero.",
+              "note_date": null
+            },
+            {
+              "source_url": "https://www.bibigraetz.com/allegati_prod_dw/Testamatta%20rosso%202018%20James%20Suckling_1.pdf",
+              "publisher": "James Suckling, riprodotto da Bibi Graetz",
+              "summary": "Profilo salino e minerale.",
+              "note_date": null
+            }
+          ]
+        }
+      },
+      "limitations": [
+        "Recensioni di terzi consultate nelle riproduzioni, non sui siti originali; non contare una ristampa come nuovo riscontro indipendente.",
+        "Note riferite a momenti diversi: non descrivono necessariamente la bottiglia nel 2026.",
+        "La scheda non riporta pH, acidità totale e zucchero residuo.",
+        "Le classificazioni sono una revisione editoriale delle prove, non una validazione dei nove valori numerici."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
+    },
+    {
+      "id": "loimer-gruner-veltliner-2024",
+      "name": "Kamptal DAC Grüner Veltliner",
+      "producer": "Loimer",
+      "vintage": "2024",
+      "country": "Austria",
+      "source_url": "https://www.loimer.at/wp-content/uploads/2024/03/kamptal_gruener-veltliner_2024_factsheet_weingut-loimer_englisch.pdf",
+      "checked_on": "2026-10-08",
+      "analytical": {
+        "Alcol": "12.5% vol",
+        "Zucchero residuo": "1.7 g/L",
+        "Acidità": "5.4 g/L; base di espressione non dichiarata",
+        "Fermentazione e affinamento": "Acciaio; 2–3 mesi sulle fecce totali, poi fecce fini",
+        "Imbottigliamento": "Primo imbottigliamento: marzo 2025"
+      },
+      "observations": {
+        "sweetness": "Secco nella nota di Johannes Fiala riprodotta dal produttore.",
+        "acidity": "Acidità equilibrata secondo Johannes Fiala.",
+        "fruit": "Frutta gialla e agrumi secondo Johannes Fiala.",
+        "spice": "Pepe e zenzero candito secondo Johannes Fiala."
+      },
+      "limitations": [
+        "Una sola nota riprodotta dal produttore; nessun panel sensoriale indipendente.",
+        "Acidità e zucchero analitici non misurano direttamente l’intensità percepita."
+      ],
+      "reuse": "Metadati fattuali e sintesi redazionale con attribuzione. Nessuna licenza aperta dichiarata; testo integrale non riprodotto."
     }
   ],
   "excluded": [

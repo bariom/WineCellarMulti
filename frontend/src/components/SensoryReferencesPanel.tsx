@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Locale, SensoryReferencePreview } from "../types";
 import { api } from "../services/api";
 import "./SensoryReferencesPanel.css";
+import { SensoryTraitReviews } from "./SensoryWineReview";
 
 const dimensionNames: Record<string, string> = { body: "Corpo", acidity: "Acidità", tannin: "Tannini", sweetness: "Dolcezza", aromatic_intensity: "Intensità aromatica", fruit: "Frutto", wood: "Legno", spice: "Spezie", minerality: "Mineralità" };
 
@@ -40,7 +41,7 @@ export default function SensoryReferencesPanel({ locale }: { locale: Locale }) {
           <h6>{it ? "Dati analitici e di produzione dichiarati" : "Reported analytical and production data"}</h6>
           <dl>{Object.entries(row.dossier.analytical).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>
           <h6>{it ? "Confronto qualitativo — intensità ancora da rivalidare" : "Qualitative comparison — intensities still need review"}</h6>
-          {Object.entries(dimensionNames).map(([key, label]) => <div className="sensory-reference-trait" key={key}>
+          {row.traits?.length ? <SensoryTraitReviews traits={row.traits} locale={locale} /> : Object.entries(dimensionNames).map(([key, label]) => <div className="sensory-reference-trait" key={key}>
             <strong>{it ? label : key.replace(/_/g, " ")}</strong>
             <p>{it ? "Valore attuale" : "Current value"}: {row.existing_dimensions[key] ?? "—"}{row.previously_approved ? (it ? " · Approvazione precedente; revisione documentale richiesta" : " · Previously approved; documentary review required") : ""}</p>
             <p>{row.dossier.observations[key] || (it ? "Nessuna osservazione documentata per questa caratteristica." : "No documented observation for this trait.")}</p>

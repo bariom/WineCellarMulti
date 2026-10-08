@@ -3,6 +3,63 @@ import { readFileSync } from "node:fs";
 
 const seed = JSON.parse(readFileSync(new URL("../../backend/app/services/sensory_reference_seed.json", import.meta.url), "utf8"));
 
+test("Single wine evidence review keeps numbers and displays conflict, context and missing evidence", async ({ page }, testInfo) => {
+  await page.route("**/wine-review-test", route => route.fulfill({ contentType: "text/html", body: `
+    <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
+    import RefreshRuntime from '/@react-refresh';
+    RefreshRuntime.injectIntoGlobalHook(window);
+    window.$RefreshReg$ = () => {};
+    window.$RefreshSig$ = () => (type) => type;
+    window.__vite_plugin_react_preamble_installed__ = true;
+    const {default: React} = await import('/node_modules/.vite/deps/react.js');
+    const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
+    const {default: Panel} = await import('/src/components/AdminSensoryProfilesPanel.tsx');
+    await import('/src/styles.css');
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Panel, {locale:'it'}));
+    </script></body></html>` }));
+  const dossier = seed.wines.find((wine: {id: string}) => wine.id === "bibi-graetz-testamatta-2018");
+  let requests = 0;
+  const profile = { identity_id: "testamatta", name: "Testamatta", producer: "Bibi Graetz", vintage: "2018", dimensions: {body: .64}, validated: true, confidence: .72, source: "hybrid" };
+  await page.route("**/api/v1/taste-profile/admin/**", route => {
+    expect(route.request().method()).toBe("GET");
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/references/profiles/testamatta")) {
+      requests++;
+      if (requests === 1) return route.fulfill({ status: 503, json: { detail: "Unavailable" } });
+      const missing = requests > 2;
+      const traits = Object.entries(dossier.assessments).map(([dimension, assessment]) => ({ dimension, current_value: dimension === "body" ? .64 : null, numerical_validation: "not_validated", ...(missing ? { status: "no_evidence", rationale: "Nessun riscontro documentato", evidence: [] } : assessment as object) }));
+      return route.fulfill({ json: { ...profile, previously_approved: true, dossier: missing ? null : dossier, traits } });
+    }
+    return route.fulfill({ json: path.endsWith("/summary") ? { research_enabled: false, wines_with_profile: 1 } : path.endsWith("/profiles") ? [profile] : [] });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/wine-review-test");
+  await page.getByText("Profili vino (1)", { exact: true }).click();
+  await page.getByRole("button", { name: "Esamina riscontri", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Impossibile caricare");
+  await page.getByRole("button", { name: "Esamina riscontri", exact: true }).click();
+  const review = page.getByRole("region", { name: "Revisione documentale", exact: true });
+  await expect(review.getByText("Descrizioni discordanti", { exact: true })).toBeVisible();
+  await expect(review.getByText("Valore attuale: 0.64", { exact: false })).toBeVisible();
+  await expect(review.getByText("Solo contesto: intensità non determinabile", { exact: true })).toHaveCount(3);
+  await expect(review.getByRole("link").first()).toHaveAttribute("href", /^https:\/\/www.bibigraetz.com/);
+  for (const width of [360, 390, 430, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const action = await page.getByRole("button", { name: "Chiudi riscontri" }).boundingBox();
+    const content = await review.boundingBox();
+    expect(action!.y + action!.height).toBeLessThanOrEqual(content!.y);
+  }
+  await review.screenshot({ path: testInfo.outputPath("wine-review-desktop.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await review.screenshot({ path: testInfo.outputPath("wine-review-mobile.png") });
+  await page.getByRole("button", { name: "Chiudi riscontri" }).click();
+  await page.getByRole("button", { name: "Esamina riscontri", exact: true }).click();
+  await expect(review.getByText("Nessun dossier", { exact: false })).toBeVisible();
+  await expect(review.getByText("Nessun riscontro disponibile", { exact: true })).toHaveCount(9);
+  await expect(review.getByText("Valore attuale: 0.64", { exact: false })).toBeVisible();
+});
+
 test("Documentary references import explicitly and retain historical approvals", async ({ page }, testInfo) => {
   await page.route("**/references-test", route => route.fulfill({ contentType: "text/html", body: `
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">

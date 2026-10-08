@@ -1,13 +1,27 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_app_admin_context
 from app.db.session import get_db
-from app.schemas.sensory_reference import ReferenceImport, ReferencePreview
-from app.services.sensory_references import import_references, preview_references
+from app.schemas.sensory_reference import ReferenceImport, ReferencePreview, WineEvidenceReview
+from app.services.sensory_references import import_references, preview_references, review_wine
 
 router = APIRouter(prefix="/taste-profile/admin/references")
+
+
+@router.get("/profiles/{identity_id}", response_model=WineEvidenceReview)
+def review_profile(
+    identity_id: UUID,
+    context: CurrentContext = Depends(require_app_admin_context),
+    db: Session = Depends(get_db),
+) -> WineEvidenceReview:
+    result = review_wine(db, identity_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Wine identity not found")
+    return result
 
 
 @router.get("", response_model=ReferencePreview)

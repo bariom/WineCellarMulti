@@ -9,4 +9,10 @@
 .sensory-references button { min-height: 44px; max-width: 100%; white-space: normal; }
 .sensory-reference-trait { border-top: 1px solid #c6cec4; padding-block: .7rem; }
 .sensory-reference-trait p { margin-block: .3rem; }
+.sensory-wine-review { width: 100%; min-width: 0; }
+.admin-sensory-profile-list .member-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.admin-sensory-profile-list .sensory-wine-review { grid-column: 1 / -1; }
+.sensory-wine-review > button { justify-self: start; }
+@media (max-width: 640px) { .admin-sensory-profile-list .member-row { grid-template-columns: minmax(0, 1fr); } }
+.sensory-review-source { margin-block: .7rem; padding-inline-start: .7rem; border-inline-start: 2px solid #a7b5a8; }
 @media (max-width: 480px) { .sensory-references dl > div { grid-template-columns: minmax(0, 1fr); gap: .2rem; } }
