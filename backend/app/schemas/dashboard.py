@@ -42,6 +42,7 @@ class DashboardWidgetPreference(BaseModel):
         "best_tastings",
         "recent_tastings",
         "memories",
+        "polaroids",
         "tasting_rhythm",
         "storage",
         "wishlist",

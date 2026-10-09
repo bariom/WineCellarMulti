@@ -5,7 +5,6 @@ import type { Locale, TastingArchivePage } from "../types";
 import "./MemoryTable.css";
 
 type Position = { x: number; y: number; z: number };
-const pageSize = 20;
 
 function PolaroidCaption({ text }: { text: string }) {
   const caption = useRef<HTMLSpanElement>(null);
@@ -47,8 +46,8 @@ function PolaroidCaption({ text }: { text: string }) {
   return <span ref={caption} className="memory-polaroid-caption">{text}</span>;
 }
 
-export default function MemoryTable({ locale, query, month, onSelect }: {
-  locale: Locale; query: string; month: string; onSelect: (index: number) => void;
+export default function MemoryTable({ locale, query, month, onSelect, pageSize = 20, preview = false }: {
+  locale: Locale; query: string; month: string; onSelect: (index: number) => void; pageSize?: number; preview?: boolean;
 }) {
   const it = locale === "it";
   const [offset, setOffset] = useState(0);
@@ -78,7 +77,7 @@ export default function MemoryTable({ locale, query, month, onSelect }: {
       .catch(() => { if (!controller.signal.aborted) setError(true); })
       .finally(() => { if (!controller.signal.aborted) setBusy(false); });
     return () => controller.abort();
-  }, [query, month, offset, retry]);
+  }, [query, month, offset, retry, pageSize]);
 
   return <section className="memory-table" aria-label={it ? "Polaroid" : "Polaroids"}>
     <p className="memory-table-hint">{it ? "Trascina le polaroid per esplorare i ricordi. Doppio clic o doppio tocco per aprire la degustazione. Con la tastiera: frecce per spostare, Invio per aprire." : "Drag the polaroids to explore your memories. Double-click or double-tap to open a tasting. Keyboard: arrows to move, Enter to open."}</p>
@@ -91,7 +90,7 @@ export default function MemoryTable({ locale, query, month, onSelect }: {
             const z = ++highest.current;
             setPositions(current => ({ ...current, [id]: { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)), z } }));
           }
-          return <button type="button" key={id} data-archive-index={offset + index} className={`memory-polaroid${dragging === id ? " is-dragging" : ""}`}
+          return <button type="button" key={id} disabled={preview} data-archive-index={offset + index} className={`memory-polaroid${dragging === id ? " is-dragging" : ""}`}
             aria-label={it ? `Apri degustazione: ${entry.occasion || entry.wine_name}` : `Open tasting: ${entry.occasion || entry.wine_name}`}
             style={{ left: `calc((100% - var(--polaroid-width) - 24px) * ${position.x} + 12px)`, top: `calc((100% - var(--polaroid-height, 204px) - 40px) * ${position.y} + 14px)`, zIndex: position.z, transform: `rotate(${[-5, 4, -3, 6, -2][index % 5]}deg)` }}
             onPointerDown={event => {

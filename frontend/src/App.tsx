@@ -117,6 +117,7 @@ const BottlePhotoCapture = lazy(() => import("./components/BottlePhotoCapture"))
 const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
 const MemoryBookButton = lazy(() => import("./views/MemoryBookButton"));
 const MemoriesWidget = lazy(() => import("./components/MemoriesWidget"));
+const PolaroidsWidget = lazy(() => import("./components/PolaroidsWidget"));
 const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
 const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
 const PersonalDashboard = lazy(() => import("./components/PersonalDashboard").then(module => ({ default: module.PersonalDashboard })));
@@ -8853,6 +8854,7 @@ export function App() {
   }
 
   function renderPersonalWidget(widget: PersonalDashboardWidget, preview = false) {
+    if (widget.id === "polaroids") return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><PolaroidsWidget locale={locale} preview={preview} offline={offlineMode} /></Suspense>;
     if (widget.id === "memories") return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><MemoriesWidget locale={locale} preview={preview} offline={offlineMode} /></Suspense>;
     return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><DashboardSummaryWidget
       widget={widget} locale={locale} wines={wines} wishlist={wishlist} featured={keyPositionCandidates}
@@ -10546,6 +10548,7 @@ export function App() {
                   </div>
                 </details>
               </section>
+              {dashboardFocus === "daily" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} home onRecord={canWriteWine ? () => setRecordTastingOpen(true) : undefined} /></Suspense> : null}
               {dashboardFocus === "collector" ? <CellarHomeStats wines={cellarWines} readyCount={readyInCellarWineCount} monitoringCount={monitoringWines.length} locale={locale} onNavigate={(focus, initialIndex = 0) => { setDashboardCarouselInitialIndex(initialIndex); setDashboardFocus(focus); }} /> : null}
               {aiPackEnhancementHint}
 

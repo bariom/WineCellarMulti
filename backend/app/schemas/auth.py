@@ -148,7 +148,7 @@ class UserPreferencesUpdate(BaseModel):
         pattern="^(collector|daily|balanced|personal)$",
     )
     personal_dashboard_widgets: list[DashboardWidgetPreference] | None = Field(
-        default=None, max_length=39
+        default=None, max_length=40
     )
 
     @field_validator("personal_dashboard_widgets")

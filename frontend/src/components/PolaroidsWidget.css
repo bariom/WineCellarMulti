@@ -1,0 +1,7 @@
+.polaroids-widget { box-sizing: border-box; }
+.polaroids-widget .memory-table { min-width: 0; }
+.polaroids-widget .memory-table-surface { --polaroid-width: clamp(140px, 34cqi, 180px); }
+.polaroids-widget .memory-book-navigation { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 12px; gap: 10px; }
+.polaroids-widget .memory-book-navigation > button { min-height: 44px; font-size: .75rem; }
+.polaroids-widget .memory-book-navigation > span { font-size: .75rem; color: var(--text-muted); }
+.polaroids-widget .memory-polaroid:disabled { opacity: 1; cursor: default; }

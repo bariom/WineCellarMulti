@@ -1,6 +1,7 @@
 import type { PersonalDashboardWidget, PersonalDashboardWidgetId } from "../types";
 
 export const personalDashboardCatalogue: Array<{ id: PersonalDashboardWidgetId; it: [string, string]; en: [string, string] }> = [
+  { id: "polaroids", it: ["Polaroid", "Un tavolo di istantanee da spostare per ritrovare le tue degustazioni."], en: ["Polaroids", "A table of movable snapshots to revisit your tastings."] },
   {"id": "collection_value", "it": ["Evoluzione del valore", "Andamento delle valutazioni e valore attuale."], "en": ["Value evolution", "Valuation trend and current value."]},
   {"id": "purchase_value", "it": ["Valore e costo d’acquisto", "Confronto sulle bottiglie con entrambi i valori."], "en": ["Value and purchase cost", "Compare bottles with both values available."]},
   {"id": "featured", "it": ["Bottiglie chiave", "Tre posizioni significative, fotografate e motivate."], "en": ["Key bottles", "Three significant positions with photos and reasons."]},

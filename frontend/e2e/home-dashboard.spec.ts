@@ -4,6 +4,7 @@ import { wine, session, memberships, mockApi } from "./fixtures/app";
 for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "data", "taste"]) {
   for (const width of [360, 390, 430, 1440]) {
     test(`editorial dashboard ${focus} ${width}`, async ({ page }, testInfo) => {
+      await page.emulateMedia({ reducedMotion: "reduce" });
       await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
       await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: focus });
       await page.goto("/");

@@ -62,6 +62,7 @@ Shared deterministic data and helpers live in `e2e/fixtures/app.ts`.
 | Personal dashboard widgets, editor, memories album and drill-downs | `npm run test:e2e:personal-dashboard` |
 | Shared navigation, compact headers and Home photographs | `npm run test:e2e:app-navigation` |
 | Memory book, photo GPS and tasting photo regressions | `npm run test:e2e:moments` |
+| Home Moments entry, direct recording/browsing, read-only access and responsive layout | `npx playwright test e2e/home-moments.spec.ts` |
 | Recording tastings and tasting history | `npm run test:e2e:record-tasting` |
 | Reference-market settings, saved valuation provenance and foreign-source warnings | `npm run test:e2e:valuation-market` |
 | Personal setup, deferral, saved preferences and responsive wizard | `npm run test:e2e:onboarding` |
@@ -97,6 +98,18 @@ baselines, reviewed before acceptance.
 at 360/390/430 px and desktop, missing or unavailable photos, and navigation
 between memories with and without a bottle photo. The reviewed compact layout
 has its own `moments-bottle-compact.png` baseline.
+The Moments invitation is available near the top of the Drink well today dashboard.
+Its entry opens the memory book directly or the existing recording dialog, with
+the recording action hidden for read-only members and the entry hidden offline.
+`e2e/home-moments.spec.ts` covers Italian/English, 360/390/430 px and desktop,
+dialog focus restoration and the reviewed `home-moments-compact.png` baseline.
+The personal dashboard also offers a separate Polaroids widget alongside My
+memories. It displays six draggable snapshots per page on the cellar oak
+texture. Opening a tasting and closing its detail preserves the widget page
+and photo positions. `e2e/polaroids-widget.spec.ts` checks selection, saved
+width, paging, IT/EN, errors, empty albums and responsive geometry; its reviewed
+compact table baseline is `polaroids-widget-compact.png`. Both entry and widget
+checks are included in `npm run test:e2e:moments`.
 The book search uses the existing archive `q` filter and preserves photo-only
 paging. Tests cover searching by wine and companions, resetting the page when
 changing the search, navigating filtered results, empty results, clearing the

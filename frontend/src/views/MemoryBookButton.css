@@ -1,0 +1,28 @@
+.home-moments-entry {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px 32px;
+  padding: 20px 24px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+  color: var(--text);
+}
+.home-moments-copy { min-width: 0; max-width: 620px; }
+.home-moments-copy .home-moments-kicker { margin: 0 0 6px; color: var(--text-muted); font-size: .7rem; letter-spacing: .08em; }
+.home-moments-copy h2 { margin: 0 0 8px; font: italic 400 1.8rem/1.15 var(--font-display, Georgia, serif); color: var(--text); }
+.home-moments-copy > p:last-child { margin: 0; font-size: .85rem; line-height: 1.6; color: var(--text-muted); }
+.home-moments-actions { display: flex; flex-wrap: wrap; gap: 10px; flex-shrink: 0; }
+.home-moments-actions > button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; white-space: normal; }
+.home-moments-actions > button .app-icon { --icon-primary: currentColor; --icon-muted: currentColor; color: inherit; flex-shrink: 0; }
+@media (max-width: 1100px) {
+  .home-moments-entry { flex-direction: column; align-items: stretch; padding: 18px; gap: 16px; }
+  .home-moments-actions { flex-shrink: 1; }
+}
+@media (max-width: 480px) {
+  .home-moments-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .home-moments-actions > button { width: 100%; justify-content: center; }
+}
