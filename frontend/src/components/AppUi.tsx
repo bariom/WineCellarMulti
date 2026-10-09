@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AppIcon } from "./AppIcon";
+import "./AiPackUpgradeNotice.css";
 import type { AppIconName } from "./AppIcon";
 import { useHelp } from "../help/HelpContext";
 import { displayValue } from "../i18n";
@@ -35,13 +36,14 @@ export function WishlistVintageField({ value, onChange, disabled, locale, label,
 
 export function AiPackUpgradeNotice({ locale, onPurchase, compact = false, onDismiss }: { locale: Locale; onPurchase: () => void; compact?: boolean; onDismiss?: () => void }) {
   const italian = locale === "it";
-  return <aside className={`ai-pack-upgrade-notice${compact ? " compact" : ""}`} role="status">
+  return <aside className={`ai-pack-upgrade-notice${compact ? " compact ai-pack-enhancement" : ""}`} role="status" aria-label="AI Pack">
+    {compact ? <div className="ai-pack-upgrade-emblem" aria-hidden="true"><AppIcon name="assistant" size={26} /></div> : null}
     <div>
       <span>AI PACK</span>
       <strong>{italian ? (compact ? "Potenzia questa area con l’AI" : "Sblocca questa funzione AI") : (compact ? "Enhance this area with AI" : "Unlock this AI feature")}</strong>
       <p>{italian ? (compact ? "Analisi, valori e suggerimenti AI sono disponibili con un AI Pack Vinaris." : "Con il piano gratuito le analisi AI usano un AI Pack Vinaris. Acquistalo una volta e usa il credito quando ti serve.") : (compact ? "AI analysis, valuations, and suggestions are available with a Vinaris AI Pack." : "On the free tier, AI analyses use a Vinaris AI Pack. Buy once and use the credit when you need it.")}</p>
     </div>
-    <div className="ai-pack-upgrade-actions"><button type="button" className={compact ? "secondary compact" : ""} onClick={onPurchase}>{italian ? (compact ? "Scopri AI Pack" : "Acquista AI Pack") : (compact ? "Explore AI Pack" : "Buy AI Pack")}</button>{onDismiss ? <button type="button" className="ai-pack-upgrade-dismiss" onClick={onDismiss} aria-label={italian ? "Nascondi promemoria AI Pack per sette giorni" : "Hide AI Pack reminder for seven days"}>×</button> : null}</div>
+    <div className="ai-pack-upgrade-actions"><button type="button" className={compact ? "ai-pack-explore" : ""} onClick={onPurchase}>{italian ? (compact ? "Scopri AI Pack" : "Acquista AI Pack") : (compact ? "Explore AI Pack" : "Buy AI Pack")}{compact ? <AppIcon name="chevron-right" size={18} /> : null}</button>{onDismiss ? <button type="button" className="ai-pack-upgrade-dismiss" onClick={onDismiss} aria-label={italian ? "Nascondi promemoria AI Pack per sette giorni" : "Hide AI Pack reminder for seven days"}>×</button> : null}</div>
   </aside>;
 }
 export function DetailField({

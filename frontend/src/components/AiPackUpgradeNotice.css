@@ -1,0 +1,60 @@
+.ai-pack-upgrade-notice.compact.ai-pack-enhancement {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border));
+  border-left: 5px solid var(--primary);
+  border-radius: 16px;
+  background: linear-gradient(110deg, color-mix(in srgb, var(--primary) 12%, var(--surface)), var(--surface));
+  color: var(--text);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.ai-pack-enhancement.ai-pack-upgrade-notice.compact > .ai-pack-upgrade-emblem {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  --icon-primary: var(--primary-contrast);
+  --icon-muted: var(--primary-contrast);
+}
+.ai-pack-enhancement.ai-pack-upgrade-notice.compact > div:not(.ai-pack-upgrade-actions):not(.ai-pack-upgrade-emblem) { min-width: 0; gap: 7px; }
+.ai-pack-enhancement.ai-pack-upgrade-notice.compact span { color: var(--primary); font-size: .7rem; letter-spacing: .12em; }
+.ai-pack-enhancement.ai-pack-upgrade-notice.compact .app-icon { color: var(--primary-contrast); }
+.ai-pack-enhancement.ai-pack-upgrade-notice.compact .ai-pack-upgrade-emblem .app-icon { font-size: 26px; }
+.ai-pack-enhancement.ai-pack-upgrade-notice.compact .ai-pack-explore .app-icon { font-size: 18px; }
+.ai-pack-enhancement.ai-pack-upgrade-notice.compact strong { font-size: 1.2rem; line-height: 1.3; }
+.ai-pack-enhancement.ai-pack-upgrade-notice.compact p { font-size: .88rem; line-height: 1.55; color: var(--text-muted); }
+.ai-pack-enhancement.ai-pack-upgrade-notice.compact .ai-pack-explore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 18px;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  border: 1px solid var(--primary);
+  white-space: normal;
+  --icon-primary: var(--primary-contrast);
+  --icon-muted: var(--primary-contrast);
+}
+.ai-pack-enhancement.ai-pack-upgrade-notice.compact .ai-pack-upgrade-dismiss {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+  flex: 0 0 44px;
+}
+@media (max-width: 700px) {
+  .ai-pack-upgrade-notice.compact.ai-pack-enhancement { grid-template-columns: 48px minmax(0, 1fr); align-items: start; gap: 16px; padding: 18px; }
+  .ai-pack-enhancement.ai-pack-upgrade-notice.compact > .ai-pack-upgrade-actions { grid-column: 1 / -1; width: 100%; gap: 10px; }
+  .ai-pack-enhancement.ai-pack-upgrade-notice.compact .ai-pack-explore { flex: 1; width: auto; }
+  .ai-pack-enhancement.ai-pack-upgrade-notice.compact .ai-pack-upgrade-dismiss { width: 44px !important; }
+}

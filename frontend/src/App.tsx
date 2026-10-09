@@ -13958,8 +13958,8 @@ export function App() {
                 ) : session?.is_free_tier ? (
                   <p className="empty-state">
                     {locale === "it"
-                      ? `Piano gratuito: ${freeTierLabelCount} di ${freeTierLabelLimit} etichette attive. Tutte le funzioni private sono incluse.`
-                      : `Free tier: ${freeTierLabelCount} of ${freeTierLabelLimit} active labels. All private features are included.`}
+                      ? `Piano gratuito: ${freeTierLabelCount} di ${freeTierLabelLimit} etichette attive. Le funzioni Premium, inclusi Ricordi e Polaroid, richiedono un abbonamento. Nel piano gratuito le funzioni AI richiedono un AI Pack.`
+                      : `Free tier: ${freeTierLabelCount} of ${freeTierLabelLimit} active labels. Premium features, including Memories and Polaroids, require a subscription. AI features on the free plan require an AI Pack.`}
                   </p>
                 ) : null}
                   {showAiBudgetPanel ? (

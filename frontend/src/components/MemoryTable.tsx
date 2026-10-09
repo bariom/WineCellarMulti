@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../services/api";
 import { memoryMonthBounds } from "../domain/memoryPeriod";
+import { memoryPhotoThumbnailUrl } from "../domain/memoryPhotos";
 import type { Locale, TastingArchivePage } from "../types";
 import "./MemoryTable.css";
 import { AppIcon } from "./AppIcon";
@@ -127,7 +128,7 @@ export default function MemoryTable({ locale, query, month, onSelect, pageSize =
               const delta = { ArrowLeft: [-.05, 0], ArrowRight: [.05, 0], ArrowUp: [0, -.05], ArrowDown: [0, .05] }[event.key];
               if (delta) { event.preventDefault(); event.stopPropagation(); move(position.x + delta[0], position.y + delta[1]); }
             }}>
-            <img src={entry.memory_photo_url} alt="" draggable={false} loading="lazy" />
+            <img src={memoryPhotoThumbnailUrl(entry.memory_photo_url)} alt="" draggable={false} loading="lazy" decoding="async" />
             <PolaroidCaption text={entry.occasion || entry.wine_name} />
             <time dateTime={entry.consumed_at}>{new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${entry.consumed_at.slice(0, 10)}T12:00:00`))}</time>
           </button>;

@@ -48,6 +48,10 @@ cancellation when the topic changes.
 
 The former `wine-detail.spec.ts` monolith is split without dropping coverage.
 Shared deterministic data and helpers live in `e2e/fixtures/app.ts`.
+`subscription-navigation.spec.ts` checks the prominent AI Pack notice in light,
+dark and private-cellar themes, responsive action geometry, seven-day dismissal,
+and direct navigation to billing. Reviewed notice baselines cover 390 px in
+light/dark themes and desktop in the private-cellar theme.
 
 | Scope | Command from `frontend/` |
 | --- | --- |
@@ -108,6 +112,10 @@ available, and photos are preserved if a subscription expires. The backend appli
 the same requirement to the photo-only archive used by these views.
 Reviewed 390 px notice baselines cover the light and private-cellar themes in
 `memories-premium.spec.ts-snapshots/`.
+`polaroids-widget.spec.ts` also verifies that the table requests thumbnails,
+preserves the photo version, and downloads the full photo only when details open,
+on mobile and desktop. Backend thumbnail, cache revalidation, photo replacement
+and authorization coverage lives in `tests/test_memory_thumbnails.py`.
 The Moments invitation is available near the top of the Drink well today dashboard.
 Its entry opens the memory book directly or the existing recording dialog, with
 the recording action hidden for read-only members and the entry hidden offline.

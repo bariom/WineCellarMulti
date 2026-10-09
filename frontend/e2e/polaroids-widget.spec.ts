@@ -1,5 +1,37 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { memberships, mockApi, session, tastingArchive, wine } from "./fixtures/app";
+import { readFileSync } from "node:fs";
+
+for (const width of [390, 1440]) {
+  test(`Polaroid thumbnails defer the full photo until opening details at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+    const photoUrl = "/api/v1/wines/tasting-photos/cellar/memory-1?v=photo-version";
+    await mockApi(page, [], false, memberships, [wine], {
+      ...session, dashboard_focus: "personal", personal_dashboard_widgets: [{ id: "polaroids", width: "full" }],
+    }, [], undefined, { ...tastingArchive, total: 1, items: [{ ...tastingArchive.items[0], memory_photo_url: photoUrl }] });
+    const photos: string[] = [];
+    await page.route("**/api/v1/wines/tasting-photos/**", async route => {
+      photos.push(route.request().url());
+      await route.fulfill({ contentType: "image/jpeg", body: readFileSync("public/images/home-tasting-v1.jpg") });
+    });
+    await page.goto("/");
+    const widget = page.locator('[data-widget-id="polaroids"]');
+    const card = widget.locator(".memory-polaroid");
+    await card.scrollIntoViewIfNeeded();
+    await expect(card.locator("img")).toHaveAttribute("src", `${photoUrl}&size=thumbnail`);
+    await expect.poll(() => card.locator("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    expect(photos.length).toBeGreaterThan(0);
+    expect(photos.every(url => new URL(url).searchParams.get("size") === "thumbnail")).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`polaroid-thumbnails-${width}.png`) });
+    await card.press("Enter");
+    const book = page.getByRole("dialog", { name: "Momenti", exact: true });
+    await expect(book.getByRole("img", { name: `Ricordo: ${wine.name}`, exact: true })).toHaveAttribute("src", photoUrl);
+    await expect.poll(() => photos.some(url => !new URL(url).searchParams.has("size"))).toBe(true);
+    await book.getByRole("button", { name: "Chiudi", exact: true }).click();
+    await expect(card.locator("img")).toHaveAttribute("src", `${photoUrl}&size=thumbnail`);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+}
 
 async function expectReadablePagination(button: Locator) {
   await expect(button).toBeVisible();

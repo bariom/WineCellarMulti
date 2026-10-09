@@ -131,7 +131,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       demoNote: "Senza registrazione · Prova anche la dashboard personalizzabile",
       previewCaption: "Dalla demo: i vini da bere oggi",
       previewAlt: "Schermata reale della demo Vinaris: selezione di vini pronti da bere con finestre di beva",
-      signal: "Gratis con tutte le funzioni private fino a 15 etichette attive",
+      signal: "Gratis fino a 15 etichette attive. Funzioni Premium con abbonamento.",
       web: "Dal browser, anche sul telefono",
     },
     value: [
@@ -225,7 +225,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       primary: "Inizia con Degustazione",
       demo: "Prova la cantina demo",
       tiers: [
-        { label: "Piano gratuito", name: "Degustazione", body: "Tutte le funzioni private, fino a 15 etichette attive.", note: "Le funzioni AI si usano con un AI Pack." },
+        { label: "Piano gratuito", name: "Degustazione", body: "Gestisci fino a 15 etichette attive. Le funzioni Premium richiedono un abbonamento.", note: "Le funzioni AI si usano con un AI Pack." },
         { label: "Per collezionisti", name: "Riserva", body: "Per collezioni oltre 15 etichette attive e per chi desidera ancora più libertà.", note: "AI Pack o chiave OpenAI personale inclusi." },
       ],
       aiNote: "AI Pack è disponibile quando vuoi, anche con Degustazione.",
@@ -261,7 +261,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       demoNote: "No sign-up · Try the customisable dashboard too",
       previewCaption: "From the demo: wines to drink today",
       previewAlt: "Real Vinaris demo screenshot: wines ready to drink with their drinking windows",
-      signal: "Free with every private feature for up to 15 active labels",
+      signal: "Free for up to 15 active labels. Premium features require a subscription.",
       web: "In your browser, on your phone too",
     },
     value: [
@@ -355,7 +355,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       primary: "Start with Tasting",
       demo: "Try the demo cellar",
       tiers: [
-        { label: "Free plan", name: "Tasting", body: "Every private feature, for up to 15 active labels.", note: "AI features use an AI Pack." },
+        { label: "Free plan", name: "Tasting", body: "Manage up to 15 active labels. Premium features require a subscription.", note: "AI features use an AI Pack." },
         { label: "For collectors", name: "Reserve", body: "For collections over 15 active labels and those who want more freedom.", note: "Use an AI Pack or a personal OpenAI key." },
       ],
       aiNote: "An AI Pack is available whenever you need it, including with Tasting.",

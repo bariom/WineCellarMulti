@@ -127,6 +127,12 @@ the same transaction as the tasting, included in PostgreSQL backups, and removed
 with the tasting. Image bytes are deferred from normal queries and fetched through
 an authenticated household-scoped endpoint. External tasting memories additionally
 require the tasting's author. JSON/Excel cellar exports do not include image bytes.
+Polaroid tables request a 480-pixel JPEG thumbnail via `?size=thumbnail`; the
+detail and enlarged viewer retain the stored photo. Thumbnails also work for
+existing memories and require no migration. Photo responses use private ETag
+revalidation: permissions are checked before returning 304, and changing or
+removing a photo invalidates the cached content. Deploy backend and frontend
+together for the thumbnail optimization.
 
 External tastings appear in History and can be edited there. Use the origin filter
 to show all tastings, cellar bottles, or external wines. After saving an external

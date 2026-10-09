@@ -19,6 +19,16 @@ def memory_photo_url(source: str, tasting_id: UUID, version: str) -> str:
     return f"/api/v1/wines/tasting-photos/{source}/{tasting_id}?v={version}" if version else ""
 
 
+def thumbnail_memory_photo(content: bytes) -> bytes:
+    """Derive a small preview for existing and new memories without changing stored photos."""
+    with Image.open(BytesIO(content)) as source:
+        image = source.convert("RGB")
+        image.thumbnail((480, 480), Image.Resampling.LANCZOS)
+        output = BytesIO()
+        image.save(output, format="JPEG", quality=72, optimize=True)
+        return output.getvalue()
+
+
 def process_memory_photo(value: str | None) -> bytes | None:
     if not value:
         return None

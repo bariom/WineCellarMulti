@@ -8,7 +8,17 @@ from pathlib import Path
 from typing import Literal, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy import func, or_, select, tuple_
 from sqlalchemy.orm import Session, defer, object_session
@@ -90,6 +100,7 @@ from app.services.tasting_photos import (
     extract_photo_location,
     memory_photo_url,
     process_memory_photo,
+    thumbnail_memory_photo,
 )
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
@@ -772,6 +783,8 @@ def portfolio_value_history(
 def get_tasting_memory_photo(
     source: Literal["cellar", "external"],
     tasting_id: UUID,
+    request: Request,
+    size: Literal["full", "thumbnail"] = "full",
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> Response:
@@ -792,13 +805,25 @@ def get_tasting_memory_photo(
         )
     if tasting is None or not tasting.memory_photo_version or not tasting.memory_photo:
         raise HTTPException(404, "Memory photo not found")
+    etag = f'"memory-{tasting.memory_photo_version}-{size}-1"'
+    headers = {
+        "Cache-Control": "private, no-cache",
+        "ETag": etag,
+        "Vary": "Cookie",
+        "X-Content-Type-Options": "nosniff",
+    }
+    # Always authorize before validating a cached response, including after logout
+    # or a household switch. Revalidation avoids downloading the photo again.
+    validators = request.headers.get("if-none-match", "").split(",")
+    if any(value.strip().removeprefix("W/") in {etag, "*"} for value in validators):
+        return Response(status_code=304, headers=headers)
+    content = tasting.memory_photo
+    if size == "thumbnail":
+        content = thumbnail_memory_photo(content)
     return Response(
-        tasting.memory_photo,
+        content,
         media_type="image/jpeg",
-        headers={
-            "Cache-Control": "private, no-store",
-            "X-Content-Type-Options": "nosniff",
-        },
+        headers=headers,
     )
 
 
