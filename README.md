@@ -50,6 +50,10 @@ and explicitly choose an existing cellar record where a match is proposed.
 Photos and PDFs preview beside the review on desktop (expandable on phones).
 PDFs render locally with page navigation and an original-document link; no external
 PDF viewer is required. The PDF renderer loads only when a PDF is reviewed.
+Its worker is bundled as JavaScript (`.js`) so the preview also works on servers
+that do not define a JavaScript MIME type for `.mjs` files. Deploy a fresh frontend
+build to apply this fix. For the production-asset regression check, run the PDF
+tests against `vite preview` with `PLAYWRIGHT_BASE_URL` set to its local URL.
 Analysis is included for active subscriptions using the application's AI provider,
 without consuming personal AI credit or a personal provider key. App administrators
 also have included analysis without a subscription or AI Pack. Free-tier users

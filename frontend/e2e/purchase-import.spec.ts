@@ -145,6 +145,12 @@ test("purchase receipt retry, unknown data, pending delivery and duplicate preve
 
 test("purchase PDF upload provides original document preview on desktop", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  // Reproduce the production server's MIME mapping for raw .mjs assets.
+  // Run against a built preview to exercise Vite's emitted worker URL as well.
+  await page.route(/\/assets\/pdf\.worker[^/]*\.mjs(?:\?|$)/, async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, headers: { ...response.headers(), "content-type": "application/octet-stream" } });
+  });
   const dialog = await openPurchase(page);
   let pdf = "%PDF-1.4\n";
   const objects = [

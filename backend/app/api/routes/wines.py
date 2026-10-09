@@ -18,6 +18,7 @@ from app.api.deps import (
     CurrentContext,
     get_current_context,
     require_admin_context,
+    require_memories_context,
     require_wine_photo_write_context,
     require_write_context,
 )
@@ -815,6 +816,8 @@ def list_tasting_archive(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> TastingArchivePageResponse:
+    if photos_only:
+        require_memories_context(context)
     query = q.strip().lower()
     normalized_type = normalize_wine_type(type).lower()
     normalized_status = status_filter.strip().lower()

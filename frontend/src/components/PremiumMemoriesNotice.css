@@ -1,0 +1,13 @@
+.premium-memories-notice { box-sizing: border-box; min-width: 0; padding: 24px; border: 1px solid var(--primary); border-left: 5px solid var(--primary); border-radius: 14px; background: var(--surface-raised, var(--surface)); color: var(--text); }
+.premium-memories-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; background: var(--primary); color: var(--primary-contrast); font-size: .75rem; font-weight: 700; letter-spacing: .06em; }
+.premium-memories-notice h3 { margin: 14px 0 10px; font: italic 400 1.7rem/1.2 var(--font-display, Georgia, serif); }
+.premium-memories-notice p { margin: 0 0 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.premium-memories-requirement { font-size: .9rem; color: var(--text-muted); }
+.premium-memories-notice button { min-height: 44px; max-width: 100%; white-space: normal; }
+.tasting-memory-book-entry > .premium-memories-notice { margin-bottom: 20px; }
+.home-moments-entry.is-premium-locked { display: block; padding: 0; border: 0; background: transparent; }
+.home-moments-entry.is-premium-locked > .home-moments-actions { margin-top: 12px; }
+@media (max-width: 480px) {
+  .premium-memories-notice { padding: 18px; }
+  .premium-memories-notice button { width: 100%; }
+}

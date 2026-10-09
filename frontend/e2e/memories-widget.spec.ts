@@ -50,7 +50,7 @@ for (const locale of ["it", "en"] as const) {
 }
 
 test("memories widget: empty album, failed request retry and unavailable photo", async ({ page }) => {
-  await mockApi(page, [], false, memberships, [wine], { ...session, is_demo: true, dashboard_focus: "personal", personal_dashboard_widgets: [] });
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [] });
   await page.goto("/");
   await page.evaluate((archive) => {
     const original = window.fetch;

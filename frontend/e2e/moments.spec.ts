@@ -560,6 +560,8 @@ test("world map groups nearby photos, previews them and opens memories beyond th
     if ([390, 1440].includes(viewport.width)) await page.screenshot({ path: testInfo.outputPath(`world-map-${viewport.width}-review.png`) });
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  // Preserve the reviewed hover state independently of viewport changes.
+  await book.getByRole("button", { name: "Mostra tutti i ricordi", exact: true }).hover();
   await expect(book).toHaveScreenshot("moments-map-compact.png");
   const navigation = () => (window as any).bookPeriodRequests.at(-1).offset;
   const offset = await page.evaluate(navigation);

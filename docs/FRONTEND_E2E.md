@@ -99,6 +99,15 @@ baselines, reviewed before acceptance.
 at 360/390/430 px and desktop, missing or unavailable photos, and navigation
 between memories with and without a bottle photo. The reviewed compact layout
 has its own `moments-bottle-compact.png` baseline.
+Memories (album, map, Polaroids and dashboard widgets) require an active subscription
+or app administrator access. Free accounts, including those with an AI Pack, see
+a subscription notice instead. `e2e/memories-premium.spec.ts` checks all entry
+points, absence of premium data requests while locked, admin/subscriber access,
+subscription navigation and responsive geometry. Normal tasting history remains
+available, and photos are preserved if a subscription expires. The backend applies
+the same requirement to the photo-only archive used by these views.
+Reviewed 390 px notice baselines cover the light and private-cellar themes in
+`memories-premium.spec.ts-snapshots/`.
 The Moments invitation is available near the top of the Drink well today dashboard.
 Its entry opens the memory book directly or the existing recording dialog, with
 the recording action hidden for read-only members and the entry hidden offline.

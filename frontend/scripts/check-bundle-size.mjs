@@ -8,6 +8,9 @@ const limits = {
   cssBytes: 430_000,
   cssGzipBytes: 72_000,
   chunkBytes: 500_000,
+  // PDF.js is a separate worker loaded only for document previews. Its former
+  // .mjs asset was outside the application-chunk budget; now bound it explicitly.
+  pdfWorkerBytes: 1_300_000,
 };
 
 const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
@@ -32,8 +35,17 @@ const javascript = await totals(".js");
 const css = await totals(".css");
 const failures = [];
 const assetsDirectory = new URL("../dist/assets/", import.meta.url);
-const chunks = await Promise.all((await readdir(assetsDirectory))
-  .filter((name) => name.endsWith(".js"))
+const assetNames = await readdir(assetsDirectory);
+const pdfWorkerNames = assetNames.filter((name) => /^pdf\.worker\.min-.*\.(?:mjs|js)$/.test(name));
+if (pdfWorkerNames.length !== 1 || !pdfWorkerNames[0].endsWith(".js")) {
+  failures.push("PDF preview must emit one .js worker for production MIME compatibility");
+}
+for (const name of pdfWorkerNames) {
+  const bytes = (await stat(new URL(name, assetsDirectory))).size;
+  if (bytes > limits.pdfWorkerBytes) failures.push(`${name} ${bytes} > ${limits.pdfWorkerBytes} bytes`);
+}
+const chunks = await Promise.all(assetNames
+  .filter((name) => name.endsWith(".js") && !pdfWorkerNames.includes(name))
   .map(async (name) => ({ name, bytes: (await stat(new URL(name, assetsDirectory))).size })));
 for (const chunk of chunks) {
   if (chunk.bytes > limits.chunkBytes) failures.push(`${chunk.name} ${chunk.bytes} > ${limits.chunkBytes} bytes`);

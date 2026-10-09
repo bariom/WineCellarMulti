@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+// Bundle as a .js worker: some production servers serve .mjs as octet-stream,
+// which browsers reject for module workers even when the document is valid.
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?worker&url";
 import type { Locale } from "../types";
 
 GlobalWorkerOptions.workerSrc = workerUrl;

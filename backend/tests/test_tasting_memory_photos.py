@@ -1,10 +1,12 @@
 import base64
 import importlib.util
+from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
+import test_auth_and_wines as harness
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from fastapi import HTTPException
@@ -12,7 +14,6 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from PIL.TiffImagePlugin import IFDRational
 
-import test_auth_and_wines as harness
 from app.main import app
 from app.services.tasting_photos import extract_photo_location, process_memory_photo
 
@@ -72,6 +73,13 @@ def test_cellar_photo_is_atomic_scoped_editable_and_deleted_with_tasting():
     assert client.post(f"/api/v1/auth/pending-users/{pending['id']}/approve").status_code == 200
     assert other.post("/api/v1/auth/login", json={"email": "other@example.com", "password": "strong-password-1"}).status_code == 200
     assert other.get(url).status_code == 404
+    # Exercise household isolation with an account authorized to browse the album.
+    with harness.TestingSessionLocal() as db:
+        subscriber = db.scalar(
+            sa.select(harness.User).where(harness.User.email == "other@example.com")
+        )
+        subscriber.access_override_until = datetime.now(UTC) + timedelta(days=1)
+        db.commit()
     assert other.get("/api/v1/wines/tasting-archive?photos_only=true").json()["total"] == 0
     assert TestClient(app).get("/api/v1/wines/tasting-archive?photos_only=true").status_code == 401
     external = client.post("/api/v1/wishlist/tastings", json={"name": "Private memory", "memory_photo": photo()}).json()

@@ -247,3 +247,11 @@ def require_wine_photo_write_context(
 
 def require_write_context(context: CurrentContext = Depends(get_current_context)) -> CurrentContext:
     return require_role(context, {"owner", "admin", "member"})
+
+
+def require_memories_context(
+    context: CurrentContext = Depends(get_current_context),
+) -> CurrentContext:
+    if not context.user.is_app_admin and not context.has_active_entitlement:
+        raise HTTPException(403, "An active subscription is required for memories")
+    return context

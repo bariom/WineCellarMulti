@@ -2,6 +2,7 @@ import { tastingRequest } from "./domain/tasting";
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
+import PremiumMemoriesNotice from "./components/PremiumMemoriesNotice";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
 import { WishlistVintageField, DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
@@ -5582,6 +5583,12 @@ export function App() {
   const purchaseImportIncluded = Boolean(session?.is_app_admin || (
     aiSettings?.purchase_import_included ?? session?.has_active_entitlement
   ));
+  const canAccessMemories = Boolean(session?.is_app_admin || (
+    !session?.is_demo && session?.has_active_entitlement
+  ));
+  function openMemoriesSubscription() {
+    setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile");
+  }
   const helpRole: HelpRole = session?.membership_role === "owner" || session?.membership_role === "admin" || session?.membership_role === "member" || session?.membership_role === "viewer"
     ? session.membership_role
     : "viewer";
@@ -8863,6 +8870,7 @@ export function App() {
   }
 
   function renderPersonalWidget(widget: PersonalDashboardWidget, preview = false) {
+    if ((widget.id === "polaroids" || widget.id === "memories") && !canAccessMemories) return <PremiumMemoriesNotice locale={locale} polaroids={widget.id === "polaroids"} onActivate={openMemoriesSubscription} />;
     if (widget.id === "polaroids") return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><PolaroidsWidget locale={locale} preview={preview} offline={offlineMode} /></Suspense>;
     if (widget.id === "memories") return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><MemoriesWidget locale={locale} preview={preview} offline={offlineMode} /></Suspense>;
     return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><DashboardSummaryWidget
@@ -10558,7 +10566,7 @@ export function App() {
                   </div>
                 </details>
               </section>
-              {dashboardFocus === "daily" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} home onRecord={canWriteWine ? () => setRecordTastingOpen(true) : undefined} /></Suspense> : null}
+              {dashboardFocus === "daily" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} home canAccess={canAccessMemories} onActivate={openMemoriesSubscription} onRecord={canWriteWine ? () => setRecordTastingOpen(true) : undefined} /></Suspense> : null}
               {dashboardFocus === "collector" ? <CellarHomeStats wines={cellarWines} readyCount={readyInCellarWineCount} monitoringCount={monitoringWines.length} locale={locale} onNavigate={(focus, initialIndex = 0) => { setDashboardCarouselInitialIndex(initialIndex); setDashboardFocus(focus); }} /> : null}
               {aiPackEnhancementHint}
 
@@ -13206,7 +13214,7 @@ export function App() {
                 </div>
               </div>
             ) : null}
-            {activeView === "history" && historySection === "tastings" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} /></Suspense> : null}
+            {activeView === "history" && historySection === "tastings" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} canAccess={canAccessMemories} onActivate={openMemoriesSubscription} /></Suspense> : null}
             {loading || tastingArchiveLoading ? <LoadingState label={t("loadingData")} variant="list" /> : null}
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? (
               <EmptyState
