@@ -39,8 +39,9 @@ def test_thumbnail_reduces_bytes_and_dimensions_without_changing_original():
 
 
 @pytest.mark.parametrize("source", ["cellar", "external"])
-def test_thumbnail_cache_revalidates_permissions_versions_and_deleted_memories(source):
-    client = TestClient(app)
+@pytest.mark.parametrize("origin", [None, "http://localhost:5173"])
+def test_thumbnail_cache_revalidates_permissions_versions_and_deleted_memories(source, origin):
+    client = TestClient(app, headers={"Origin": origin} if origin else {})
     assert harness.register(client).status_code == 201
     if source == "cellar":
         wine = client.post("/api/v1/wines", json={"name": "Thumbnail wine", "quantity": 2}).json()
@@ -59,13 +60,16 @@ def test_thumbnail_cache_revalidates_permissions_versions_and_deleted_memories(s
     preview = client.get(thumbnail_url)
     assert full.status_code == preview.status_code == 200
     assert preview.headers["cache-control"] == "private, no-cache"
-    assert preview.headers["vary"] == "Cookie"
+    # CORS middleware may also add Origin; Vary is a case-insensitive field list.
+    assert "cookie" in {field.strip().lower() for field in preview.headers["vary"].split(",")}
     assert preview.headers["etag"] != full.headers["etag"]
     with Image.open(BytesIO(preview.content)) as image:
         assert image.size == (480, 240)
     conditional = {"If-None-Match": preview.headers["etag"]}
     cached = client.get(thumbnail_url, headers=conditional)
     assert cached.status_code == 304 and not cached.content
+    assert cached.headers["cache-control"] == "private, no-cache"
+    assert "cookie" in {field.strip().lower() for field in cached.headers["vary"].split(",")}
     assert client.get(url, headers=conditional).status_code == 200
     assert client.get(url + "&size=invalid").status_code == 422
     assert TestClient(app).get(thumbnail_url, headers=conditional).status_code == 401
