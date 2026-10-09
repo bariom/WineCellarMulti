@@ -24,6 +24,11 @@
 .purchase-import-pdf a { display: inline-flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; color: var(--primary); text-underline-offset: 4px; }
 .purchase-import-document-toggle { display: none; }
 .purchase-import-access { margin: -8px 0 20px; color: var(--text-muted); font-size: .9rem; line-height: 1.5; }
+.purchase-import-activation { display: flex; align-items: center; gap: 24px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--primary); border-left: 5px solid var(--primary); border-radius: 12px; background: var(--surface-raised); box-shadow: 0 8px 24px #0000000a; }
+.purchase-import-activation > div { flex: 1; min-width: 0; }
+.purchase-import-activation h3 { color: var(--primary); font-size: 1.5rem; margin-bottom: 10px; }
+.purchase-import-activation p { margin: 0 0 12px; line-height: 1.6; }
+.purchase-import-activation > button { max-width: 100%; }
 .purchase-pdf-preview { min-width: 0; }
 .purchase-pdf-preview canvas { display: block; width: 100%; height: auto; background: white; border: 1px solid var(--border); box-sizing: border-box; }
 .purchase-pdf-preview canvas[hidden] { display: none; }
@@ -51,6 +56,7 @@
 .purchase-import p, .purchase-import strong, .purchase-import li { overflow-wrap: anywhere; }
 .purchase-import-entry { margin: 0 0 20px; width: fit-content; }
 @media (max-width: 760px) {
+  .purchase-import-activation { flex-direction: column; align-items: stretch; gap: 16px; padding: 18px; }
   .purchase-import[data-stage=review] .purchase-import-upload small,
   .purchase-import[data-stage=review] .purchase-import-upload > button,
   .purchase-import[data-stage=review] .purchase-import-heading p { display: none; }

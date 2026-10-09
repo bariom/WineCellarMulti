@@ -5575,6 +5575,13 @@ export function App() {
   const aiPackUpgradeNotice = showAiPackUpgrade ? <AiPackUpgradeNotice locale={locale} onPurchase={() => void startCheckout("ai_credits")} /> : null;
   const aiPackEnhancementHint = showAiPackEnhancement ? <AiPackUpgradeNotice locale={locale} compact onPurchase={() => void startCheckout("ai_credits")} onDismiss={() => { window.localStorage.setItem(AI_PACK_ENHANCEMENT_DISMISS_KEY, String(Date.now() + AI_PACK_ENHANCEMENT_REMINDER_MS)); setAiPackEnhancementDismissed(true); }} /> : null;
   const canUseIncludedWineSearch = canWriteWine && Boolean(aiSettings?.can_use_included_wine_search);
+  // Older API responses may omit purchase-specific flags during a rolling update.
+  const canAnalyzePurchase = canWriteWine && Boolean(session?.is_app_admin || (
+    aiSettings?.can_use_purchase_import ?? (canUseIncludedWineSearch || aiSettings?.can_use_app_credits)
+  ));
+  const purchaseImportIncluded = Boolean(session?.is_app_admin || (
+    aiSettings?.purchase_import_included ?? session?.has_active_entitlement
+  ));
   const helpRole: HelpRole = session?.membership_role === "owner" || session?.membership_role === "admin" || session?.membership_role === "member" || session?.membership_role === "viewer"
     ? session.membership_role
     : "viewer";
@@ -10455,7 +10462,7 @@ export function App() {
               </nav>
             </>
           ) : null}
-          {purchaseImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><PurchaseImportDialog locale={locale} canAnalyze={Boolean(aiSettings?.can_use_purchase_import)} included={Boolean(aiSettings?.purchase_import_included)} onAnalyzed={async () => { await Promise.all([loadAiSettings(), loadBilling()]); }} onClose={() => setPurchaseImportOpen(false)} onImported={async () => { await loadWines(); await loadMerchants(); setWineFormOpen(false); }} /></Suspense> : null}
+          {purchaseImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><PurchaseImportDialog locale={locale} canAnalyze={canAnalyzePurchase} included={purchaseImportIncluded} isAdmin={Boolean(session?.is_app_admin)} onActivate={() => { setPurchaseImportOpen(false); setWineFormOpen(false); setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile"); }} onAnalyzed={async () => { await Promise.all([loadAiSettings(), loadBilling()]); }} onClose={() => setPurchaseImportOpen(false)} onImported={async () => { await loadWines(); await loadMerchants(); setWineFormOpen(false); }} /></Suspense> : null}
           {recordTastingOpen && canWriteWine && !offlineMode ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><RecordTastingDialog
             key={session?.active_household_id}
             locale={locale}

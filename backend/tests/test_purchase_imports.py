@@ -123,10 +123,15 @@ def test_preview_does_not_mutate_cellar_and_reuses_document(client):
     assert calls[0]["app_funded"] is True
 
 
-@pytest.mark.parametrize("subscribed,balance", [(True, "0"), (True, "2"), (False, "2")])
-def test_purchase_subscription_included_or_pack_charged(setup, monkeypatch, subscribed, balance):
+@pytest.mark.parametrize(
+    "subscribed,balance,admin",
+    [(True, "0", False), (True, "2", False), (False, "2", False), (False, "0", True)],
+)
+def test_purchase_subscription_included_or_pack_charged(
+    setup, monkeypatch, subscribed, balance, admin
+):
     db, context, _ = setup
-    context.user.is_app_admin = False
+    context.user.is_app_admin = admin
     context.user.can_use_label_recognition = False
     context = replace(context, has_active_entitlement=subscribed)
     monkeypatch.setattr(ai.settings, "openai_api_key", "application-test-key")
@@ -160,16 +165,16 @@ def test_purchase_subscription_included_or_pack_charged(setup, monkeypatch, subs
     with TestClient(app) as test:
         record = preview(test)
         assert Decimal(record["estimated_cost_usd"]) == (
-            Decimal("0") if subscribed else Decimal("0.02")
+            Decimal("0") if subscribed or admin else Decimal("0.02")
         )
         assert ai_credit_balance(db, context.user) == Decimal(balance) - (
-            Decimal("0") if subscribed else Decimal("0.02")
+            Decimal("0") if subscribed or admin else Decimal("0.02")
         )
         assert preview(test)["id"] == record["id"]
         assert len(calls) == 1
     options = ai.ai_settings_response(db, context, user_settings)
     assert options.can_use_purchase_import
-    assert options.purchase_import_included == subscribed
+    assert options.purchase_import_included == (subscribed or admin)
 
 
 def test_free_purchase_without_pack_is_rejected_before_provider(client):

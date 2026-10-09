@@ -51,7 +51,8 @@ Photos and PDFs preview beside the review on desktop (expandable on phones).
 PDFs render locally with page navigation and an original-document link; no external
 PDF viewer is required. The PDF renderer loads only when a PDF is reviewed.
 Analysis is included for active subscriptions using the application's AI provider,
-without consuming personal AI credit or a personal provider key. Free-tier users
+without consuming personal AI credit or a personal provider key. App administrators
+also have included analysis without a subscription or AI Pack. Free-tier users
 need a funded AI Pack: the request reserves credit, deducts actual billable usage
 and refunds unused credit or a failed provider request. Label-recognition permission
 is independent of this feature. Cellar owners, admins and members can confirm and

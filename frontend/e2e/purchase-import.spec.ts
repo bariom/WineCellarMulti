@@ -1,9 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { memberships, mockApi, session, wine } from "./fixtures/app";
 
-async function openPurchase(page: Page, locale: "it" | "en" = "it", empty = false, access: "included" | "credits" | "blocked" = "included") {
+async function openPurchase(page: Page, locale: "it" | "en" = "it", empty = false, access: "included" | "credits" | "blocked" | "admin" | "legacy-admin" | "legacy-included" = "included") {
   const it = locale === "it";
-  await mockApi(page, [], true, memberships, [wine], { ...session, locale, has_active_entitlement: access === "included", is_free_tier: access !== "included", can_use_label_recognition: false, theme_preference: it ? "light" : "private-cellar" });
+  const admin = access === "admin" || access === "legacy-admin";
+  await mockApi(page, [], true, memberships, [wine], { ...session, locale, is_app_admin: admin, has_active_entitlement: access === "included" || access === "legacy-included", is_free_tier: !admin && access !== "included" && access !== "legacy-included", can_use_label_recognition: false, theme_preference: it ? "light" : "private-cellar" });
   await page.addInitScript(({ wine, empty, access }) => {
     const previous = window.fetch;
     let received = false;
@@ -12,7 +13,8 @@ async function openPurchase(page: Page, locale: "it" | "en" = "it", empty = fals
       const url = new URL(String(input), location.href);
       if (url.pathname.endsWith("/ai/settings")) {
         const response = await previous(input, init);
-        return Response.json({ ...await response.json(), can_use_purchase_import: access !== "blocked", purchase_import_included: access === "included", can_use_app_credits: access === "credits", has_openai_api_key: false, provider_mode: access === "included" ? "user_key" : "credits" });
+        if (access.startsWith("legacy-")) return Response.json({ ...await response.json(), can_use_included_wine_search: access === "legacy-included", can_use_app_credits: false, has_openai_api_key: false });
+        return Response.json({ ...await response.json(), can_use_purchase_import: access === "included" || access === "credits", purchase_import_included: access === "included", can_use_app_credits: access === "credits", has_openai_api_key: false, provider_mode: access === "included" ? "user_key" : "credits" });
       }
       if (!url.pathname.startsWith("/api/v1/imports/purchases")) return previous(input, init);
       if (url.pathname.endsWith("/pending")) return Response.json(pending ? [{ id: "purchase-1", supplier: "Enoteca delle Colline", reference: "INV-42", bottles: 4, expected_delivery: "2026-10-20" }] : []);
@@ -195,12 +197,44 @@ test("purchase PDF upload provides original document preview on desktop", async 
   }
 });
 
-test("purchase free plan requires AI Pack", async ({ page }) => {
+test("purchase free plan requires AI Pack", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const dialog = await openPurchase(page, "it", false, "blocked");
   await expect(dialog.getByRole("button", { name: "Analizza acquisto", exact: true })).toBeDisabled();
-  await expect(dialog.getByText("Attiva un abbonamento o ricarica un AI Pack", { exact: false })).toBeVisible();
+  const activation = dialog.getByRole("region", { name: "Attiva l’importazione con AI", exact: true });
+  await expect(activation).toBeVisible();
+  await expect(activation.getByRole("button", { name: "Scopri abbonamenti e AI Pack", exact: true })).toBeVisible();
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
+    await dialog.evaluate(el => el.scrollTop = 0);
+    const notice = await activation.boundingBox();
+    const upload = await dialog.locator('input[type="file"]').first().boundingBox();
+    expect(notice!.y + notice!.height).toBeLessThan(upload!.y);
+    expect(await dialog.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(false);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`purchase-activation-${width}.png`) });
+  }
+  await activation.getByRole("button", { name: "Scopri abbonamenti e AI Pack", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Acquista abbonamento mensile", exact: true })).toBeVisible();
 });
+
+for (const access of ["admin", "legacy-admin", "legacy-included"] as const) {
+  test(`purchase analysis available without AI Pack (${access})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const dialog = await openPurchase(page, "it", false, access);
+    await expect(dialog.getByRole("heading", { name: "Attiva l’importazione con AI", exact: true })).toHaveCount(0);
+    if (access !== "legacy-included") await expect(dialog.getByText("Accesso amministratore", { exact: false })).toBeVisible();
+    await dialog.locator('input[type="file"]').first().setInputFiles(await receipt(page));
+    await expect(dialog.getByRole("button", { name: "Analizza acquisto", exact: true })).toBeEnabled();
+    await dialog.getByRole("button", { name: "Analizza acquisto", exact: true }).click();
+    await expect(dialog.getByRole("heading", { name: "Verifica l’acquisto", exact: true })).toBeVisible();
+    if (access === "admin") {
+      await dialog.evaluate(el => el.scrollTop = 0);
+      await page.screenshot({ path: testInfo.outputPath("purchase-admin-390.png") });
+    }
+  });
+}
 
 test("purchase free plan with AI Pack shows its charge", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
