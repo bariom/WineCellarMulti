@@ -3,6 +3,7 @@ import { api } from "../services/api";
 import { memoryMonthBounds } from "../domain/memoryPeriod";
 import type { Locale, TastingArchivePage } from "../types";
 import "./MemoryTable.css";
+import { AppIcon } from "./AppIcon";
 
 type Position = { x: number; y: number; z: number };
 
@@ -46,8 +47,8 @@ function PolaroidCaption({ text }: { text: string }) {
   return <span ref={caption} className="memory-polaroid-caption">{text}</span>;
 }
 
-export default function MemoryTable({ locale, query, month, onSelect, pageSize = 20, preview = false }: {
-  locale: Locale; query: string; month: string; onSelect: (index: number) => void; pageSize?: number; preview?: boolean;
+export default function MemoryTable({ locale, query, month, onSelect, pageSize = 20, preview = false, surfaceHeight }: {
+  locale: Locale; query: string; month: string; onSelect: (index: number) => void; pageSize?: number; preview?: boolean; surfaceHeight?: number;
 }) {
   const it = locale === "it";
   const [offset, setOffset] = useState(0);
@@ -82,7 +83,7 @@ export default function MemoryTable({ locale, query, month, onSelect, pageSize =
   return <section className="memory-table" aria-label={it ? "Polaroid" : "Polaroids"}>
     <p className="memory-table-hint">{it ? "Trascina le polaroid per esplorare i ricordi. Doppio clic o doppio tocco per aprire la degustazione. Con la tastiera: frecce per spostare, Invio per aprire." : "Drag the polaroids to explore your memories. Double-click or double-tap to open a tasting. Keyboard: arrows to move, Enter to open."}</p>
     {busy ? <p role="status">{it ? "Preparazione del tavolo…" : "Preparing the table…"}</p> : error ? <div role="alert"><p>{it ? "Impossibile caricare i ricordi." : "Unable to load memories."}</p><button type="button" onClick={() => setRetry(value => value + 1)}>{it ? "Riprova" : "Try again"}</button></div> : !page?.items.length ? <p role="status">{it ? "Nessun ricordo trovato. Aggiungi una foto quando registri una bevuta oppure modifica i filtri." : "No memories found. Add a photo when recording a tasting or change the filters."}</p> : <>
-      <div ref={surface} className="memory-table-surface" style={{ height: `${Math.max(400, Math.ceil(page.items.length / 3) * 125 + 220)}px` }}>
+      <div ref={surface} className="memory-table-surface" style={{ height: `${surfaceHeight ?? Math.max(400, Math.ceil(page.items.length / 3) * 125 + 220)}px` }}>
         {page.items.map((entry, index) => {
           const id = `${entry.source}-${entry.tasting_id}`;
           const position = positions[id] || { x: .1 + (index % 3) * .39, y: (Math.floor(index / 3) * 125 + 28) / (Math.max(400, Math.ceil(page.items.length / 3) * 125 + 220) - 244), z: index + 1 };
@@ -133,9 +134,9 @@ export default function MemoryTable({ locale, query, month, onSelect, pageSize =
         })}
       </div>
       <nav className="memory-book-navigation" aria-label={it ? "Sfoglia le Polaroid" : "Browse Polaroids"}>
-        <button type="button" disabled={!offset} onClick={() => setOffset(offset - pageSize)}>{it ? "Precedenti" : "Previous"}</button>
+        <button type="button" disabled={!offset} onClick={() => setOffset(offset - pageSize)}><AppIcon name="chevron-left" size={16} /><span>{it ? "Precedenti" : "Previous"}</span></button>
         <span aria-live="polite">{offset + 1}–{offset + page.items.length} / {page.total}</span>
-        <button type="button" disabled={offset + page.items.length >= page.total} onClick={() => setOffset(offset + pageSize)}>{it ? "Successivi" : "Next"}</button>
+        <button type="button" disabled={offset + page.items.length >= page.total} onClick={() => setOffset(offset + pageSize)}><span>{it ? "Successivi" : "Next"}</span><AppIcon name="chevron-right" size={16} /></button>
       </nav>
     </>}
   </section>;

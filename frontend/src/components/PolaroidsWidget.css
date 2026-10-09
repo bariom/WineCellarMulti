@@ -2,6 +2,10 @@
 .polaroids-widget .memory-table { min-width: 0; }
 .polaroids-widget .memory-table-surface { --polaroid-width: clamp(140px, 34cqi, 180px); }
 .polaroids-widget .memory-book-navigation { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 12px; gap: 10px; }
-.polaroids-widget .memory-book-navigation > button { min-height: 44px; font-size: .75rem; }
+.polaroids-widget .memory-book-navigation > button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--primary); border-radius: 24px; background: var(--surface-raised); color: var(--text); box-shadow: none; font-size: .75rem; font-weight: 600; }
+.polaroids-widget .memory-book-navigation > button:hover:not(:disabled) { background: var(--surface-subtle); color: var(--text); transform: none; }
+.polaroids-widget .memory-book-navigation > button:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.polaroids-widget .memory-book-navigation > button:disabled { opacity: .5; cursor: default; }
+.polaroids-widget .memory-book-navigation .app-icon { --icon-primary: currentColor; --icon-muted: currentColor; color: inherit; }
 .polaroids-widget .memory-book-navigation > span { font-size: .75rem; color: var(--text-muted); }
 .polaroids-widget .memory-polaroid:disabled { opacity: 1; cursor: default; }

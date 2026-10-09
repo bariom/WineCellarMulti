@@ -8,3 +8,4 @@
 .memory-polaroid time { margin-top: 0; color: var(--text-muted); font-size: .68rem; }
 .memory-table .memory-book-navigation { gap: 10px; }
 .memory-table .memory-book-navigation button { width: auto; padding: 6px 10px; }
+.memory-book .memory-table .memory-book-navigation button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: auto; padding: 6px 10px; }

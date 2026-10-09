@@ -1,13 +1,29 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { memberships, mockApi, session, tastingArchive, wine } from "./fixtures/app";
+
+async function expectReadablePagination(button: Locator) {
+  await expect(button).toBeVisible();
+  const contrast = await button.evaluate(element => {
+    const style = getComputedStyle(element);
+    const luminance = (value: string) => (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number).map(channel => {
+      const scaled = channel / 255;
+      return scaled <= .04045 ? scaled / 12.92 : ((scaled + .055) / 1.055) ** 2.4;
+    }).reduce((sum, channel, index) => sum + channel * [.2126, .7152, .0722][index], 0);
+    const text = luminance(style.color);
+    const background = luminance(style.backgroundColor);
+    return { ratio: (Math.max(text, background) + .05) / (Math.min(text, background) + .05), background: style.backgroundColor };
+  });
+  expect(contrast.background).not.toBe("rgba(0, 0, 0, 0)");
+  expect(contrast.ratio).toBeGreaterThanOrEqual(4.5);
+}
 
 for (const locale of ["it", "en"] as const) {
   test(`Polaroid widget: ${locale} selection, layout, paging and return from details`, async ({ page }, testInfo) => {
     const it = locale === "it";
-    await mockApi(page, [], false, memberships, [wine], { ...session, locale, dashboard_focus: "personal", personal_dashboard_widgets: [] });
+    await mockApi(page, [], false, memberships, [wine], { ...session, locale, theme_preference: it ? "light" : "private-cellar", dashboard_focus: "personal", personal_dashboard_widgets: [] });
     await page.addInitScript(archive => {
       const original = window.fetch;
-      const entries = Array.from({ length: 7 }, (_, i) => ({ ...archive.items[0], tasting_id: `polaroid-${i}`, occasion: `Aperitivo a San Quirico d'Orcia ${i + 1}`, memory_photo_url: "/images/home-tasting-v1.jpg" }));
+      const entries = Array.from({ length: 21 }, (_, i) => ({ ...archive.items[0], tasting_id: `polaroid-${i}`, occasion: `Aperitivo a San Quirico d'Orcia ${i + 1}`, memory_photo_url: "/images/home-tasting-v1.jpg" }));
       window.fetch = async (input, init) => {
         const url = new URL(String(input), location.href);
         if (url.pathname.includes("/wines/tasting-archive") && url.searchParams.has("photos_only")) {
@@ -29,7 +45,7 @@ for (const locale of ["it", "en"] as const) {
     await page.reload();
     const widget = page.locator('[data-widget-id="polaroids"]');
     await expect(widget).toHaveClass(/personal-widget-half/);
-    await expect(widget.locator(".memory-polaroid")).toHaveCount(6);
+    await expect(widget.locator(".memory-polaroid")).toHaveCount(20);
     for (const width of [360, 390, 430, 1440]) {
       await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
       await widget.scrollIntoViewIfNeeded();
@@ -37,6 +53,7 @@ for (const locale of ["it", "en"] as const) {
       const area = (await surface.boundingBox())!;
       expect(area.x).toBeGreaterThanOrEqual(0);
       expect(area.x + area.width).toBeLessThanOrEqual(width);
+      expect(area.height).toBe(470);
       for (const card of await widget.locator(".memory-polaroid").all()) {
         expect(await card.locator(".memory-polaroid-caption").evaluate(el => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight)).toBe(true);
       }
@@ -44,19 +61,30 @@ for (const locale of ["it", "en"] as const) {
       if (width === 390 || width === 1440) await widget.screenshot({ path: testInfo.outputPath(`polaroids-${locale}-${width}.png`) });
       if (width === 390 && it) await expect(surface).toHaveScreenshot("polaroids-widget-compact.png", { animations: "disabled" });
     }
-    await widget.getByRole("button", { name: it ? "Successivi" : "Next", exact: true }).click();
-    const card = widget.getByRole("button", { name: /San Quirico d'Orcia 7/ });
+    const next = widget.getByRole("button", { name: it ? "Successivi" : "Next", exact: true });
+    await expect(widget.getByRole("navigation")).toContainText("1–20 / 21");
+    await expectReadablePagination(next);
+    await next.click();
+    const card = widget.getByRole("button", { name: /San Quirico d'Orcia 21/ });
     await expect(card).toBeVisible();
     await card.focus();
     await page.keyboard.press("ArrowRight");
     const position = await card.getAttribute("style");
     await page.keyboard.press("Enter");
     const detail = page.getByRole("dialog", { name: it ? "Momenti" : "Moments", exact: true });
-    await expect(detail.getByRole("heading", { name: "Aperitivo a San Quirico d'Orcia 7", exact: true })).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "Aperitivo a San Quirico d'Orcia 21", exact: true })).toBeVisible();
     await detail.getByRole("button", { name: it ? "Chiudi" : "Close", exact: true }).click();
     await expect(card).toBeFocused();
     await expect(card).toHaveAttribute("style", position!);
-    await expect(widget.getByRole("navigation")).toContainText("7–7 / 7");
+    await expect(widget.getByRole("navigation")).toContainText("21–21 / 21");
+    // Loading the album stylesheet must not make widget pagination transparent.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const previous = widget.getByRole("button", { name: it ? "Precedenti" : "Previous", exact: true });
+    await previous.scrollIntoViewIfNeeded();
+    await expectReadablePagination(previous);
+    await widget.getByRole("navigation").screenshot({ path: testInfo.outputPath(`polaroids-pagination-${locale}.png`) });
+    await previous.click();
+    await expect(widget.locator(".memory-polaroid")).toHaveCount(20);
   });
 }
 

@@ -104,8 +104,8 @@ the recording action hidden for read-only members and the entry hidden offline.
 `e2e/home-moments.spec.ts` covers Italian/English, 360/390/430 px and desktop,
 dialog focus restoration and the reviewed `home-moments-compact.png` baseline.
 The personal dashboard also offers a separate Polaroids widget alongside My
-memories. It displays six draggable snapshots per page on the cellar oak
-texture. Opening a tasting and closing its detail preserves the widget page
+memories. It displays twenty draggable snapshots per page on a fixed-height
+table with the cellar oak texture. Opening a tasting and closing its detail preserves the widget page
 and photo positions. `e2e/polaroids-widget.spec.ts` checks selection, saved
 width, paging, IT/EN, errors, empty albums and responsive geometry; its reviewed
 compact table baseline is `polaroids-widget-compact.png`. Both entry and widget
