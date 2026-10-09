@@ -143,6 +143,7 @@ test("wine sensory signature shows intensity and missing values across viewports
   await expect(panel.locator('.wine-sensory-indicator').filter({ hasText: 'Dolcezza' })).toContainText('0 / 10');
   await expect(panel.locator('.wine-sensory-indicator').filter({ hasText: 'Legno' })).toContainText('Non disponibile');
   await expect(panel).toContainText('Affidabilità: 65%');
+  await expect(panel.locator('header').getByText('Stima dai metadati', { exact: true })).toBeVisible();
   for (const width of [360, 390, 430, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     const visiblePanel = page.locator('.wine-detail:visible').first().getByRole('region', { name: 'Impronta sensoriale' });
@@ -157,6 +158,19 @@ test("wine sensory signature shows intensity and missing values across viewports
     if (width === 390) await expect(visiblePanel).toHaveScreenshot('wine-sensory-signature-compact.png', { animations: 'disabled' });
   }
 });
+
+for (const source of ["ai", "hybrid", "manual"]) {
+  test(`wine sensory signature labels ${source} provenance beside its heading`, async ({ page }) => {
+    await page.addInitScript(source => sessionStorage.setItem("vinaris-test-sensory", JSON.stringify({
+      generation_status: "available", source, confidence: 0.8, validated: true,
+      dimensions: { body: 0.8, acidity: 0.65 },
+    })), source);
+    await openWineDetail(page);
+    const header = page.locator('.wine-detail:visible').first().getByRole('region', { name: 'Impronta sensoriale' }).locator('header');
+    await expect(header.getByText(source === "manual" ? "Profilo manuale" : "Stima AI", { exact: true })).toBeVisible();
+    if (source === "manual") await expect(header.getByText("Stima AI", { exact: true })).toHaveCount(0);
+  });
+}
 
 test("wine sensory signature omits absent profiles and rejects invalid intensities", async ({ page }) => {
   await openWineDetail(page);
@@ -215,7 +229,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.getByRole("button", { name: "Menu", exact: true }).click();
     await page.getByRole("button", { name: "Storico", exact: true }).click();
     await page.getByText("Nebbiolo di Test", { exact: true }).first().click();
-    await page.getByRole("button", { name: "Apri vino", exact: true }).click();
+    await page.getByRole("button", { name: "Scheda vino", exact: true }).click();
 
     const detailDialog = page.getByRole("dialog", { name: "Nebbiolo di Test" });
     await expect(detailDialog).toBeVisible();

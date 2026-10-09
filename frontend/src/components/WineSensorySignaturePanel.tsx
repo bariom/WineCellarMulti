@@ -45,8 +45,12 @@ export function WineSensorySignaturePanel({ wineId, locale }: { wineId: string; 
     ? { metadata: "Stima dai metadati", hybrid: "Stima da metadati e AI", ai: "Stima AI", manual: "Profilo manuale", grape: "Stima dai vitigni", appellation: "Stima dalla denominazione" }
     : { metadata: "Estimated from metadata", hybrid: "Estimated from metadata and AI", ai: "AI estimate", manual: "Manual profile", grape: "Estimated from grapes", appellation: "Estimated from appellation" };
   const confidence = Number.isFinite(profile.confidence) && profile.confidence >= 0 && profile.confidence <= 1 ? Math.round(profile.confidence * 100) : null;
+  const profileLabel = profile.source === "ai" || profile.source === "hybrid"
+    ? (it ? "Stima AI" : "AI estimate")
+    : sources[profile.source] || (it ? "Profilo stimato" : "Estimated profile");
   return <section className="wine-sensory-signature" aria-label={it ? "Impronta sensoriale" : "Sensory signature"}>
     <header><span>{it ? "IL CARATTERE DEL VINO" : "THE WINE’S CHARACTER"}</span><h3>{it ? "Impronta sensoriale" : "Sensory signature"}</h3>
+      <span className="wine-sensory-estimate">{profileLabel}</span>
       <p>{it ? "Intensità da 0 a 10: dal più delicato al più marcato. Descrive il vino, non il tuo gradimento." : "Intensity from 0 to 10: from subtle to pronounced. Describes the wine, not your liking."}</p></header>
     <dl className="wine-sensory-indicators">{items.map(({ key, label, value }) => <div className="wine-sensory-indicator" key={key}>
       <dt>{label}</dt><dd>{value === null ? (it ? "Non disponibile" : "Unavailable") : `${number(value)} / 10`}</dd>

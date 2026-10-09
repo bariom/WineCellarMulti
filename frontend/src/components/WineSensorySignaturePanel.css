@@ -1,6 +1,7 @@
 .wine-sensory-signature { padding: 20px; margin: 16px 0; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); min-width: 0; }
 .wine-sensory-signature header > span { color: var(--text-muted); font-size: .65rem; letter-spacing: .15em; }
 .wine-sensory-signature h3 { margin: 6px 0 8px; font-family: var(--font-display, Georgia, serif); font-size: 1.45rem; font-weight: 500; }
+.wine-sensory-signature header > .wine-sensory-estimate { display: inline-flex; max-width: 100%; box-sizing: border-box; padding: 4px 9px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-subtle); color: var(--primary); font-size: .75rem; line-height: 1.4; letter-spacing: normal; }
 .wine-sensory-signature p { margin: 0; font-size: .78rem; line-height: 1.5; color: var(--text-muted); }
 .wine-sensory-indicators { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 18px 28px; margin: 22px 0; }
 .wine-sensory-indicator { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; align-items: baseline; font-size: .8rem; }
