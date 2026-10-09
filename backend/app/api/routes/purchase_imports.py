@@ -21,6 +21,8 @@ from app.schemas.purchase_import import (
     PurchasePreview,
     PurchaseResult,
 )
+from app.services.ai_credits import ai_credit_balance
+from app.services.free_tier import is_free_tier
 from app.services.openai_client import parse_json_response
 from app.services.purchase_import import (
     MAX_DOCUMENT_BYTES,
@@ -122,6 +124,7 @@ def analyze(content: bytes, mime: str, locale: str, db: Session, context: Curren
         input_images=document.images,
         input_files=document.files,
         task_type="structured_extraction",
+        app_funded=True,
         max_output_tokens=12000,
         timeout_seconds=90,
     )
@@ -172,7 +175,8 @@ def analyze(content: bytes, mime: str, locale: str, db: Session, context: Curren
     db.flush()
     audit(record.id, "Purchase document extraction for review")
     db.commit()
-    return preview(db, context, record, response.charged_cost_usd)
+    charged_cost = response.charged_cost_usd if provider == "credits" else Decimal("0")
+    return preview(db, context, record, charged_cost)
 
 
 @router.post("/preview", response_model=PurchasePreview)
@@ -182,8 +186,8 @@ async def analyze_purchase(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ):
-    if not context.user.can_use_label_recognition and not context.user.is_app_admin:
-        raise HTTPException(403, "Document recognition is not enabled for this user")
+    if is_free_tier(context) and ai_credit_balance(db, context.user) <= 0:
+        raise HTTPException(402, "An AI Pack is required on the free tier")
     content = await document.read(MAX_DOCUMENT_BYTES + 1)
     return await run_in_threadpool(
         analyze, content, document.content_type or "", locale, db, context

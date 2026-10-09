@@ -47,10 +47,15 @@ or upload JPG/PNG/WebP/PDF (10 MB, at most 10 PDF pages and 60 wine rows).
 AI proposes supplier, document reference, date, currency, wines, vintages, formats,
 bottle quantities and prices. Review/edit every field, compare document totals,
 and explicitly choose an existing cellar record where a match is proposed.
-Photos preview beside the review on desktop (expandable on phones); PDFs open in
-a separate browser tab so every page remains accessible without relying on embedded viewers.
-Analysis requires the account's label-recognition permission and configured AI
-access/credits; cellar owners, admins and members can confirm and receive purchases.
+Photos and PDFs preview beside the review on desktop (expandable on phones).
+PDFs render locally with page navigation and an original-document link; no external
+PDF viewer is required. The PDF renderer loads only when a PDF is reviewed.
+Analysis is included for active subscriptions using the application's AI provider,
+without consuming personal AI credit or a personal provider key. Free-tier users
+need a funded AI Pack: the request reserves credit, deducts actual billable usage
+and refunds unused credit or a failed provider request. Label-recognition permission
+is independent of this feature. Cellar owners, admins and members can confirm and
+receive purchases, even when their AI credit is exhausted.
 Text-based PDFs send a single extraction of their text to the configured AI provider;
 scanned or mixed PDFs retain native visual analysis. Payment slips, repeated totals
 and VAT already included in prices must not become additional purchase items.

@@ -10455,7 +10455,7 @@ export function App() {
               </nav>
             </>
           ) : null}
-          {purchaseImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><PurchaseImportDialog locale={locale} canAnalyze={canRecognizeBottlePhoto || Boolean(session?.is_app_admin && canGenerateAi)} onClose={() => setPurchaseImportOpen(false)} onImported={async () => { await loadWines(); await loadMerchants(); setWineFormOpen(false); }} /></Suspense> : null}
+          {purchaseImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><PurchaseImportDialog locale={locale} canAnalyze={Boolean(aiSettings?.can_use_purchase_import)} included={Boolean(aiSettings?.purchase_import_included)} onAnalyzed={async () => { await Promise.all([loadAiSettings(), loadBilling()]); }} onClose={() => setPurchaseImportOpen(false)} onImported={async () => { await loadWines(); await loadMerchants(); setWineFormOpen(false); }} /></Suspense> : null}
           {recordTastingOpen && canWriteWine && !offlineMode ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><RecordTastingDialog
             key={session?.active_household_id}
             locale={locale}

@@ -1,22 +1,26 @@
 import { expect, test, type Page } from "@playwright/test";
 import { memberships, mockApi, session, wine } from "./fixtures/app";
 
-async function openPurchase(page: Page, locale: "it" | "en" = "it", empty = false) {
+async function openPurchase(page: Page, locale: "it" | "en" = "it", empty = false, access: "included" | "credits" | "blocked" = "included") {
   const it = locale === "it";
-  await mockApi(page, [], true, memberships, [wine], { ...session, locale, can_use_label_recognition: true, theme_preference: it ? "light" : "private-cellar" });
-  await page.addInitScript(({ wine, empty }) => {
+  await mockApi(page, [], true, memberships, [wine], { ...session, locale, has_active_entitlement: access === "included", is_free_tier: access !== "included", can_use_label_recognition: false, theme_preference: it ? "light" : "private-cellar" });
+  await page.addInitScript(({ wine, empty, access }) => {
     const previous = window.fetch;
     let received = false;
     let pending = false;
     window.fetch = async (input, init) => {
       const url = new URL(String(input), location.href);
+      if (url.pathname.endsWith("/ai/settings")) {
+        const response = await previous(input, init);
+        return Response.json({ ...await response.json(), can_use_purchase_import: access !== "blocked", purchase_import_included: access === "included", can_use_app_credits: access === "credits", has_openai_api_key: false, provider_mode: access === "included" ? "user_key" : "credits" });
+      }
       if (!url.pathname.startsWith("/api/v1/imports/purchases")) return previous(input, init);
       if (url.pathname.endsWith("/pending")) return Response.json(pending ? [{ id: "purchase-1", supplier: "Enoteca delle Colline", reference: "INV-42", bottles: 4, expected_delivery: "2026-10-20" }] : []);
       if (url.pathname.endsWith("/preview")) {
         if (sessionStorage.getItem("receipt-fail") === "true") return Response.json({ detail: "Unavailable" }, { status: 503 });
         const data = init?.body as FormData;
         sessionStorage.setItem("receipt-upload", JSON.stringify({ locale: data.get("locale"), file: (data.get("document") as File).name }));
-        return Response.json({ id: "purchase-1", status: received || pending ? "received" : "draft", estimated_cost_usd: "0.021", extraction: {
+        return Response.json({ id: "purchase-1", status: received || pending ? "received" : "draft", estimated_cost_usd: access === "included" ? "0" : "0.021", extraction: {
           supplier: "Enoteca delle Colline", reference: "INV-42", order_date: "2026-10-09", currency: "CHF", document_total: "126.00", additional_costs: "0",
           rows: empty ? [] : [{ name: wine.name, producer: wine.producer, vintage: wine.vintage, format: "0.75L", quantity: 3, unit_price: "42.00", line_total: "126.00", warnings: ["Verifica il formato della bottiglia."] }], warnings: empty ? ["Nessun vino leggibile"] : [],
         }, matches: empty ? [] : [[{ id: wine.id, name: wine.name, producer: wine.producer, vintage: wine.vintage, format: wine.format, currency: wine.currency }]] });
@@ -34,7 +38,7 @@ async function openPurchase(page: Page, locale: "it" | "en" = "it", empty = fals
       }
       return Response.json({ detail: "Unexpected route" }, { status: 404 });
     };
-  }, { wine, empty });
+  }, { wine, empty, access });
   await page.goto("/");
   if ((page.viewportSize()?.width || 0) >= 1000) {
     await page.getByRole("button", { name: it ? /^Cantina \(/ : /^Cellar \(/ }).click();
@@ -143,21 +147,76 @@ test("purchase PDF upload provides original document preview on desktop", async 
   let pdf = "%PDF-1.4\n";
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
-    "<< /Length 72 >>\nstream\nBT /F1 14 Tf 25 350 Td (INVOICE INV-42 - CHF 126.00) Tj ET\nendstream",
+    "<< /Length 61 >>\nstream\nBT /F1 14 Tf 25 350 Td (INVOICE INV-42 - CHF 126.00) Tj ET\nendstream",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Contents 7 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    "<< /Length 47 >>\nstream\nBT /F1 14 Tf 25 350 Td (PAYMENT SLIP) Tj ET\nendstream",
   ];
   const offsets = [0];
   objects.forEach((object, i) => { offsets.push(Buffer.byteLength(pdf)); pdf += `${i + 1} 0 obj\n${object}\nendobj\n`; });
   const start = Buffer.byteLength(pdf);
-  pdf += `xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(offset => `${String(offset).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${start}\n%%EOF`;
+  pdf += `xref\n0 8\n0000000000 65535 f \n${offsets.slice(1).map(offset => `${String(offset).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size 8 /Root 1 0 R >>\nstartxref\n${start}\n%%EOF`;
   await dialog.locator('input[type="file"]').first().setInputFiles({ name: "invoice.pdf", mimeType: "application/pdf", buffer: Buffer.from(pdf) });
   await dialog.getByRole("button", { name: "Analizza acquisto", exact: true }).click();
   await expect(dialog.getByText("PDF · invoice.pdf", { exact: true })).toBeVisible();
   await expect(dialog.getByRole("link", { name: "Apri PDF originale", exact: true })).toHaveAttribute("href", /^blob:/);
   await expect(dialog.getByRole("link", { name: "Apri PDF originale", exact: true })).toHaveAttribute("target", "_blank");
   await expect(dialog.getByRole("heading", { name: "Verifica l’acquisto", exact: true })).toBeVisible();
+  const canvas = dialog.getByRole("img", { name: "Anteprima PDF, pagina 1", exact: true });
+  await expect(canvas).toBeVisible();
+  expect(await canvas.evaluate(element => {
+    const canvas = element as HTMLCanvasElement;
+    const pixels = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+    return [...pixels].some((value, index) => index % 4 !== 3 && value < 128);
+  })).toBe(true);
+  const left = await canvas.boundingBox();
+  const right = await dialog.getByRole("heading", { name: "Verifica l’acquisto", exact: true }).boundingBox();
+  expect(left!.x + left!.width).toBeLessThan(right!.x);
+  await dialog.getByRole("button", { name: "Pagina successiva", exact: true }).click();
+  await expect(dialog.getByRole("img", { name: "Anteprima PDF, pagina 2", exact: true })).toBeVisible();
+  await expect(dialog.getByText("Pagina 2 / 2", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Pagina successiva", exact: true })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Pagina precedente", exact: true }).click();
+  await expect(canvas).toBeVisible();
   expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("receipt-upload") || "{}").file)).toBe("invoice.pdf");
   await page.screenshot({ path: testInfo.outputPath("purchase-pdf-desktop.png") });
+  for (const width of [360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    if (width === 360) await dialog.getByRole("button", { name: "Mostra documento", exact: true }).click();
+    await expect(canvas).toBeVisible();
+    expect(await dialog.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(false);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+    if (width === 390) {
+      await dialog.evaluate(el => el.scrollTop = 0);
+      await page.screenshot({ path: testInfo.outputPath("purchase-pdf-mobile.png") });
+    }
+  }
+});
+
+test("purchase free plan requires AI Pack", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const dialog = await openPurchase(page, "it", false, "blocked");
+  await expect(dialog.getByRole("button", { name: "Analizza acquisto", exact: true })).toBeDisabled();
+  await expect(dialog.getByText("Attiva un abbonamento o ricarica un AI Pack", { exact: false })).toBeVisible();
+});
+
+test("purchase free plan with AI Pack shows its charge", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const dialog = await openPurchase(page, "it", false, "credits");
+  await dialog.locator('input[type="file"]').first().setInputFiles(await receipt(page));
+  await expect(dialog.getByRole("button", { name: "Analizza acquisto", exact: true })).toBeEnabled();
+  await dialog.getByRole("button", { name: "Analizza acquisto", exact: true }).click();
+  await expect(dialog.getByText("Stima AI · addebito AI Pack USD 0.021000", { exact: true })).toBeVisible();
+});
+
+test("purchase PDF preview failure keeps original and review accessible", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const dialog = await openPurchase(page);
+  await dialog.locator('input[type="file"]').first().setInputFiles({ name: "unsupported.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-invalid") });
+  await dialog.getByRole("button", { name: "Analizza acquisto", exact: true }).click();
+  await expect(dialog.getByText("Anteprima non disponibile.", { exact: false })).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "Apri PDF originale", exact: true })).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Verifica l’acquisto", exact: true })).toBeVisible();
 });

@@ -32,6 +32,7 @@ from app.models import (
 )
 from app.prompts.purchase_import import purchase_import_prompt
 from app.schemas.purchase_import import PurchaseConfirmation, PurchaseExtraction
+from app.services.ai_credits import ai_credit_balance, create_ai_credit_transaction
 from app.services.openai_client import OpenAIResponse, TokenUsage, response_body
 from app.services.purchase_import import purchase_document
 
@@ -119,6 +120,89 @@ def test_preview_does_not_mutate_cellar_and_reuses_document(client):
     assert preview(test)["id"] == first["id"]
     assert len(calls) == 1
     assert calls[0]["json_schema"]["name"] == "purchase_import"
+    assert calls[0]["app_funded"] is True
+
+
+@pytest.mark.parametrize("subscribed,balance", [(True, "0"), (True, "2"), (False, "2")])
+def test_purchase_subscription_included_or_pack_charged(setup, monkeypatch, subscribed, balance):
+    db, context, _ = setup
+    context.user.is_app_admin = False
+    context.user.can_use_label_recognition = False
+    context = replace(context, has_active_entitlement=subscribed)
+    monkeypatch.setattr(ai.settings, "openai_api_key", "application-test-key")
+    monkeypatch.setattr(ai, "estimate_cost_usd", lambda *a: Decimal("0.02"))
+    monkeypatch.setattr(ai, "maximum_billable_cost_usd", lambda **kw: Decimal("1"))
+    monkeypatch.setattr(ai, "ai_pack_markup_percent", lambda **kw: Decimal("0"))
+    monkeypatch.setattr(ai, "record_ai_audit", lambda *a, **kw: None)
+    user_settings = ai.get_or_create_user_ai_settings(db, context)
+    user_settings.provider_mode = (
+        "user_key"  # Paid inclusion overrides personal-provider preference.
+    )
+    if Decimal(balance):
+        create_ai_credit_transaction(
+            db, context.user, amount_usd=Decimal(balance), source="test_pack"
+        )
+    db.commit()
+    calls = []
+
+    def respond(*args, **kwargs):
+        calls.append(kwargs)
+        assert kwargs["api_key"] == "application-test-key"
+        return OpenAIResponse(
+            text=json.dumps(extracted()), usage=TokenUsage(input_tokens=100, output_tokens=50)
+        )
+
+    monkeypatch.setattr(ai, "create_response", respond)
+    app = FastAPI()
+    app.include_router(routes.router)
+    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_current_context] = lambda: context
+    with TestClient(app) as test:
+        record = preview(test)
+        assert Decimal(record["estimated_cost_usd"]) == (
+            Decimal("0") if subscribed else Decimal("0.02")
+        )
+        assert ai_credit_balance(db, context.user) == Decimal(balance) - (
+            Decimal("0") if subscribed else Decimal("0.02")
+        )
+        assert preview(test)["id"] == record["id"]
+        assert len(calls) == 1
+    options = ai.ai_settings_response(db, context, user_settings)
+    assert options.can_use_purchase_import
+    assert options.purchase_import_included == subscribed
+
+
+def test_free_purchase_without_pack_is_rejected_before_provider(client):
+    test, db, context, _, calls = client
+    context.user.is_app_admin = False
+    context.user.can_use_label_recognition = True
+    db.commit()
+    response = test.post(
+        "/imports/purchases/preview", files={"document": ("r.png", image(), "image/png")}
+    )
+    assert response.status_code == 402
+    assert calls == []
+
+
+def test_failed_free_purchase_refunds_credit_reservation(setup, monkeypatch):
+    from fastapi import HTTPException
+
+    db, context, _ = setup
+    context.user.is_app_admin = False
+    monkeypatch.setattr(ai.settings, "openai_api_key", "application-test-key")
+    monkeypatch.setattr(ai, "maximum_billable_cost_usd", lambda **kw: Decimal("1"))
+    create_ai_credit_transaction(db, context.user, amount_usd=Decimal("2"), source="test_pack")
+    db.commit()
+
+    def unavailable(*args, **kwargs):
+        raise HTTPException(503, "Test provider unavailable")
+
+    monkeypatch.setattr(ai, "create_response", unavailable)
+    with pytest.raises(HTTPException) as error:
+        routes.analyze(image(), "image/png", "it", db, context)
+    assert error.value.status_code == 503
+    assert ai_credit_balance(db, context.user) == Decimal("2")
+    assert list(db.scalars(select(PurchaseImport))) == []
 
 
 def test_confirmation_is_atomic_idempotent_and_preserves_previous_cost(client):
@@ -279,6 +363,7 @@ def test_free_tier_bulk_import_cannot_bypass_limit(client, monkeypatch):
     context.user.is_app_admin = False
     context.user.can_use_label_recognition = True
     monkeypatch.setattr(settings, "free_tier_label_limit", 1)
+    create_ai_credit_transaction(db, context.user, amount_usd=Decimal("2"), source="test_pack")
     wine.quantity = 0
     db.commit()
     record = preview(test)

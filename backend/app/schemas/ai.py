@@ -69,6 +69,8 @@ class AiSettingsResponse(BaseModel):
     ai_credit_pack_size_usd: Decimal = Decimal("0")
     can_use_app_credits: bool = False
     can_use_included_wine_search: bool = False
+    can_use_purchase_import: bool = False
+    purchase_import_included: bool = False
     ai_notes_model: str
     drink_window_model: str
     value_model: str

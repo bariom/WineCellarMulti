@@ -832,6 +832,8 @@ export type AiSettings = {
   ai_credit_pack_size_usd: string;
   can_use_app_credits: boolean;
   can_use_included_wine_search: boolean;
+  can_use_purchase_import: boolean;
+  purchase_import_included: boolean;
   ai_notes_model: string;
   drink_window_model: string;
   value_model: string;

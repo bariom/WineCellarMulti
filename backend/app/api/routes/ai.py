@@ -435,6 +435,9 @@ def ai_settings_response(
         can_use_app_credits=can_use_app_credits,
         can_use_included_wine_search=bool(settings.openai_api_key.strip())
         and not is_free_tier(context),
+        can_use_purchase_import=bool(settings.openai_api_key.strip())
+        and (not is_free_tier(context) or can_use_app_credits),
+        purchase_import_included=not is_free_tier(context),
         ai_notes_model=user_settings.ai_notes_model,
         drink_window_model=user_settings.drink_window_model,
         value_model=user_settings.value_model,
