@@ -223,6 +223,8 @@ test("purchase free plan requires AI Pack", async ({ page }, testInfo) => {
   await activation.getByRole("button", { name: "Scopri abbonamenti e AI Pack", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Acquista abbonamento mensile", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Abbonamento e AI Pack", exact: true })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Abbonamento e AI Pack", exact: true })).toBeInViewport({ ratio: 1 });
 });
 
 for (const access of ["admin", "legacy-admin", "legacy-included"] as const) {

@@ -1650,6 +1650,18 @@ export function App() {
   const [dailyWineBudgetDraft, setDailyWineBudgetDraft] = useState("");
   const [breakdownDrilldown, setBreakdownDrilldown] = useState<BreakdownDrilldown>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
+  const subscriptionSectionRef = useRef<HTMLElement>(null);
+  const [subscriptionFocusPending, setSubscriptionFocusPending] = useState(false);
+  useEffect(() => {
+    if (!subscriptionFocusPending || activeView !== "settings" || settingsTab !== "profile") return;
+    const frame = window.requestAnimationFrame(() => {
+      const section = subscriptionSectionRef.current;
+      section?.scrollIntoView({ behavior: "instant", block: "start" });
+      section?.querySelector<HTMLElement>("h3")?.focus({ preventScroll: true });
+      setSubscriptionFocusPending(false);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [subscriptionFocusPending, activeView, settingsTab]);
   const [onboardingMode, setOnboardingMode] = useState("auto");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [wineStorageFocus, setWineStorageFocus] = useState<{ wineId: string; requestId: number } | null>(null);
@@ -5574,7 +5586,7 @@ export function App() {
   const showAiPackUpgrade = Boolean(session?.is_free_tier && !canGenerateAi && billingStatus?.can_purchase_ai_credits);
   const showAiPackEnhancement = showAiPackUpgrade && !aiPackEnhancementDismissed;
   const aiPackUpgradeNotice = showAiPackUpgrade ? <AiPackUpgradeNotice locale={locale} onPurchase={() => void startCheckout("ai_credits")} /> : null;
-  const aiPackEnhancementHint = showAiPackEnhancement ? <AiPackUpgradeNotice locale={locale} compact onPurchase={() => void startCheckout("ai_credits")} onDismiss={() => { window.localStorage.setItem(AI_PACK_ENHANCEMENT_DISMISS_KEY, String(Date.now() + AI_PACK_ENHANCEMENT_REMINDER_MS)); setAiPackEnhancementDismissed(true); }} /> : null;
+  const aiPackEnhancementHint = showAiPackEnhancement ? <AiPackUpgradeNotice locale={locale} compact onPurchase={openSubscriptionSettings} onDismiss={() => { window.localStorage.setItem(AI_PACK_ENHANCEMENT_DISMISS_KEY, String(Date.now() + AI_PACK_ENHANCEMENT_REMINDER_MS)); setAiPackEnhancementDismissed(true); }} /> : null;
   const canUseIncludedWineSearch = canWriteWine && Boolean(aiSettings?.can_use_included_wine_search);
   // Older API responses may omit purchase-specific flags during a rolling update.
   const canAnalyzePurchase = canWriteWine && Boolean(session?.is_app_admin || (
@@ -5586,8 +5598,11 @@ export function App() {
   const canAccessMemories = Boolean(session?.is_app_admin || (
     !session?.is_demo && session?.has_active_entitlement
   ));
-  function openMemoriesSubscription() {
+  function openSubscriptionSettings() {
     setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile");
+    // Wait for the lazy profile fields above billing to occupy their space.
+    void import("./components/MarketPreferences").then(() => setSubscriptionFocusPending(true))
+      .catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load subscription settings"));
   }
   const helpRole: HelpRole = session?.membership_role === "owner" || session?.membership_role === "admin" || session?.membership_role === "member" || session?.membership_role === "viewer"
     ? session.membership_role
@@ -8870,7 +8885,7 @@ export function App() {
   }
 
   function renderPersonalWidget(widget: PersonalDashboardWidget, preview = false) {
-    if ((widget.id === "polaroids" || widget.id === "memories") && !canAccessMemories) return <PremiumMemoriesNotice locale={locale} polaroids={widget.id === "polaroids"} onActivate={openMemoriesSubscription} />;
+    if ((widget.id === "polaroids" || widget.id === "memories") && !canAccessMemories) return <PremiumMemoriesNotice locale={locale} polaroids={widget.id === "polaroids"} onActivate={openSubscriptionSettings} />;
     if (widget.id === "polaroids") return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><PolaroidsWidget locale={locale} preview={preview} offline={offlineMode} /></Suspense>;
     if (widget.id === "memories") return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><MemoriesWidget locale={locale} preview={preview} offline={offlineMode} /></Suspense>;
     return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><DashboardSummaryWidget
@@ -10470,7 +10485,7 @@ export function App() {
               </nav>
             </>
           ) : null}
-          {purchaseImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><PurchaseImportDialog locale={locale} canAnalyze={canAnalyzePurchase} included={purchaseImportIncluded} isAdmin={Boolean(session?.is_app_admin)} onActivate={() => { setPurchaseImportOpen(false); setWineFormOpen(false); setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile"); }} onAnalyzed={async () => { await Promise.all([loadAiSettings(), loadBilling()]); }} onClose={() => setPurchaseImportOpen(false)} onImported={async () => { await loadWines(); await loadMerchants(); setWineFormOpen(false); }} /></Suspense> : null}
+          {purchaseImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><PurchaseImportDialog locale={locale} canAnalyze={canAnalyzePurchase} included={purchaseImportIncluded} isAdmin={Boolean(session?.is_app_admin)} onActivate={() => { setPurchaseImportOpen(false); setWineFormOpen(false); openSubscriptionSettings(); }} onAnalyzed={async () => { await Promise.all([loadAiSettings(), loadBilling()]); }} onClose={() => setPurchaseImportOpen(false)} onImported={async () => { await loadWines(); await loadMerchants(); setWineFormOpen(false); }} /></Suspense> : null}
           {recordTastingOpen && canWriteWine && !offlineMode ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><RecordTastingDialog
             key={session?.active_household_id}
             locale={locale}
@@ -10566,7 +10581,7 @@ export function App() {
                   </div>
                 </details>
               </section>
-              {dashboardFocus === "daily" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} home canAccess={canAccessMemories} onActivate={openMemoriesSubscription} onRecord={canWriteWine ? () => setRecordTastingOpen(true) : undefined} /></Suspense> : null}
+              {dashboardFocus === "daily" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} home canAccess={canAccessMemories} onActivate={openSubscriptionSettings} onRecord={canWriteWine ? () => setRecordTastingOpen(true) : undefined} /></Suspense> : null}
               {dashboardFocus === "collector" ? <CellarHomeStats wines={cellarWines} readyCount={readyInCellarWineCount} monitoringCount={monitoringWines.length} locale={locale} onNavigate={(focus, initialIndex = 0) => { setDashboardCarouselInitialIndex(initialIndex); setDashboardFocus(focus); }} /> : null}
               {aiPackEnhancementHint}
 
@@ -13214,7 +13229,7 @@ export function App() {
                 </div>
               </div>
             ) : null}
-            {activeView === "history" && historySection === "tastings" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} canAccess={canAccessMemories} onActivate={openMemoriesSubscription} /></Suspense> : null}
+            {activeView === "history" && historySection === "tastings" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} canAccess={canAccessMemories} onActivate={openSubscriptionSettings} /></Suspense> : null}
             {loading || tastingArchiveLoading ? <LoadingState label={t("loadingData")} variant="list" /> : null}
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? (
               <EmptyState
@@ -13892,11 +13907,11 @@ export function App() {
               ) : null}
 
               {settingsTab === "profile" ? (
-              <section className="settings-card settings-card-compact">
+              <section ref={subscriptionSectionRef} className="settings-card settings-card-compact settings-subscription-card" aria-labelledby="subscription-settings-title">
                 <div className="settings-card-heading">
                   <div>
                     <span>{t("billing")}</span>
-                    <h3>{t("redeemCode")}</h3>
+                    <h3 id="subscription-settings-title" tabIndex={-1}>{locale === "it" ? "Abbonamento e AI Pack" : "Subscription and AI Pack"}</h3>
                   </div>
                   {billingStatus?.valid_until ? <strong>{formatDisplayDate(billingStatus.valid_until)}</strong> : null}
                 </div>

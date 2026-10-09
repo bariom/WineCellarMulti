@@ -61,7 +61,7 @@ Shared deterministic data and helpers live in `e2e/fixtures/app.ts`.
 | Wine Detail, sensory signature, detail geometry and baseline | `npm run test:e2e:wine-detail` |
 | Collector composition, summaries, insights and scrolling | `npm run test:e2e:collector` |
 | Personal dashboard widgets, editor, memories album and drill-downs | `npm run test:e2e:personal-dashboard` |
-| Shared navigation, compact headers and Home photographs | `npm run test:e2e:app-navigation` |
+| Shared navigation, compact headers, Home photographs and direct subscription/AI Pack navigation | `npm run test:e2e:app-navigation` |
 | Memory book, photo GPS and tasting photo regressions | `npm run test:e2e:moments` |
 | Home Moments entry, direct recording/browsing, read-only access and responsive layout | `npx playwright test e2e/home-moments.spec.ts` |
 | Recording tastings and tasting history | `npm run test:e2e:record-tasting` |

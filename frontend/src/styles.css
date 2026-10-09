@@ -1262,6 +1262,8 @@ summary:focus-visible {
   align-items: start;
 }
 
+.settings-subscription-card { scroll-margin-top: 92px; }
+
 .settings-card {
   display: grid;
   gap: 14px;

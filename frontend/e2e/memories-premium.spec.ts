@@ -53,6 +53,8 @@ for (const pack of [false, true]) {
     expect(await page.evaluate(() => (window as any).premiumMemoryRequests)).toBe(0);
     await locked.getByRole("button", { name: "Scopri l’abbonamento", exact: true }).click();
     await expect(page.getByRole("button", { name: "Acquista abbonamento mensile", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Abbonamento e AI Pack", exact: true })).toBeFocused();
+    await expect(page.getByRole("heading", { name: "Abbonamento e AI Pack", exact: true })).toBeInViewport({ ratio: 1 });
   });
 }
 
