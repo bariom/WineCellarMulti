@@ -51,7 +51,10 @@ Photos preview beside the review on desktop (expandable on phones); PDFs open in
 a separate browser tab so every page remains accessible without relying on embedded viewers.
 Analysis requires the account's label-recognition permission and configured AI
 access/credits; cellar owners, admins and members can confirm and receive purchases.
-The document is sent to the configured AI provider. Originals are not archived;
+Text-based PDFs send a single extraction of their text to the configured AI provider;
+scanned or mixed PDFs retain native visual analysis. Payment slips, repeated totals
+and VAT already included in prices must not become additional purchase items.
+Photos are sent to the configured AI provider. Originals are not archived;
 only the document hash, extracted/reviewed data and import result are retained.
 
 Confirmation saves all rows atomically. Received purchases create stock lots;

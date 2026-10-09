@@ -38,6 +38,15 @@ def extraction_schema() -> dict:
     # OpenAI strict schemas require every field, including nullable fields.
     def strict(node):
         if isinstance(node, dict):
+            # Pydantic Decimal validation schemas contain string regexes with
+            # lookaheads. Use JSON numbers for provider output; keep Decimal's
+            # precision/range checks on the parsed result and confirmation.
+            for name, child in node.get("properties", {}).items():
+                if name in {"unit_price", "line_total", "document_total", "additional_costs"}:
+                    number = next(
+                        value for value in child["anyOf"] if value.get("type") == "number"
+                    )
+                    child["anyOf"] = [number, {"type": "null"}]
             if node.get("type") == "object":
                 node["additionalProperties"] = False
                 node["required"] = list(node.get("properties", {}))
@@ -91,7 +100,7 @@ def analyze(content: bytes, mime: str, locale: str, db: Session, context: Curren
         record_ai_audit,
     )
 
-    images, files = purchase_document(content, mime)
+    document = purchase_document(content, mime)
     digest = hashlib.sha256(content).hexdigest()
     existing = db.scalar(
         select(PurchaseImport).where(
@@ -101,7 +110,7 @@ def analyze(content: bytes, mime: str, locale: str, db: Session, context: Curren
     )
     if existing:
         return preview(db, context, existing)
-    prompt = purchase_import_prompt(locale=locale)
+    prompt = purchase_import_prompt(locale=locale, document_text=document.text)
     response, provider = create_ai_response(
         db,
         context,
@@ -110,8 +119,8 @@ def analyze(content: bytes, mime: str, locale: str, db: Session, context: Curren
         system_prompt=prompt.system,
         user_prompt=prompt.user,
         json_schema=extraction_schema(),
-        input_images=images,
-        input_files=files,
+        input_images=document.images,
+        input_files=document.files,
         task_type="structured_extraction",
         max_output_tokens=12000,
         timeout_seconds=90,

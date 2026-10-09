@@ -15,7 +15,12 @@ MAX_TEXT = 500_000
 MAX_PAGES = 100
 
 
-def _extract(content: bytes, max_pages: int = MAX_PAGES) -> dict:
+def _extract(
+    content: bytes,
+    max_pages: int = MAX_PAGES,
+    include_alternative: bool = True,
+    min_page_chars: int = 0,
+) -> dict:
     from pypdf import PdfReader, filters
 
     logging.disable(logging.CRITICAL)
@@ -30,14 +35,17 @@ def _extract(content: bytes, max_pages: int = MAX_PAGES) -> dict:
         return {"status": "too_large", "text": ""}
     parts = []
     size = 0
+    sparse_page = False
     for page in reader.pages:
         contents = page.get_contents()
         if contents is None:
+            sparse_page = min_page_chars > 0 or sparse_page
             continue
         if contents and len(contents.get_data()) > 2_000_000:
             return {"status": "too_large", "text": ""}
         # Layout mode keeps multi-column tasting catalogues in reading order.
         text = page.extract_text(extraction_mode="layout") or ""
+        sparse_page = sparse_page or len(text.strip()) < min_page_chars
         size += len(text)
         if size > MAX_TEXT:
             return {"status": "too_large", "text": ""}
@@ -47,7 +55,7 @@ def _extract(content: bytes, max_pages: int = MAX_PAGES) -> dict:
     # layout output. Preserve a second faithful extraction; do not fuzzy-match or
     # remove word boundaries in source verification. Both parsers run inside the
     # same bounded child process. Keep layout alone for long tasting catalogues.
-    if len(reader.pages) <= 5:
+    if include_alternative and len(reader.pages) <= 5:
         from pdfminer.high_level import extract_text
 
         try:
@@ -58,10 +66,23 @@ def _extract(content: bytes, max_pages: int = MAX_PAGES) -> dict:
         except Exception:
             # A secondary parser failure must not discard the primary extraction.
             pass
-    return {"status": "readable" if value.strip() else "empty", "text": value}
+    return {
+        "status": "partial"
+        if value.strip() and sparse_page
+        else "readable"
+        if value.strip()
+        else "empty",
+        "text": value,
+    }
 
 
-def extract_pdf_document(content: bytes, *, max_pages: int = MAX_PAGES):
+def extract_pdf_document(
+    content: bytes,
+    *,
+    max_pages: int = MAX_PAGES,
+    include_alternative: bool = True,
+    min_page_chars: int = 0,
+):
     from app.services.score_sources import DocumentText
 
     if len(content) > MAX_BYTES:
@@ -69,7 +90,14 @@ def extract_pdf_document(content: bytes, *, max_pages: int = MAX_PAGES):
     stopped = Event()
     try:
         with subprocess.Popen(
-            [sys.executable, "-I", str(Path(__file__).resolve()), str(max_pages)],
+            [
+                sys.executable,
+                "-I",
+                str(Path(__file__).resolve()),
+                str(max_pages),
+                "1" if include_alternative else "0",
+                str(min_page_chars),
+            ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -113,6 +141,8 @@ if __name__ == "__main__":
         result = _extract(
             sys.stdin.buffer.read(MAX_BYTES + 1),
             int(sys.argv[1]) if len(sys.argv) > 1 else MAX_PAGES,
+            len(sys.argv) <= 2 or sys.argv[2] == "1",
+            int(sys.argv[3]) if len(sys.argv) > 3 else 0,
         )
     except Exception:
         result = {"status": "invalid_document", "text": ""}

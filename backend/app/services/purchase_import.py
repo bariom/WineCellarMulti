@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from io import BytesIO
@@ -22,14 +23,26 @@ from app.services.storage import add_to_storage
 MAX_DOCUMENT_BYTES = 10_000_000
 
 
-def purchase_document(content: bytes, mime: str) -> tuple[list, list]:
+@dataclass(frozen=True)
+class PurchaseDocument:
+    images: list[tuple[str, bytes]]
+    files: list[tuple[str, bytes]]
+    text: str = ""
+
+
+def purchase_document(content: bytes, mime: str) -> PurchaseDocument:
     """Validate content rather than trusting filename or browser MIME."""
     if not content or len(content) > MAX_DOCUMENT_BYTES:
         raise HTTPException(413, "Use a document smaller than 10 MB")
     if mime == "application/pdf":
-        if extract_pdf_document(content, max_pages=10).status not in {"readable", "empty"}:
+        document = extract_pdf_document(
+            content, max_pages=10, include_alternative=False, min_page_chars=80
+        )
+        if document.status not in {"readable", "empty", "partial"}:
             raise HTTPException(422, "Use a valid, unlocked PDF with at most 10 pages")
-        return [], [("purchase.pdf", content)]
+        if document.status == "readable":
+            return PurchaseDocument([], [], document.text)
+        return PurchaseDocument([], [("purchase.pdf", content)])
     if mime not in {"image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(415, "Use JPG, PNG, WebP or PDF")
     try:
@@ -43,7 +56,7 @@ def purchase_document(content: bytes, mime: str) -> tuple[list, list]:
             image.thumbnail((2400, 2400), Image.Resampling.LANCZOS)
             output = BytesIO()
             image.save(output, "JPEG", quality=90)
-        return [("image/jpeg", output.getvalue())], []
+        return PurchaseDocument([("image/jpeg", output.getvalue())], [])
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
         raise HTTPException(422, "Invalid purchase image") from exc
 
