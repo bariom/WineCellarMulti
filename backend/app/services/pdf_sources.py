@@ -15,7 +15,7 @@ MAX_TEXT = 500_000
 MAX_PAGES = 100
 
 
-def _extract(content: bytes) -> dict:
+def _extract(content: bytes, max_pages: int = MAX_PAGES) -> dict:
     from pypdf import PdfReader, filters
 
     logging.disable(logging.CRITICAL)
@@ -26,7 +26,7 @@ def _extract(content: bytes) -> dict:
     reader = PdfReader(BytesIO(content))
     if reader.is_encrypted:
         return {"status": "encrypted", "text": ""}
-    if len(reader.pages) > MAX_PAGES:
+    if len(reader.pages) > max_pages:
         return {"status": "too_large", "text": ""}
     parts = []
     size = 0
@@ -61,7 +61,7 @@ def _extract(content: bytes) -> dict:
     return {"status": "readable" if value.strip() else "empty", "text": value}
 
 
-def extract_pdf_document(content: bytes):
+def extract_pdf_document(content: bytes, *, max_pages: int = MAX_PAGES):
     from app.services.score_sources import DocumentText
 
     if len(content) > MAX_BYTES:
@@ -69,7 +69,7 @@ def extract_pdf_document(content: bytes):
     stopped = Event()
     try:
         with subprocess.Popen(
-            [sys.executable, "-I", str(Path(__file__).resolve())],
+            [sys.executable, "-I", str(Path(__file__).resolve()), str(max_pages)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -110,7 +110,10 @@ def extract_pdf_document(content: bytes):
 
 if __name__ == "__main__":
     try:
-        result = _extract(sys.stdin.buffer.read(MAX_BYTES + 1))
+        result = _extract(
+            sys.stdin.buffer.read(MAX_BYTES + 1),
+            int(sys.argv[1]) if len(sys.argv) > 1 else MAX_PAGES,
+        )
     except Exception:
         result = {"status": "invalid_document", "text": ""}
     sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))

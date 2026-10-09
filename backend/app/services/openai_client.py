@@ -158,11 +158,12 @@ def response_body(
     max_output_tokens: int | None = None,
     max_tool_calls: int | None = None,
     input_images: list[tuple[str, bytes]] | None = None,
+    input_files: list[tuple[str, bytes]] | None = None,
     agent_tools: list[dict[str, Any]] | None = None,
     agent_history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     user_content: str | list[dict[str, Any]] = user_prompt
-    if input_images:
+    if input_images or input_files:
         user_content = [{"type": "input_text", "text": user_prompt}]
         user_content.extend(
             {
@@ -170,7 +171,16 @@ def response_body(
                 "image_url": f"data:{mime_type};base64,{base64.b64encode(content).decode('ascii')}",
                 "detail": "high",
             }
-            for mime_type, content in input_images
+            for mime_type, content in (input_images or [])
+        )
+        user_content.extend(
+            {
+                "type": "input_file",
+                "filename": filename,
+                "file_data": "data:application/pdf;base64,"
+                + base64.b64encode(content).decode("ascii"),
+            }
+            for filename, content in (input_files or [])
         )
     body: dict[str, Any] = {
         "model": model,
@@ -345,6 +355,7 @@ def create_response(
     task_type: str = "sommelier",
     complexity: str | None = None,
     input_images: list[tuple[str, bytes]] | None = None,
+    input_files: list[tuple[str, bytes]] | None = None,
     timeout_seconds: float | None = None,
     agent_tools: list[dict[str, Any]] | None = None,
     agent_history: list[dict[str, Any]] | None = None,
@@ -385,6 +396,7 @@ def create_response(
                     max_output_tokens=max_output_tokens,
                     max_tool_calls=max_tool_calls,
                     input_images=input_images,
+                    **({"input_files": input_files} if input_files else {}),
                     agent_tools=agent_tools,
                     agent_history=agent_history,
                 ),

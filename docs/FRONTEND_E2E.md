@@ -51,6 +51,7 @@ Shared deterministic data and helpers live in `e2e/fixtures/app.ts`.
 
 | Scope | Command from `frontend/` |
 | --- | --- |
+| Receipt/invoice purchase review, IT/EN, 360/390/430 px and desktop, existing-wine matching, editable prices/quantities, total reconciliation, retry, pending delivery and duplicate prevention | `npm run test:e2e:purchase-import` |
 | Archived wines, missing wine color and tasting distinction | `npm run test:e2e:history-archive` |
 | Tablet desktop-layout preference, iPad emulation without touch points, persistence, phone exclusion, Windows touch laptop header alignment at 1366/1920 px and visible insights menu at 800–1024 px | `npm run test:e2e:tablet-layout` |
 | Open a saved wine directly from tasting history | `npm run test:e2e:tasting-wine-detail` |

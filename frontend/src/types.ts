@@ -1742,3 +1742,19 @@ export type GuidedSensoryProposal = {
     proposed_value: number | null; lower: number | null; upper: number | null; advice: string;
   }>;
 };
+export type PurchaseImportRow = {
+  name: string; producer: string; vintage: string; format: string;
+  quantity: number | null; unit_price: string | number | null;
+  line_total: string | number | null; warnings: string[];
+};
+export type PurchaseImportPreview = {
+  id: string; status: string; estimated_cost_usd: string | number;
+  extraction: {
+    supplier: string; reference: string; order_date: string | null; currency: string | null;
+    document_total: string | number | null; additional_costs: string | number | null;
+    rows: PurchaseImportRow[]; warnings: string[];
+  };
+  matches: Array<Array<{ id: string; name: string; producer: string; vintage: string; format: string; currency: string }>>;
+};
+export type PendingPurchase = { id: string; supplier: string; reference: string; expected_delivery: string | null; bottles: number };
+export type PurchaseImportResult = { id: string; status: "received" | "pending"; wine_ids: string[]; bottles: number };

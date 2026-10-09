@@ -41,6 +41,34 @@ This repository is intentionally separate from the existing `WineCellar` project
 
 ## Purchase lots
 
+**Aggiungi vino / Add wine → Aggiungi un acquisto da ricevuta o fattura / Add a
+purchase from receipt or invoice** opens bulk purchase import. Photograph a receipt
+or upload JPG/PNG/WebP/PDF (10 MB, at most 10 PDF pages and 60 wine rows).
+AI proposes supplier, document reference, date, currency, wines, vintages, formats,
+bottle quantities and prices. Review/edit every field, compare document totals,
+and explicitly choose an existing cellar record where a match is proposed.
+Photos preview beside the review on desktop (expandable on phones); PDFs open in
+a separate browser tab so every page remains accessible without relying on embedded viewers.
+Analysis requires the account's label-recognition permission and configured AI
+access/credits; cellar owners, admins and members can confirm and receive purchases.
+The document is sent to the configured AI provider. Originals are not archived;
+only the document hash, extracted/reviewed data and import result are retained.
+
+Confirmation saves all rows atomically. Received purchases create stock lots;
+pending purchases leave physical stock unchanged and appear under **In attesa di
+consegna / Awaiting delivery** in the same dialog. Record full delivery there when
+the bottles arrive. Existing wine prices are preserved; each new lot keeps its own
+cost and supplier. Repeated confirmation/delivery requests are idempotent. Exact
+file hashes and matching supplier/reference/date prevent repeat imports within
+the active household; altered documents without a reference still need human review.
+
+Deploy backend migration `0117_purchase_imports` with `alembic upgrade head` before
+using this feature. Targeted checks: `pytest tests/test_purchase_imports.py` from
+`backend/`, and `npm run test:e2e:purchase-import` from `frontend/`. AI responses are
+mocked in regression tests; evaluate extraction quality against real anonymized
+receipts before a broad release. Partial deliveries, original-document archival
+and supplier-specific learning remain subsequent roadmap work.
+
 For an existing wine, open **Giacenza e acquisti / Stock and purchases** in either
 the detail view or the wine editor, then **Registra nuovo acquisto / Record new
 purchase**. Each purchase keeps its own quantity, date, supplier and unit price;

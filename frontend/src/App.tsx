@@ -107,6 +107,7 @@ const WinePulseView = lazy(() => import("./views/WinePulseView"));
 const WinePulsePreview = lazy(() => import("./views/WinePulseView").then(module => ({ default: module.WinePulsePreview })));
 const CellarAssistantView = lazy(() => import("./views/CellarAssistantView"));
 const RecordTastingDialog = lazy(() => import("./components/RecordTastingDialog"));
+const PurchaseImportDialog = lazy(() => import("./components/PurchaseImportDialog"));
 const WishlistLiveTasteScanner = lazy(() => import("./components/WishlistLiveTasteScanner"));
 const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView"));
 const AI_PACK_ENHANCEMENT_DISMISS_KEY = "vinaris.ai-pack-enhancement-dismissed-until";
@@ -1653,6 +1654,7 @@ export function App() {
   const [wineStorageFocus, setWineStorageFocus] = useState<{ wineId: string; requestId: number } | null>(null);
   const [wineDetailExpanded, setWineDetailExpanded] = useState(false);
   const [wineEditorExpanded, setWineEditorExpanded] = useState(false);
+  const [purchaseImportOpen, setPurchaseImportOpen] = useState(false);
   const [pairingWineDetailId, setPairingWineDetailId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [wishlistConversionItem, setWishlistConversionItem] = useState<WishlistItem | null>(null);
@@ -10453,6 +10455,7 @@ export function App() {
               </nav>
             </>
           ) : null}
+          {purchaseImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><PurchaseImportDialog locale={locale} canAnalyze={canRecognizeBottlePhoto || Boolean(session?.is_app_admin && canGenerateAi)} onClose={() => setPurchaseImportOpen(false)} onImported={async () => { await loadWines(); await loadMerchants(); setWineFormOpen(false); }} /></Suspense> : null}
           {recordTastingOpen && canWriteWine && !offlineMode ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><RecordTastingDialog
             key={session?.active_household_id}
             locale={locale}
@@ -11742,6 +11745,7 @@ export function App() {
                   <i aria-hidden="true"><AppIcon name="bottle" variant="premium" tone="accent" /></i>
                 </header>
                 {!canWriteWine ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
+                {!editingId && canWriteWine ? <button type="button" className="secondary purchase-import-entry" onClick={() => setPurchaseImportOpen(true)}>{locale === "it" ? "Aggiungi un acquisto da ricevuta o fattura" : "Add a purchase from receipt or invoice"}</button> : null}
                 <section className="wine-editor-assist-grid" aria-label={locale === "it" ? "Assistenti di compilazione" : "Editing assistants"}>
                 {!editingId && canUseLabelRecognition && wineRecognitionTarget === "wine" && (wineRecognitionLoading || wineImageRecognitionResult) ? (
                   <div className="recognition-box">

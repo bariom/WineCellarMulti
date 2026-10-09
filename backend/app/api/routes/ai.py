@@ -795,6 +795,7 @@ def create_ai_response(
     complexity: str | None = None,
     app_funded: bool = False,
     input_images: list[tuple[str, bytes]] | None = None,
+    input_files: list[tuple[str, bytes]] | None = None,
     timeout_seconds: float | None = None,
     agent_tools: list[dict[str, Any]] | None = None,
     agent_history: list[dict[str, Any]] | None = None,
@@ -856,7 +857,7 @@ def create_ai_response(
             max_output_tokens=effective_output_limit,
             web_search=web_search,
             max_tool_calls=effective_tool_limit,
-            input_image_count=len(input_images or []),
+            input_image_count=len(input_images or []) + 10 * len(input_files or []),
         )
     try:
         response = create_response(
@@ -875,6 +876,7 @@ def create_ai_response(
             task_type=task_type,
             complexity=complexity,
             input_images=input_images,
+            **({"input_files": input_files} if input_files else {}),
             timeout_seconds=timeout_seconds,
             **({"agent_tools": agent_tools, "agent_history": agent_history} if agent_tools else {}),
         )
