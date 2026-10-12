@@ -472,3 +472,5 @@ separate, ridimensionamento desktop/mobile e ritorno dal dettaglio.
 ### Ambassador
 
 `npm run test:e2e:ambassador` verifica assegnazione, aggiornamento e revoca amministrativa, visibilit? della scadenza e credito omaggio per il membro, traduzioni IT/EN e geometria senza overflow a 360, 390, 430 e 1440 px. Gli screenshot di revisione sono artefatti temporanei del test.
+
+Wine-list decorative images: `npx playwright test e2e/cellar-empty-image.spec.ts`. See [cellar image assets and generation prompts](CELLAR_IMAGES.md).
