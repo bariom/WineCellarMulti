@@ -9,6 +9,13 @@ The cellar knowledge section places a real demo region map beside the introducti
 on desktop and below it on phones. Map captures retain the map attribution and
 load lazily; the landing page does not request live map tiles.
 
+The “What’s new” section (`#news`) follows the introductory value strip and
+lists additions newest first. Italian and English marketing copy lives in
+`frontend/src/views/landing/content.ts` under `news.entries`: add new entries at
+the beginning with a stable ID and an ISO date matching the known release
+precision (currently month). Purchase scanning is highlighted ahead of photo
+memories, with availability and review-before-confirmation explained.
+
 To refresh these captures from the public demo, from `frontend/`:
 
 ```powershell

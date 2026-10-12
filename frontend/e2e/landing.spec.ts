@@ -7,6 +7,46 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const locale of ["it", "en"] as const) {
+  test(`${locale}: news timeline, navigation and registration work across viewports`, async ({ page }, testInfo) => {
+    await page.goto(`/?lang=${locale}`);
+    const news = page.getByRole("region", { name: locale === "it" ? "La tua passione cresce. Vinaris, anche." : "Your passion grows. So does Vinaris." });
+    const articles = news.getByRole("article");
+    await expect(articles).toHaveCount(2);
+    await expect(articles.nth(0).getByRole("heading")).toHaveText(locale === "it" ? "Dallo scontrino alla cantina. In pochi gesti." : "From receipt to cellar. In a few simple steps.");
+    await expect(articles.nth(1).getByRole("heading")).toHaveText(locale === "it" ? "Il vino finisce. La serata resta." : "The wine is finished. The evening stays.");
+    await expect(articles.nth(0)).toContainText(locale === "it" ? "Verifica etichette, annate, quantità e prezzi" : "Review labels, vintages, quantities and prices");
+    await expect(news.locator("time")).toHaveCount(2);
+    for (const width of [360, 390, 430, 1200, 1440]) {
+      await page.setViewportSize({ width, height: width >= 1200 ? 1000 : 844 });
+      await page.evaluate(() => window.scrollTo(0, 0));
+      if (width < 1161) await page.getByRole("button", { name: locale === "it" ? "Apri menu" : "Open menu" }).click();
+      const link = page.getByRole("link", { name: locale === "it" ? "Novità" : "What’s new", exact: true });
+      await expect(link).toBeVisible();
+      if (width >= 1200) {
+        const brand = (await page.locator("header").getByRole("link", { name: "Vinaris", exact: true }).boundingBox())!;
+        const nav = (await page.locator("header").getByRole("navigation").boundingBox())!;
+        expect(nav.x).toBeGreaterThanOrEqual(brand.x + brand.width);
+      }
+      await link.click();
+      await expect(page).toHaveURL(/#news$/);
+      const first = (await articles.nth(0).boundingBox())!;
+      const second = (await articles.nth(1).boundingBox())!;
+      expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
+      for (const article of await articles.all()) {
+        const box = (await article.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width);
+        const label = (await article.locator(".marketing-news-label").boundingBox())!;
+        const title = (await article.getByRole("heading").boundingBox())!;
+        expect(title.y).toBeGreaterThanOrEqual(label.y + label.height);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      if (width === 390 || width === 1440) await news.screenshot({ path: testInfo.outputPath(`news-${locale}-${width}.png`) });
+    }
+    await news.getByRole("button", { name: locale === "it" ? "Inizia con Vinaris" : "Get started with Vinaris" }).click();
+    await expect(page.getByRole("textbox", { name: locale === "it" ? "Conferma password" : "Confirm password", exact: true })).toBeVisible();
+  });
+
   test(`${locale}: demo and real screenshots stay usable on mobile and desktop`, async ({ page }, testInfo) => {
     await page.goto(`/?lang=${locale}`);
     const hero = page.getByRole("region", { name: locale === "it" ? "Quale vino apri stasera?" : "Know what to drink. Know what to keep." });

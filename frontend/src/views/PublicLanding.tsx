@@ -207,6 +207,32 @@ export default function PublicLanding({
           ))}
         </section>
 
+        <section id="news" className="marketing-section marketing-news-section" aria-labelledby="news-title">
+          <div className="marketing-section-copy">
+            <p className="marketing-kicker">{copy.news.eyebrow}</p>
+            <h2 id="news-title">{copy.news.title}</h2>
+            <p>{copy.news.body}</p>
+          </div>
+          <p className="marketing-news-order">{copy.news.order}</p>
+          <ol className="marketing-news-timeline" aria-label={copy.news.eyebrow}>
+            {copy.news.entries.map((entry) => (
+              <li key={entry.id}>
+                <time dateTime={entry.date}>{entry.dateLabel}</time>
+                <article className={`marketing-news-card${entry.featured ? " is-featured" : ""}`} aria-labelledby={`news-${entry.id}`}>
+                  <span className="marketing-news-label">{entry.label}</span>
+                  <h3 id={`news-${entry.id}`}>{entry.title}</h3>
+                  <p>{entry.body}</p>
+                  <p>{entry.detail}</p>
+                  <small>{entry.availability}</small>
+                </article>
+              </li>
+            ))}
+          </ol>
+          <div className="marketing-actions">
+            <button type="button" className="marketing-button primary" onClick={onRegister}>{copy.news.action}</button>
+          </div>
+        </section>
+
         <section id="dashboard" className="marketing-section marketing-dashboard-section" aria-labelledby="dashboard-title">
           <div className="marketing-section-copy">
             <p className="marketing-kicker">{copy.dashboard.eyebrow}</p>

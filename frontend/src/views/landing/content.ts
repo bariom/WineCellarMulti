@@ -1,7 +1,14 @@
 import type { Locale } from "../../types";
 
 export type LandingCopy = {
-  nav: { product: string; dashboard: string; maturity: string; sommelier: string; insights: string; pricing: string };
+  nav: { product: string; dashboard: string; maturity: string; sommelier: string; insights: string; pricing: string; news: string };
+  news: {
+    eyebrow: string; title: string; body: string; order: string; action: string;
+    entries: Array<{
+      id: string; date: string; dateLabel: string; label: string; title: string;
+      body: string; detail: string; availability: string; featured: boolean;
+    }>;
+  };
   dashboard: {
     eyebrow: string; title: string; body: string; action: string; note: string;
     steps: Array<{ title: string; body: string }>;
@@ -104,7 +111,30 @@ export type LandingCopy = {
 
 export const landingCopy: Record<Locale, LandingCopy> = {
   it: {
-    nav: { product: "Prodotto", dashboard: "La tua dashboard", maturity: "Finestra di beva", sommelier: "Sommelier", insights: "Analisi", pricing: "Accesso" },
+    nav: { product: "Prodotto", dashboard: "La tua dashboard", maturity: "Finestra di beva", sommelier: "Sommelier", insights: "Analisi", pricing: "Accesso", news: "Novità" },
+    news: {
+      eyebrow: "Novità in Vinaris",
+      title: "La tua passione cresce. Vinaris, anche.",
+      body: "Meno tempo a compilare, più spazio ai vini e alle storie che meritano di restare. Scopri gli ultimi arrivi nella tua cantina digitale.",
+      order: "Dalle novità più recenti",
+      action: "Inizia con Vinaris",
+      entries: [
+        {
+          id: "purchase-scan", date: "2026-10", dateLabel: "Ottobre 2026", label: "La grande novità", featured: true,
+          title: "Dallo scontrino alla cantina. In pochi gesti.",
+          body: "Hai appena scelto i tuoi prossimi vini. Per registrarli, parti da una foto della fattura o dello scontrino, oppure carica un PDF: Vinaris riconosce i vini e prepara i dati dell’acquisto per te.",
+          detail: "Verifica etichette, annate, quantità e prezzi, poi conferma. Puoi aggiungere le bottiglie alla cantina o registrare un acquisto in attesa di consegna.",
+          availability: "Con abbonamento o AI Pack.",
+        },
+        {
+          id: "photo-memories", date: "2026-10", dateLabel: "Ottobre 2026", label: "Ricordi con fotografie", featured: false,
+          title: "Il vino finisce. La serata resta.",
+          body: "Una cena tra amici, un brindisi speciale, quella bottiglia aspettata a lungo. Aggiungi una fotografia quando registri una bevuta e custodisci il momento insieme al vino.",
+          detail: "Ritrova le tue serate nei ricordi fotografici e sfogliale come Polaroid: la tua cantina diventa anche un album da rivivere.",
+          availability: "Ricordi disponibili con abbonamento.",
+        },
+      ],
+    },
     dashboard: {
       eyebrow: "La dashboard personalizzabile",
       title: "La tua cantina, a modo tuo.",
@@ -234,7 +264,30 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     meta: { title: "Vinaris | Cantina digitale e sommelier AI per collezionisti", description: "Gestisci bottiglie, finestre di beva, valore, consegne, wishlist e memoria degustativa in una cantina privata e intelligente." },
   },
   en: {
-    nav: { product: "Product", dashboard: "Your dashboard", maturity: "Drinking window", sommelier: "Sommelier", insights: "Insights", pricing: "Access" },
+    nav: { product: "Product", dashboard: "Your dashboard", maturity: "Drinking window", sommelier: "Sommelier", insights: "Insights", pricing: "Access", news: "What’s new" },
+    news: {
+      eyebrow: "What’s new in Vinaris",
+      title: "Your passion grows. So does Vinaris.",
+      body: "Less time entering details, more room for wines and stories worth keeping. Discover the latest additions to your digital cellar.",
+      order: "Latest additions first",
+      action: "Get started with Vinaris",
+      entries: [
+        {
+          id: "purchase-scan", date: "2026-10", dateLabel: "October 2026", label: "Our big new arrival", featured: true,
+          title: "From receipt to cellar. In a few simple steps.",
+          body: "You’ve chosen your next wines. To register them, start with a photo of your invoice or receipt, or upload a PDF: Vinaris recognises the wines and prepares your purchase details for you.",
+          detail: "Review labels, vintages, quantities and prices, then confirm. Add the bottles to your cellar or record a purchase awaiting delivery.",
+          availability: "With a subscription or AI Pack.",
+        },
+        {
+          id: "photo-memories", date: "2026-10", dateLabel: "October 2026", label: "Photo memories", featured: false,
+          title: "The wine is finished. The evening stays.",
+          body: "Dinner with friends, a special toast, that bottle you’ve waited years to open. Add a photo when you record a tasting and keep the moment alongside the wine.",
+          detail: "Rediscover your evenings in photo memories and browse them as Polaroids: your cellar becomes an album to enjoy again.",
+          availability: "Memories available with a subscription.",
+        },
+      ],
+    },
     dashboard: {
       eyebrow: "The customisable dashboard",
       title: "Your cellar. Your way.",
