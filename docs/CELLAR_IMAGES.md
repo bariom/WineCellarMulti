@@ -1,6 +1,6 @@
 # Wine list decorative images
 
-The empty wine detail sidebar draws one of seven photographs when the application loads: the original `premium-cellar-empty.jpg` and six generated WebP assets in `frontend/public/images/`. The choice remains stable during in-app navigation and React remounts; subsequent loads exclude the previous photograph when session storage is available. If a new image fails, the original photograph is used. If that also fails, the decorative image is omitted and the explanatory text remains.
+The empty wine detail sidebar draws one of seven photographs when the application loads: the original `premium-cellar-empty.jpg` and six generated WebP assets in `frontend/public/images/`. Photographs fill the available frame with centered proportional cropping (`object-fit: cover`), preventing dark side bars at different viewport sizes. The choice remains stable during in-app navigation and React remounts; subsequent loads exclude the previous photograph when session storage is available. If a new image fails, the original photograph is used. If that also fails, the decorative image is omitted and the explanatory text remains.
 
 The six new assets were generated with the built-in image_gen tool, then exported as WebP (quality 85, maximum 1086 x 1448) for delivery. Original generated PNG files were preserved outside the repository. No external image service is needed at runtime.
 

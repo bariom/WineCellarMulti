@@ -22,6 +22,26 @@ for (const [index, scene] of scenes.entries()) {
     const pictureBox = (await image.boundingBox())!;
     const headingBox = (await page.getByRole("heading", { name: "Nessun elemento selezionato" }).boundingBox())!;
     expect(pictureBox.y + pictureBox.height).toBeLessThanOrEqual(headingBox.y);
+    for (const [width, height] of [[1440, 800], [1440, 1000], [1920, 900]]) {
+      await page.setViewportSize({ width, height });
+      const coverage = await image.evaluate((img: HTMLImageElement) => {
+        const imageBox = img.getBoundingClientRect();
+        const frame = img.parentElement!;
+        const frameBox = frame.getBoundingClientRect();
+        const style = getComputedStyle(frame);
+        return {
+          fit: getComputedStyle(img).objectFit,
+          width: imageBox.width,
+          height: imageBox.height,
+          frameWidth: frameBox.width - parseFloat(style.borderLeftWidth) - parseFloat(style.borderRightWidth),
+          frameHeight: frameBox.height - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth),
+        };
+      });
+      expect(coverage.fit).toBe("cover");
+      expect(coverage.width).toBeCloseTo(coverage.frameWidth, 0);
+      expect(coverage.height).toBeCloseTo(coverage.frameHeight, 0);
+      if (width === 1440) await page.screenshot({ path: testInfo.outputPath(`cellar-${scene}-${width}x${height}.png`) });
+    }
     await page.screenshot({ path: testInfo.outputPath(`cellar-${scene}-desktop.png`) });
     await page.getByRole("button", { name: "Home", exact: true }).click();
     await page.getByRole("button", { name: /^Cantina/ }).first().click();
