@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext
+from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
 from app.models import PurchaseImport, Wine, WineStockMovement, WineStorageAllocation
 from app.schemas.purchase_import import PurchaseConfirmation, PurchaseResult
 from app.services.free_tier import ensure_free_tier_label_capacity
@@ -158,6 +159,10 @@ def apply_purchase(
             )
             db.add(wine)
             db.flush()
+            # Use the manual-entry catalog path with reviewed identity fields only.
+            ensure_catalog_entry_for_wine_data(
+                db, {"name": row.name, "producer": row.producer, "format": row.format}
+            )
         if received:
             # Preserve historical costs for legacy stock before adding a new lot.
             allocated = sum(

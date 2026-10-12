@@ -20,12 +20,15 @@ from test_sensory_agent import setup as setup  # noqa: F401
 from app.api.deps import get_current_context
 from app.api.routes import ai
 from app.api.routes import purchase_imports as routes
+from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
 from app.db.session import get_db
 from app.models import (
     Household,
     Membership,
     PurchaseImport,
     Wine,
+    WineCatalogAlias,
+    WineCatalogEntry,
     WineStockLot,
     WineStockMovement,
     WineStorageAllocation,
@@ -117,6 +120,7 @@ def test_preview_does_not_mutate_cellar_and_reuses_document(client):
     assert first["extraction"]["rows"][0]["quantity"] == 3
     assert len(list(db.scalars(select(Wine)))) == 1
     assert list(db.scalars(select(WineStockMovement))) == []
+    assert list(db.scalars(select(WineCatalogEntry))) == []
     assert preview(test)["id"] == first["id"]
     assert len(calls) == 1
     assert calls[0]["json_schema"]["name"] == "purchase_import"
@@ -248,7 +252,72 @@ def test_late_row_failure_rolls_back_every_row(client):
     assert response.status_code == 404
     assert len(list(db.scalars(select(Wine)))) == 1
     assert list(db.scalars(select(WineStockLot))) == []
+    assert list(db.scalars(select(WineCatalogEntry))) == []
+    assert list(db.scalars(select(WineCatalogAlias))) == []
     assert db.scalar(select(PurchaseImport)).status == "draft"
+
+
+@pytest.mark.parametrize("delivery", ["received", "pending"])
+def test_new_purchase_wine_contributes_reviewed_identity_to_catalog(client, delivery):
+    test, db, _, _, _ = client
+    record = preview(test)
+    payload = confirmation(delivery=delivery)
+    payload["rows"][0].update(name="Reviewed Barolo", producer="Reviewed Producer")
+    path = f"/imports/purchases/{record['id']}/confirm"
+    response = test.post(path, json=payload)
+    assert response.status_code == 200, response.text
+    entries = list(db.scalars(select(WineCatalogEntry)))
+    assert len(entries) == 1
+    entry = entries[0]
+    assert (entry.name, entry.producer, entry.format) == (
+        "Reviewed Barolo",
+        "Reviewed Producer",
+        "0.75L",
+    )
+    assert entry.source == "user_saved"
+    assert entry.is_active is False
+    aliases = set(db.scalars(select(WineCatalogAlias.normalized_alias)))
+    assert aliases == {"reviewed barolo", "reviewed producer reviewed barolo"}
+    assert "Enoteca" not in entry.search_text
+    assert "INV-10" not in entry.search_text
+    assert test.post(path, json=payload).json() == response.json()
+    if delivery == "pending":
+        assert test.post(f"/imports/purchases/{record['id']}/receive").status_code == 200
+    assert len(list(db.scalars(select(WineCatalogEntry)))) == 1
+
+
+@pytest.mark.parametrize("active", [None, False, True])
+def test_purchase_reuses_catalog_entry_across_rows_and_vintages(client, active):
+    test, db, _, _, _ = client
+    entry = None
+    if active is not None:
+        entry = ensure_catalog_entry_for_wine_data(
+            db, {"name": "Barolo", "producer": "Producer", "format": "0.75L"}
+        )
+        entry.is_active = active
+    db.commit()
+    record = preview(test)
+    payload = confirmation(document_total="180.00")
+    payload["rows"].append(dict(payload["rows"][0], vintage="2021"))
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=payload)
+    assert response.status_code == 200, response.text
+    assert len(response.json()["wine_ids"]) == 2
+    entries = list(db.scalars(select(WineCatalogEntry)))
+    assert len(entries) == 1
+    if entry is not None:
+        assert entries == [entry]
+    assert entries[0].is_active is bool(active)
+
+
+def test_purchase_with_insufficient_catalog_identity_still_saves_cellar_wine(client):
+    test, db, _, _, _ = client
+    record = preview(test)
+    payload = confirmation()
+    payload["rows"][0]["producer"] = ""
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=payload)
+    assert response.status_code == 200, response.text
+    assert len(response.json()["wine_ids"]) == 1
+    assert list(db.scalars(select(WineCatalogEntry))) == []
 
 
 def test_another_photo_of_same_supplier_document_is_not_imported_twice(client):

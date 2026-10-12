@@ -76,7 +76,7 @@ for (const locale of ["it", "en"] as const) {
     await dialog.getByLabel(it ? "Scheda in cantina" : "Cellar record", { exact: true }).selectOption(wine.id);
     await dialog.getByLabel(it ? "Bottiglie" : "Bottles", { exact: true }).fill("4");
     await expect(dialog.getByRole("button", { name: it ? "Conferma acquisto in cantina" : "Confirm purchase in cellar", exact: true })).toBeDisabled();
-    for (const width of [360, 390, 430, 1440]) {
+    for (const width of [360, 390, 430, 1024, 1200, 1440]) {
       await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
       const geometry = await dialog.evaluate(element => {
         const rect = element.getBoundingClientRect();
@@ -88,6 +88,15 @@ for (const locale of ["it", "en"] as const) {
       expect(geometry.left).toBeGreaterThanOrEqual(0); expect(geometry.right).toBeLessThanOrEqual(geometry.width);
       expect(geometry.overflow).toBe(false); expect(geometry.pageOverflow).toBe(false); expect(geometry.contained).toBe(true);
       await dialog.evaluate(el => el.scrollTop = 0);
+      if (width >= 1024) {
+        const preview = await dialog.getByRole("complementary").boundingBox();
+        const review = await dialog.locator("form").boundingBox();
+        const frame = await dialog.boundingBox();
+        expect(Math.abs(preview!.width - review!.width)).toBeLessThanOrEqual(1);
+        expect(Math.abs(preview!.y - review!.y)).toBeLessThanOrEqual(1);
+        expect(preview!.x + preview!.width).toBeLessThan(review!.x);
+        expect(preview!.y - frame!.y).toBeLessThan(260);
+      }
       if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`purchase-review-${locale}-${width}.png`) });
       if (width === 390 && it) {
         await dialog.getByRole("button", { name: "Mostra documento", exact: true }).click();
@@ -199,7 +208,36 @@ test("purchase PDF upload provides original document preview on desktop", async 
   await zoom.getByRole("button", { name: "Adatta", exact: true }).click();
   await expect(canvas).toBeVisible();
   expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("receipt-upload") || "{}").file)).toBe("invoice.pdf");
+  await dialog.evaluate(el => el.scrollTop = 0);
   await page.screenshot({ path: testInfo.outputPath("purchase-pdf-desktop.png") });
+  for (const size of [{ width: 1440, height: 900 }, { width: 1200, height: 700 }, { width: 1024, height: 600 }]) {
+    await page.setViewportSize(size);
+    await zoom.getByRole("button", { name: "Aumenta zoom", exact: true }).click();
+    await expect(canvas).toBeVisible();
+    const preview = dialog.getByRole("region", { name: "Anteprima documento scorrevole", exact: true });
+    const toolbar = dialog.locator(".purchase-pdf-toolbar");
+    expect((await toolbar.boundingBox())!.height).toBeLessThanOrEqual(36);
+    const filename = await toolbar.getByText("PDF · invoice.pdf", { exact: true }).boundingBox();
+    const zoomBox = await zoom.boundingBox();
+    expect(filename!.x + filename!.width).toBeLessThanOrEqual(zoomBox!.x);
+    const pages = dialog.getByRole("navigation", { name: "Pagine del documento", exact: true });
+    const original = dialog.getByRole("link", { name: "Apri PDF originale", exact: true });
+    for (const element of [zoom, preview, pages, original]) {
+      await expect(element).toBeInViewport({ ratio: 1 });
+      const box = await element.boundingBox();
+      const frame = await dialog.boundingBox();
+      expect(box!.y).toBeGreaterThanOrEqual(frame!.y);
+      expect(box!.y + box!.height).toBeLessThan(frame!.y + frame!.height);
+    }
+    expect((await preview.boundingBox())!.height).toBeGreaterThan(80);
+    await dialog.locator("form").evaluate(el => el.scrollTop = el.scrollHeight);
+    await expect(pages).toBeInViewport({ ratio: 1 });
+    await expect(original).toBeInViewport({ ratio: 1 });
+    await page.screenshot({ path: testInfo.outputPath(`purchase-pdf-contained-${size.width}-${size.height}.png`) });
+    await zoom.getByRole("button", { name: "Adatta", exact: true }).click();
+    await expect(canvas).toBeVisible();
+    await dialog.locator("form").evaluate(el => el.scrollTop = 0);
+  }
   for (const width of [360, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
     if (width === 360) await dialog.getByRole("button", { name: "Mostra documento", exact: true }).click();

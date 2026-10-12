@@ -67,8 +67,13 @@ and VAT already included in prices must not become additional purchase items.
 Photos are sent to the configured AI provider. Originals are not archived;
 only the document hash, extracted/reviewed data and import result are retained.
 
-Confirmation saves all rows atomically. Received purchases create stock lots;
-pending purchases leave physical stock unchanged and appear under **In attesa di
+Confirmation saves all rows atomically. Received purchases create stock lots.
+New wines also contribute their reviewed name, producer and bottle format to the
+central wine registry through the same path as manual entry. Existing catalog
+entries are reused; new entries await administrator approval. Prices, supplier
+and document references stay private. Analysis alone does not create catalog
+entries; wines without enough identity data follow the manual-entry skip rule.
+Pending purchases leave physical stock unchanged and appear under **In attesa di
 consegna / Awaiting delivery** in the same dialog. Record full delivery there when
 the bottles arrive. Existing wine prices are preserved; each new lot keeps its own
 cost and supplier. Repeated confirmation/delivery requests are idempotent. Exact

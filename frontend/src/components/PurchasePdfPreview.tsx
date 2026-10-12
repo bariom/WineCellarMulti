@@ -51,15 +51,18 @@ export default function PurchasePdfPreview({ file, locale }: { file: File; local
   useEffect(() => { scroller.current?.scrollTo(0, 0); }, [file, page, zoom === 100]);
 
   return <div className="purchase-pdf-preview">
-    {failed ? <p role="status">{it ? "Anteprima non disponibile. Puoi aprire il PDF originale." : "Preview unavailable. You can open the original PDF."}</p>
-      : <>
-        {!rendered ? <p role="status">{it ? "Caricamento anteprima…" : "Loading preview…"}</p> : null}
-        {document ? <div className="purchase-pdf-zoom" role="group" aria-label={it ? "Zoom documento" : "Document zoom"}>
+    <div className="purchase-pdf-toolbar">
+      <strong>PDF &middot; {file.name}</strong>
+        {document && !failed ? <div className="purchase-pdf-zoom" role="group" aria-label={it ? "Zoom documento" : "Document zoom"}>
           <button type="button" className="secondary" disabled={zoom <= 100} onClick={() => setZoom(value => Math.max(100, value - 25))} aria-label={it ? "Riduci zoom" : "Zoom out"}>−</button>
           <span aria-live="polite">{zoom}%</span>
           <button type="button" className="secondary" disabled={zoom >= 300} onClick={() => setZoom(value => Math.min(300, value + 25))} aria-label={it ? "Aumenta zoom" : "Zoom in"}>+</button>
           <button type="button" className="secondary" disabled={zoom === 100} onClick={() => setZoom(100)}>{it ? "Adatta" : "Fit"}</button>
         </div> : null}
+    </div>
+    {failed ? <p role="status">{it ? "Anteprima non disponibile. Puoi aprire il PDF originale." : "Preview unavailable. You can open the original PDF."}</p>
+      : <>
+        {!rendered ? <p role="status">{it ? "Caricamento anteprima…" : "Loading preview…"}</p> : null}
         <div ref={scroller} className="purchase-pdf-viewport" role="region" aria-label={it ? "Anteprima documento scorrevole" : "Scrollable document preview"} tabIndex={0}>
           <canvas ref={canvas} role="img" aria-label={it ? `Anteprima PDF, pagina ${page}` : `PDF preview, page ${page}`} style={{ width: `${zoom}%` }} hidden={!rendered} />
         </div>

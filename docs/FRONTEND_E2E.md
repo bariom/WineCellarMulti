@@ -86,6 +86,16 @@ limits, reset, page navigation, touch-target geometry and page overflow at
 360/390/430 px, plus desktop. Run `npm run test:e2e:purchase-import -- -g "PDF"`
 for these focused checks.
 
+Purchase review uses a compact heading/upload area and equal-width document/data
+columns on desktop. The receipt review tests check column alignment and the
+workspace's vertical position at 1024/1200/1440 px, plus mobile overflow at
+360/390/430 px. The reviewed compact baseline remains at 390 px.
+On desktop, document and data columns scroll independently inside the modal;
+PDF zoom, pagination and the original-document link remain visible. PDF geometry
+checks cover 1440×900, 1200×700 and 1024×600, including zoom and data scrolling.
+The PDF filename and zoom share one compact desktop toolbar (32 px controls);
+mobile controls retain 44 px touch targets and wrap when needed.
+
 Other existing specs (for example `taste-profile.spec.ts`, sensory profiles,
 buying advice and wishlist flows) remain independently selectable through
 `npx playwright test e2e/<feature>.spec.ts`. The taste-profile layout suite does
