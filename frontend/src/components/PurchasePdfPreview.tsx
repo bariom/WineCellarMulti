@@ -10,6 +10,8 @@ GlobalWorkerOptions.workerSrc = workerUrl;
 export default function PurchasePdfPreview({ file, locale }: { file: File; locale: Locale }) {
   const it = locale === "it";
   const canvas = useRef<HTMLCanvasElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(100);
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(1);
   const [rendered, setRendered] = useState(false);
@@ -18,7 +20,7 @@ export default function PurchasePdfPreview({ file, locale }: { file: File; local
   useEffect(() => {
     let disposed = false;
     let task: ReturnType<typeof getDocument> | undefined;
-    setDocument(null); setPage(1); setFailed(false); setRendered(false);
+    setDocument(null); setPage(1); setZoom(100); setFailed(false); setRendered(false);
     void file.arrayBuffer().then(async data => {
       if (disposed) return;
       task = getDocument({ data: new Uint8Array(data), useSystemFonts: true });
@@ -36,7 +38,7 @@ export default function PurchasePdfPreview({ file, locale }: { file: File; local
     void document.getPage(page).then(async pdfPage => {
       if (disposed || !canvas.current) return;
       const viewport = pdfPage.getViewport({ scale: 1 });
-      const scaled = pdfPage.getViewport({ scale: Math.min(1400 / viewport.width, 1800 / viewport.height, 2) });
+      const scaled = pdfPage.getViewport({ scale: Math.min(1400 / viewport.width, 1800 / viewport.height, 2) * zoom / 100 });
       canvas.current.width = Math.ceil(scaled.width);
       canvas.current.height = Math.ceil(scaled.height);
       task = pdfPage.render({ canvas: canvas.current, viewport: scaled });
@@ -44,13 +46,23 @@ export default function PurchasePdfPreview({ file, locale }: { file: File; local
       if (!disposed) setRendered(true);
     }).catch(() => { if (!disposed) setFailed(true); });
     return () => { disposed = true; task?.cancel(); };
-  }, [document, page]);
+  }, [document, page, zoom]);
+
+  useEffect(() => { scroller.current?.scrollTo(0, 0); }, [file, page, zoom === 100]);
 
   return <div className="purchase-pdf-preview">
     {failed ? <p role="status">{it ? "Anteprima non disponibile. Puoi aprire il PDF originale." : "Preview unavailable. You can open the original PDF."}</p>
       : <>
         {!rendered ? <p role="status">{it ? "Caricamento anteprima…" : "Loading preview…"}</p> : null}
-        <canvas ref={canvas} role="img" aria-label={it ? `Anteprima PDF, pagina ${page}` : `PDF preview, page ${page}`} hidden={!rendered} />
+        {document ? <div className="purchase-pdf-zoom" role="group" aria-label={it ? "Zoom documento" : "Document zoom"}>
+          <button type="button" className="secondary" disabled={zoom <= 100} onClick={() => setZoom(value => Math.max(100, value - 25))} aria-label={it ? "Riduci zoom" : "Zoom out"}>−</button>
+          <span aria-live="polite">{zoom}%</span>
+          <button type="button" className="secondary" disabled={zoom >= 300} onClick={() => setZoom(value => Math.min(300, value + 25))} aria-label={it ? "Aumenta zoom" : "Zoom in"}>+</button>
+          <button type="button" className="secondary" disabled={zoom === 100} onClick={() => setZoom(100)}>{it ? "Adatta" : "Fit"}</button>
+        </div> : null}
+        <div ref={scroller} className="purchase-pdf-viewport" role="region" aria-label={it ? "Anteprima documento scorrevole" : "Scrollable document preview"} tabIndex={0}>
+          <canvas ref={canvas} role="img" aria-label={it ? `Anteprima PDF, pagina ${page}` : `PDF preview, page ${page}`} style={{ width: `${zoom}%` }} hidden={!rendered} />
+        </div>
         {document ? <nav aria-label={it ? "Pagine del documento" : "Document pages"}>
           <button type="button" className="secondary" disabled={page <= 1} onClick={() => setPage(value => value - 1)} aria-label={it ? "Pagina precedente" : "Previous page"}>←</button>
           <span aria-live="polite">{it ? "Pagina" : "Page"} {page} / {document.numPages}</span>

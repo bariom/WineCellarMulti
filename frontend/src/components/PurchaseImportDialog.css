@@ -30,6 +30,11 @@
 .purchase-import-activation p { margin: 0 0 12px; line-height: 1.6; }
 .purchase-import-activation > button { max-width: 100%; }
 .purchase-pdf-preview { min-width: 0; }
+.purchase-pdf-viewport { max-height: 70vh; overflow: auto; overscroll-behavior: contain; }
+.purchase-pdf-viewport:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.purchase-pdf-zoom { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.purchase-pdf-zoom button { min-width: 44px; min-height: 44px; padding: 8px; }
+.purchase-pdf-zoom span { min-width: 4ch; text-align: center; font-size: .85rem; }
 .purchase-pdf-preview canvas { display: block; width: 100%; height: auto; background: white; border: 1px solid var(--border); box-sizing: border-box; }
 .purchase-pdf-preview canvas[hidden] { display: none; }
 .purchase-pdf-preview nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }

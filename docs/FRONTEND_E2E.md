@@ -79,6 +79,13 @@ light/dark themes and desktop in the private-cellar theme.
 | All suites extracted from the former monolith | `npm run test:e2e:app` |
 | Every E2E spec, including existing independent feature suites | `npm run test:e2e` |
 
+The purchase PDF preview supports 100–300% zoom in 25% steps and a Fit button.
+The enlarged document scrolls inside the preview, including with keyboard arrows;
+zoom is preserved when changing pages. The purchase-import PDF checks cover zoom
+limits, reset, page navigation, touch-target geometry and page overflow at
+360/390/430 px, plus desktop. Run `npm run test:e2e:purchase-import -- -g "PDF"`
+for these focused checks.
+
 Other existing specs (for example `taste-profile.spec.ts`, sensory profiles,
 buying advice and wishlist flows) remain independently selectable through
 `npx playwright test e2e/<feature>.spec.ts`. The taste-profile layout suite does

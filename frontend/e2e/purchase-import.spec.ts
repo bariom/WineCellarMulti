@@ -182,11 +182,21 @@ test("purchase PDF upload provides original document preview on desktop", async 
   const left = await canvas.boundingBox();
   const right = await dialog.getByRole("heading", { name: "Verifica l’acquisto", exact: true }).boundingBox();
   expect(left!.x + left!.width).toBeLessThan(right!.x);
+  const zoom = dialog.getByRole("group", { name: "Zoom documento", exact: true });
+  await expect(zoom.getByRole("button", { name: "Riduci zoom", exact: true })).toBeDisabled();
+  for (let step = 0; step < 8; step++) await zoom.getByRole("button", { name: "Aumenta zoom", exact: true }).click();
+  await expect(zoom.getByText("300%", { exact: true })).toBeVisible();
+  await expect(zoom.getByRole("button", { name: "Aumenta zoom", exact: true })).toBeDisabled();
+  await expect(canvas).toBeVisible();
+  expect((await canvas.boundingBox())!.width).toBeCloseTo(left!.width * 3, 0);
   await dialog.getByRole("button", { name: "Pagina successiva", exact: true }).click();
   await expect(dialog.getByRole("img", { name: "Anteprima PDF, pagina 2", exact: true })).toBeVisible();
   await expect(dialog.getByText("Pagina 2 / 2", { exact: true })).toBeVisible();
+  await expect(zoom.getByText("300%", { exact: true })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Pagina successiva", exact: true })).toBeDisabled();
   await dialog.getByRole("button", { name: "Pagina precedente", exact: true }).click();
+  await expect(canvas).toBeVisible();
+  await zoom.getByRole("button", { name: "Adatta", exact: true }).click();
   await expect(canvas).toBeVisible();
   expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("receipt-upload") || "{}").file)).toBe("invoice.pdf");
   await page.screenshot({ path: testInfo.outputPath("purchase-pdf-desktop.png") });
@@ -194,12 +204,32 @@ test("purchase PDF upload provides original document preview on desktop", async 
     await page.setViewportSize({ width, height: 844 });
     if (width === 360) await dialog.getByRole("button", { name: "Mostra documento", exact: true }).click();
     await expect(canvas).toBeVisible();
+    await zoom.getByRole("button", { name: "Aumenta zoom", exact: true }).click();
+    await expect(canvas).toBeVisible();
+    const viewport = dialog.getByRole("region", { name: "Anteprima documento scorrevole", exact: true });
+    expect(await viewport.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
+    await viewport.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect.poll(() => viewport.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+    const controls = await zoom.evaluate(el => [...el.querySelectorAll("button")].map(button => {
+      const rect = button.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+    }));
+    for (const control of controls) {
+      expect(control.left).toBeGreaterThanOrEqual(0);
+      expect(control.right).toBeLessThanOrEqual(width);
+      expect(control.width).toBeGreaterThanOrEqual(44);
+      expect(control.height).toBeGreaterThanOrEqual(44);
+    }
     expect(await dialog.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(false);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
     if (width === 390) {
-      await dialog.evaluate(el => el.scrollTop = 0);
+      await zoom.scrollIntoViewIfNeeded();
       await page.screenshot({ path: testInfo.outputPath("purchase-pdf-mobile.png") });
     }
+    await zoom.getByRole("button", { name: "Riduci zoom", exact: true }).click();
+    await expect(zoom.getByText("100%", { exact: true })).toBeVisible();
+    await expect.poll(() => viewport.evaluate(el => el.scrollLeft)).toBe(0);
   }
 });
 
