@@ -61,6 +61,10 @@ class User(Base):
     access_override_until: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    ambassador_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    ambassador_credit_wallet: Mapped[str] = mapped_column(String(64), default="")
 
 
 class UserMonitorDeviceToken(Base):

@@ -33,6 +33,7 @@ from app.schemas.catalog import (
     WineImageRecognitionConfirmationResponse,
     WineImageRecognitionResponse,
 )
+from app.services.ambassador import is_ambassador
 from app.services.openai_client import OpenAIResponse
 from app.services.shared_wine_data import normalize_identity_part
 from app.services.taste_profiles import (
@@ -489,7 +490,7 @@ async def recognize_wine_bottle(
         record_ai_audit,
     )
 
-    if not context.user.can_use_label_recognition:
+    if not context.user.can_use_label_recognition and not is_ambassador(context.user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Wine label recognition is not enabled for this user",

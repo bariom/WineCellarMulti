@@ -1,7 +1,8 @@
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import AwareDatetime, BaseModel, EmailStr, Field, field_validator
 
 from app.schemas.dashboard import DashboardWidgetPreference
 from app.services.valuation_market import MARKET_COUNTRIES
@@ -79,7 +80,21 @@ class PendingUserResponse(BaseModel):
     display_name: str
 
 
+class AmbassadorUpdate(BaseModel):
+    valid_until: AwareDatetime
+    ai_credit_target_usd: Decimal = Field(ge=0, le=99999, decimal_places=6)
+
+    @field_validator("valid_until")
+    @classmethod
+    def future_expiry(cls, value: datetime) -> datetime:
+        if value <= datetime.now(UTC):
+            raise ValueError("Ambassador expiry must be in the future")
+        return value.astimezone(UTC)
+
+
 class UserAdminUpdate(BaseModel):
+    ambassador: AmbassadorUpdate | None = None
+    revoke_ambassador: bool = False
     is_app_admin: bool | None = None
     is_blocked: bool | None = None
     can_use_restaurant_mode: bool | None = None
@@ -97,6 +112,10 @@ class UserAdminResponse(BaseModel):
     display_name: str
     is_approved: bool
     is_app_admin: bool
+    is_ambassador: bool = False
+    ambassador_until: str | None = None
+    ambassador_ai_credit_balance_usd: Decimal = Decimal("0")
+    standard_ai_credit_balance_usd: Decimal = Decimal("0")
     is_blocked: bool
     can_use_restaurant_mode: bool
     can_use_label_recognition: bool

@@ -42,6 +42,7 @@ from app.schemas.household import (
     RegionalGapSettingsResponse,
     RegionalGapSettingsUpdate,
 )
+from app.services.ambassador import is_ambassador
 from app.services.email import send_email
 from app.services.free_tier import ensure_free_tier_cellar_capacity
 from app.services.notifications import create_user_notification
@@ -53,6 +54,7 @@ def ensure_restaurant_mode_available(context: CurrentContext, operating_mode: st
     if (
         operating_mode == "restaurant"
         and not context.user.is_app_admin
+        and not is_ambassador(context.user)
         and (
             not context.has_active_entitlement
             or not context.user.can_use_restaurant_mode

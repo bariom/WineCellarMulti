@@ -3,6 +3,7 @@ import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, 
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import PremiumMemoriesNotice from "./components/PremiumMemoriesNotice";
+import AdminAmbassadorEditor, { type AmbassadorChange } from "./components/AdminAmbassadorEditor";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
 import { WishlistVintageField, DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
@@ -647,6 +648,7 @@ function appUserEntitlementStatus(user: AppUser, locale: Locale): { label: strin
 }
 
 function appUserTierStatus(user: AppUser, locale: Locale): { label: string; configured: boolean } {
+  if (user.is_ambassador) return { label: "Vinaris Ambassador", configured: true };
   const hasActiveEntitlement = (user.entitlement_days_remaining ?? 0) > 0;
   const tier = user.has_demo_access
     ? (locale === "it" ? "Demo" : "Demo")
@@ -735,6 +737,7 @@ function appUserRoleLabel(user: AppUser, locale: Locale) {
 }
 
 function appUserPlanLabel(user: AppUser, locale: Locale) {
+  if (user.is_ambassador) return "Vinaris Ambassador";
   const hasActiveEntitlement = (user.entitlement_days_remaining ?? 0) > 0;
   if (user.has_demo_access) return "Demo";
   if (user.is_app_admin) return locale === "it" ? "Riserva" : "Reserve";
@@ -2482,7 +2485,7 @@ export function App() {
         api<AppUser[]>("/api/v1/auth/users"),
         api<PendingUser[]>("/api/v1/auth/pending-users"),
       ]);
-      const mergedUsers = [
+      const mergedUsers: AppUser[] = [
         ...nextUsers,
         ...nextPendingUsers
           .filter((pendingUser) => !nextUsers.some((user) => user.id === pendingUser.id))
@@ -2509,7 +2512,7 @@ export function App() {
       ].sort((first, second) => Number(first.is_approved) - Number(second.is_approved) || first.email.localeCompare(second.email));
       setAppUsers(mergedUsers);
       setPendingUsers(mergedUsers.filter((user) => !user.is_approved));
-      setUserAiBalanceDrafts(Object.fromEntries(mergedUsers.map((user) => [user.id, String(Number(user.ai_credit_balance_usd || 0).toFixed(2))])));
+      setUserAiBalanceDrafts(Object.fromEntries(mergedUsers.map((user) => [user.id, String(Number(user.standard_ai_credit_balance_usd ?? user.ai_credit_balance_usd ?? 0).toFixed(2))])));
       setUserAiNoteDrafts((current) => Object.fromEntries(mergedUsers.map((user) => [user.id, current[user.id] || ""])));
       setUserAccessDaysDrafts((current) => Object.fromEntries(mergedUsers.map((user) => [
         user.id,
@@ -3748,6 +3751,19 @@ export function App() {
       await loadAppUsers();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update AI budget");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateUserAmbassador(user: AppUser, change: AmbassadorChange) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<AppUser>(`/api/v1/auth/users/${user.id}`, { method: "PATCH", body: JSON.stringify(change) });
+      await loadAppUsers();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update Ambassador affiliation");
     } finally {
       setSaving(false);
     }
@@ -5453,6 +5469,11 @@ export function App() {
         name: locale === "it" ? "Demo" : "Demo",
         description: locale === "it" ? "Cantina dimostrativa in sola lettura." : "Read-only demonstration cellar.",
       }
+    : session?.is_ambassador
+      ? {
+          name: "Vinaris Ambassador",
+          description: locale === "it" ? "Accesso completo e credito AI omaggio fino alla scadenza dell'affiliazione." : "Full access and promotional AI credit until affiliation expiry.",
+        }
     : session?.active_household_mode === "restaurant"
       ? {
           name: locale === "it" ? "Carta" : "Wine list",
@@ -13915,6 +13936,11 @@ export function App() {
                   </div>
                   {billingStatus?.valid_until ? <strong>{formatDisplayDate(billingStatus.valid_until)}</strong> : null}
                 </div>
+                {session?.is_ambassador ? <div className="invite-notice" role="status">
+                  <strong>Vinaris Ambassador</strong>
+                  <p>{locale === "it" ? "Accesso completo alle funzionalità utente fino al" : "Full access to user features until"} {formatDisplayDate(session.ambassador_until || "")}. {locale === "it" ? "Credito AI omaggio residuo:" : "Remaining promotional AI credit:"} {formatAiBudget(billingStatus?.ambassador_ai_credit_balance_usd || 0)} USD.</p>
+                  <p>{locale === "it" ? "Il credito omaggio scade con l’affiliazione. Il credito acquistato resta disponibile." : "Promotional credit expires with the affiliation. Purchased credit stays available."}</p>
+                </div> : null}
                 {trialRedeemCodes.length ? (
                   <div className="trial-redeem-list">
                     {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
@@ -14745,16 +14771,18 @@ export function App() {
                             <h4>{locale === "it" ? "Piano e funzionalità" : "Plan and features"}</h4>
                             <dl>
                               <div><dt>{locale === "it" ? "Piano" : "Plan"}</dt><dd>{appUserPlanLabel(user, locale)}</dd></div>
-                              <div><dt>{locale === "it" ? "Riconoscimento etichette" : "Label recognition"}</dt><dd className={user.can_use_label_recognition ? "success" : "muted"}>{user.can_use_label_recognition ? (locale === "it" ? "Attivo" : "Active") : (locale === "it" ? "Disattivo" : "Disabled")}</dd></div>
-                              <div><dt>{locale === "it" ? "Caricamento foto" : "Photo uploads"}</dt><dd className={user.can_manage_wine_photos ? "success" : "muted"}>{user.can_manage_wine_photos ? (locale === "it" ? "Abilitato" : "Enabled") : (locale === "it" ? "Disabilitato" : "Disabled")}</dd></div>
-                              <div><dt>{locale === "it" ? "Modalità ristorante" : "Restaurant mode"}</dt><dd className={user.can_use_restaurant_mode ? "success" : "muted"}>{user.can_use_restaurant_mode ? (locale === "it" ? "Abilitata" : "Enabled") : (locale === "it" ? "Disabilitata" : "Disabled")}</dd></div>
+                              <div><dt>{locale === "it" ? "Riconoscimento etichette" : "Label recognition"}</dt><dd className={(user.can_use_label_recognition || user.is_ambassador) ? "success" : "muted"}>{(user.can_use_label_recognition || user.is_ambassador) ? (locale === "it" ? "Attivo" : "Active") : (locale === "it" ? "Disattivo" : "Disabled")}</dd></div>
+                              <div><dt>{locale === "it" ? "Caricamento foto" : "Photo uploads"}</dt><dd className={(user.can_manage_wine_photos || user.is_ambassador) ? "success" : "muted"}>{(user.can_manage_wine_photos || user.is_ambassador) ? (locale === "it" ? "Abilitato" : "Enabled") : (locale === "it" ? "Disabilitato" : "Disabled")}</dd></div>
+                              <div><dt>{locale === "it" ? "Modalità ristorante" : "Restaurant mode"}</dt><dd className={(user.can_use_restaurant_mode || user.is_ambassador) ? "success" : "muted"}>{(user.can_use_restaurant_mode || user.is_ambassador) ? (locale === "it" ? "Abilitata" : "Enabled") : (locale === "it" ? "Disabilitata" : "Disabled")}</dd></div>
                             </dl>
                           </section>
+
+                          {!user.is_app_admin && !user.has_demo_access && user.is_approved ? <AdminAmbassadorEditor key={user.id} user={user} locale={locale} saving={saving} onSave={change => updateUserAmbassador(user, change)} /> : null}
 
                           <details className="admin-user-detail-accordion" open>
                             <summary><span><AppIcon name="star" /><strong>AI Credit</strong><small>{locale === "it" ? "Gestisci il credito AI dell'utente" : "Manage this user's AI credit"}</small></span></summary>
                             <div className="admin-user-credit-editor">
-                              <div className="admin-user-credit-balance"><span>{t("aiCreditBalance")}</span><strong>{formatAiBudget(user.ai_credit_balance_usd || 0)}</strong></div>
+                              <div className="admin-user-credit-balance"><span>{locale === "it" ? "Credito AI ordinario" : "Standard AI credit"}</span><strong>{formatAiBudget(user.standard_ai_credit_balance_usd ?? user.ai_credit_balance_usd ?? 0)}</strong></div>
                               <label><span>{t("targetAiCreditBalance")}</span><input type="number" min="0" step="0.01" value={userAiBalanceDrafts[user.id] || ""} onChange={(event) => setUserAiBalanceDrafts((current) => ({ ...current, [user.id]: event.target.value }))} /></label>
                               <label><span>{t("aiCreditAdminNote")}</span><input value={userAiNoteDrafts[user.id] || ""} onChange={(event) => setUserAiNoteDrafts((current) => ({ ...current, [user.id]: event.target.value }))} placeholder={t("aiCreditAdminNote")} /></label>
                               <button type="button" className="secondary compact" disabled={saving || !(userAiBalanceDrafts[user.id] || "").trim()} onClick={() => updateUserAiCreditBalance(user)}>{t("saveAiCreditBalance")}</button>

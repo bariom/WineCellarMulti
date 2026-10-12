@@ -11,6 +11,7 @@ from app.core.legal import LEGAL_DOCUMENT_VERSION, legal_acceptance_is_current
 from app.core.security import hash_session_token
 from app.db.session import get_db
 from app.models import Household, Membership, User, UserEntitlement, UserSession
+from app.services.ambassador import ambassador_expiry, ambassador_valid_until, is_ambassador
 
 
 @dataclass(frozen=True)
@@ -23,7 +24,7 @@ class CurrentContext:
     entitlement_valid_until: datetime | None = None
 
 
-def active_entitlement_valid_until(db: Session, user: User) -> datetime | None:
+def subscription_valid_until(db: Session, user: User) -> datetime | None:
     now = datetime.now(UTC)
     if user.access_override_until is not None:
         override_until = (
@@ -44,6 +45,15 @@ def active_entitlement_valid_until(db: Session, user: User) -> datetime | None:
         if entitlement.valid_until.tzinfo is None
         else entitlement.valid_until.astimezone(UTC)
     )
+
+
+def active_entitlement_valid_until(db: Session, user: User) -> datetime | None:
+    dates = [
+        value
+        for value in (subscription_valid_until(db, user), ambassador_valid_until(user))
+        if value
+    ]
+    return max(dates) if dates else None
 
 
 def build_session_response(context: CurrentContext | None) -> dict[str, object | None]:
@@ -93,6 +103,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "active_household_name": context.household.name,
         "active_household_mode": context.household.operating_mode,
         "restaurant_mode_available": context.user.is_app_admin
+        or is_ambassador(context.user)
         or (context.has_active_entitlement and context.user.can_use_restaurant_mode),
         "membership_role": context.membership.role,
         "is_app_admin": context.user.is_app_admin,
@@ -108,10 +119,17 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "daily_wine_budget_chf": context.user.daily_wine_budget_chf,
         "market_country": context.user.market_country,
         "onboarding_completed": context.user.onboarding_completed_at is not None,
-        "can_use_label_recognition": context.user.can_use_label_recognition,
-        "can_manage_wine_photos": context.user.can_manage_wine_photos,
+        "can_use_label_recognition": context.user.can_use_label_recognition
+        or is_ambassador(context.user),
+        "can_manage_wine_photos": context.user.can_manage_wine_photos
+        or is_ambassador(context.user),
+        "is_ambassador": is_ambassador(context.user),
+        "ambassador_until": expiry.isoformat()
+        if (expiry := ambassador_expiry(context.user))
+        else None,
         "cellar_ai_assistant_available": settings.cellar_ai_assistant_enabled
-        or context.user.is_app_admin,
+        or context.user.is_app_admin
+        or is_ambassador(context.user),
         "is_free_tier": not context.household.is_demo
         and not context.user.is_app_admin
         and not context.has_active_entitlement,
@@ -237,7 +255,11 @@ def require_app_admin_context(
 def require_wine_photo_write_context(
     context: CurrentContext = Depends(get_current_context),
 ) -> CurrentContext:
-    if not context.user.is_app_admin and not context.user.can_manage_wine_photos:
+    if (
+        not context.user.is_app_admin
+        and not context.user.can_manage_wine_photos
+        and not is_ambassador(context.user)
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Bottle photo uploads are not enabled for this user",

@@ -6,7 +6,7 @@ from app.prompts.library import Prompt, language_instruction
 def purchase_import_prompt(*, locale: str, document_text: str = "") -> Prompt:
     return Prompt(
         id="purchase_import",
-        version="1.1.0",
+        version="1.2.0",
         system=(
             "Extract a wine purchase from the receipt or invoice provided as attached file "
             "or extracted document_text. "
@@ -26,6 +26,12 @@ def purchase_import_prompt(*, locale: str, document_text: str = "") -> Prompt:
             "Use ISO date YYYY-MM-DD and ISO currency codes; never infer currency from locale. "
             "Use bottle format in millilitres (e.g. 750ml, 1500ml), converting litres/cl "
             "only if supported by the document. "
+            "Bottle format never belongs in the wine name: put volumes and packaging "
+            "descriptors such as 750ml, 75 cl, 0.75 L or Magnum only in format, even when "
+            "printed beside or below the wine name. For example, Ornellaia 750ml must "
+            "be name=Ornellaia and format=750ml; Sassicaia (1.5 L) must be "
+            "name=Sassicaia and format=1500ml. Preserve numbers that are genuinely "
+            "part of a wine or cuvee name, such as Bin 389 or 1000 Stories. "
             "Do not browse or enrich with external guesses. If unreadable or not a wine "
             "purchase return rows=[] and explain in warnings. Maximum 60 wine rows; "
             "if more exist return rows=[] and warn rather than silently truncating."

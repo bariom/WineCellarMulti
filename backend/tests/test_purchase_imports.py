@@ -128,6 +128,88 @@ def test_preview_does_not_mutate_cellar_and_reuses_document(client):
 
 
 @pytest.mark.parametrize(
+    "name,bottle_format,expected_name,expected_format",
+    [
+        ("Ornellaia 750ml", "750ml", "Ornellaia", "750ml"),
+        ("Sassicaia\n750 ml", "", "Sassicaia", "750ml"),
+        ("Ornellaia (75 CL)", "", "Ornellaia", "750ml"),
+        ("Sassicaia [1,5 L]", "", "Sassicaia", "1500ml"),
+        ("0.75 litres Ornellaia", "", "Ornellaia", "750ml"),
+        ("Ornellaia 750ml", "1500ml", "Ornellaia", "1500ml"),
+        ("Bin 389", "750ml", "Bin 389", "750ml"),
+        ("1000 Stories", "750ml", "1000 Stories", "750ml"),
+        ("Magnum Opus", "750ml", "Magnum Opus", "750ml"),
+        ("Barolo", "", "Barolo", ""),
+        ("", "", "", ""),
+    ],
+)
+def test_purchase_names_exclude_explicit_bottle_volumes(
+    name, bottle_format, expected_name, expected_format
+):
+    data = extracted()
+    data["rows"][0].update(name=name, format=bottle_format)
+    extraction = PurchaseExtraction.model_validate(data)
+    row = extraction.rows[0]
+    assert (row.name, row.format) == (expected_name, expected_format)
+    assert PurchaseExtraction.model_validate(extraction.model_dump()) == extraction
+    if expected_name and expected_format:
+        data = confirmation()
+        data["rows"][0].update(name=name, format=expected_format)
+        reviewed = PurchaseConfirmation.model_validate(data).rows[0]
+        assert (reviewed.name, reviewed.format) == (expected_name, expected_format)
+
+
+def test_volume_alone_does_not_become_a_confirmed_wine_name():
+    data = confirmation()
+    data["rows"][0]["name"] = "(750 ml)"
+    with pytest.raises(ValidationError, match="Wine name"):
+        PurchaseConfirmation.model_validate(data)
+
+
+def test_preview_separates_volume_before_matching_and_on_cached_drafts(client, monkeypatch):
+    test, db, _, wine, calls = client
+    data = extracted()
+    data["rows"][0].update(name=f"{wine.name} 750ml", format="750ml")
+    monkeypatch.setattr(
+        ai,
+        "create_ai_response",
+        lambda *a, **kw: (
+            OpenAIResponse(text=json.dumps(data), usage=TokenUsage(), model="test"),
+            "user_key",
+        ),
+    )
+    result = preview(test)
+    assert result["extraction"]["rows"][0]["name"] == wine.name
+    assert result["matches"][0][0]["id"] == str(wine.id)
+    record = db.get(PurchaseImport, UUID(result["id"]))
+    assert record.draft["rows"][0]["name"] == wine.name
+    # Previously extracted drafts are also cleaned for review without re-analysis.
+    record.draft = data
+    db.commit()
+    cached = preview(test)
+    assert cached["extraction"]["rows"][0]["name"] == wine.name
+    assert cached["matches"][0][0]["id"] == str(wine.id)
+    assert calls == []
+
+
+def test_confirmation_keeps_bottle_format_out_of_cellar_and_catalog_names(client):
+    test, db, context, _, _ = client
+    result = preview(test)
+    data = confirmation()
+    data["rows"][0].update(name="Ornellaia 750ml", producer="Test producer", format="750ml")
+    response = test.post(f"/imports/purchases/{result['id']}/confirm", json=data)
+    assert response.status_code == 200, response.text
+    wine = db.scalar(
+        select(Wine).where(
+            Wine.id == UUID(response.json()["wine_ids"][0]),
+            Wine.household_id == context.household.id,
+        )
+    )
+    assert wine.name == "Ornellaia" and wine.format == "750ml"
+    assert db.scalar(select(WineCatalogEntry)).name == "Ornellaia"
+
+
+@pytest.mark.parametrize(
     "subscribed,balance,admin",
     [(True, "0", False), (True, "2", False), (False, "2", False), (False, "0", True)],
 )
@@ -499,7 +581,7 @@ def test_confirmation_validates_untrusted_values(changes):
 def test_prompt_language_and_constraints():
     for locale, language in [("it", "Italian"), ("en", "English")]:
         prompt = purchase_import_prompt(locale=locale)
-        assert prompt.id == "purchase_import" and prompt.version == "1.1.0"
+        assert prompt.id == "purchase_import" and prompt.version == "1.2.0"
         for phrase in [
             language,
             "untrusted",
@@ -509,6 +591,11 @@ def test_prompt_language_and_constraints():
             "null",
             "rows=[]",
             "discounts",
+            "Bottle format never belongs in the wine name",
+            "Ornellaia 750ml",
+            "name=Ornellaia and format=750ml",
+            "Magnum",
+            "Bin 389",
         ]:
             assert phrase in prompt.system
     schema = routes.extraction_schema()["schema"]

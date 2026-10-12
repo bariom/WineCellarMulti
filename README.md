@@ -47,7 +47,14 @@ or upload JPG/PNG/WebP/PDF (10 MB, at most 10 PDF pages and 60 wine rows).
 AI proposes supplier, document reference, date, currency, wines, vintages, formats,
 bottle quantities and prices. Review/edit every field, compare document totals,
 and explicitly choose an existing cellar record where a match is proposed.
+Bottle format is separate from the wine name. Explicit volumes such as `750ml`,
+`75 cl` and `0.75 L` are removed from names during preview and confirmation;
+if the extracted format is missing, a single explicit volume supplies it in ml.
+This also applies when reopening an existing draft. Numbers belonging to wine
+names (such as `Bin 389` or `1000 Stories`) are preserved.
 Photos and PDFs preview beside the review on desktop (expandable on phones).
+Image previews support 100–300% zoom in 25% steps, with a Fit button and internal
+scrolling for long receipts. Choosing another image resets zoom to 100%.
 PDFs render locally with page navigation and an original-document link; no external
 PDF viewer is required. The PDF renderer loads only when a PDF is reviewed.
 Its worker is bundled as JavaScript (`.js`) so the preview also works on servers
@@ -652,3 +659,13 @@ The current auth flow uses email/password registration, HTTP-only session cookie
 Three additional premium themes are available in Settings > Theme: Maison Champagne
 (warm ivory), Pietra & Vigna (mineral white and pine), and Cave Privée (dark ink and
 champagne). They share the compact editorial layout and persist per user.
+
+### Vinaris Ambassador
+
+Gli amministratori possono gestire un?affiliazione da **Impostazioni ? Utenti**, selezionando un utente approvato e aprendo **Vinaris Ambassador**. Impostare la data/ora di scadenza e il saldo AI omaggio desiderato in USD; il valore sostituisce il saldo promozionale residuo, non si somma a esso. L?affiliazione pu? essere aggiornata o revocata.
+
+Un Ambassador ha accesso completo alle funzionalit? utente (inclusi ricordi fotografici, riconoscimento etichette, foto, assistente e modalit? ristorante), senza permessi amministrativi. Le chiamate AI consumano prima il credito promozionale, poi quello ordinario; rimane disponibile anche la configurazione di una chiave personale. Le impostazioni globali di disponibilit? dei servizi restano applicabili.
+
+Alla scadenza o revoca, accesso e credito promozionale cessano automaticamente. Abbonamenti, permessi ordinari e credito acquistato restano validi secondo le rispettive condizioni. Una nuova affiliazione non riattiva il credito omaggio precedente. Nessuna cancellazione dei dati della cantina avviene alla scadenza.
+
+Prima del rilascio eseguire `alembic upgrade head` da `backend/`: la migrazione `0118_ambassador` separa i saldi promozionali da quelli ordinari, mantenendo il credito esistente. Verifiche mirate: `pytest tests/test_ambassador.py` e, da `frontend/`, `npm run test:e2e:ambassador`.

@@ -24,7 +24,8 @@
 .purchase-import-workspace { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
 .purchase-import-document { position: sticky; top: 0; padding: 16px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; }
 .purchase-import h3 { margin: 0 0 12px; font-family: Georgia, serif; font-weight: 400; font-size: 1.4rem; }
-.purchase-import-document img { display: block; width: 100%; max-height: 65dvh; object-fit: contain; margin-bottom: 12px; }
+.purchase-image-preview { margin-bottom: 12px; }
+.purchase-image-preview img { display: block; max-width: none; height: auto; background: white; }
 .purchase-import-pdf { display: grid; gap: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: 10px; margin-bottom: 12px; }
 .purchase-import-pdf a { display: inline-flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; color: var(--primary); text-underline-offset: 4px; }
 .purchase-import-document-toggle { display: none; }
@@ -112,7 +113,6 @@
   .purchase-import-upload { align-items: stretch; flex-direction: column; padding: 14px; gap: 16px; }
   .purchase-import-workspace { grid-template-columns: minmax(0, 1fr); gap: 20px; }
   .purchase-import-document { position: static; }
-  .purchase-import-document img { max-height: 280px; }
   .purchase-pdf-viewport { max-height: 40dvh; }
   .purchase-import fieldset { padding: 12px; }
   .purchase-import-fields { gap: 12px; }

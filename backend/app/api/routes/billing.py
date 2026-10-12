@@ -52,6 +52,7 @@ from app.services.ai_credits import (
     create_ai_credit_transaction,
     quantize_usd,
 )
+from app.services.ambassador import ambassador_expiry, is_ambassador
 from app.services.email import send_email
 from app.services.notifications import create_user_notification
 
@@ -193,9 +194,13 @@ def billing_status(db: Session, user: User) -> BillingStatusResponse:
         None,
     )
     return BillingStatusResponse(
+        is_ambassador=is_ambassador(user),
+        ambassador_until=ambassador_expiry(user),
+        ambassador_ai_credit_balance_usd=ai_credit_balance(db, user, wallet=user.ambassador_credit_wallet) if is_ambassador(user) else ZERO_USD,
+        standard_ai_credit_balance_usd=ai_credit_balance(db, user, wallet="standard"),
         has_active_entitlement=active_valid_until is not None,
         valid_until=active_valid_until,
-        active_source=active_entitlement.source if active_entitlement else None,
+        active_source="ambassador" if is_ambassador(user) else (active_entitlement.source if active_entitlement else None),
         entitlements=[entitlement_response(entitlement) for entitlement in entitlements],
         available_redeem_codes=[redeem_code_response(code) for code in available_codes if code.expires_at is None or as_aware_utc(code.expires_at) > current_time],
         ai_credit_balance_usd=ai_credit_balance(db, user),

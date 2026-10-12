@@ -1,4 +1,6 @@
 export type Session = {
+  is_ambassador?: boolean;
+  ambassador_until?: string | null;
   authenticated: boolean;
   user_display_name: string | null;
   user_email: string | null;
@@ -631,6 +633,10 @@ export type PendingUser = {
 };
 
 export type AppUser = PendingUser & {
+  is_ambassador?: boolean;
+  ambassador_until?: string | null;
+  ambassador_ai_credit_balance_usd?: string;
+  standard_ai_credit_balance_usd?: string;
   is_approved: boolean;
   is_app_admin: boolean;
   is_blocked: boolean;
@@ -736,6 +742,10 @@ export type OperationalActionSnoozeRecord = {
 };
 
 export type BillingStatus = {
+  is_ambassador?: boolean;
+  ambassador_until?: string | null;
+  ambassador_ai_credit_balance_usd?: string;
+  standard_ai_credit_balance_usd?: string;
   has_active_entitlement: boolean;
   valid_until: string | null;
   active_source: string | null;

@@ -16,6 +16,8 @@ class SessionResponse(BaseModel):
     restaurant_mode_available: bool = False
     membership_role: str | None = None
     is_app_admin: bool = False
+    is_ambassador: bool = False
+    ambassador_until: str | None = None
     is_demo: bool = False
     pending_approval: bool = False
     pending_email_verification: bool = False

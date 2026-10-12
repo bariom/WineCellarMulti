@@ -3,7 +3,7 @@ import logging
 import math
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -87,6 +87,7 @@ from app.services.ai_credits import (
     create_ai_credit_transaction,
     set_ai_credit_balance,
 )
+from app.services.ambassador import ambassador_expiry, is_ambassador
 from app.services.email import send_email
 from app.services.notifications import create_user_notification
 from app.services.wine_photo_library import archive_wine_photo
@@ -333,6 +334,10 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         display_name=user.display_name,
         is_approved=user.is_approved,
         is_app_admin=user.is_app_admin,
+        is_ambassador=is_ambassador(user),
+        ambassador_until=expiry.isoformat() if (expiry := ambassador_expiry(user)) else None,
+        ambassador_ai_credit_balance_usd=ai_credit_balance(db, user, wallet=user.ambassador_credit_wallet) if is_ambassador(user) else Decimal("0"),
+        standard_ai_credit_balance_usd=ai_credit_balance(db, user, wallet="standard"),
         is_blocked=user.is_blocked,
         can_use_restaurant_mode=user.can_use_restaurant_mode,
         can_use_label_recognition=user.can_use_label_recognition,
@@ -1195,7 +1200,7 @@ def update_user_admin(
     context: CurrentContext = Depends(require_app_admin_context),
     db: Session = Depends(get_db),
 ) -> UserAdminResponse:
-    user = db.get(User, user_id)
+    user = db.scalar(select(User).where(User.id == user_id).with_for_update())
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if (
@@ -1207,8 +1212,25 @@ def update_user_admin(
         and payload.ai_credit_balance_target_usd is None
         and payload.access_override_days is None
         and not payload.clear_access_override
+        and payload.ambassador is None
+        and not payload.revoke_ambassador
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No user changes provided")
+    if payload.ambassador and payload.revoke_ambassador:
+        raise HTTPException(400, "Cannot grant and revoke Ambassador access together")
+    if payload.ambassador and (user.is_app_admin or payload.is_app_admin):
+        raise HTTPException(400, "Ambassador access is for non-administrative accounts")
+    if payload.ambassador:
+        if not is_ambassador(user) or not user.ambassador_credit_wallet:
+            user.ambassador_credit_wallet = f"ambassador:{uuid4()}"
+        user.ambassador_until = payload.ambassador.valid_until
+        set_ai_credit_balance(
+            db, user, target_balance_usd=payload.ambassador.ai_credit_target_usd,
+            source="ambassador_adjustment", wallet=user.ambassador_credit_wallet,
+            note="Ambassador promotional credit adjusted by application administrator",
+        )
+    if payload.revoke_ambassador:
+        user.ambassador_until = None
     if payload.is_app_admin is not None:
         if user.id == context.user.id and not payload.is_app_admin:
             other_admin = db.scalar(select(User).where(User.is_app_admin.is_(True), User.id != user.id, User.is_blocked.is_(False)))

@@ -1,0 +1,10 @@
+.ambassador-editor { min-width: 0; }
+.ambassador-editor p { margin: 0; color: var(--text-muted); font-size: .8rem; line-height: 1.6; }
+.ambassador-editor input { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+.ambassador-editor button { white-space: normal; }
+@media (max-width: 760px) {
+  .admin-user-access-editor.ambassador-editor input,
+  .admin-user-access-editor.ambassador-editor button { min-height: 44px; }
+}
+
+.app-shell:has(.ambassador-editor) .back-to-top-button { display: none; }

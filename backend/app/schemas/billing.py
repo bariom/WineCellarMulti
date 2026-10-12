@@ -1,5 +1,5 @@
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
@@ -57,6 +57,10 @@ class EntitlementResponse(BaseModel):
 
 
 class BillingStatusResponse(BaseModel):
+    is_ambassador: bool = False
+    ambassador_until: datetime | None = None
+    ambassador_ai_credit_balance_usd: Decimal = Decimal("0")
+    standard_ai_credit_balance_usd: Decimal = Decimal("0")
     has_active_entitlement: bool
     valid_until: datetime | None
     active_source: str | None

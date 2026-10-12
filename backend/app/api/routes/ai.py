@@ -121,10 +121,11 @@ from app.schemas.wishlist import WishlistResponse
 from app.services.ai_credits import (
     ZERO_USD,
     ai_credit_balance,
-    create_ai_credit_transaction,
+    create_ai_usage_transaction,
     quantize_usd,
 )
 from app.services.ai_models import parameters_for_model
+from app.services.ambassador import is_ambassador
 from app.services.critic_scores import (
     score_has_weak_evidence,
     score_matches_page,
@@ -434,10 +435,10 @@ def ai_settings_response(
         else ZERO_USD,
         can_use_app_credits=can_use_app_credits,
         can_use_included_wine_search=bool(settings.openai_api_key.strip())
-        and not is_free_tier(context),
+        and not is_free_tier(context) and (not is_ambassador(context.user) or can_use_app_credits),
         can_use_purchase_import=bool(settings.openai_api_key.strip())
-        and (not is_free_tier(context) or can_use_app_credits),
-        purchase_import_included=not is_free_tier(context),
+        and ((not is_free_tier(context) and not is_ambassador(context.user)) or can_use_app_credits),
+        purchase_import_included=not is_free_tier(context) and not is_ambassador(context.user),
         ai_notes_model=user_settings.ai_notes_model,
         drink_window_model=user_settings.drink_window_model,
         value_model=user_settings.value_model,
@@ -638,7 +639,7 @@ def reserve_ai_credits(
         )
 
     reservation_id = uuid4()
-    create_ai_credit_transaction(
+    create_ai_usage_transaction(
         db,
         context.user,
         amount_usd=-reserved_cost,
@@ -669,7 +670,7 @@ def reconcile_ai_credit_reservation(
         )
     refund = quantize_usd(reserved_cost - actual_cost)
     if refund > ZERO_USD:
-        create_ai_credit_transaction(
+        create_ai_usage_transaction(
             db,
             context.user,
             amount_usd=refund,
@@ -688,7 +689,7 @@ def cancel_ai_credit_reservation(
     reserved_cost: Decimal,
     model: str,
 ) -> None:
-    create_ai_credit_transaction(
+    create_ai_usage_transaction(
         db,
         context.user,
         amount_usd=reserved_cost,
@@ -805,7 +806,7 @@ def create_ai_response(
 ) -> tuple[Any, str]:
     if task_type in {"sensory_refinement", "sensory_autonomous"} and not settings.wine_sensory_research_enabled:
         raise HTTPException(503, "Paid sensory research is suspended")
-    if app_funded and not is_free_tier(context):
+    if app_funded and not is_free_tier(context) and not is_ambassador(context.user):
         api_key = settings.openai_api_key.strip()
         if not api_key:
             raise HTTPException(
@@ -908,6 +909,7 @@ def create_ai_response(
             # the refund; a committed reservation has a positive refund row.
             refund_exists = db.scalar(
                 select(UserAiCreditTransaction).where(
+                    UserAiCreditTransaction.user_id == context.user.id,
                     UserAiCreditTransaction.source_id == reservation_id,
                     UserAiCreditTransaction.source == "usage_refund",
                 )
@@ -2384,7 +2386,7 @@ CELLAR_COMMAND_SCHEMA = {
 
 
 def ensure_cellar_ai_assistant_available(context: CurrentContext) -> None:
-    if settings.cellar_ai_assistant_enabled or context.user.is_app_admin:
+    if settings.cellar_ai_assistant_enabled or context.user.is_app_admin or is_ambassador(context.user):
         return
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -5159,7 +5161,7 @@ def enrich_wine_label(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> WineLabelEnrichmentResponse:
-    if payload.source in {"label", "photo"} and not context.user.can_use_label_recognition:
+    if payload.source in {"label", "photo"} and not context.user.can_use_label_recognition and not is_ambassador(context.user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Wine label recognition is not enabled for this user",

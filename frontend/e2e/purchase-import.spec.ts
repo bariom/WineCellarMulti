@@ -50,21 +50,89 @@ async function openPurchase(page: Page, locale: "it" | "en" = "it", empty = fals
   return page.getByRole("dialog", { name: it ? "Aggiungi un acquisto" : "Add a purchase", exact: true });
 }
 
-async function receipt(page: Page) {
-  const base64 = await page.evaluate(() => {
-    const canvas = document.createElement("canvas"); canvas.width = 560; canvas.height = 750;
+async function receipt(page: Page, tall = false) {
+  const base64 = await page.evaluate(tall => {
+    const canvas = document.createElement("canvas"); canvas.width = 560; canvas.height = tall ? 1800 : 750;
     const context = canvas.getContext("2d")!;
-    context.fillStyle = "#faf8f2"; context.fillRect(0, 0, 560, 750);
+    context.fillStyle = "#faf8f2"; context.fillRect(0, 0, 560, canvas.height);
     context.fillStyle = "#263d33"; context.font = "26px Georgia";
     context.fillText("ENOTECA DELLE COLLINE", 42, 76);
     context.font = "18px monospace";
     ["FATTURA INV-42", "09.10.2026", "", "Cantina Vinaris", "Nebbiolo di Test 2019", "3 x 0.75 L      CHF 42.00", "", "TOTALE        CHF 126.00", "", "Grazie per il vostro acquisto"].forEach((line, i) => context.fillText(line, 42, 132 + i * 38));
     return canvas.toDataURL("image/png").split(",")[1];
-  });
+  }, tall);
   return { name: "receipt.png", mimeType: "image/png", buffer: Buffer.from(base64, "base64") };
 }
 
 for (const locale of ["it", "en"] as const) {
+  test(`purchase image preview zoom stays contained and resets (${locale})`, async ({ page }, testInfo) => {
+    const it = locale === "it";
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const dialog = await openPurchase(page, locale);
+    await dialog.locator('input[type="file"]').first().setInputFiles(await receipt(page, true));
+    await dialog.getByRole("button", { name: it ? "Analizza acquisto" : "Analyze purchase", exact: true }).click();
+    const image = dialog.getByRole("img", { name: it ? "Ricevuta originale" : "Original receipt", exact: true });
+    const zoom = dialog.getByRole("group", { name: it ? "Zoom documento" : "Document zoom", exact: true });
+    const viewport = dialog.getByRole("region", { name: it ? "Anteprima documento scorrevole" : "Scrollable document preview", exact: true });
+    const increase = zoom.getByRole("button", { name: it ? "Aumenta zoom" : "Zoom in", exact: true });
+    const decrease = zoom.getByRole("button", { name: it ? "Riduci zoom" : "Zoom out", exact: true });
+    const fit = zoom.getByRole("button", { name: it ? "Adatta" : "Fit", exact: true });
+    for (const width of [1440, 1024, 360, 390, 430]) {
+      await page.setViewportSize({ width, height: width >= 1024 ? 900 : 844 });
+      if (width === 360) await dialog.getByRole("button", { name: it ? "Mostra documento" : "Show document", exact: true }).click();
+      await expect(image).toBeVisible();
+      await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalHeight === 1800)).toBe(true);
+      await expect(decrease).toBeDisabled();
+      await expect(fit).toBeDisabled();
+      const initial = (await image.boundingBox())!;
+      for (let step = 0; step < 8; step++) await increase.click();
+      await expect(zoom.getByText("300%", { exact: true })).toBeVisible();
+      await expect(increase).toBeDisabled();
+      const enlarged = (await image.boundingBox())!;
+      expect(enlarged.width).toBeCloseTo(initial.width * 3, 0);
+      expect(enlarged.height / enlarged.width).toBeCloseTo(1800 / 560, 2);
+      expect(await viewport.evaluate(el => el.scrollWidth > el.clientWidth && el.scrollHeight > el.clientHeight)).toBe(true);
+      await viewport.focus();
+      await page.keyboard.press("ArrowRight");
+      await page.keyboard.press("ArrowDown");
+      await expect.poll(() => viewport.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+      await expect.poll(() => viewport.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+      const frame = (await dialog.boundingBox())!;
+      const previewBox = (await viewport.boundingBox())!;
+      expect(previewBox.x).toBeGreaterThanOrEqual(frame.x);
+      expect(previewBox.x + previewBox.width).toBeLessThanOrEqual(frame.x + frame.width);
+      const toolbar = (await zoom.boundingBox())!;
+      expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(previewBox.y);
+      if (width >= 1024) {
+        const review = (await dialog.locator("form").boundingBox())!;
+        expect(previewBox.x + previewBox.width).toBeLessThan(review.x);
+        expect(previewBox.y + previewBox.height).toBeLessThan(frame.y + frame.height);
+      } else {
+        for (const button of await zoom.getByRole("button").all()) {
+          const box = (await button.boundingBox())!;
+          expect(box.width).toBeGreaterThanOrEqual(44);
+          expect(box.height).toBeGreaterThanOrEqual(44);
+        }
+      }
+      expect(await dialog.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(false);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+      if (width === 390 || width === 1440) {
+        await zoom.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: testInfo.outputPath(`purchase-image-zoom-${locale}-${width}.png`) });
+      }
+      await decrease.click();
+      await expect(zoom.getByText("275%", { exact: true })).toBeVisible();
+      await fit.click();
+      await expect(zoom.getByText("100%", { exact: true })).toBeVisible();
+      await expect.poll(() => viewport.evaluate(el => [el.scrollLeft, el.scrollTop])).toEqual([0, 0]);
+    }
+    await increase.click();
+    await dialog.locator('input[type="file"]').first().setInputFiles({ ...await receipt(page), name: "another-receipt.png" });
+    await dialog.getByRole("button", { name: it ? "Analizza acquisto" : "Analyze purchase", exact: true }).click();
+    await expect(zoom.getByText("100%", { exact: true })).toBeVisible();
+    await expect(dialog.getByText(`${it ? "Immagine" : "Image"} · another-receipt.png`, { exact: true })).toBeVisible();
+  });
+
   test(`purchase receipt review, responsive layout and bulk confirmation (${locale})`, async ({ page }, testInfo) => {
     const it = locale === "it";
     await page.setViewportSize({ width: 390, height: 844 });

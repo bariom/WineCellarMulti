@@ -86,6 +86,13 @@ limits, reset, page navigation, touch-target geometry and page overflow at
 360/390/430 px, plus desktop. Run `npm run test:e2e:purchase-import -- -g "PDF"`
 for these focused checks.
 
+Image receipts use the same zoom range and controls, preserving image proportions
+and scrolling within the preview. Run
+`npm run test:e2e:purchase-import -- -g "image preview zoom"` for Italian/English
+checks of a tall receipt at 360/390/430 px and desktop, zoom limits, keyboard
+scrolling, Fit, and reset when another image is uploaded. Review the generated
+`purchase-image-zoom-*.png` screenshots before accepting layout changes.
+
 Purchase review uses a compact heading/upload area and equal-width document/data
 columns on desktop. The receipt review tests check column alignment and the
 workspace's vertical position at 1024/1200/1440 px, plus mobile overflow at
@@ -461,3 +468,7 @@ il caricamento dei font e al cambio di larghezza. Il testo completo rimane
 visibile senza line-clamp: per titoli eccezionalmente lunghi la cornice cresce
 prima di scendere sotto 11 px. I test controllano titoli medi e lunghi, date
 separate, ridimensionamento desktop/mobile e ritorno dal dettaglio.
+
+### Ambassador
+
+`npm run test:e2e:ambassador` verifica assegnazione, aggiornamento e revoca amministrativa, visibilit? della scadenza e credito omaggio per il membro, traduzioni IT/EN e geometria senza overflow a 360, 390, 430 e 1440 px. Gli screenshot di revisione sono artefatti temporanei del test.
