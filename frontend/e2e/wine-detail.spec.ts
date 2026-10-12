@@ -1,6 +1,79 @@
 import { expect, test } from "@playwright/test";
 import { wine, mockApi, openWineDetail } from "./fixtures/app";
 
+for (const failFirst of [false, true]) {
+  test(`wine detail rechecks central photos on opening and offers an optional choice (${failFirst ? "failed lookup" : "new photo"})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const withoutPhoto = { ...wine, photo_thumbnail_url: "", photo_detail_url: "" };
+    await mockApi(page, [], false, undefined, [withoutPhoto]);
+    await page.addInitScript(({ wine, withoutPhoto, failFirst }) => {
+      const original = window.fetch;
+      let current = withoutPhoto;
+      let lookups = 0;
+      window.fetch = async (input, init) => {
+        const url = new URL(String(input), location.href);
+        if (url.pathname.endsWith("/wines/photo/suggestions")) {
+          lookups++;
+          sessionStorage.setItem("detail-photo-lookups", String(lookups));
+          if (lookups === 1) return Response.json(failFirst ? { detail: "Unavailable" } : [], { status: failFirst ? 503 : 200 });
+          return Response.json([{ source_wine_id: "library-photo-1", thumbnail_url: wine.photo_thumbnail_url, detail_url: wine.photo_detail_url }]);
+        }
+        if (url.pathname.endsWith("/photo/reuse/library-photo-1")) {
+          sessionStorage.setItem("detail-photo-reused", "true");
+          current = wine;
+          return Response.json(current);
+        }
+        if (url.pathname.endsWith(`/wines/${wine.id}`)) return Response.json(current);
+        return original(input, init);
+      };
+    }, { wine, withoutPhoto, failFirst });
+    await page.goto("/");
+    const reopen = async () => {
+      const close = page.getByRole("dialog", { name: wine.name, exact: true }).getByRole("button", { name: "Chiudi", exact: true });
+      if (await close.isVisible()) await close.click();
+      await page.getByRole("button", { name: /^Cantina/ }).first().click();
+      await page.locator('[data-wine-row-id="wine-e2e-1"] article').click();
+      await expect(page.locator(".wine-detail:visible").first()).toBeVisible();
+    };
+    await reopen();
+    await expect.poll(() => page.evaluate(() => Number(sessionStorage.getItem("detail-photo-lookups")))).toBe(1);
+    const detail = page.locator(".wine-detail:visible").first();
+    const suggestion = detail.getByRole("complementary", { name: "Foto disponibile", exact: true });
+    await expect(suggestion).toHaveCount(0);
+    await reopen();
+    await expect(suggestion).toBeVisible();
+    await expect(suggestion.getByText("Trovata nel database centrale Vinaris. Verifica annata e formato prima di usarla.", { exact: true })).toBeVisible();
+    await suggestion.getByRole("button", { name: "Non ora", exact: true }).click();
+    await expect(suggestion).toHaveCount(0);
+    expect(await page.evaluate(() => sessionStorage.getItem("detail-photo-reused"))).toBeNull();
+    await reopen();
+    await expect(suggestion).toBeVisible();
+    for (const width of [360, 390, 430, 1440]) {
+      await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
+      await suggestion.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const box = (await suggestion.boundingBox())!;
+      const image = (await suggestion.getByRole("img").boundingBox())!;
+      const actions = await suggestion.getByRole("button").all();
+      for (const action of actions) {
+        const button = (await action.boundingBox())!;
+        expect(button.x).toBeGreaterThanOrEqual(box.x);
+        expect(button.x + button.width).toBeLessThanOrEqual(box.x + box.width);
+        expect(button.y + button.height).toBeLessThanOrEqual(box.y + box.height);
+        expect(button.x >= image.x + image.width || button.y >= image.y + image.height).toBe(true);
+      }
+      if (!failFirst && (width === 390 || width === 1440)) await page.screenshot({ path: testInfo.outputPath(`detail-photo-offer-${width}.png`) });
+    }
+    await suggestion.getByRole("button", { name: "Usa foto", exact: true }).click();
+    await expect(suggestion).toHaveCount(0);
+    expect(await page.evaluate(() => sessionStorage.getItem("detail-photo-reused"))).toBe("true");
+    const count = await page.evaluate(() => sessionStorage.getItem("detail-photo-lookups"));
+    await reopen();
+    await expect(suggestion).toHaveCount(0);
+    expect(await page.evaluate(() => sessionStorage.getItem("detail-photo-lookups"))).toBe(count);
+  });
+}
+
 for (const width of [1100, 1440, 1920]) {
   test(`cellar detail column stays steady when selecting a wine ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });

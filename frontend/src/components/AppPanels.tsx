@@ -1404,7 +1404,7 @@ export function WineDetail({
               <img src={photoSuggestion.thumbnail_url} alt={locale === "it" ? `Foto proposta per ${wine.name}` : `Suggested photo for ${wine.name}`} />
               <div>
                 <strong>{locale === "it" ? "Foto già disponibile" : "Photo already available"}</strong>
-                <small>{locale === "it" ? "Trovata nella libreria Vinaris per questo vino." : "Found in the Vinaris library for this wine."}</small>
+                <small>{locale === "it" ? "Trovata nel database centrale Vinaris. Verifica annata e formato prima di usarla." : "Found in the central Vinaris database. Check vintage and bottle format before using it."}</small>
               </div>
               <div className="detail-photo-suggestion-actions">
                 <button type="button" className="secondary compact" disabled={saving} onClick={onDismissSuggestedPhoto}>{locale === "it" ? "Non ora" : "Not now"}</button>

@@ -21,6 +21,7 @@ from app.api.deps import get_current_context
 from app.api.routes import ai
 from app.api.routes import purchase_imports as routes
 from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
+from app.core.config import settings
 from app.db.session import get_db
 from app.models import (
     Household,
@@ -29,6 +30,7 @@ from app.models import (
     Wine,
     WineCatalogAlias,
     WineCatalogEntry,
+    WinePhotoLibraryEntry,
     WineStockLot,
     WineStockMovement,
     WineStorageAllocation,
@@ -38,6 +40,179 @@ from app.schemas.purchase_import import PurchaseConfirmation, PurchaseExtraction
 from app.services.ai_credits import ai_credit_balance, create_ai_credit_transaction
 from app.services.openai_client import OpenAIResponse, TokenUsage, response_body
 from app.services.purchase_import import purchase_document
+from app.services.wine_photo_library import library_photo_path, wine_photo_path
+
+
+@pytest.fixture
+def reference_photo(client, tmp_path, monkeypatch):
+    _, db, _, _, _ = client
+    monkeypatch.setattr(settings, "wine_photo_storage_dir", str(tmp_path))
+
+    def create(name="Barolo", producer="Producer", files=True):
+        photo = WinePhotoLibraryEntry(
+            name=name,
+            producer=producer,
+            normalized_name=name.casefold(),
+            normalized_producer=producer.casefold(),
+            photo_version="reference-v1",
+            content_hash=uuid4().hex,
+        )
+        db.add(photo)
+        db.commit()
+        if files:
+            for size in ("thumbnail", "detail"):
+                path = library_photo_path(photo, size)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(image())
+        return photo
+
+    return create
+
+
+def test_purchase_photo_suggestions_only_use_matching_available_shared_assets(
+    client, reference_photo
+):
+    test, db, _, wine, _ = client
+    photo = reference_photo()
+    reference_photo(producer="Other producer")
+    reference_photo(files=False)
+    wine.photo_version = "private-photo"
+    db.commit()
+    response = test.get(
+        "/imports/purchases/photo-suggestions",
+        params={"name": "  BAROLO  ", "producer": " producer "},
+    )
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "id": str(photo.id),
+            "thumbnail_url": f"/api/v1/wines/photo/library/{photo.id}/thumbnail?v=reference-v1",
+        }
+    ]
+    assert (
+        test.get(
+            "/imports/purchases/photo-suggestions",
+            params={"name": "Unknown", "producer": "Producer"},
+        ).json()
+        == []
+    )
+    context = test.app.dependency_overrides[get_current_context]()
+    context.membership.role = "viewer"
+    db.commit()
+    assert (
+        test.get(
+            "/imports/purchases/photo-suggestions",
+            params={"name": "Barolo", "producer": "Producer"},
+        ).status_code
+        == 403
+    )
+
+
+@pytest.mark.parametrize("existing,has_photo", [(False, False), (True, False), (True, True)])
+def test_purchase_attaches_selected_photo_and_preserves_existing(
+    client, reference_photo, existing, has_photo
+):
+    test, db, _, wine, _ = client
+    photo = reference_photo()
+    if existing:
+        wine.format = "0.75L"
+        wine.currency = "CHF"
+        db.commit()
+    if has_photo:
+        wine.photo_version = "personal-photo"
+        db.commit()
+    record = preview(test)
+    assert record["matches"][0][0]["has_photo"] is has_photo
+    payload = confirmation()
+    payload["rows"][0]["photo_library_id"] = str(photo.id)
+    if existing:
+        payload["rows"][0]["existing_wine_id"] = str(wine.id)
+        payload["rows"][0]["format"] = wine.format
+    path = f"/imports/purchases/{record['id']}/confirm"
+    response = test.post(path, json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["unavailable_photo_wine_ids"] == []
+    target = db.get(Wine, UUID(result["wine_ids"][0]))
+    if has_photo:
+        assert target.photo_version == "personal-photo"
+    else:
+        assert target.photo_version
+        for size in ("thumbnail", "detail"):
+            assert (
+                wine_photo_path(target, size).read_bytes()
+                == library_photo_path(photo, size).read_bytes()
+            )
+    version = target.photo_version
+    assert test.post(path, json=payload).json() == result
+    assert target.photo_version == version
+
+
+@pytest.mark.parametrize("missing", ["record", "file"])
+def test_missing_selected_purchase_photo_does_not_block_import(client, reference_photo, missing):
+    test, db, _, _, _ = client
+    photo = reference_photo()
+    selected_id = str(photo.id)
+    if missing == "record":
+        db.delete(photo)
+        db.commit()
+    else:
+        library_photo_path(photo, "detail").unlink()
+    record = preview(test)
+    payload = confirmation()
+    payload["rows"][0]["photo_library_id"] = selected_id
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=payload)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["unavailable_photo_wine_ids"] == result["wine_ids"]
+    assert not db.get(Wine, UUID(result["wine_ids"][0])).photo_version
+
+
+def test_purchase_rejects_photo_for_different_identity_without_stock_changes(
+    client, reference_photo
+):
+    test, db, _, wine, _ = client
+    photo = reference_photo(producer="Other producer")
+    wine.format = "0.75L"
+    wine.currency = "CHF"
+    db.commit()
+    record = preview(test)
+    initial_quantity = wine.quantity
+    payload = confirmation()
+    payload["rows"][0].update(
+        existing_wine_id=str(wine.id), photo_library_id=str(photo.id), format=wine.format
+    )
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=payload)
+    assert response.status_code == 422
+    assert "reference photo does not match" in response.json()["detail"]
+    db.refresh(wine)
+    assert wine.quantity == initial_quantity
+    assert not list(db.scalars(select(WineStockLot)))
+
+
+def test_purchase_photo_is_optional_and_pending_delivery_keeps_selection(client, reference_photo):
+    test, db, _, _, _ = client
+    photo = reference_photo()
+    record = preview(test)
+    payload = confirmation(delivery="pending")
+    payload["rows"][0]["photo_library_id"] = str(photo.id)
+    path = f"/imports/purchases/{record['id']}"
+    response = test.post(f"{path}/confirm", json=payload)
+    assert response.status_code == 200, response.text
+    target = db.get(Wine, UUID(response.json()["wine_ids"][0]))
+    version = target.photo_version
+    assert version
+    assert test.post(f"{path}/receive").status_code == 200
+    assert target.photo_version == version
+
+
+def test_purchase_does_not_attach_available_photo_without_selection(client, reference_photo):
+    test, db, _, _, _ = client
+    reference_photo()
+    record = preview(test)
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=confirmation())
+    assert response.status_code == 200, response.text
+    assert not db.get(Wine, UUID(response.json()["wine_ids"][0])).photo_version
 
 
 def extracted(**changes):

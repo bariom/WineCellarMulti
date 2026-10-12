@@ -2,7 +2,7 @@ import hashlib
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -18,6 +18,7 @@ from app.schemas.purchase_import import (
     PurchaseConfirmation,
     PurchaseExtraction,
     PurchaseMatch,
+    PurchasePhotoSuggestion,
     PurchasePreview,
     PurchaseResult,
 )
@@ -29,6 +30,7 @@ from app.services.purchase_import import (
     apply_purchase,
     fill_purchase_producers_from_catalog,
     purchase_document,
+    purchase_photo_suggestions,
     scoped_purchase,
 )
 
@@ -80,6 +82,7 @@ def preview(db: Session, context: CurrentContext, record: PurchaseImport, cost=D
                 vintage=w.vintage,
                 format=w.format,
                 currency=w.currency,
+                has_photo=bool(w.photo_version),
             )
             for w in wines
             if key(w.name) == key(row.name)
@@ -95,6 +98,16 @@ def preview(db: Session, context: CurrentContext, record: PurchaseImport, cost=D
         matches=matches,
         estimated_cost_usd=cost,
     )
+
+
+@router.get("/photo-suggestions", response_model=list[PurchasePhotoSuggestion])
+def suggest_purchase_photos(
+    name: str = Query(min_length=2, max_length=200),
+    producer: str = Query(min_length=1, max_length=200),
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_write_context),
+):
+    return purchase_photo_suggestions(db, name, producer)
 
 
 def analyze(content: bytes, mime: str, locale: str, db: Session, context: CurrentContext):

@@ -3,11 +3,12 @@ import { createPortal } from "react-dom";
 import { api, ApiError } from "../services/api";
 import type { Locale, PendingPurchase, PurchaseImportPreview, PurchaseImportResult } from "../types";
 import PurchaseImagePreview from "./PurchaseImagePreview";
+import PurchasePhotoSuggestions from "./PurchasePhotoSuggestions";
 import "./PurchaseImportDialog.css";
 
 const PurchasePdfPreview = lazy(() => import("./PurchasePdfPreview"));
 
-type ReviewRow = { name: string; producer: string; vintage: string; format: string; quantity: string; unit_price: string; existing_wine_id: string; source: number };
+type ReviewRow = { name: string; producer: string; vintage: string; format: string; quantity: string; unit_price: string; existing_wine_id: string; photo_library_id: string; source: number };
 
 export default function PurchaseImportDialog({ locale, canAnalyze, included, isAdmin, onActivate, onAnalyzed, onClose, onImported }: {
   locale: Locale; canAnalyze: boolean; included: boolean; isAdmin: boolean; onActivate: () => void; onAnalyzed: () => Promise<void>; onClose: () => void; onImported: () => Promise<void>;
@@ -83,14 +84,14 @@ export default function PurchaseImportDialog({ locale, canAnalyze, included, isA
       setSupplier(p.supplier); setReference(p.reference); setDate(p.order_date || ""); setCurrency(p.currency || "");
       setTotal(p.document_total === null ? "" : String(p.document_total)); setAdditional(p.additional_costs === null ? "" : String(p.additional_costs));
       setRows(p.rows.map((row, source) => ({ name: row.name, producer: row.producer, vintage: row.vintage, format: row.format,
-        quantity: row.quantity === null ? "" : String(row.quantity), unit_price: row.unit_price === null ? "" : String(row.unit_price), existing_wine_id: "", source })));
+        quantity: row.quantity === null ? "" : String(row.quantity), unit_price: row.unit_price === null ? "" : String(row.unit_price), existing_wine_id: "", photo_library_id: "", source })));
     } catch (exc) { failure(exc); } finally {
       setBusy(false);
       try { await onAnalyzed(); } catch { /* Keep the analysis result if account refresh fails. */ }
     }
   }
   function update(index: number, values: Partial<ReviewRow>) {
-    setRows(current => current.map((row, i) => i === index ? { ...row, ...values } : row));
+    setRows(current => current.map((row, i) => i === index ? { ...row, ...values, ...(["name", "producer", "vintage", "format", "existing_wine_id"].some(key => key in values) ? { photo_library_id: "" } : {}) } : row));
     setReviewed(false); setAcceptDifference(false);
   }
   const sum = rows.reduce((value, row) => value + Math.round(Number(row.unit_price || 0) * 100) * Number(row.quantity || 0), 0) / 100 + Number(additional || 0);
@@ -104,7 +105,7 @@ export default function PurchaseImportDialog({ locale, canAnalyze, included, isA
       const imported = await api<PurchaseImportResult>(`/api/v1/imports/purchases/${preview.id}/confirm`, { method: "POST", body: JSON.stringify({
         supplier, reference, order_date: date, currency, delivery, expected_delivery: delivery === "pending" ? expected || null : null,
         document_total: total === "" ? null : total, additional_costs: additional || "0", reviewed: true, accept_total_difference: acceptDifference,
-        rows: rows.map(({ source: _source, ...row }) => ({ ...row, quantity: Number(row.quantity), existing_wine_id: row.existing_wine_id || null })),
+        rows: rows.map(({ source: _source, ...row }) => ({ ...row, quantity: Number(row.quantity), existing_wine_id: row.existing_wine_id || null, photo_library_id: row.photo_library_id || null })),
       }) });
       setResult(imported); await loadPending();
       // The purchase is already committed; a failed refresh must never look like a failed import.
@@ -124,7 +125,7 @@ export default function PurchaseImportDialog({ locale, canAnalyze, included, isA
   return createPortal(<dialog ref={dialog} className="purchase-import" data-stage={preview ? "review" : "upload"} aria-labelledby="purchase-import-title" onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}>
     <header className="purchase-import-heading"><div><span>Vinaris · {it ? "La tua cantina" : "Your cellar"}</span><h2 id="purchase-import-title">{it ? "Aggiungi un acquisto" : "Add a purchase"}</h2><p>{it ? "Da una ricevuta alla cantina, con il tuo ultimo sguardo." : "From receipt to cellar, with your final review."}</p></div><button type="button" className="secondary" onClick={onClose} disabled={busy}>{it ? "Chiudi" : "Close"}</button></header>
     {error ? <p role="alert" className="purchase-import-error">{error}</p> : null}
-    {result ? <section className="purchase-import-success" role="status"><h3>{result.status === "pending" ? (it ? "Acquisto registrato, in attesa di consegna" : "Purchase saved, awaiting delivery") : (it ? "Acquisto aggiunto alla cantina" : "Purchase added to your cellar")}</h3><p>{result.bottles} {it ? "bottiglie" : "bottles"}. {result.status === "pending" ? (it ? "Le scorte disponibili aumenteranno quando registrerai la ricezione." : "Available stock will increase when you record delivery.") : (it ? "Quantità, fornitore e prezzi sono stati salvati nei lotti d’acquisto." : "Quantities, supplier and prices have been saved in purchase lots.")}</p><button type="button" className="secondary" onClick={() => { setResult(null); setPreview(null); setFile(null); }}>{it ? "Nuovo acquisto" : "New purchase"}</button></section>
+    {result ? <section className="purchase-import-success" role="status"><h3>{result.status === "pending" ? (it ? "Acquisto registrato, in attesa di consegna" : "Purchase saved, awaiting delivery") : (it ? "Acquisto aggiunto alla cantina" : "Purchase added to your cellar")}</h3><p>{result.bottles} {it ? "bottiglie" : "bottles"}. {result.status === "pending" ? (it ? "Le scorte disponibili aumenteranno quando registrerai la ricezione." : "Available stock will increase when you record delivery.") : (it ? "Quantità, fornitore e prezzi sono stati salvati nei lotti d’acquisto." : "Quantities, supplier and prices have been saved in purchase lots.")}</p>{!!result.unavailable_photo_wine_ids?.length && <p className="purchase-import-warnings">{it ? "L’acquisto è stato salvato, ma alcune fotografie selezionate non erano più disponibili. Puoi aggiungerle dal dettaglio vino." : "Your purchase was saved, but some selected photos were no longer available. You can add them from the wine detail view."}</p>}<button type="button" className="secondary" onClick={() => { setResult(null); setPreview(null); setFile(null); }}>{it ? "Nuovo acquisto" : "New purchase"}</button></section>
     : <>
       {!canAnalyze ? <section className="purchase-import-activation" aria-labelledby="purchase-activation-title">
         <div><h3 id="purchase-activation-title">{included ? (it ? "Analisi temporaneamente indisponibile" : "Analysis temporarily unavailable") : (it ? "Attiva l’importazione con AI" : "Activate AI purchase import")}</h3>
@@ -165,9 +166,12 @@ export default function PurchaseImportDialog({ locale, canAnalyze, included, isA
               const match = preview.matches[row.source].find(w => w.id === e.target.value);
               update(index, { existing_wine_id: e.target.value, ...(match ? { name: match.name, producer: match.producer, vintage: match.vintage, format: match.format } : {}) });
             }}><option value="">{it ? "Crea una nuova scheda" : "Create a new record"}</option>{preview.matches[row.source].map(w => <option key={w.id} value={w.id} disabled={w.currency !== currency}>{w.producer} {w.name} {w.vintage} · {w.format} · {w.currency}</option>)}</select><small>{it ? "Possibile corrispondenza: verifica prima di creare una nuova scheda." : "Possible match: check before creating a new record."}</small></label> : null}
+            {(preview.matches[row.source] || []).find(match => match.id === row.existing_wine_id)?.has_photo
+              ? <p className="purchase-photo-preserved">{it ? "La fotografia della scheda esistente verrà mantenuta." : "The existing record’s photo will be kept."}</p>
+              : <PurchasePhotoSuggestions key={`${preview.id}-${row.source}`} name={row.name} producer={row.producer} locale={locale} selected={row.photo_library_id} onSelect={photo_library_id => update(index, { photo_library_id })} />}
             <div className="purchase-import-row-footer"><span>{it ? "Totale riga" : "Line total"}: {formatMoney(Number(row.unit_price || 0) * Number(row.quantity || 0))} {currency}{preview.extraction.rows[row.source]?.line_total != null ? ` · ${it ? "documento" : "document"}: ${formatMoney(Number(preview.extraction.rows[row.source].line_total))}` : ""}</span><button type="button" className="secondary" onClick={() => { setRows(current => current.filter((_, i) => i !== index)); setReviewed(false); }}>{it ? "Rimuovi vino" : "Remove wine"}</button></div>
           </fieldset>)}
-          <button type="button" className="secondary" disabled={busy || rows.length >= 60} onClick={() => { setRows(current => [...current, { name: "", producer: "", vintage: "", format: "", quantity: "", unit_price: "", existing_wine_id: "", source: -current.length - 1 }]); setReviewed(false); }}>{it ? "Aggiungi riga" : "Add row"}</button>
+          <button type="button" className="secondary" disabled={busy || rows.length >= 60} onClick={() => { setRows(current => [...current, { name: "", producer: "", vintage: "", format: "", quantity: "", unit_price: "", existing_wine_id: "", photo_library_id: "", source: -current.length - 1 }]); setReviewed(false); }}>{it ? "Aggiungi riga" : "Add row"}</button>
           <fieldset disabled={busy}><legend>{it ? "Controllo importi" : "Check amounts"}</legend><div className="purchase-import-fields"><label>{it ? "Altri importi (spedizione, imposte, sconti)" : "Other amounts (shipping, taxes, discounts)"}<input type="number" step="0.01" value={additional} onChange={e => setAdditional(e.target.value)} /><small>{it ? "Sconti negativi. Non contare due volte imposte già incluse." : "Use negative discounts. Do not count included tax twice."}</small></label><label>{it ? "Totale documento" : "Document total"}<input type="number" min="0" step="0.01" value={total} onChange={e => setTotal(e.target.value)} /></label></div><p className="purchase-import-total">{it ? "Totale verificato" : "Reviewed total"} <strong>{formatMoney(sum)} {currency}</strong></p>
           {difference ? <label className="purchase-import-check purchase-import-warnings"><input type="checkbox" checked={acceptDifference} required onChange={e => setAcceptDifference(e.target.checked)} /><span>{it ? "Il totale non coincide con il documento. Ho verificato e accetto la differenza." : "The total differs from the document. I have checked and accept the difference."}</span></label> : null}
           </fieldset>

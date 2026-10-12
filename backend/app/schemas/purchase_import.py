@@ -74,6 +74,7 @@ class PurchaseRow(BaseModel):
     quantity: int = Field(ge=1, le=10000, strict=True)
     unit_price: Money
     existing_wine_id: UUID | None = None
+    photo_library_id: UUID | None = None
 
     @model_validator(mode="after")
     def separate_format_from_name(self) -> Self:
@@ -105,6 +106,7 @@ class PurchaseResult(BaseModel):
     status: Literal["pending", "received"]
     wine_ids: list[UUID]
     bottles: int
+    unavailable_photo_wine_ids: list[UUID] = Field(default_factory=list)
 
 
 class PurchaseMatch(BaseModel):
@@ -114,6 +116,12 @@ class PurchaseMatch(BaseModel):
     vintage: str
     format: str
     currency: str
+    has_photo: bool = False
+
+
+class PurchasePhotoSuggestion(BaseModel):
+    id: UUID
+    thumbnail_url: str
 
 
 class PurchasePreview(BaseModel):

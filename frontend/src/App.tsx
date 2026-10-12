@@ -1687,8 +1687,6 @@ export function App() {
   const [selectedSuggestedPhotoId, setSelectedSuggestedPhotoId] = useState<string | null>(null);
   const [detailWinePhotoSuggestion, setDetailWinePhotoSuggestion] = useState<WinePhotoSuggestion | null>(null);
   const [detailWinePhotoSuggestionWineId, setDetailWinePhotoSuggestionWineId] = useState<string | null>(null);
-  const detailWinePhotoSuggestionCacheRef = useRef(new Map<string, WinePhotoSuggestion | null>());
-  const dismissedDetailWinePhotoSuggestionsRef = useRef(new Set<string>());
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
   const [wishlistEntryIntent, setWishlistEntryIntent] = useState<"save" | "offer">("save");
   const [searchQuery, setSearchQuery] = useState("");
@@ -5575,7 +5573,6 @@ export function App() {
       const updated = await api<Wine>(`/api/v1/wines/${wineId}/photo/reuse/${sourceWineId}`, { method: "POST" });
       setWines((current) => current.map((wine) => wine.id === updated.id ? updated : wine));
       setSelectedWineId(updated.id);
-      detailWinePhotoSuggestionCacheRef.current.set(wineId, null);
       setDetailWinePhotoSuggestion(null);
       setDetailWinePhotoSuggestionWineId(null);
     } catch (nextError) {
@@ -6053,22 +6050,14 @@ export function App() {
     if (
       !selectedWine ||
       !isWineCollectionView ||
+      offlineMode ||
+      wineFormOpen ||
       !canReuseWinePhotos ||
       selectedWine.photo_thumbnail_url ||
       selectedWine.photo_detail_url ||
       selectedWine.name.trim().length < 2 ||
-      !selectedWine.producer.trim() ||
-      dismissedDetailWinePhotoSuggestionsRef.current.has(selectedWine.id)
+      !selectedWine.producer.trim()
     ) return;
-
-    const cachedSuggestion = detailWinePhotoSuggestionCacheRef.current.get(selectedWine.id);
-    if (cachedSuggestion !== undefined) {
-      if (cachedSuggestion) {
-        setDetailWinePhotoSuggestion(cachedSuggestion);
-        setDetailWinePhotoSuggestionWineId(selectedWine.id);
-      }
-      return;
-    }
 
     let active = true;
     const controller = new AbortController();
@@ -6078,22 +6067,19 @@ export function App() {
       api<WinePhotoSuggestion[]>(`/api/v1/wines/photo/suggestions?${query.toString()}`, { signal: controller.signal })
         .then((suggestions) => {
           const suggestion = suggestions[0] || null;
-          detailWinePhotoSuggestionCacheRef.current.set(wineId, suggestion);
           if (active && suggestion) {
             setDetailWinePhotoSuggestion(suggestion);
             setDetailWinePhotoSuggestionWineId(wineId);
           }
         })
-        .catch(() => {
-          if (!controller.signal.aborted) detailWinePhotoSuggestionCacheRef.current.set(wineId, null);
-        });
+        .catch(() => { /* A failed photo lookup must not block the wine detail. */ });
     }, 0);
     return () => {
       active = false;
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [canReuseWinePhotos, isWineCollectionView, selectedWine?.id, selectedWine?.name, selectedWine?.producer, selectedWine?.photo_thumbnail_url, selectedWine?.photo_detail_url]);
+  }, [canReuseWinePhotos, isWineCollectionView, offlineMode, wineFormOpen, selectedWine?.id, selectedWine?.name, selectedWine?.producer, selectedWine?.photo_thumbnail_url, selectedWine?.photo_detail_url]);
 
   useEffect(() => {
     if (!wineFormOpen || !isWineCollectionView) return;
@@ -9313,7 +9299,6 @@ export function App() {
         photoSuggestion={detailWinePhotoSuggestionWineId === wine.id ? detailWinePhotoSuggestion : null}
         onUseSuggestedPhoto={(sourceWineId) => void reuseWinePhoto(wine.id, sourceWineId)}
         onDismissSuggestedPhoto={() => {
-          dismissedDetailWinePhotoSuggestionsRef.current.add(wine.id);
           setDetailWinePhotoSuggestion(null);
           setDetailWinePhotoSuggestionWineId(null);
         }}

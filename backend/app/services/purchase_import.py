@@ -18,6 +18,7 @@ from app.models import (
     Wine,
     WineCatalogAlias,
     WineCatalogEntry,
+    WinePhotoLibraryEntry,
     WineStockMovement,
     WineStorageAllocation,
 )
@@ -27,8 +28,62 @@ from app.services.merchants import get_or_create_merchant
 from app.services.pdf_sources import extract_pdf_document
 from app.services.stock_ledger import add_inbound_stock
 from app.services.storage import add_to_storage
+from app.services.wine_photo_library import (
+    PHOTO_FILE_NAMES,
+    copy_library_photo,
+    library_photo_path,
+    normalize_photo_identity,
+)
 
 MAX_DOCUMENT_BYTES = 10_000_000
+
+
+def purchase_photo_suggestions(db: Session, name: str, producer: str) -> list[dict]:
+    """Read shared reference assets only, never another household's wines."""
+    identity = (normalize_photo_identity(name), normalize_photo_identity(producer))
+    if not all(identity):
+        return []
+    photos = db.scalars(
+        select(WinePhotoLibraryEntry)
+        .where(
+            WinePhotoLibraryEntry.normalized_name == identity[0],
+            WinePhotoLibraryEntry.normalized_producer == identity[1],
+        )
+        .order_by(WinePhotoLibraryEntry.created_at.desc(), WinePhotoLibraryEntry.id.desc())
+    )
+    suggestions = []
+    for photo in photos:
+        if all(library_photo_path(photo, size).is_file() for size in PHOTO_FILE_NAMES):
+            suggestions.append(
+                {
+                    "id": photo.id,
+                    "thumbnail_url": (
+                        f"/api/v1/wines/photo/library/{photo.id}/thumbnail?v={photo.photo_version}"
+                    ),
+                }
+            )
+            if len(suggestions) == 10:
+                break
+    return suggestions
+
+
+def attach_purchase_photo(db: Session, wine: Wine, photo_id: UUID) -> bool:
+    if wine.photo_version:
+        return True
+    photo = db.get(WinePhotoLibraryEntry, photo_id)
+    if photo is None:
+        return False
+    if (
+        not wine.producer.strip()
+        or photo.normalized_name != normalize_photo_identity(wine.name)
+        or photo.normalized_producer != normalize_photo_identity(wine.producer)
+    ):
+        raise HTTPException(422, "Selected reference photo does not match the reviewed wine")
+    try:
+        copy_library_photo(photo, wine)
+    except FileNotFoundError:
+        return False
+    return True
 
 
 def fill_purchase_producers_from_catalog(db: Session, extraction: PurchaseExtraction) -> None:
@@ -159,6 +214,7 @@ def apply_purchase(
                 raise HTTPException(409, "This supplier document has already been imported")
     supplier = get_or_create_merchant(db, context, payload.supplier)
     wine_ids: list[UUID] = []
+    selected_photos: list[tuple[Wine, UUID]] = []
     received = receiving or payload.delivery == "received"
     for index, row in enumerate(payload.rows):
         wine_id = UUID(record.result["wine_ids"][index]) if receiving else row.existing_wine_id
@@ -203,6 +259,8 @@ def apply_purchase(
             ensure_catalog_entry_for_wine_data(
                 db, {"name": row.name, "producer": row.producer, "format": row.format}
             )
+        if row.photo_library_id and not receiving:
+            selected_photos.append((wine, row.photo_library_id))
         if received:
             # Preserve historical costs for legacy stock before adding a new lot.
             allocated = sum(
@@ -254,11 +312,19 @@ def apply_purchase(
                 wine.status = "Delivered"
         wine_ids.append(wine.id)
         db.flush()
+    unavailable_photos = {
+        wine.id
+        for wine, photo_id in selected_photos
+        if not attach_purchase_photo(db, wine, photo_id)
+    }
     result = PurchaseResult(
         id=record.id,
         status="received" if received else "pending",
         wine_ids=wine_ids,
         bottles=sum(row.quantity for row in payload.rows),
+        unavailable_photo_wine_ids=[
+            wine_id for wine_id in dict.fromkeys(wine_ids) if wine_id in unavailable_photos
+        ],
     )
     record.status = result.status
     record.confirmed = payload.model_dump(mode="json")

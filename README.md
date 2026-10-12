@@ -52,6 +52,18 @@ Bottle format is separate from the wine name. Explicit volumes such as `750ml`,
 if the extracted format is missing, a single explicit volume supplies it in ml.
 This also applies when reopening an existing draft. Numbers belonging to wine
 names (such as `Bin 389` or `1000 Stories`) are preserved.
+During review, matching wine name and producer can propose up to ten available
+photos from the shared reference library. Selection is optional; check the vintage
+and bottle format before choosing. Editing the identity, vintage, format or target
+cellar record clears the choice. Existing cellar photos are preserved. A selected
+photo is copied when confirming the purchase, including purchases awaiting delivery.
+If it is no longer available, the purchase is still saved with a warning. The wine
+detail view remains available for adding a photo later; private cellar photos are
+not searched by the purchase suggestion endpoint.
+Opening a wine detail without a photo checks the Vinaris photo library again,
+including after an earlier empty or failed lookup. The user can choose **Use photo**
+or **Not now**; declining hides the offer for that opening. Existing photos are
+preserved, and photo lookup is skipped offline and while editing the wine.
 Photos and PDFs preview beside the review on desktop (expandable on phones).
 Image previews support 100–300% zoom in 25% steps, with a Fit button and internal
 scrolling for long receipts. Choosing another image resets zoom to 100%.

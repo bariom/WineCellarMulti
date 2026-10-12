@@ -1766,7 +1766,8 @@ export type PurchaseImportPreview = {
     document_total: string | number | null; additional_costs: string | number | null;
     rows: PurchaseImportRow[]; warnings: string[];
   };
-  matches: Array<Array<{ id: string; name: string; producer: string; vintage: string; format: string; currency: string }>>;
+  matches: Array<Array<{ id: string; name: string; producer: string; vintage: string; format: string; currency: string; has_photo?: boolean }>>;
 };
 export type PendingPurchase = { id: string; supplier: string; reference: string; expected_delivery: string | null; bottles: number };
-export type PurchaseImportResult = { id: string; status: "received" | "pending"; wine_ids: string[]; bottles: number };
+export type PurchasePhotoSuggestion = { id: string; thumbnail_url: string };
+export type PurchaseImportResult = { id: string; status: "received" | "pending"; wine_ids: string[]; bottles: number; unavailable_photo_wine_ids?: string[] };
