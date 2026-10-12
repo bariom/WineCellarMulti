@@ -15148,35 +15148,45 @@ export function App() {
               ) : null}
 
               {settingsTab === "data" && canAdmin ? (
-                <section className="settings-card">
+                <section className="settings-card data-import-card" aria-labelledby="data-import-title">
                   <div className="settings-card-heading">
                     <div>
                       <span>{t("importLegacy")}</span>
-                      <h3>{t("importSection")}</h3>
+                      <h3 id="data-import-title">{t("importSection")}</h3>
                     </div>
                   </div>
-                  <div className="token-box">
-                    <strong>{t("importLegacy")}</strong>
-                    <span>{t("importSupports")}</span>
-                    <small>{t("exportHistoryIncluded")}</small>
+                  <p className="data-import-intro">{t("importSupports")}</p>
+                  <div className="data-import-sources" role="group" aria-label={locale === "it" ? "Origine dei dati" : "Data source"}>
+                    <section className="data-import-source data-import-source--cellartracker" aria-labelledby="cellartracker-import-title">
+                      <span className="data-import-source-tag">{locale === "it" ? "Vieni da CellarTracker?" : "Coming from CellarTracker?"}</span>
+                      <h4 id="cellartracker-import-title">{locale === "it" ? "Importa da CellarTracker" : "Import from CellarTracker"}</h4>
+                      <p>{locale === "it" ? "Esporta la tua collezione “My Cellar” da CellarTracker in formato CSV e carica qui il file." : "Export your “My Cellar” collection from CellarTracker as a CSV file and upload it here."}</p>
+                      <label><span>{locale === "it" ? "Carica CSV CellarTracker" : "Upload CellarTracker CSV"}</span><input type="file" accept="text/csv,.csv" onChange={importCellarTrackerFile} disabled={saving} /></label>
+                    </section>
+                    <section className="data-import-source" aria-labelledby="vinaris-import-title">
+                      <span className="data-import-source-tag">{locale === "it" ? "Hai un backup Vinaris?" : "Have a Vinaris backup?"}</span>
+                      <h4 id="vinaris-import-title">{locale === "it" ? "Ripristina un backup" : "Restore a backup"}</h4>
+                      <p>{locale === "it" ? "Carica un file JSON esportato da Vinaris o un backup precedente compatibile." : "Upload a JSON file exported from Vinaris or a compatible older backup."}</p>
+                      <small>{t("exportHistoryIncluded")}</small>
+                      <label><span>{locale === "it" ? "Carica backup JSON Vinaris" : "Upload Vinaris JSON backup"}</span><input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} /></label>
+                    </section>
                   </div>
+                  <p className="data-import-preview-help">{locale === "it" ? "Il caricamento prepara solo un’anteprima: vedrai i vini nuovi e i possibili duplicati prima di confermare." : "Uploading only prepares a preview: review new wines and possible duplicates before confirming."}</p>
                   <label>
                     <span>{t("importMode")}</span>
-                    <select value={importMode} onChange={(event) => setImportMode(event.target.value as ImportMode)} disabled={saving}>
+                    <select aria-label={t("importMode")} aria-describedby="data-import-mode-help" value={importMode} onChange={(event) => setImportMode(event.target.value as ImportMode)} disabled={saving}>
                       <option value="skip_duplicates">{t("importModeSkip")}</option>
                       <option value="update_existing">{t("importModeUpdate")}</option>
                       <option value="add_all">{t("importModeAdd")}</option>
                       <option value="replace_all">{t("importModeReplace")}</option>
                     </select>
-                  </label>
-                  <label>
-                    <span>Vinaris JSON</span>
-                    <input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} />
-                  </label>
-                  <label>
-                    <span>CellarTracker CSV</span>
-                    <input type="file" accept="text/csv,.csv" onChange={importCellarTrackerFile} disabled={saving} />
-                    <small>{locale === "it" ? "Esporta “My Cellar” da CellarTracker: l’anteprima mostra nuovi vini e duplicati prima dell’import." : "Export “My Cellar” from CellarTracker: preview new wines and duplicates before importing."}</small>
+                    <small id="data-import-mode-help">{importMode === "replace_all"
+                      ? (locale === "it" ? "Attenzione: elimina tutti i vini e la wishlist della cantina attiva prima di importare il file." : "Warning: deletes all wines and the wishlist in the active cellar before importing the file.")
+                      : importMode === "update_existing"
+                        ? (locale === "it" ? "Aggiorna i vini già presenti con i dati del file e aggiunge quelli nuovi." : "Updates existing wines with data from the file and adds new wines.")
+                        : importMode === "add_all"
+                          ? (locale === "it" ? "Importa tutte le righe, anche se il vino potrebbe essere già presente." : "Imports every row, even if the wine may already be in your cellar.")
+                          : (locale === "it" ? "Aggiunge i vini nuovi e salta quelli che risultano già presenti. È la scelta consigliata per iniziare." : "Adds new wines and skips likely existing ones. Recommended for getting started.")}</small>
                   </label>
                   {saving && !importPreview && !importResult ? <LoadingState label={t("loadingData")} compact /> : null}
                   {importPreview ? (

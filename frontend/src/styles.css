@@ -28920,3 +28920,15 @@ body,
 .registration-form .photo-disclaimer-consent { text-transform: none; letter-spacing: normal; font-size: .82rem; line-height: 1.55; }
 .registration-form .photo-disclaimer-consent span { text-transform: none; letter-spacing: normal; }
 .registration-form .registration-email-guide { padding: 14px; gap: 6px; }
+.data-import-card { min-width: 0; }
+.data-import-intro, .data-import-preview-help { margin: 0; line-height: 1.55; }
+.data-import-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
+.data-import-source { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.data-import-source--cellartracker { border-color: color-mix(in srgb, var(--primary) 65%, var(--border)); background: color-mix(in srgb, var(--primary) 7%, var(--surface)); }
+.data-import-source-tag { color: var(--text-muted); font-size: .75rem; font-weight: 700; }
+.data-import-source h4 { margin: 0; font-size: 1rem; }
+.data-import-source p { margin: 0; font-size: .85rem; line-height: 1.5; }
+.data-import-source small, .data-import-card label > small { font-size: .8rem; line-height: 1.5; color: var(--text-muted); }
+.data-import-source label { margin-top: auto; }
+.data-import-source input[type="file"] { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; min-height: 44px; font-size: .8rem; }
+.data-import-preview-help { font-size: .85rem; color: var(--text-muted); }

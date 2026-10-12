@@ -1,5 +1,10 @@
 # Frontend E2E checks
 
+Data import: `npm run test:e2e:data-import` checks the CellarTracker CSV and Vinaris
+JSON source cards in Italian and English, preview before confirmation, switching
+sources, duplicate-mode guidance and both import endpoints. Responsive checks
+cover 360, 390, 430 and 1440 px; the reviewed source cards have a 390 px baseline.
+
 Wishlist: `npm run test:e2e:wishlist` checks the guided save/offer/planning choices,
 deferred AI generation, purchase quantities, tasting without stock changes,
 read-only access, vintage entry and taste scanning. Responsive checks cover
