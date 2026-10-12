@@ -7,129 +7,134 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const locale of ["it", "en"] as const) {
-  test(`${locale}: news timeline, navigation and registration work across viewports`, async ({ page }, testInfo) => {
+  test(`${locale}: news slides support selection, keyboard, touch and registration`, async ({ page }, testInfo) => {
     await page.goto(`/?lang=${locale}`);
-    const news = page.getByRole("region", { name: locale === "it" ? "La tua passione cresce. Vinaris, anche." : "Your passion grows. So does Vinaris." });
-    const articles = news.getByRole("article");
-    await expect(articles).toHaveCount(2);
-    await expect(articles.nth(0).getByRole("heading")).toHaveText(locale === "it" ? "Dallo scontrino alla cantina. In pochi gesti." : "From receipt to cellar. In a few simple steps.");
-    await expect(articles.nth(1).getByRole("heading")).toHaveText(locale === "it" ? "Il vino finisce. La serata resta." : "The wine is finished. The evening stays.");
-    await expect(articles.nth(0)).toContainText(locale === "it" ? "Verifica etichette, annate, quantità e prezzi" : "Review labels, vintages, quantities and prices");
-    await expect(news.locator("time")).toHaveCount(2);
+    const news = page.getByRole("region", { name: locale === "it" ? "Meno gestione. Più piacere di collezionare." : "Less admin. More joy in collecting." });
+    const selectors = news.getByRole("group").getByRole("button");
+    const article = news.getByRole("article");
+    const titles = locale === "it" ? ["Dalla fattura alla cantina. In pochi tocchi.", "Certi vini meritano più di una nota.", "La tua cantina. Le tue priorità."] : ["From invoice to cellar. In a few taps.", "Some wines deserve more than a tasting note.", "Your cellar. Your priorities."];
+    await expect(selectors).toHaveCount(3);
+    await expect(article).toHaveCount(1);
+    await expect(news.locator("#news-signup-note")).toContainText("23");
     for (const width of [360, 390, 430, 1200, 1440]) {
       await page.setViewportSize({ width, height: width >= 1200 ? 1000 : 844 });
       await page.evaluate(() => window.scrollTo(0, 0));
       if (width < 1161) await page.getByRole("button", { name: locale === "it" ? "Apri menu" : "Open menu" }).click();
-      const link = page.getByRole("link", { name: locale === "it" ? "Novità" : "What’s new", exact: true });
-      await expect(link).toBeVisible();
-      if (width >= 1200) {
-        const brand = (await page.locator("header").getByRole("link", { name: "Vinaris", exact: true }).boundingBox())!;
-        const nav = (await page.locator("header").getByRole("navigation").boundingBox())!;
-        expect(nav.x).toBeGreaterThanOrEqual(brand.x + brand.width);
-      }
-      await link.click();
+      await page.getByRole("link", { name: locale === "it" ? "Novità" : "What’s new", exact: true }).click();
       await expect(page).toHaveURL(/#news$/);
-      const first = (await articles.nth(0).boundingBox())!;
-      const second = (await articles.nth(1).boundingBox())!;
-      expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
-      for (const article of await articles.all()) {
+      for (let index=0; index<3; index++) {
+        await selectors.nth(index).click();
+        await expect(selectors.nth(index)).toHaveAttribute("aria-pressed", "true");
+        await expect(article.getByRole("heading")).toHaveText(titles[index]);
+        await expect(article.locator("time")).toBeVisible();
+        expect((await news.boundingBox())!.height).toBeLessThan(width >= 1200 ? 700 : 850);
         const box = (await article.boundingBox())!;
-        expect(box.x).toBeGreaterThanOrEqual(0);
-        expect(box.x + box.width).toBeLessThanOrEqual(width);
-        const label = (await article.locator(".marketing-news-label").boundingBox())!;
-        const title = (await article.getByRole("heading").boundingBox())!;
-        expect(title.y).toBeGreaterThanOrEqual(label.y + label.height);
+        const cta = (await article.getByRole("button").boundingBox())!;
+        const detail = (await article.locator(".marketing-news-copy p").boundingBox())!;
+        expect(cta.y).toBeGreaterThanOrEqual(detail.y + detail.height);
+        for (const element of [box, cta, ...(await Promise.all((await selectors.all()).map(button => button.boundingBox()))).map(b => b!)]) {
+          expect(element.x).toBeGreaterThanOrEqual(0);
+          expect(element.x + element.width).toBeLessThanOrEqual(width);
+        }
+        expect(cta.height).toBeGreaterThanOrEqual(44);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+        if (index === 1) await expect.poll(() => article.locator("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+        if (width === 390 || width === 1440) {
+          await news.evaluate(el => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 90));
+          await news.screenshot({ path: testInfo.outputPath(`news-${locale}-${index}-${width}.png`) });
+        }
       }
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-      if (width === 390 || width === 1440) await news.screenshot({ path: testInfo.outputPath(`news-${locale}-${width}.png`) });
     }
-    await news.getByRole("button", { name: locale === "it" ? "Inizia con Vinaris" : "Get started with Vinaris" }).click();
-    await expect(page.getByRole("textbox", { name: locale === "it" ? "Conferma password" : "Confirm password", exact: true })).toBeVisible();
+    await news.getByRole("button", { name: locale === "it" ? "Novità successiva" : "Next update" }).click();
+    await expect(article.getByRole("heading")).toHaveText(titles[0]);
+    await news.getByRole("button", { name: locale === "it" ? "Novità precedente" : "Previous update" }).click();
+    await expect(article.getByRole("heading")).toHaveText(titles[2]);
+    await selectors.nth(2).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(selectors.nth(0)).toBeFocused();
+    await expect(article.getByRole("heading")).toHaveText(titles[0]);
+    await page.keyboard.press("End");
+    await expect(article.getByRole("heading")).toHaveText(titles[2]);
+    await page.keyboard.press("Home");
+    await expect(article.getByRole("heading")).toHaveText(titles[0]);
+    const swipe = async (dx: number, dy: number) => article.evaluate((el, delta) => {
+      const start = new Touch({ identifier: 1, target: el, clientX: 250, clientY: 200 });
+      el.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [start] }));
+      const end = new Touch({ identifier: 1, target: el, clientX: 250 + delta.dx, clientY: 200 + delta.dy });
+      el.dispatchEvent(new TouchEvent("touchend", { bubbles: true, changedTouches: [end] }));
+    }, { dx, dy });
+    await swipe(-150, 5);
+    await expect(article.getByRole("heading")).toHaveText(titles[1]);
+    // A vertical gesture must leave the current slide unchanged.
+    await swipe(-10, 150);
+    await expect(article.getByRole("heading")).toHaveText(titles[1]);
+    for (let index=0; index<3; index++) {
+      await selectors.nth(index).click();
+      await article.getByRole("button").click();
+      await expect(page.getByLabel(locale === "it" ? "Conferma password" : "Confirm password", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: locale === "it" ? "Annulla" : "Cancel", exact: true }).click();
+    }
   });
 
-  test(`${locale}: demo and real screenshots stay usable on mobile and desktop`, async ({ page }, testInfo) => {
+  test(`${locale}: registration-led landing stays clear and compact across viewports`, async ({ page }, testInfo) => {
     await page.goto(`/?lang=${locale}`);
-    const hero = page.getByRole("region", { name: locale === "it" ? "Quale vino apri stasera?" : "Know what to drink. Know what to keep." });
-    const demo = hero.getByRole("button", { name: locale === "it" ? "Prova la cantina demo" : "Try the demo cellar" });
-    for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 1000 }]) {
-      await page.setViewportSize(viewport);
-      await expect(demo).toBeVisible();
-      const headingBox = await hero.getByRole("heading").boundingBox();
-      const buttonBox = await demo.boundingBox();
-      expect(buttonBox!.y).toBeGreaterThan(headingBox!.y + headingBox!.height);
-      expect(buttonBox!.y + buttonBox!.height).toBeLessThan(viewport.height);
-      expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
-      expect(buttonBox!.x).toBeGreaterThanOrEqual(0);
-      expect(buttonBox!.x + buttonBox!.width).toBeLessThanOrEqual(viewport.width);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-      const screenshot = hero.getByRole("img");
-      await expect.poll(() => screenshot.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
-      expect(await screenshot.evaluate((img: HTMLImageElement) => img.currentSrc)).toContain(`demo-drink-${viewport.width <= 600 ? "mobile" : "desktop"}-${locale}.png`);
-      const imageBox = await screenshot.boundingBox();
-      expect(imageBox!.x).toBeGreaterThanOrEqual(0);
-      expect(imageBox!.x + imageBox!.width).toBeLessThanOrEqual(viewport.width);
-      if (viewport.width === 390 || viewport.width === 1440) {
-        await page.screenshot({ path: testInfo.outputPath(`landing-${locale}-${viewport.width}.png`) });
-      }
-    }
+    const hero = page.getByRole("region", { name: locale === "it" ? "La tua cantina digitale. Ogni bottiglia, al momento giusto." : "Your digital wine cellar. Every bottle, at the right time." });
+    const register = hero.getByRole("button", { name: locale === "it" ? /Crea il tuo account gratis/ : /Create your free account/ });
+    const demo = hero.getByRole("button", { name: locale === "it" ? "Esplora la demo" : "Explore the demo" });
+    await expect(register).toBeVisible();
+    await expect(register).toHaveClass(/primary/);
+    await expect(demo).toHaveClass(/secondary/);
     await expect(hero.getByText(/23/)).toBeVisible();
-    const collectorPreview = page.getByRole("img", { name: locale === "it" ? "Dashboard mobile reale della cantina demo Vinaris" : "Real mobile dashboard of the Vinaris demo cellar" });
-    // The founder section must use the current 390 × 844 mobile capture.
-    await expect.poll(() => collectorPreview.evaluate((img: HTMLImageElement) => [img.naturalWidth, img.naturalHeight])).toEqual([390, 844]);
-    for (const width of [390, 1440]) {
-      await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
-      await page.locator('#product').screenshot({ path: testInfo.outputPath(`founder-${locale}-${width}.png`) });
-    }
-    const knowledge = page.getByRole("region", { name: locale === "it" ? "Cantina vino digitale per collezionisti e sommelier" : "Digital wine cellar for collectors and sommeliers" });
-    const regionsMap = knowledge.getByRole("img");
-    for (const width of [360, 390, 430, 1440]) {
-      await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
-      await regionsMap.scrollIntoViewIfNeeded();
-      await expect.poll(() => regionsMap.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
-      await expect(regionsMap).toHaveAttribute("src", `/landing/demo-regions-${locale}.png`);
-      const mapBox = (await regionsMap.boundingBox())!;
-      const textBox = (await knowledge.getByRole("heading", { level: 2 }).boundingBox())!;
-      expect(mapBox.x).toBeGreaterThanOrEqual(0);
-      expect(mapBox.x + mapBox.width).toBeLessThanOrEqual(width);
-      if (width === 1440) expect(mapBox.x).toBeGreaterThan(textBox.x + textBox.width);
-      else expect(mapBox.y).toBeGreaterThan(textBox.y + textBox.height);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-      if (width === 390 || width === 1440) await knowledge.screenshot({ path: testInfo.outputPath(`regions-${locale}-${width}.png`) });
-    }
-    const dashboard = page.getByRole("region", { name: locale === "it" ? "La tua cantina, a modo tuo." : "Your cellar. Your way." });
-    const dashboardDemo = dashboard.getByRole("button", { name: locale === "it" ? "Provala nella demo" : "Try it in the demo" });
-    for (const width of [360, 390, 430, 1200, 1440]) {
-      await page.setViewportSize({ width, height: width >= 1200 ? 1000 : 844 });
+    await expect(page.locator("#product").getByRole("listitem")).toHaveCount(3);
+    const plans = page.locator("#access");
+    await expect(plans.getByRole("article").first()).toContainText("23");
+    const faq = plans.locator("details");
+    await expect(faq).toHaveCount(6);
+    const aiPack = faq.filter({ has: page.locator("summary", { hasText: locale === "it" ? "Che cos’è un AI Pack?" : "What is an AI Pack?" }) });
+    await aiPack.locator("summary").click();
+    await expect(aiPack.locator("p")).toBeVisible();
+    await expect(aiPack.locator("p")).toContainText(locale === "it" ? "credito prepagato" : "prepaid credit");
+    await expect(aiPack.locator("p")).toContainText(locale === "it" ? "non sostituisce l’abbonamento" : "does not replace the subscription");
+    await aiPack.locator("summary").click();
+    await faq.nth(1).getByText(locale === "it" ? "Che cosa comprende l’account gratuito?" : "What does the free account include?", { exact: true }).click();
+    await expect(faq.nth(1).locator("p")).toBeVisible();
+    await expect(faq.nth(1)).toContainText("23");
+    const structured = await page.locator('.marketing-site script[type="application/ld+json"]').textContent();
+    expect(JSON.parse(structured!).mainEntity[1].acceptedAnswer.text).toContain("23");
+    await faq.nth(1).locator("summary").click();
+    for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 900, height: 1000 }, { width: 1440, height: 1000 }]) {
+      await page.setViewportSize(viewport);
       await page.evaluate(() => window.scrollTo(0, 0));
-      if (width < 1161) await page.getByRole("button", { name: locale === "it" ? "Apri menu" : "Open menu" }).click();
-      await page.getByRole("link", { name: locale === "it" ? "La tua dashboard" : "Your dashboard", exact: true }).click();
-      await expect(page).toHaveURL(/#dashboard$/);
-      await expect(dashboard.getByRole("listitem")).toHaveCount(3);
-      const preview = dashboard.getByRole("figure");
-      const heading = (await dashboard.getByRole("heading", { level: 2 }).boundingBox())!;
-      const previewBox = (await preview.boundingBox())!;
-      if (width >= 1200) expect(previewBox.x).toBeGreaterThan(heading.x + heading.width);
-      else {
-        const note = (await dashboard.getByText(/Le modifiche durano|Changes last/).boundingBox())!;
-        expect(previewBox.y).toBeGreaterThan(note.y + note.height);
-      }
-      const cards = await preview.getByRole("article").all();
-      const boxes = await Promise.all(cards.map(card => card.boundingBox()));
-      for (const box of boxes) {
-        expect(box!.x).toBeGreaterThanOrEqual(0);
-        expect(box!.x + box!.width).toBeLessThanOrEqual(width);
-      }
-      for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
-        const a = boxes[i]!, b = boxes[j]!;
-        expect(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y).toBe(true);
+      const heading = (await hero.getByRole("heading").boundingBox())!;
+      const cta = (await register.boundingBox())!;
+      expect(cta.y).toBeGreaterThan(heading.y + heading.height);
+      expect(cta.y + cta.height).toBeLessThan(viewport.height);
+      expect(cta.height).toBeGreaterThanOrEqual(44);
+      expect(cta.x).toBeGreaterThanOrEqual(0);
+      expect(cta.x + cta.width).toBeLessThanOrEqual(viewport.width);
+      await expect.poll(() => hero.getByRole("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+      for (const selector of [".marketing-benefits-grid article", ".marketing-plans-grid article"]) {
+        const boxes = await page.locator(selector).evaluateAll(nodes => nodes.map(n => { const b = n.getBoundingClientRect(); return {x:b.x,y:b.y,width:b.width,height:b.height}; }));
+        for (let i = 0; i < boxes.length; i++) {
+          const a = boxes[i];
+          expect(a.x).toBeGreaterThanOrEqual(0);
+          expect(a.x + a.width).toBeLessThanOrEqual(viewport.width);
+          for (const b of boxes.slice(i + 1)) expect(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y).toBe(true);
+        }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-      if (width === 390 || width === 1440) {
-        await dashboard.screenshot({ path: testInfo.outputPath(`dashboard-${locale}-${width}.png`) });
-        await page.screenshot({ path: testInfo.outputPath(`full-landing-${locale}-${width}.png`), fullPage: true });
+      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThan(viewport.width <= 430 ? 5700 : 4500);
+      if ([390, 1440].includes(viewport.width)) {
+        await page.screenshot({ path: testInfo.outputPath(`landing-${locale}-${viewport.width}.png`) });
+        await page.screenshot({ path: testInfo.outputPath(`full-landing-${locale}-${viewport.width}.png`), fullPage: true });
+        if (viewport.width === 390) await expect(page).toHaveScreenshot(`landing-${locale}-compact.png`, { fullPage: true, animations: "disabled" });
       }
+      if (viewport.width < 1161) await page.getByRole("button", { name: locale === "it" ? "Apri menu" : "Open menu" }).click();
+      const nav = page.locator("#marketing-navigation").getByRole("navigation");
+      await expect(nav.getByRole("link")).toHaveCount(3);
+      await nav.getByRole("link", { name: locale === "it" ? "Come funziona" : "How it works" }).click();
+      await expect(page).toHaveURL(/#product$/);
     }
-    // Both entry points share loading feedback; the new section opens the demo.
     let release!: () => void;
     const pending = new Promise<void>(resolve => { release = resolve; });
     await page.route("**/api/v1/auth/demo?**", async route => {
@@ -137,14 +142,57 @@ for (const locale of ["it", "en"] as const) {
       await route.fulfill({ status: 503, json: { detail: "Demo temporarily unavailable" } });
     });
     const request = page.waitForRequest("**/api/v1/auth/demo?**");
-    await dashboardDemo.click();
+    await demo.click();
     expect((await request).method()).toBe("POST");
     await expect(hero.getByRole("button", { name: /Apertura|Opening/ })).toBeDisabled();
-    await expect(dashboard.getByRole("button", { name: /Apertura|Opening/ })).toBeDisabled();
+    await expect(page.locator(".marketing-conversion-close").getByRole("button", { name: /Apertura|Opening/ })).toBeDisabled();
     release();
     await expect(demo).toBeEnabled();
-    await expect(dashboardDemo).toBeEnabled();
-    await hero.getByRole("button", { name: locale === "it" ? /Crea la tua cantina/ : /Build your cellar/ }).click();
-    await expect(page.getByRole("textbox", { name: locale === "it" ? "Conferma password" : "Confirm password", exact: true })).toBeVisible();
+    await register.click();
+    await expect(page.getByLabel(locale === "it" ? "Conferma password" : "Confirm password", { exact: true })).toBeVisible();
   });
+
+  for (const width of [390, 1440]) {
+    test(`${locale}: signup preserves consent and email confirmation at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+      await page.goto(`/?lang=${locale}`);
+      await page.locator(".marketing-hero").getByRole("button", { name: locale === "it" ? /Crea il tuo account gratis/ : /Create your free account/ }).click();
+      const form = page.locator("form.registration-form");
+      await expect(form).toBeVisible();
+      const cellar = form.getByLabel(locale === "it" ? "Nome cantina" : "Cellar name", { exact: true });
+      await expect(cellar).toBeHidden();
+      await form.getByLabel(locale === "it" ? "Nome" : "Name", { exact: true }).fill("Landing test");
+      await form.getByLabel("Email", { exact: true }).fill("landing@example.test");
+      await form.getByLabel("Password", { exact: true }).fill("ExamplePass123!");
+      await form.getByLabel(locale === "it" ? "Conferma password" : "Confirm password", { exact: true }).fill("ExamplePass123!");
+      const submit = form.getByRole("button", { name: locale === "it" ? "Crea account" : "Create account", exact: true });
+      await expect(submit).toBeDisabled();
+      const consents = form.getByRole("checkbox");
+      await expect(consents).toHaveCount(3);
+      for (let i=0; i<3; i++) {
+        await expect(consents.nth(i)).not.toBeChecked();
+        await consents.nth(i).check();
+        if (i < 2) await expect(submit).toBeDisabled();
+      }
+      await expect(submit).toBeEnabled();
+      await form.locator("details summary").click();
+      await expect(cellar).toBeVisible();
+      await cellar.fill(width === 1440 ? "My collection" : "");
+      await form.getByLabel("Email", { exact: true }).click();
+      await expect(cellar).toHaveValue(width === 1440 ? "My collection" : "Main Cellar");
+      await form.locator("details summary").click();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await form.screenshot({ path: testInfo.outputPath(`signup-${locale}-${width}.png`) });
+      let payload: Record<string, unknown> | undefined;
+      await page.route("**/api/v1/auth/register", async route => {
+        payload = route.request().postDataJSON();
+        await route.fulfill({ json: { authenticated: false, pending_email_verification: true } });
+      });
+      await submit.click();
+      await expect.poll(() => payload).toBeTruthy();
+      expect(payload).toMatchObject({ email: "landing@example.test", display_name: "Landing test", household_name: width === 1440 ? "My collection" : "Main Cellar", privacy_policy_accepted: true, terms_accepted: true, photo_usage_disclaimer_accepted: true, locale });
+      await expect(page.locator(".verification-email-address")).toHaveText("landing@example.test");
+      await expect(form).toHaveCount(0);
+    });
+  }
 }

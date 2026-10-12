@@ -2,13 +2,9 @@ import { useEffect, useState } from "react";
 import type { Locale } from "../types";
 import { api } from "../services/api";
 import LandingHeader from "./landing/LandingHeader";
+import NewsCarousel from "./landing/NewsCarousel";
 import { landingCopy } from "./landing/content";
-import {
-  InsightsVisual,
-  LandingIcon,
-  MaturityVisual,
-  SommelierVisual,
-} from "./landing/LandingVisuals";
+import { LandingIcon } from "./landing/LandingVisuals";
 import "./PublicLanding.css";
 
 type PublicLandingProps = {
@@ -48,41 +44,6 @@ function ensureMeta(name: string, content: string, property = false) {
   element.content = content;
 }
 
-const seoContent = {
-  it: {
-    eyebrow: "Enciclopedia della cantina",
-    title: "Cantina vino digitale per collezionisti e sommelier",
-    body: "Vinaris è una cantina digitale privata per organizzare bottiglie, annate, produttori, valore e finestre di beva. È pensata per chi cerca un wine cellar moderno, per il collezionista e per chi vuole un sommelier AI che conosca davvero i vini presenti in cantina.",
-    regionsTitle: "Regioni vinicole e denominazioni",
-    mapAlt: "Mappa reale delle regioni dei vini nella cantina demo Vinaris",
-    mapCaption: "Le regioni della cantina demo, a colpo d’occhio.",
-    regionsBody: "Organizza la tua collezione per regione produttrice e scopri l’equilibrio della cantina tra grandi classici italiani e internazionali.",
-    regions: ["Ticino", "Piemonte", "Toscana", "Veneto", "Borgogna", "Bordeaux", "Champagne", "Rodano", "Rioja", "Napa Valley"],
-    faqTitle: "Domande frequenti su Vinaris",
-    faq: [
-      ["Che cos’è Vinaris?", "Vinaris è un’app per gestire una cantina di vino privata: inventario, maturità, valore, wishlist, degustazioni e consigli del sommelier AI."],
-      ["Vinaris è una cantina digitale o un wine cellar manager?", "Entrambe le cose: Vinaris è una cantina digitale per collezionisti di vino, disponibile sul web e progettata per seguire ogni bottiglia nel tempo."],
-      ["Posso organizzare i vini per regione, incluso il Ticino?", "Sì. Puoi catalogare i vini per paese, regione e denominazione, inclusi Ticino, Piemonte, Toscana, Bordeaux, Borgogna, Champagne, Rioja e Napa Valley."],
-    ],
-  },
-  en: {
-    eyebrow: "Cellar knowledge",
-    title: "Digital wine cellar for collectors and sommeliers",
-    body: "Vinaris is a private digital wine cellar for organising bottles, vintages, producers, value, and drinking windows. It is built for collectors and for anyone who wants an AI sommelier that understands the wines in their own cellar.",
-    regionsTitle: "Wine regions and classic appellations",
-    mapAlt: "Real map of the wine regions in the Vinaris demo cellar",
-    mapCaption: "The demo cellar’s wine regions, at a glance.",
-    regionsBody: "Organise your collection by producing region and understand the balance between classic Italian and international wines.",
-    regions: ["Ticino", "Piedmont", "Tuscany", "Veneto", "Burgundy", "Bordeaux", "Champagne", "Rhône", "Rioja", "Napa Valley"],
-    faqTitle: "Frequently asked questions about Vinaris",
-    faq: [
-      ["What is Vinaris?", "Vinaris is a private wine cellar app for inventory, maturity, value, wishlist, tasting notes, and AI sommelier recommendations."],
-      ["Is Vinaris a digital cellar or a wine cellar manager?", "Both: Vinaris is a digital wine cellar for collectors, available on the web and designed to follow every bottle over time."],
-      ["Can I organise wines by region, including Ticino?", "Yes. Catalogue wines by country, region, and appellation, including Ticino, Piedmont, Tuscany, Bordeaux, Burgundy, Champagne, Rioja, and Napa Valley."],
-    ],
-  },
-} as const;
-
 export default function PublicLanding({
   locale,
   onLocaleChange,
@@ -96,6 +57,7 @@ export default function PublicLanding({
   const labelLimitPattern = /\b15\b/g;
   const dynamicCopy = {
     ...copy,
+    news: { ...copy.news, note: copy.news.note.replace(labelLimitPattern, String(freeTierLabelLimit)) },
     hero: { ...copy.hero, signal: copy.hero.signal.replace(labelLimitPattern, String(freeTierLabelLimit)) },
     closing: {
       ...copy.closing,
@@ -105,10 +67,8 @@ export default function PublicLanding({
       })),
     },
   };
-  const seo = seoContent[locale];
+  const faqs = copy.conversion.faq.map((item) => ({ ...item, answer: item.answer.replace(labelLimitPattern, String(freeTierLabelLimit)) }));
   const desktopDemoImage = locale === "it" ? "/landing/vinaris-demo-desktop-it.png" : "/landing/vinaris-demo-desktop-en.png";
-  const mobileDemoImage = locale === "it" ? "/landing/vinaris-demo-mobile-it.png" : "/landing/vinaris-demo-mobile-en.png";
-  const mobileDemoSize = { width: 390, height: 844 };
   const openingLabel = locale === "it" ? "Apertura…" : "Opening…";
 
   useEffect(() => {
@@ -148,7 +108,7 @@ export default function PublicLanding({
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: seo.faq.map(([question, answer]) => ({
+    mainEntity: faqs.map(({ question, answer }) => ({
       "@type": "Question",
       name: question,
       acceptedAnswer: { "@type": "Answer", text: answer },
@@ -156,7 +116,7 @@ export default function PublicLanding({
   };
 
   return (
-    <div className="marketing-site">
+    <div className="marketing-site marketing-conversion">
       <LandingHeader
         copy={dynamicCopy}
         locale={locale}
@@ -172,14 +132,12 @@ export default function PublicLanding({
             <h1 id="marketing-title">{copy.hero.title}</h1>
             <p className="marketing-hero-lead">{copy.hero.lead}</p>
             <div className="marketing-actions">
-              <button type="button" className="marketing-button primary" onClick={onDemo} disabled={demoLoading} aria-describedby="demo-note">
-                {demoLoading ? openingLabel : copy.hero.demo}
-              </button>
+              <button type="button" className="marketing-button primary" onClick={onRegister} aria-describedby="hero-free-note">{copy.hero.primary}<span aria-hidden="true"> →</span></button>
+              <button type="button" className="marketing-button secondary" onClick={onDemo} disabled={demoLoading} aria-describedby="demo-note">{demoLoading ? openingLabel : copy.hero.demo}</button>
             </div>
             <p id="demo-note" className="marketing-demo-note">{copy.hero.demoNote}</p>
-            <button type="button" className="marketing-register-link" onClick={onRegister}>{copy.hero.primary} →</button>
             <div className="marketing-hero-proof">
-              <span><i />{dynamicCopy.hero.signal}</span>
+              <span id="hero-free-note"><i />{dynamicCopy.hero.signal}</span>
               <span>{dynamicCopy.hero.web}</span>
             </div>
           </div>
@@ -198,162 +156,50 @@ export default function PublicLanding({
           </figure>
         </section>
 
-        <section className="marketing-value-strip" aria-label={copy.origin.eyebrow} data-reveal>
-          {copy.value.map((item, index) => (
-            <article key={item.title}>
-              <span><LandingIcon name={iconNames[index]} /></span>
-              <div><h2>{item.title}</h2><p>{item.body}</p></div>
-            </article>
-          ))}
+        <section className="marketing-section marketing-benefits" aria-labelledby="benefits-title">
+          <h2 id="benefits-title">{copy.conversion.benefits}</h2>
+          <div className="marketing-benefits-grid">
+            {copy.value.map((item, index) => <article key={item.title}>
+              <span className="marketing-benefit-icon"><LandingIcon name={iconNames[index]} /></span>
+              <h3>{item.title}</h3><p>{item.body}</p>
+            </article>)}
+          </div>
         </section>
 
-        <section id="news" className="marketing-section marketing-news-section" aria-labelledby="news-title">
-          <div className="marketing-section-copy">
-            <p className="marketing-kicker">{copy.news.eyebrow}</p>
-            <h2 id="news-title">{copy.news.title}</h2>
-            <p>{copy.news.body}</p>
-          </div>
-          <p className="marketing-news-order">{copy.news.order}</p>
-          <ol className="marketing-news-timeline" aria-label={copy.news.eyebrow}>
-            {copy.news.entries.map((entry) => (
-              <li key={entry.id}>
-                <time dateTime={entry.date}>{entry.dateLabel}</time>
-                <article className={`marketing-news-card${entry.featured ? " is-featured" : ""}`} aria-labelledby={`news-${entry.id}`}>
-                  <span className="marketing-news-label">{entry.label}</span>
-                  <h3 id={`news-${entry.id}`}>{entry.title}</h3>
-                  <p>{entry.body}</p>
-                  <p>{entry.detail}</p>
-                  <small>{entry.availability}</small>
-                </article>
-              </li>
-            ))}
+        <section id="product" className="marketing-section marketing-start" aria-labelledby="start-title">
+          <div className="marketing-section-copy"><p className="marketing-kicker">{copy.nav.product}</p><h2 id="start-title">{copy.conversion.stepsTitle}</h2></div>
+          <ol className="marketing-start-steps">
+            {copy.conversion.steps.map((step, index) => <li key={step.title}><span aria-hidden="true">0{index + 1}</span><div><h3>{step.title}</h3><p>{step.body}</p></div></li>)}
           </ol>
+        </section>
+
+        <NewsCarousel copy={dynamicCopy.news} locale={locale} onRegister={onRegister} />
+
+        <section id="access" className="marketing-section marketing-plans" aria-labelledby="plans-title">
+          <div className="marketing-section-copy"><p className="marketing-kicker">{copy.nav.pricing}</p><h2 id="plans-title">{copy.conversion.planTitle}</h2><p>{copy.conversion.planBody}</p></div>
+          <div className="marketing-plans-grid">
+            {dynamicCopy.closing.tiers.map((tier) => <article key={tier.name}>
+              <span className="marketing-kicker">{tier.label}</span><h3>{tier.name}</h3><p>{tier.body}</p><small>{tier.note}</small>
+            </article>)}
+          </div>
+          <p className="marketing-plan-note">{copy.closing.aiNote}</p>
+          <div className="marketing-faq" aria-labelledby="faq-title">
+            <h3 id="faq-title">{copy.conversion.faqTitle}</h3>
+            {faqs.map(({ question, answer }) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}
+          </div>
+        </section>
+
+        <section className="marketing-section marketing-trust" aria-labelledby="trust-title">
+          <div><h2 id="trust-title">{copy.conversion.trustTitle}</h2><p>{copy.conversion.trustBody}</p></div>
+          <aside><h3>{copy.restaurant.title}</h3><p>{copy.restaurant.availability}</p><RestaurantContactButton label={copy.restaurant.contact} /></aside>
+        </section>
+
+        <section className="marketing-conversion-close" aria-labelledby="closing-title">
+          <div><h2 id="closing-title">{copy.closing.title}</h2><p>{copy.closing.body}</p></div>
           <div className="marketing-actions">
-            <button type="button" className="marketing-button primary" onClick={onRegister}>{copy.news.action}</button>
+            <button type="button" className="marketing-button primary" onClick={onRegister}>{copy.closing.primary}<span aria-hidden="true"> →</span></button>
+            <button type="button" className="marketing-button secondary" onClick={onDemo} disabled={demoLoading}>{demoLoading ? openingLabel : copy.closing.demo}</button>
           </div>
-        </section>
-
-        <section id="dashboard" className="marketing-section marketing-dashboard-section" aria-labelledby="dashboard-title">
-          <div className="marketing-section-copy">
-            <p className="marketing-kicker">{copy.dashboard.eyebrow}</p>
-            <h2 id="dashboard-title">{copy.dashboard.title}</h2>
-            <p className="marketing-dashboard-intro">{copy.dashboard.body}</p>
-            <ol className="marketing-dashboard-steps">
-              {copy.dashboard.steps.map((step) => <li key={step.title}><h3>{step.title}</h3><p>{step.body}</p></li>)}
-            </ol>
-            <div className="marketing-actions">
-              <button type="button" className="marketing-button primary" onClick={onDemo} disabled={demoLoading} aria-describedby="dashboard-demo-note">{demoLoading ? openingLabel : copy.dashboard.action}</button>
-            </div>
-            <small id="dashboard-demo-note" className="marketing-demo-note">{copy.dashboard.note}</small>
-          </div>
-          <figure className="marketing-dashboard-preview">
-            <div className="marketing-dashboard-cover"><span>{copy.dashboard.welcome}</span><h3>{copy.dashboard.name}</h3></div>
-            <div className="marketing-dashboard-composition">
-              <article className="marketing-dashboard-ready"><span className="marketing-dashboard-label">01 · {copy.dashboard.ready}</span><h4>Barbaresco<br /><em>Basarin, 2023</em></h4><span className="marketing-dashboard-status">{copy.sommelier.ready}</span><div className="marketing-dashboard-window" aria-hidden="true" /></article>
-              <article className="marketing-dashboard-count"><span className="marketing-dashboard-label">02 · {copy.insights.bottles}</span><strong>128</strong><span>Piemonte · Toscana · Bordeaux</span></article>
-              <article className="marketing-dashboard-memory"><span className="marketing-dashboard-label">03 · {copy.dashboard.memories}</span><p>{copy.dashboard.memory}</p></article>
-            </div>
-            <figcaption><span>{copy.dashboard.preview}</span>{copy.dashboard.caption}</figcaption>
-          </figure>
-        </section>
-
-        <section id="product" className="marketing-section marketing-origin-section">
-          <div className="marketing-origin-copy" data-reveal>
-            <p className="marketing-kicker">{copy.origin.eyebrow}</p>
-            <h2>{copy.origin.title}</h2>
-            <p>{copy.origin.body}</p>
-            <p className="marketing-origin-signature">{copy.origin.signature}</p>
-          </div>
-          <figure className="marketing-origin-device" data-reveal>
-            <img src={mobileDemoImage} alt={copy.origin.mobileAlt} width={mobileDemoSize.width} height={mobileDemoSize.height} />
-            <figcaption><span>{copy.origin.demoLabel}</span>{copy.origin.mobileCaption}</figcaption>
-          </figure>
-        </section>
-
-        <section id="maturity" className="marketing-section marketing-maturity-section">
-          <div className="marketing-section-copy" data-reveal>
-            <p className="marketing-kicker">{copy.maturity.eyebrow}</p>
-            <h2>{copy.maturity.title}</h2>
-            <p>{copy.maturity.body}</p>
-            <div className="marketing-stage-key">
-              {copy.maturity.stages.map((stage, index) => <span key={stage}><i className={`stage-${index}`} />{stage}</span>)}
-            </div>
-          </div>
-          <div data-reveal><MaturityVisual copy={copy} /><small className="marketing-legal-note">{copy.maturity.note}</small></div>
-        </section>
-
-        <section id="sommelier" className="marketing-section marketing-sommelier-section">
-          <div className="marketing-section-copy" data-reveal>
-            <p className="marketing-kicker">{copy.sommelier.eyebrow}</p>
-            <h2>{copy.sommelier.title}</h2>
-            <p>{copy.sommelier.body}</p>
-          </div>
-          <div data-reveal><SommelierVisual copy={copy} /></div>
-        </section>
-
-        <section id="insights" className="marketing-section marketing-insights-section">
-          <div className="marketing-section-copy" data-reveal>
-            <p className="marketing-kicker">{copy.insights.eyebrow}</p>
-            <h2>{copy.insights.title}</h2>
-            <p>{copy.insights.body}</p>
-          </div>
-          <div data-reveal><InsightsVisual copy={copy} locale={locale} /></div>
-        </section>
-
-        <section className="marketing-section marketing-restaurant-section" data-reveal>
-          <div className="marketing-restaurant-copy">
-            <p className="marketing-kicker">{copy.restaurant.eyebrow}</p>
-            <h2>{copy.restaurant.title}</h2>
-            <p>{copy.restaurant.body}</p>
-          </div>
-          <aside>
-            <span>{copy.restaurant.availability}</span>
-            <small>{copy.restaurant.initialFee}</small>
-            <RestaurantContactButton label={copy.restaurant.contact} />
-          </aside>
-          <figure className="marketing-restaurant-dashboard">
-            <img src={locale === "it" ? "/landing/restaurant-dashboard-preview.png" : "/landing/restaurant-dashboard-preview-en.png"} alt={copy.restaurant.dashboardAlt} width="1536" height="1024" loading="lazy" />
-          </figure>
-        </section>
-
-        <section className="marketing-section marketing-seo-section" aria-labelledby="seo-title" data-reveal>
-          <div className="marketing-section-copy">
-            <p className="marketing-kicker">{seo.eyebrow}</p>
-            <h2 id="seo-title">{seo.title}</h2>
-            <p>{seo.body}</p>
-          </div>
-          <figure className="marketing-regions-preview">
-            <img src={`/landing/demo-regions-${locale}.png`} alt={seo.mapAlt} width={760} height={361} loading="lazy" />
-            <figcaption><span>{copy.origin.demoLabel}</span>{seo.mapCaption}</figcaption>
-          </figure>
-          <div className="marketing-seo-regions">
-            <h3>{seo.regionsTitle}</h3>
-            <p>{seo.regionsBody}</p>
-            <ul>{seo.regions.map((region) => <li key={region}>{region}</li>)}</ul>
-          </div>
-          <div className="marketing-seo-faq">
-            <h3>{seo.faqTitle}</h3>
-            {seo.faq.map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}
-          </div>
-        </section>
-
-        <section id="access" className="marketing-closing-section" data-reveal>
-          <div>
-            <p className="marketing-kicker">{copy.closing.eyebrow}</p>
-            <h2>{copy.closing.title}</h2>
-            <p>{copy.closing.body}</p>
-            <div className="marketing-actions">
-              <button type="button" className="marketing-button primary" onClick={onDemo} disabled={demoLoading}>{demoLoading ? openingLabel : copy.closing.demo}</button>
-              <button type="button" className="marketing-button secondary" onClick={onRegister}>{copy.closing.primary}</button>
-            </div>
-          </div>
-          <aside aria-label={copy.nav.pricing}>
-            {dynamicCopy.closing.tiers.map((tier, index) => <div className="marketing-tier" key={tier.name}>
-              {index ? <i /> : null}
-              <span>{tier.label}</span><strong>{tier.name}</strong><small>{tier.body}</small><small>{tier.note}</small>
-            </div>)}
-            <p><b>AI</b>{copy.closing.aiNote}</p>
-          </aside>
         </section>
       </main>
 

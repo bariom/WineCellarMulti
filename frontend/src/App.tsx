@@ -3148,7 +3148,7 @@ export function App() {
           ? {
               email: authDraft.email,
               display_name: authDraft.display_name,
-              household_name: authDraft.household_name,
+              household_name: authDraft.household_name.trim() || "Main Cellar",
               password: authDraft.password,
               locale,
               legal_document_version: LEGAL_DOCUMENT_VERSION,
@@ -5914,7 +5914,7 @@ export function App() {
           <button type="button" className={authMode === "login" ? "" : "secondary"} onClick={() => setAuthMode("login")}>{t("login")}</button>
           <button type="button" className={authMode === "register" ? "" : "secondary"} onClick={() => setAuthMode("register")}>{t("register")}</button>
         </div>
-        <form className="wine-form" onSubmit={submitAuth}>
+        <form className={`wine-form${authMode === "register" ? " registration-form" : ""}`} onSubmit={submitAuth}>
         <div className="auth-form-heading">
           <h2>{authMode === "register" ? t("createAccount") : authMode === "forgot-password" ? t("passwordResetTitle") : authMode === "reset-password" ? t("passwordResetNewPassword") : t("login")}</h2>
         </div>
@@ -5943,10 +5943,14 @@ export function App() {
           </label>
         ) : null}
         {authMode === "register" ? (
-          <label>
-            <span>{t("cellarName")}</span>
-            <input autoComplete="organization" value={authDraft.household_name} onChange={(event) => setAuthDraft({ ...authDraft, household_name: event.target.value })} required />
-          </label>
+          <details className="registration-cellar-name">
+            <summary>{locale === "it" ? "Personalizza il nome della cantina" : "Personalise your cellar name"}</summary>
+            <p>{locale === "it" ? "Puoi iniziare con il nome proposto e cambiarlo più avanti nelle impostazioni." : "Start with the suggested name and change it later in settings."}</p>
+            <label>
+              <span>{t("cellarName")}</span>
+              <input autoComplete="organization" value={authDraft.household_name} onChange={(event) => setAuthDraft({ ...authDraft, household_name: event.target.value })} onBlur={() => { if (!authDraft.household_name.trim()) setAuthDraft((draft) => ({ ...draft, household_name: "Main Cellar" })); }} />
+            </label>
+          </details>
         ) : null}
         {authMode !== "forgot-password" ? (
           <label>

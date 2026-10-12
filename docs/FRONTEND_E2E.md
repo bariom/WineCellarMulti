@@ -61,7 +61,7 @@ light/dark themes and desktop in the private-cellar theme.
 | Open a saved wine directly from tasting history | `npm run test:e2e:tasting-wine-detail` |
 | Installed PWA manifest orientation and smartphone landscape navigation | `npm run test:e2e:pwa-landscape` |
 | Wine Pulse desktop width, IT/EN reading tools, responsive layout, pagination and errors | `npm run test:e2e:wine-pulse` |
-| Public landing, dashboard presentation and demo entry (IT/EN, mobile/desktop) | `npx playwright test e2e/landing.spec.ts` |
+| Public landing, registration, consent, email-confirmation entry and demo (IT/EN, mobile/desktop) | `npx playwright test e2e/landing.spec.ts` |
 | Wine Detail, sensory signature, detail geometry and baseline | `npm run test:e2e:wine-detail` |
 | Collector composition, summaries, insights and scrolling | `npm run test:e2e:collector` |
 | Personal dashboard widgets, editor, memories album and drill-downs | `npm run test:e2e:personal-dashboard` |
@@ -474,3 +474,18 @@ separate, ridimensionamento desktop/mobile e ritorno dal dettaglio.
 `npm run test:e2e:ambassador` verifica assegnazione, aggiornamento e revoca amministrativa, visibilit? della scadenza e credito omaggio per il membro, traduzioni IT/EN e geometria senza overflow a 360, 390, 430 e 1440 px. Gli screenshot di revisione sono artefatti temporanei del test.
 
 Wine-list decorative images: `npx playwright test e2e/cellar-empty-image.spec.ts`. See [cellar image assets and generation prompts](CELLAR_IMAGES.md).
+
+Landing: `npx playwright test e2e/landing.spec.ts` verifies the registration-first
+hero, three-step introduction, compact news carousel, configurable free-plan
+limit (including FAQ structured data), navigation and demo loading/error handling.
+The three news slides cover purchase scanning, photo memories and the personal
+dashboard. Checks exercise selection buttons, previous/next wrapping, keyboard
+navigation, horizontal swipe, vertical-scroll preservation and each registration
+action. Responsive geometry covers 360, 390, 430, 900, 1200 and 1440 px with no horizontal
+overflow and bounded page/section heights. Signup checks cover IT/EN at 390 and
+1440 px: optional cellar-name customisation, safe default name, required consents,
+unchanged registration payload fields and the pending email-confirmation screen.
+The reviewed `landing-it-compact.png` and `landing-en-compact.png` baselines protect
+the full landing at 390 × 844. Review visual differences before explicitly updating
+these baselines. No backend is required: session, public configuration and signup
+responses are mocked; no real account or email is created.

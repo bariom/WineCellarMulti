@@ -2,11 +2,18 @@ import type { Locale } from "../../types";
 
 export type LandingCopy = {
   nav: { product: string; dashboard: string; maturity: string; sommelier: string; insights: string; pricing: string; news: string };
+  conversion: {
+    benefits: string; planTitle: string; planBody: string; faqTitle: string;
+    stepsTitle: string; steps: Array<{ title: string; body: string }>;
+    trustTitle: string; trustBody: string;
+    faq: Array<{ question: string; answer: string }>;
+  };
   news: {
-    eyebrow: string; title: string; body: string; order: string; action: string;
+    eyebrow: string; title: string; body: string; order: string; action: string; note: string;
     entries: Array<{
-      id: string; date: string; dateLabel: string; label: string; title: string;
-      body: string; detail: string; availability: string; featured: boolean;
+      id: string; date: string; dateLabel: string; label: string; title: string; tab: string;
+      body: string; availability: string; featured: boolean;
+      action: string;
     }>;
   };
   dashboard: {
@@ -111,27 +118,57 @@ export type LandingCopy = {
 
 export const landingCopy: Record<Locale, LandingCopy> = {
   it: {
-    nav: { product: "Prodotto", dashboard: "La tua dashboard", maturity: "Finestra di beva", sommelier: "Sommelier", insights: "Analisi", pricing: "Accesso", news: "Novità" },
+    nav: { product: "Come funziona", dashboard: "La tua dashboard", maturity: "Finestra di beva", sommelier: "Sommelier", insights: "Analisi", pricing: "Piani", news: "Novità" },
+    conversion: {
+      benefits: "Più piacere di scegliere. Meno cose da ricordare.",
+      stepsTitle: "La tua cantina prende forma in tre passi.",
+      steps: [
+        { title: "Crea il tuo account", body: "Registrati gratis e conferma il tuo indirizzo email." },
+        { title: "Aggiungi il primo vino", body: "Cerca un vino o inseriscilo a mano. Per gli acquisti più grandi, scopri la scansione di fatture e scontrini." },
+        { title: "Fai spazio alla tua collezione", body: "Ritrova le bottiglie, segui gli acquisti e conserva le tue degustazioni." },
+      ],
+      planTitle: "Inizia gratis. Cresci con la tua cantina.",
+      planBody: "Parti dalle tue prime etichette e scegli le funzioni aggiuntive quando ti servono.",
+      faqTitle: "Prima di iniziare",
+      trustTitle: "Creato da chi il vino lo colleziona.",
+      trustBody: "Vinaris nasce dalla mia cantina e dal desiderio di seguire ogni bottiglia, dall’acquisto al brindisi. Lo uso ogni giorno e continuo a migliorarlo.",
+      faq: [
+        { question: "Che cos’è Vinaris?", answer: "È una web app per la tua cantina privata: organizzi i vini che possiedi, segui acquisti e degustazioni e trovi le bottiglie da aprire." },
+        { question: "Che cosa comprende l’account gratuito?", answer: "Il piano Degustazione permette di gestire fino a 15 etichette attive. Le funzioni Premium richiedono un abbonamento; il credito AI è disponibile anche per il piano gratuito." },
+        { question: "Devo installare un’app?", answer: "Puoi usare Vinaris direttamente dal browser, sia sul computer sia sul telefono." },
+        { question: "Che cos’è un AI Pack?", answer: "È un pacchetto di credito prepagato per usare le funzioni di intelligenza artificiale di Vinaris, come analisi dei vini e suggerimenti di abbinamento. Lo acquisti nell’app e il costo delle operazioni AI viene scalato dal credito disponibile. Puoi usarlo anche con il piano gratuito, senza configurare servizi esterni. L’AI Pack non sostituisce l’abbonamento per le funzioni Premium, come i ricordi fotografici." },
+        { question: "Come funzionano scansione e credito AI?", answer: "La scansione di fatture e scontrini è disponibile con un abbonamento o credito AI. L’AI propone i dati: li verifichi e confermi prima di aggiungere i vini." },
+        { question: "Posso provarlo prima di registrarmi?", answer: "Sì. La demo ti permette di esplorare una cantina già popolata senza creare un account. Quando vuoi organizzare i tuoi vini, crea il tuo account personale." },
+      ],
+    },
     news: {
       eyebrow: "Novità in Vinaris",
-      title: "La tua passione cresce. Vinaris, anche.",
-      body: "Meno tempo a compilare, più spazio ai vini e alle storie che meritano di restare. Scopri gli ultimi arrivi nella tua cantina digitale.",
-      order: "Dalle novità più recenti",
-      action: "Inizia con Vinaris",
+      title: "Meno gestione. Più piacere di collezionare.",
+      body: "Tre novità per vivere la tua cantina, a modo tuo.",
+      order: "Le ultime novità, dalla più recente",
+      action: "Registrati gratis",
+      note: "Inizia gratis con fino a 15 etichette. Scegli poi le funzioni che fanno per te.",
       entries: [
         {
-          id: "purchase-scan", date: "2026-10", dateLabel: "Ottobre 2026", label: "La grande novità", featured: true,
-          title: "Dallo scontrino alla cantina. In pochi gesti.",
-          body: "Hai appena scelto i tuoi prossimi vini. Per registrarli, parti da una foto della fattura o dello scontrino, oppure carica un PDF: Vinaris riconosce i vini e prepara i dati dell’acquisto per te.",
-          detail: "Verifica etichette, annate, quantità e prezzi, poi conferma. Puoi aggiungere le bottiglie alla cantina o registrare un acquisto in attesa di consegna.",
-          availability: "Con abbonamento o AI Pack.",
+          id: "purchase-scan", date: "2026-10", dateLabel: "Ottobre 2026", label: "La grande novità · Scansione acquisti", tab: "Scansione acquisti", featured: true,
+          title: "Dalla fattura alla cantina. In pochi tocchi.",
+          body: "Fotografa una fattura o uno scontrino, oppure carica un PDF: Vinaris prepara vini, annate, quantità e prezzi. Tu verifichi e confermi.",
+          availability: "Scansione acquisti con abbonamento o credito AI.",
+          action: "Crea il tuo account gratis",
         },
         {
-          id: "photo-memories", date: "2026-10", dateLabel: "Ottobre 2026", label: "Ricordi con fotografie", featured: false,
-          title: "Il vino finisce. La serata resta.",
-          body: "Una cena tra amici, un brindisi speciale, quella bottiglia aspettata a lungo. Aggiungi una fotografia quando registri una bevuta e custodisci il momento insieme al vino.",
-          detail: "Ritrova le tue serate nei ricordi fotografici e sfogliale come Polaroid: la tua cantina diventa anche un album da rivivere.",
-          availability: "Ricordi disponibili con abbonamento.",
+          id: "photo-memories", date: "2026-10", dateLabel: "Ottobre 2026", label: "Ricordi fotografici", tab: "Ricordi fotografici", featured: false,
+          title: "Certi vini meritano più di una nota.",
+          body: "Aggiungi una foto alla bevuta e ritrova i tuoi brindisi in un album di ricordi. Il vino finisce. La serata resta.",
+          availability: "Ricordi fotografici disponibili con abbonamento.",
+          action: "Crea il tuo account gratis",
+        },
+        {
+          id: "personal-dashboard", date: "2026-10", dateLabel: "Ottobre 2026", label: "Dashboard personalizzabile", tab: "La tua dashboard", featured: false,
+          title: "La tua cantina. Le tue priorità.",
+          body: "Vini da aprire, valore della collezione o ricordi: scegli i riquadri che ti interessano, spostali e ridimensionali. Ritrova ciò che conta per te, appena entri in Vinaris.",
+          availability: "Scegli, disponi e salva la tua dashboard personale.",
+          action: "Crea il tuo account gratis",
         },
       ],
     },
@@ -150,24 +187,24 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       ready: "Da bere adesso", memories: "Ultime degustazioni", memory: "Una cena, un vino, una bella storia.",
       caption: "Vini pronti, panoramica e ricordi: uno dei tanti modi di comporre la tua dashboard.",
     },
-    header: { login: "Accedi", register: "Inizia", menu: "Apri menu", close: "Chiudi menu", language: "Lingua" },
+    header: { login: "Accedi", register: "Registrati gratis", menu: "Apri menu", close: "Chiudi menu", language: "Lingua" },
     hero: {
       eyebrow: "L’app per i vini che possiedi",
-      title: "Quale vino apri stasera?",
-      lead: "Organizza la tua cantina, scopri quali bottiglie sono pronte e quali lasciare riposare. Parti da una cantina già pronta da esplorare.",
-      primary: "Crea la tua cantina",
+      title: "La tua cantina digitale. Ogni bottiglia, al momento giusto.",
+      lead: "Vinaris è la web app per organizzare i vini che possiedi, seguire i tuoi acquisti e scegliere cosa aprire. Dal computer o dal telefono.",
+      primary: "Crea il tuo account gratis",
       secondary: "Scopri come funziona",
-      demo: "Prova la cantina demo",
-      demoNote: "Senza registrazione · Prova anche la dashboard personalizzabile",
+      demo: "Esplora la demo",
+      demoNote: "Demo senza registrazione",
       previewCaption: "Dalla demo: i vini da bere oggi",
       previewAlt: "Schermata reale della demo Vinaris: selezione di vini pronti da bere con finestre di beva",
-      signal: "Gratis fino a 15 etichette attive. Funzioni Premium con abbonamento.",
+      signal: "Gratis fino a 15 etichette attive. Funzioni Premium e AI secondo il piano scelto.",
       web: "Dal browser, anche sul telefono",
     },
     value: [
-      { title: "Trova ogni bottiglia", body: "Ricerca, filtri, fotografie, formati e posizione: la collezione resta leggibile mentre cresce." },
-      { title: "Aprila al momento giusto", body: "Finestre di beva e priorità mostrano cosa è pronto, cosa aspettare e cosa non dimenticare." },
-      { title: "Comprendi la cantina", body: "Valore, maturità, acquisti e degustazioni diventano una visione coerente della collezione." },
+      { title: "Ritrova ogni bottiglia", body: "Sai cosa hai, dove si trova e quanto hai speso. Filtri e dashboard ti aiutano a tenere tutto in ordine." },
+      { title: "Scegli cosa aprire", body: "Le finestre di beva orientano la scelta. Il Sommelier AI suggerisce abbinamenti a partire dai vini che possiedi." },
+      { title: "Conserva ogni brindisi", body: "Acquisti, note e degustazioni restano insieme. Con i ricordi fotografici, anche le persone e le occasioni speciali." },
     ],
     origin: {
       eyebrow: "Nato da una cantina reale",
@@ -250,41 +287,71 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     },
     closing: {
       eyebrow: "La tua storia di cantina",
-      title: "La collezione esiste già. Vinaris ti aiuta a comprenderla.",
-      body: "Costruisci un archivio privato che accompagna acquisti, attese, aperture e memoria nel tempo.",
-      primary: "Inizia con Degustazione",
-      demo: "Prova la cantina demo",
+      title: "La tua prossima bottiglia ha già un posto.",
+      body: "Crea il tuo account, conferma l’email e aggiungi il tuo primo vino.",
+      primary: "Crea il tuo account gratis",
+      demo: "Esplora la demo",
       tiers: [
         { label: "Piano gratuito", name: "Degustazione", body: "Gestisci fino a 15 etichette attive. Le funzioni Premium richiedono un abbonamento.", note: "Le funzioni AI si usano con un AI Pack." },
-        { label: "Per collezionisti", name: "Riserva", body: "Per collezioni oltre 15 etichette attive e per chi desidera ancora più libertà.", note: "AI Pack o chiave OpenAI personale inclusi." },
+        { label: "Per collezionisti", name: "Riserva", body: "Gestisci oltre 15 etichette attive e accedi alle funzioni Premium, inclusi i ricordi fotografici.", note: "Consulta le opzioni AI disponibili per il tuo account." },
       ],
       aiNote: "AI Pack è disponibile quando vuoi, anche con Degustazione.",
     },
-    footer: { statement: "Private cellar intelligence per collezionisti di vino.", guides: "Guide", privacy: "Privacy", cookies: "Cookie", terms: "Condizioni d’uso", login: "Accesso" },
+    footer: { statement: "La tua cantina digitale.", guides: "Guide", privacy: "Privacy", cookies: "Cookie", terms: "Condizioni d’uso", login: "Accesso" },
     meta: { title: "Vinaris | Cantina digitale e sommelier AI per collezionisti", description: "Gestisci bottiglie, finestre di beva, valore, consegne, wishlist e memoria degustativa in una cantina privata e intelligente." },
   },
   en: {
-    nav: { product: "Product", dashboard: "Your dashboard", maturity: "Drinking window", sommelier: "Sommelier", insights: "Insights", pricing: "Access", news: "What’s new" },
+    nav: { product: "How it works", dashboard: "Your dashboard", maturity: "Drinking window", sommelier: "Sommelier", insights: "Insights", pricing: "Plans", news: "What’s new" },
+    conversion: {
+      benefits: "More joy in choosing. Less to keep track of.",
+      stepsTitle: "Your cellar takes shape in three steps.",
+      steps: [
+        { title: "Create your account", body: "Sign up for free and confirm your email address." },
+        { title: "Add your first wine", body: "Search for a wine or enter it yourself. For larger purchases, explore invoice and receipt scanning." },
+        { title: "Make room for your collection", body: "Find your bottles, follow your purchases and keep your tasting memories." },
+      ],
+      planTitle: "Start free. Grow with your cellar.",
+      planBody: "Start with your first labels and choose extra features when you need them.",
+      faqTitle: "Before you start",
+      trustTitle: "Created by a wine collector.",
+      trustBody: "Vinaris grew out of my own cellar and the wish to follow every bottle, from purchase to toast. I use it every day and keep improving it.",
+      faq: [
+        { question: "What is Vinaris?", answer: "A web app for your private wine cellar: organise the wines you own, keep track of purchases and tastings, and find bottles to open." },
+        { question: "What does the free account include?", answer: "The Tasting plan lets you manage up to 15 active labels. Premium features require a subscription; AI credit is also available on the free plan." },
+        { question: "Do I need to install an app?", answer: "You can use Vinaris directly in your browser, on your computer or phone." },
+        { question: "What is an AI Pack?", answer: "It is a prepaid credit pack for Vinaris AI features, such as wine analysis and pairing suggestions. You buy it in the app, and the cost of AI operations is deducted from your available credit. You can use it on the free plan too, without setting up external services. An AI Pack does not replace the subscription required for Premium features such as photo memories." },
+        { question: "How do scanning and AI credit work?", answer: "Invoice and receipt scanning is available with a subscription or AI credit. AI suggests the details: you review and confirm them before adding your wines." },
+        { question: "Can I try it before signing up?", answer: "Yes. The demo lets you explore a populated cellar without an account. Create your own account when you are ready to organise your wines." },
+      ],
+    },
     news: {
       eyebrow: "What’s new in Vinaris",
-      title: "Your passion grows. So does Vinaris.",
-      body: "Less time entering details, more room for wines and stories worth keeping. Discover the latest additions to your digital cellar.",
+      title: "Less admin. More joy in collecting.",
+      body: "Three new ways to enjoy your cellar, your way.",
       order: "Latest additions first",
-      action: "Get started with Vinaris",
+      action: "Sign up for free",
+      note: "Start free with up to 15 labels. Then choose the features that suit you.",
       entries: [
         {
-          id: "purchase-scan", date: "2026-10", dateLabel: "October 2026", label: "Our big new arrival", featured: true,
-          title: "From receipt to cellar. In a few simple steps.",
-          body: "You’ve chosen your next wines. To register them, start with a photo of your invoice or receipt, or upload a PDF: Vinaris recognises the wines and prepares your purchase details for you.",
-          detail: "Review labels, vintages, quantities and prices, then confirm. Add the bottles to your cellar or record a purchase awaiting delivery.",
-          availability: "With a subscription or AI Pack.",
+          id: "purchase-scan", date: "2026-10", dateLabel: "October 2026", label: "Our big new arrival · Purchase scanning", tab: "Purchase scanning", featured: true,
+          title: "From invoice to cellar. In a few taps.",
+          body: "Photograph an invoice or receipt, or upload a PDF: Vinaris prepares wines, vintages, quantities and prices. You review and confirm.",
+          availability: "Purchase scanning with a subscription or AI credit.",
+          action: "Create your free account",
         },
         {
-          id: "photo-memories", date: "2026-10", dateLabel: "October 2026", label: "Photo memories", featured: false,
-          title: "The wine is finished. The evening stays.",
-          body: "Dinner with friends, a special toast, that bottle you’ve waited years to open. Add a photo when you record a tasting and keep the moment alongside the wine.",
-          detail: "Rediscover your evenings in photo memories and browse them as Polaroids: your cellar becomes an album to enjoy again.",
-          availability: "Memories available with a subscription.",
+          id: "photo-memories", date: "2026-10", dateLabel: "October 2026", label: "Photo memories", tab: "Photo memories", featured: false,
+          title: "Some wines deserve more than a tasting note.",
+          body: "Add a photo to your tasting and revisit your toasts in a memory album. The wine is finished. The evening stays.",
+          availability: "Photo memories available with a subscription.",
+          action: "Create your free account",
+        },
+        {
+          id: "personal-dashboard", date: "2026-10", dateLabel: "October 2026", label: "Customisable dashboard", tab: "Your dashboard", featured: false,
+          title: "Your cellar. Your priorities.",
+          body: "Wines to open, collection value or memories: choose the widgets you care about, move and resize them. Find what matters to you as soon as you open Vinaris.",
+          availability: "Choose, arrange and save your personal dashboard.",
+          action: "Create your free account",
         },
       ],
     },
@@ -303,24 +370,24 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       ready: "Drink now", memories: "Latest tastings", memory: "A dinner, a wine, a story to remember.",
       caption: "Ready wines, an overview and memories: one of many ways to arrange your dashboard.",
     },
-    header: { login: "Log in", register: "Get started", menu: "Open menu", close: "Close menu", language: "Language" },
+    header: { login: "Log in", register: "Sign up free", menu: "Open menu", close: "Close menu", language: "Language" },
     hero: {
       eyebrow: "The app for the wines you own",
-      title: "Know what to drink. Know what to keep.",
-      lead: "Organise your cellar, discover which bottles are ready and which to keep. Start by exploring a cellar that is already stocked.",
-      primary: "Build your cellar",
+      title: "Your digital wine cellar. Every bottle, at the right time.",
+      lead: "Vinaris is the web app to organise the wines you own, follow your purchases and choose what to open. On your computer or phone.",
+      primary: "Create your free account",
       secondary: "See how it works",
-      demo: "Try the demo cellar",
-      demoNote: "No sign-up · Try the customisable dashboard too",
+      demo: "Explore the demo",
+      demoNote: "Demo without registration",
       previewCaption: "From the demo: wines to drink today",
       previewAlt: "Real Vinaris demo screenshot: wines ready to drink with their drinking windows",
-      signal: "Free for up to 15 active labels. Premium features require a subscription.",
+      signal: "Free for up to 15 active labels. Premium and AI features depend on your plan.",
       web: "In your browser, on your phone too",
     },
     value: [
-      { title: "Find every bottle", body: "Search, filters, photographs, formats, and location keep the collection readable as it grows." },
-      { title: "Open it at the right moment", body: "Drinking windows and priorities show what is ready, what should wait, and what needs attention." },
-      { title: "Understand your cellar", body: "Value, maturity, purchases, and tastings become one coherent view of the collection." },
+      { title: "Find every bottle", body: "Know what you own, where it is and what you paid. Filters and dashboards help you keep it all organised." },
+      { title: "Choose what to open", body: "Drinking windows guide your choice. The AI Sommelier suggests pairings using wines you already own." },
+      { title: "Keep every toast", body: "Purchases, notes and tastings stay together. Photo memories also preserve the people and special occasions." },
     ],
     origin: {
       eyebrow: "Built from a real cellar",
@@ -403,13 +470,13 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     },
     closing: {
       eyebrow: "Your cellar story",
-      title: "Your cellar already has a story. Vinaris helps you understand it.",
-      body: "Build a private archive that supports purchases, patience, openings, and memory over time.",
-      primary: "Start with Tasting",
-      demo: "Try the demo cellar",
+      title: "Your next bottle already has a home.",
+      body: "Create your account, confirm your email and add your first wine.",
+      primary: "Create your free account",
+      demo: "Explore the demo",
       tiers: [
         { label: "Free plan", name: "Tasting", body: "Manage up to 15 active labels. Premium features require a subscription.", note: "AI features use an AI Pack." },
-        { label: "For collectors", name: "Reserve", body: "For collections over 15 active labels and those who want more freedom.", note: "Use an AI Pack or a personal OpenAI key." },
+        { label: "For collectors", name: "Reserve", body: "Manage more than 15 active labels and access Premium features, including photo memories.", note: "See the AI options available for your account." },
       ],
       aiNote: "An AI Pack is available whenever you need it, including with Tasting.",
     },

@@ -56,12 +56,8 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
   }, []);
 
   const navItems = [
-    ["#news", copy.nav.news],
     ["#product", copy.nav.product],
-    ["#dashboard", copy.nav.dashboard],
-    ["#maturity", copy.nav.maturity],
-    ["#sommelier", copy.nav.sommelier],
-    ["#insights", copy.nav.insights],
+    ["#news", copy.nav.news],
     ["#access", copy.nav.pricing],
   ];
 
