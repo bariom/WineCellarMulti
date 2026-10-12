@@ -733,3 +733,103 @@ def test_purchase_migration_round_trip():
             assert len(sa.inspect(conn).get_unique_constraints("purchase_imports")) == 1
             migration.downgrade()
             assert "purchase_imports" not in sa.inspect(conn).get_table_names()
+
+
+def missing_producer_preview(client, monkeypatch, name="Barolo"):
+    test, _, _, _, calls = client
+    data = extracted()
+    data["rows"][0].update(name=name, producer="")
+
+    def respond(*args, **kwargs):
+        calls.append(kwargs)
+        return OpenAIResponse(text=json.dumps(data), usage=TokenUsage(), model="test"), "user_key"
+
+    monkeypatch.setattr(ai, "create_ai_response", respond)
+    return preview(test)
+
+
+@pytest.mark.parametrize("reuse", [False, True])
+def test_preview_recovers_catalog_producer_before_cellar_matching_and_confirmation(
+    client, monkeypatch, reuse
+):
+    test, db, _, wine, calls = client
+    wine.format = "0.75L"
+    db.add(WineCatalogEntry(name="Barolo", producer="Producer", is_active=True))
+    db.commit()
+    result = missing_producer_preview(client, monkeypatch, "  BAROLO  750ml")
+    row = result["extraction"]["rows"][0]
+    assert row["producer"] == "Producer"
+    assert result["matches"][0][0]["id"] == str(wine.id)
+    assert preview(test)["extraction"]["rows"][0]["producer"] == "Producer"
+    assert len(calls) == 1
+    record = db.get(PurchaseImport, UUID(result["id"]))
+    assert record.draft["rows"][0]["producer"] == ""
+    assert wine.quantity == 0
+    payload = confirmation()
+    payload["rows"][0].update(producer=row["producer"])
+    if reuse:
+        payload["rows"][0].update(existing_wine_id=str(wine.id), format=wine.format)
+    response = test.post(f"/imports/purchases/{result['id']}/confirm", json=payload)
+    assert response.status_code == 200, response.text
+    saved = db.get(Wine, UUID(response.json()["wine_ids"][0]))
+    assert saved.producer == "Producer" and saved.quantity == 3
+    assert wine.quantity == (3 if reuse else 0)
+
+
+@pytest.mark.parametrize(
+    "entries,expected",
+    [
+        ([], ""),
+        ([("Barolo", "Pending Producer", False)], ""),
+        ([("Barolo Riserva", "Different Wine Producer", True)], ""),
+        ([("Barolo", "", True)], ""),
+        ([("Barolo", "A", True), ("Barolo", "B", True)], ""),
+        ([("Barolo", "A", True), ("Barolo", "", True)], ""),
+        ([("Barolo", "A", True), ("Barolo", "A", True)], "A"),
+        ([("Barolo", "A", True), ("Barolo", "B", False)], "A"),
+    ],
+)
+def test_catalog_producer_requires_unambiguous_active_exact_identity(
+    client, monkeypatch, entries, expected
+):
+    _, db, _, _, _ = client
+    db.add_all(
+        [
+            WineCatalogEntry(name=name, producer=producer, is_active=active)
+            for name, producer, active in entries
+        ]
+    )
+    db.commit()
+    result = missing_producer_preview(client, monkeypatch)
+    assert result["extraction"]["rows"][0]["producer"] == expected
+
+
+def test_missing_producer_can_use_exact_approved_catalog_alias(client, monkeypatch):
+    _, db, _, _, _ = client
+    entry = WineCatalogEntry(name="Canonical Barolo", producer="Alias Producer", is_active=True)
+    db.add(entry)
+    db.flush()
+    db.add(WineCatalogAlias(catalog_entry_id=entry.id, alias="Barolo", normalized_alias="barolo"))
+    db.commit()
+    assert missing_producer_preview(client, monkeypatch)["extraction"]["rows"][0]["producer"] == (
+        "Alias Producer"
+    )
+
+
+def test_catalog_never_replaces_producer_read_from_document(client):
+    test, db, _, _, _ = client
+    db.add(WineCatalogEntry(name="Barolo", producer="Other Producer", is_active=True))
+    db.commit()
+    assert preview(test)["extraction"]["rows"][0]["producer"] == "Producer"
+
+
+def test_missing_producer_is_not_inferred_from_private_cellars(client, monkeypatch):
+    _, db, _, _, _ = client
+    household = Household(name="Private cellar")
+    db.add(household)
+    db.flush()
+    db.add(Wine(household_id=household.id, name="Barolo", producer="Private Producer"))
+    db.commit()
+    result = missing_producer_preview(client, monkeypatch)
+    assert result["extraction"]["rows"][0]["producer"] == ""
+    assert result["matches"][0] == []

@@ -669,3 +669,5 @@ Un Ambassador ha accesso completo alle funzionalit? utente (inclusi ricordi foto
 Alla scadenza o revoca, accesso e credito promozionale cessano automaticamente. Abbonamenti, permessi ordinari e credito acquistato restano validi secondo le rispettive condizioni. Una nuova affiliazione non riattiva il credito omaggio precedente. Nessuna cancellazione dei dati della cantina avviene alla scadenza.
 
 Prima del rilascio eseguire `alembic upgrade head` da `backend/`: la migrazione `0118_ambassador` separa i saldi promozionali da quelli ordinari, mantenendo il credito esistente. Verifiche mirate: `pytest tests/test_ambassador.py` e, da `frontend/`, `npm run test:e2e:ambassador`.
+
+Il riconoscimento di fatture e scontrini completa il produttore mancante usando corrispondenze esatte di nome o alias nel catalogo centrale approvato. Il dato viene proposto nella revisione, senza sovrascrivere il produttore letto nel documento. Nomi ambigui, schede non approvate e cantine private non vengono usati per dedurre il produttore.

@@ -141,6 +141,7 @@ for (const locale of ["it", "en"] as const) {
     await dialog.getByRole("button", { name: it ? "Analizza acquisto" : "Analyze purchase", exact: true }).click();
     await expect(dialog.getByRole("heading", { name: it ? "Verifica l’acquisto" : "Review your purchase" })).toBeVisible();
     expect(await page.evaluate(() => sessionStorage.getItem("receipt-confirmations"))).toBeNull();
+    await expect(dialog.getByLabel(it ? "Produttore" : "Producer", { exact: true })).toHaveValue(wine.producer);
     await dialog.getByLabel(it ? "Scheda in cantina" : "Cellar record", { exact: true }).selectOption(wine.id);
     await dialog.getByLabel(it ? "Bottiglie" : "Bottles", { exact: true }).fill("4");
     await expect(dialog.getByRole("button", { name: it ? "Conferma acquisto in cantina" : "Confirm purchase in cellar", exact: true })).toBeDisabled();

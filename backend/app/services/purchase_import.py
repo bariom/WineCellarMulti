@@ -8,13 +8,20 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext
-from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
-from app.models import PurchaseImport, Wine, WineStockMovement, WineStorageAllocation
-from app.schemas.purchase_import import PurchaseConfirmation, PurchaseResult
+from app.api.routes.catalog import ensure_catalog_entry_for_wine_data, normalize_catalog_text
+from app.models import (
+    PurchaseImport,
+    Wine,
+    WineCatalogAlias,
+    WineCatalogEntry,
+    WineStockMovement,
+    WineStorageAllocation,
+)
+from app.schemas.purchase_import import PurchaseConfirmation, PurchaseExtraction, PurchaseResult
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.merchants import get_or_create_merchant
 from app.services.pdf_sources import extract_pdf_document
@@ -22,6 +29,39 @@ from app.services.stock_ledger import add_inbound_stock
 from app.services.storage import add_to_storage
 
 MAX_DOCUMENT_BYTES = 10_000_000
+
+
+def fill_purchase_producers_from_catalog(db: Session, extraction: PurchaseExtraction) -> None:
+    """Complete missing producers only when approved catalog identities agree."""
+    names = {
+        normalize_catalog_text(row.name)
+        for row in extraction.rows
+        if row.name.strip() and not row.producer.strip()
+    }
+    if not names:
+        return
+    # The central catalog is shared; private cellar wines are never searched here.
+    entries = db.execute(
+        select(WineCatalogEntry.name, WineCatalogEntry.producer, WineCatalogAlias.normalized_alias)
+        .outerjoin(WineCatalogAlias, WineCatalogAlias.catalog_entry_id == WineCatalogEntry.id)
+        .where(
+            WineCatalogEntry.is_active.is_(True),
+            or_(
+                func.lower(func.trim(WineCatalogEntry.name)).in_(names),
+                WineCatalogAlias.normalized_alias.in_(names),
+            ),
+        )
+    )
+    candidates: dict[str, dict[str, str]] = {name: {} for name in names}
+    for name, producer, alias in entries:
+        for key in {normalize_catalog_text(name), alias} & names:
+            candidates[key][normalize_catalog_text(producer)] = producer.strip()
+    for row in extraction.rows:
+        if row.producer.strip():
+            continue
+        producers = candidates.get(normalize_catalog_text(row.name), {})
+        if len(producers) == 1 and "" not in producers:
+            row.producer = next(iter(producers.values()))
 
 
 @dataclass(frozen=True)

@@ -27,6 +27,7 @@ from app.services.openai_client import parse_json_response
 from app.services.purchase_import import (
     MAX_DOCUMENT_BYTES,
     apply_purchase,
+    fill_purchase_producers_from_catalog,
     purchase_document,
     scoped_purchase,
 )
@@ -64,6 +65,7 @@ def extraction_schema() -> dict:
 
 def preview(db: Session, context: CurrentContext, record: PurchaseImport, cost=Decimal("0")):
     extraction = PurchaseExtraction.model_validate(record.draft)
+    fill_purchase_producers_from_catalog(db, extraction)
     wines = list(db.scalars(select(Wine).where(Wine.household_id == context.household.id)))
 
     def key(value):
