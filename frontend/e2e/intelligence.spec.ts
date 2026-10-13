@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { intelligencePlan, mockApi } from "./fixtures/app";
+import { intelligencePlan, intelligenceSnapshot, memberships, mockApi, session, snapshotChrome, wine } from "./fixtures/app";
 
 // Retain the original suite title and viewport for stable test identity.
 test.describe("Wine Detail compact/mobile", () => {
@@ -158,3 +158,73 @@ test("Intelligence fills the desktop navigation width and stays within mobile bo
     }
   }
 });
+
+
+for (const locale of ["it", "en"] as const) {
+  test(`stale Intelligence marks unavailable bottles without showing their IDs (${locale})`, async ({ page }, testInfo) => {
+    const it = locale === "it";
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const consumedId = "17eaee64-b017-4f0a-8dd7-912e34048acf";
+    const deletedId = "40039e48-82f8-4aeb-ba21-7759419c8f7a";
+    const emptyId = "50039e48-82f8-4aeb-ba21-7759419c8f7a";
+    const consumed = { ...wine, id: consumedId, name: "Lambrusco bevuto", quantity: 0, status: "consumed" };
+    const plan = { ...intelligencePlan, recommendations: [
+      intelligencePlan.recommendations[0],
+      { ...intelligencePlan.recommendations[0], wine_id: consumedId, action: "drink", quantity: 1, reason: `Bere ${consumedId}.` },
+      { ...intelligencePlan.recommendations[0], wine_id: deletedId, action: "monitor", quantity: 1, reason: `Valutare ${deletedId}.` },
+      { ...intelligencePlan.recommendations[0], wine_id: emptyId, action: "hold", quantity: 1 },
+    ] };
+    const snapshot = { ...intelligenceSnapshot, wines: [...intelligenceSnapshot.wines,
+      { ...intelligenceSnapshot.wines[0], wine_id: emptyId, name: "Giacenza esaurita", quantity: 0 },
+    ] };
+    await mockApi(page, [], false, memberships, [wine, consumed], { ...session, locale });
+    await page.addInitScript(({ plan, snapshot }) => {
+      const original = window.fetch;
+      window.fetch = async (input, init) => {
+        const path = new URL(String(input), window.location.origin).pathname;
+        if (path.endsWith("/intelligence/cellar")) return Response.json(snapshot);
+        if (path.endsWith("/cellar-intelligence/latest")) return Response.json(plan);
+        if (path.endsWith("/cellar-intelligence/history")) return Response.json([plan]);
+        return original(input, init);
+      };
+    }, { plan, snapshot });
+    await page.goto("/");
+    await page.locator(".view-tabs-ai-group > summary").click();
+    await page.getByRole("button", { name: "Intelligence", exact: true }).click();
+    const cards = page.locator(".plan-recommendations");
+    await expect(cards.locator(".plan-recommendation")).toHaveCount(4);
+    await expect(cards).not.toContainText(consumedId);
+    await expect(cards).not.toContainText(deletedId);
+    await expect(cards).not.toContainText(emptyId);
+    await expect(cards.getByText("Lambrusco bevuto", { exact: true })).toBeVisible();
+    await expect(cards.getByText(it ? "Vino del piano precedente" : "Wine from the previous plan", { exact: true })).toBeVisible();
+    const missing = cards.locator(".is-unavailable");
+    await expect(missing).toHaveCount(3);
+    for (const card of await missing.all()) {
+      await expect(card.getByText(it ? "Non più in cantina" : "No longer in your cellar", { exact: false })).toBeVisible();
+      await expect(card.locator(".plan-unavailable-status > svg")).toHaveAttribute("aria-hidden", "true");
+      for (const button of await card.getByRole("button").all()) await expect(button).toBeDisabled();
+    }
+    const available = cards.locator(".plan-recommendation").first();
+    await expect(available.locator(".plan-unavailable-status")).toHaveCount(0);
+    await expect(available.getByRole("button", { name: it ? "Simula" : "Simulate", exact: true })).toBeEnabled();
+    for (const width of [1440, 360, 390, 430]) {
+      await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      for (const card of await missing.all()) {
+        const box = (await card.boundingBox())!;
+        const label = (await card.locator(".plan-unavailable-status").boundingBox())!;
+        const footer = (await card.locator("footer").boundingBox())!;
+        expect(label.x).toBeGreaterThanOrEqual(box.x);
+        expect(label.x + label.width).toBeLessThanOrEqual(box.x + box.width);
+        expect(label.y + label.height).toBeLessThanOrEqual(footer.y);
+      }
+      if (it && (width === 1440 || width === 390)) {
+        await snapshotChrome(page, false);
+        await cards.screenshot({ path: testInfo.outputPath(`unavailable-wines-${width}.png`) });
+        if (width === 390) await expect(missing.first()).toHaveScreenshot("unavailable-recommendation-compact.png");
+        await snapshotChrome(page, true);
+      }
+    }
+  });
+}

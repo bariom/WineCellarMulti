@@ -11601,6 +11601,7 @@ export function App() {
           {activeView === "intelligence" && !isRestaurant ? (
             <><>{aiPackUpgradeNotice}</><Suspense fallback={<LoadingState label={t("loadingData")} />}><CellarIntelligenceView
                 locale={locale}
+                knownWines={wines}
                 disabled={!canGenerateAi || !canWriteWine}
                 onOpenWine={(wineId) => {
                   const wine = wines.find((item) => item.id === wineId);

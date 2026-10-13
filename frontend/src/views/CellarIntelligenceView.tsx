@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { XCircle } from "@phosphor-icons/react/dist/csr/XCircle";
 
 import { AiGenerationOverlay } from "../components/AppUi";
 import { translate } from "../i18n";
-import type { CellarIntelligencePlan, CellarIntelligencePreferences, CellarIntelligenceSnapshot, CellarIntelligenceWine, Locale, WineStrategyPurpose } from "../types";
+import type { CellarIntelligencePlan, CellarIntelligencePreferences, CellarIntelligenceSnapshot, CellarIntelligenceWine, Locale, Wine, WineStrategyPurpose } from "../types";
 import { api } from "../services/api";
 import "./CellarIntelligenceView.css";
 
@@ -22,11 +23,13 @@ export default function CellarIntelligenceView({
   disabled,
   onOpenWine,
   onCellarChanged,
+  knownWines = [],
 }: {
   locale: Locale;
   disabled: boolean;
   onOpenWine: (wineId: string) => void;
   onCellarChanged: () => Promise<void>;
+  knownWines?: Pick<Wine, "id" | "name" | "vintage">[];
 }) {
   const it = locale === "it";
   const [snapshot, setSnapshot] = useState<CellarIntelligenceSnapshot | null>(null);
@@ -111,8 +114,9 @@ export default function CellarIntelligenceView({
   }, [helpOpen]);
 
   const wineNames = useMemo(() => new Map(snapshot?.wines.map((wine) => [wine.wine_id, wine]) || []), [snapshot]);
+  const knownWineNames = useMemo(() => new Map(knownWines.map(wine => [wine.id, wine])), [knownWines]);
   const displayPlanText = (value: string) => value.replace(WINE_ID_PATTERN, (wineId) => {
-    const wine = wineNames.get(wineId);
+    const wine = wineNames.get(wineId) || knownWineNames.get(wineId);
     return wine ? [wine.name, wine.vintage].filter(Boolean).join(" ") : (it ? "questo vino" : "this wine");
   });
   const drinkCandidates = snapshot?.wines.filter((wine) => wine.purposes.drink && ["ready", "peak", "late"].includes(wine.readiness)) || [];
@@ -534,6 +538,7 @@ export default function CellarIntelligenceView({
         <div className="plan-recommendations-heading"><div><small>{it ? "AZIONI SUI VINI" : "WINE ACTIONS"}</small><h3>{it ? "Procedi in questo ordine" : "Follow this order"}</h3></div><span>{it ? "Apri il vino o applica direttamente la proposta" : "Open the wine or apply the suggestion directly"}</span></div>
         <div className="plan-recommendations">{[...plan.recommendations].sort((left, right) => PRIORITY_ORDER[left.priority] - PRIORITY_ORDER[right.priority]).map((item, index) => {
           const wine = wineNames.get(item.wine_id);
+          const available = Boolean(wine && wine.quantity > 0);
           const recommendationKey = `${item.wine_id}-${item.action}-${index}`;
           const applied = appliedRecommendations.has(recommendationKey);
           const busy = applyingRecommendation === recommendationKey;
@@ -548,25 +553,25 @@ export default function CellarIntelligenceView({
           const displayedActionLabel = (item.action === "decide" || item.action === "reclassify") && proposedPurposeLabel
             ? (it ? `${proposedPurposeLabel} consigliata` : `Suggested: ${proposedPurposeLabel}`)
             : actionLabel;
-          return <article className={`plan-recommendation${applied ? " is-applied" : ""}`} key={recommendationKey}>
-            <button type="button" className="plan-recommendation-main" onClick={() => onOpenWine(item.wine_id)}>
+          return <article className={`plan-recommendation${applied ? " is-applied" : ""}${!available ? " is-unavailable" : ""}`} key={recommendationKey}>
+            <button type="button" className="plan-recommendation-main" disabled={!available} onClick={() => onOpenWine(item.wine_id)}>
               <span className="plan-recommendation-top"><strong>{index + 1}</strong><span className="plan-recommendation-badges"><span className={`confidence confidence-${item.confidence}`}>{it ? "Affidabilità" : "Confidence"} {item.data_quality_score}%</span><span className={`priority priority-${item.priority}`}>{item.priority === "high" ? (it ? "Alta" : "High") : item.priority === "medium" ? (it ? "Media" : "Medium") : (it ? "Bassa" : "Low")}</span></span></span>
-              <span className="plan-recommendation-wine">{wine ? <BottleThumbnail wine={wine} prominent /> : null}<span><strong>{wine?.name || item.wine_id}</strong><small>{item.quantity} {item.quantity === 1 ? (it ? "bottiglia" : "bottle") : (it ? "bottiglie" : "bottles")} · {displayedActionLabel}</small></span></span>
+              <span className="plan-recommendation-wine">{wine ? <BottleThumbnail wine={wine} prominent /> : null}<span><strong>{wine?.name || knownWineNames.get(item.wine_id)?.name || (it ? "Vino del piano precedente" : "Wine from the previous plan")}</strong><small>{item.quantity} {item.quantity === 1 ? (it ? "bottiglia" : "bottle") : (it ? "bottiglie" : "bottles")} · {displayedActionLabel}</small>{!available ? <span className="plan-unavailable-status"><XCircle weight="fill" aria-hidden="true" />{it ? "Non più in cantina" : "No longer in your cellar"}</span> : null}</span></span>
               <span>{displayPlanText(item.reason)}</span>
               {item.missing_inputs.length ? <small className="plan-missing-inputs">{it ? "Dati da completare" : "Missing data"}: {item.missing_inputs.map(missingInputLabel).join(", ")}</small> : null}
             </button>
             <footer>
               <span className={`plan-action plan-action-${item.action}`}>{displayedActionLabel}</span>
-              <div className="plan-recommendation-buttons"><button type="button" className="secondary" disabled={!wine} onClick={() => wine && setSimulation({ recommendation: item, wine })}>{it ? "Simula" : "Simulate"}</button>{applied ? <strong className="plan-action-applied">{it ? "Applicata" : "Applied"}</strong> : item.action === "drink" ? (
-                <button type="button" disabled={disabled || !wine || Boolean(applyingRecommendation)} onClick={() => wine && setPendingDrinkRecommendation({ key: recommendationKey, recommendation: item, wine })}>
+              <div className="plan-recommendation-buttons"><button type="button" className="secondary" disabled={!available} onClick={() => wine && setSimulation({ recommendation: item, wine })}>{it ? "Simula" : "Simulate"}</button>{applied ? <strong className="plan-action-applied">{it ? "Applicata" : "Applied"}</strong> : item.action === "drink" ? (
+                <button type="button" disabled={disabled || !available || Boolean(applyingRecommendation)} onClick={() => wine && setPendingDrinkRecommendation({ key: recommendationKey, recommendation: item, wine })}>
                   {busy ? (it ? "Applicazione…" : "Applying…") : (it ? "Registra bevuta" : "Record consumed")}
                 </button>
               ) : item.action === "monitor" ? (
-                <button type="button" disabled={disabled || Boolean(applyingRecommendation)} onClick={() => void refreshRecommendationValue(item, recommendationKey)}>
+                <button type="button" disabled={disabled || !available || Boolean(applyingRecommendation)} onClick={() => void refreshRecommendationValue(item, recommendationKey)}>
                   {busy ? (it ? "Aggiornamento…" : "Updating…") : (it ? "Aggiorna valore con AI" : "Update value with AI")}
                 </button>
               ) : (
-                <button type="button" disabled={!wine || Boolean(applyingRecommendation)} onClick={() => wine && beginEdit(wine, recommendationKey, item.recommended_purpose, item.quantity, item.action === "decide")}>
+                <button type="button" disabled={!available || Boolean(applyingRecommendation)} onClick={() => wine && beginEdit(wine, recommendationKey, item.recommended_purpose, item.quantity, item.action === "decide")}>
                   {item.action === "decide" || item.action === "reclassify" ? (proposedPurposeLabel ? `${it ? "Imposta" : "Set"} ${proposedPurposeLabel}` : (it ? "Definisci obiettivo" : "Set purpose")) : (it ? "Rivedi maturazione" : "Review maturation")}
                 </button>
               )}</div>
