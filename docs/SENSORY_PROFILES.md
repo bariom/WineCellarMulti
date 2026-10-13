@@ -6,6 +6,21 @@ Access: **Impostazioni → Operatività → Catalogo vini → Profili sensoriali
 Operations opens on the application overview; catalog tools are grouped separately
 from Wine Pulse, AI pricing and Monitor device administration.
 
+For a wine outside the active cellar, open **Catalogo vini → Cerca e gestisci le
+schede**, search the central catalog and expand **Modifica dati condivisi**.
+Administrators can edit wine type, region, appellation, country, bottle format
+and comma-separated grape names, including for entries awaiting approval. These
+are catalog facts common to all vintages; saving does not rename an identity,
+approve a pending entry, change private cellar records or replace sensory profiles.
+The admin-only endpoint is `PUT /wines/catalog/{entry_id}/metadata`.
+
+Approved, unambiguous catalog metadata is used for shared identities with no wine
+in the administrator's active cellar, both in batch preview/generation and single
+profile generation. Pending, missing and ambiguous catalog records provide no
+inferred metadata. After saving, open **Profili sensoriali**, select **Catalogo
+condiviso completo** and generate the missing profile. Existing validated profiles
+remain protected. This feature requires no new database migration.
+
 The default screen is the ordinary semiautomatic batch workflow: **Mostra
 anteprima**, then **Genera mancanti con AI**. Generation is enabled only after a
 successful preview with missing profiles. Preview is free; generation may use AI

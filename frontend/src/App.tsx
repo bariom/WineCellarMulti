@@ -133,6 +133,7 @@ const RestaurantDashboard = lazy(() => import("./views/RestaurantDashboard"));
 const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then((module) => ({ default: module.AdminPhotosPanel })));
 const TasteProfilePanel = lazy(() => import("./components/TasteProfilePanel"));
 const AdminSensoryProfilesPanel = lazy(() => import("./components/AdminSensoryProfilesPanel"));
+const AdminCatalogMetadataEditor = lazy(() => import("./components/AdminCatalogMetadataEditor"));
 const AdminAnnouncementsPanel = lazy(() => import("./components/AdminAnnouncementsPanel"));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
@@ -3781,6 +3782,12 @@ export function App() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function catalogMetadataSaved(entry: CatalogWine) {
+    setCatalogAdminResults(current => current.map(item => item.id === entry.id ? entry : item));
+    setPendingCatalogEntries(current => current.map(item => item.id === entry.id ? entry : item));
+    setWineCatalog(current => current.map(item => item.id === entry.id ? entry : item));
   }
 
   async function deleteCatalogEntry(entry: CatalogWine) {
@@ -15083,7 +15090,8 @@ export function App() {
                   {pendingCatalogEntries.length ? (
                     <div className="member-list">
                       {pendingCatalogEntries.map((entry) => (
-                        <div className="member-row" key={entry.id || `${entry.producer}-${entry.name}`}>
+                        <div className="catalog-admin-entry" key={entry.id || `${entry.producer}-${entry.name}`}>
+                        <div className="member-row">
                           <div>
                             <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
                             <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
@@ -15097,6 +15105,8 @@ export function App() {
                               {t("rejectCatalogEntry")}
                             </button>
                           </div>
+                        </div>
+                        <AdminCatalogMetadataEditor entry={entry} locale={locale} disabled={saving} onSaved={catalogMetadataSaved} />
                         </div>
                       ))}
                     </div>
@@ -15121,7 +15131,8 @@ export function App() {
                   {catalogAdminResults.length ? (
                     <div className="member-list">
                       {catalogAdminResults.map((entry) => (
-                        <div className="member-row" key={entry.id || `${entry.producer}-${entry.name}`}>
+                        <div className="catalog-admin-entry" key={entry.id || `${entry.producer}-${entry.name}`}>
+                        <div className="member-row">
                           <div>
                             <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
                             <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
@@ -15137,6 +15148,8 @@ export function App() {
                               {t("deleteCatalogEntry")}
                             </button>
                           </div>
+                        </div>
+                        <AdminCatalogMetadataEditor entry={entry} locale={locale} disabled={saving} onSaved={catalogMetadataSaved} />
                         </div>
                       ))}
                     </div>

@@ -244,6 +244,11 @@ export type CatalogWine = {
   is_active?: boolean;
 };
 
+export type CatalogWineMetadataUpdate = Pick<CatalogWine, "region" | "appellation" | "type" | "format"> & {
+  country: string;
+  grapes_text: string;
+};
+
 export type WineLabelEnrichment = {
   name: string;
   producer: string;

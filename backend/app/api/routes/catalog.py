@@ -27,6 +27,7 @@ from app.models import (
 )
 from app.schemas.catalog import (
     CatalogWineCreate,
+    CatalogWineMetadataUpdate,
     CatalogWineResponse,
     WineImageRecognitionCandidate,
     WineImageRecognitionConfirmation,
@@ -456,6 +457,34 @@ def approve_wine_catalog_entry(
         entry,
         modified_by_user_id=context.user.id,
     )
+    db.commit()
+    db.refresh(entry)
+    return catalog_response(entry)
+
+
+@router.put("/catalog/{entry_id}/metadata", response_model=CatalogWineResponse)
+def update_catalog_wine_metadata(
+    entry_id: uuid.UUID,
+    payload: CatalogWineMetadataUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CatalogWineResponse:
+    ensure_app_admin(context)
+    entry = db.get(WineCatalogEntry, entry_id)
+    if entry is None:
+        raise HTTPException(404, "Catalog entry not found")
+    for field, value in payload.model_dump().items():
+        setattr(entry, field, value)
+    entry.search_text = build_search_text(
+        entry.name,
+        entry.producer,
+        entry.region,
+        entry.appellation,
+        entry.type,
+        entry.country,
+        entry.grapes_text,
+    )
+    entry.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(entry)
     return catalog_response(entry)

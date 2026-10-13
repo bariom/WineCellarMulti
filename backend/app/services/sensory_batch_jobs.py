@@ -137,7 +137,7 @@ def run_batch(run_id: UUID, household_id: UUID, session_id: UUID) -> None:
                 skipped = identity is None or (target["wine_id"] and wine is None)
                 generated = None
                 if not skipped and identity is not None:
-                    wine = wine if wine is not None else _identity_metadata(identity)
+                    wine = wine if wine is not None else _identity_metadata(identity, db)
                     existing = sensory_profile_for_wine(db, wine)
                     skipped = bool(
                         existing

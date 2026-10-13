@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -8,7 +9,7 @@ from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from sqlalchemy import String, select
+from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -34,6 +35,7 @@ from app.models import (
     UserTasteProfile,
     UserWineRating,
     Wine,
+    WineCatalogEntry,
     WineSensoryProfile,
     WineTastingEntry,
 )
@@ -841,22 +843,64 @@ def _batch_candidates(
         identities = select(SharedWineIdentity).where(SharedWineIdentity.id.in_(reference_ids))
     else:
         identities = select(SharedWineIdentity)
-    for identity in db.scalars(identities):
-        candidates.setdefault((str(identity.id),), _identity_metadata(identity))
+    shared_identities = [
+        identity for identity in db.scalars(identities) if (str(identity.id),) not in candidates
+    ]
+    catalog_entries: dict[tuple[str, str], list[WineCatalogEntry]] = {}
+    if shared_identities:
+        entries = db.scalars(
+            select(WineCatalogEntry).where(
+                WineCatalogEntry.is_active.is_(True),
+                func.lower(func.trim(WineCatalogEntry.name)).in_(
+                    {identity.name.strip().lower() for identity in shared_identities}
+                ),
+            )
+        )
+        for entry in entries:
+            key = (entry.name.strip().lower(), entry.producer.strip().lower())
+            catalog_entries.setdefault(key, []).append(entry)
+    for identity in shared_identities:
+        candidates[(str(identity.id),)] = _identity_metadata(identity, db, catalog_entries)
     return list(candidates.values())
 
 
-def _identity_metadata(identity: SharedWineIdentity) -> Wine:
+def _identity_metadata(
+    identity: SharedWineIdentity,
+    db: Session,
+    catalog_entries: dict[tuple[str, str], list[WineCatalogEntry]] | None = None,
+) -> Wine:
     """Transient metadata carrier; never insert a fictitious household wine."""
+    entries = (
+        catalog_entries.get((identity.name.strip().lower(), identity.producer.strip().lower()), [])
+        if catalog_entries is not None
+        else list(
+            db.scalars(
+                select(WineCatalogEntry).where(
+                    WineCatalogEntry.is_active.is_(True),
+                    func.lower(func.trim(WineCatalogEntry.name)) == identity.name.strip().lower(),
+                    func.lower(func.trim(WineCatalogEntry.producer))
+                    == identity.producer.strip().lower(),
+                )
+            ).all()
+        )
+    )
+    entry = entries[0] if len(entries) == 1 else None
     return Wine(
         name=identity.name,
         producer=identity.producer,
         vintage=identity.vintage,
         shared_identity_id=identity.id,
-        type="",
-        region="",
-        appellation="",
-        grapes=[],
+        type=entry.type if entry else "",
+        region=entry.region if entry else "",
+        appellation=entry.appellation if entry else "",
+        format=entry.format if entry else "",
+        grapes=[
+            {"name": grape.strip()}
+            for grape in re.split(r"[,;/]+", entry.grapes_text)
+            if grape.strip()
+        ]
+        if entry
+        else [],
         ai_notes="",
     )
 
@@ -1210,13 +1254,18 @@ def regenerate_sensory_profile(
             status_code=409, detail="Validated profiles are never regenerated automatically"
         )
     wine = db.scalar(
-        select(Wine).where(Wine.shared_identity_id == identity_id).order_by(Wine.created_at.desc())
+        select(Wine)
+        .where(
+            Wine.shared_identity_id == identity_id,
+            Wine.household_id == context.household.id,
+        )
+        .order_by(Wine.created_at.desc())
     )
     if wine is None:
         identity = db.scalar(select(SharedWineIdentity).where(SharedWineIdentity.id == identity_id))
         if identity is None:
             raise HTTPException(status_code=404, detail="Wine identity not found")
-        wine = _identity_metadata(identity)
+        wine = _identity_metadata(identity, db)
     generated = _generate_with_sensory_metadata(
         db, wine, allow_ai=allow_ai, modified_by_user_id=context.user.id
     )

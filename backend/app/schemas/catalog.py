@@ -2,7 +2,9 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.wine_types import CANONICAL_WINE_TYPES, normalize_wine_type
 
 
 class CatalogWineResponse(BaseModel):
@@ -29,6 +31,30 @@ class CatalogWineCreate(BaseModel):
     country: str = ""
     grapes_text: str = ""
     aliases: list[str] = Field(default_factory=list)
+
+
+class CatalogWineMetadataUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    region: str = Field(max_length=120)
+    appellation: str = Field(max_length=120)
+    type: str = Field(max_length=80)
+    format: str = Field(max_length=80)
+    country: str = Field(max_length=120)
+    grapes_text: str = Field(max_length=2000)
+
+    @field_validator("region", "appellation", "format", "country", "grapes_text")
+    @classmethod
+    def trim_metadata(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("type")
+    @classmethod
+    def valid_type(cls, value: str) -> str:
+        normalized = normalize_wine_type(value)
+        if normalized and normalized not in CANONICAL_WINE_TYPES:
+            raise ValueError("Unsupported wine type")
+        return normalized
 
 
 class WineImageRecognitionCandidate(BaseModel):

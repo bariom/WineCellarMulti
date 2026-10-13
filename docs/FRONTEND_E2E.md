@@ -77,6 +77,7 @@ light/dark themes and desktop in the private-cellar theme.
 | Wine Pulse desktop width, IT/EN reading tools, responsive layout, pagination and errors | `npm run test:e2e:wine-pulse` |
 | Public landing, registration, consent, email-confirmation entry and demo (IT/EN, mobile/desktop) | `npx playwright test e2e/landing.spec.ts` |
 | Wine Detail, sensory signature, detail geometry and baseline | `npm run test:e2e:wine-detail` |
+| Admin shared catalog metadata editing | `npx playwright test e2e/admin-catalog-metadata.spec.ts` |
 | Collector composition, summaries, insights and scrolling | `npm run test:e2e:collector` |
 | Personal dashboard widgets, editor, memories album and drill-downs | `npm run test:e2e:personal-dashboard` |
 | Shared navigation, compact headers, Home photographs and direct subscription/AI Pack navigation | `npm run test:e2e:app-navigation` |
