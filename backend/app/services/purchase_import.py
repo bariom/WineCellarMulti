@@ -87,6 +87,74 @@ def attach_purchase_photo(db: Session, wine: Wine, photo_id: UUID) -> bool:
     return True
 
 
+def separate_purchase_origins_from_catalog(
+    db: Session, extraction: PurchaseExtraction, *, locale: str = "it"
+) -> None:
+    """Remove a comma suffix only when an approved matching identity proves its origin."""
+    prefixes: dict[str, list[tuple[str, list[str]]]] = {}
+    names = set()
+    for row in extraction.rows:
+        if "," not in row.name:
+            continue
+        variants = []
+        parts = row.name.split(",")
+        for index in range(1, len(parts)):
+            prefix = normalize_catalog_text(",".join(parts[:index]))
+            suffix = [normalize_catalog_text(part) for part in parts[index:]]
+            if prefix and all(suffix):
+                variants.append((prefix, suffix))
+                names.add(prefix)
+        prefixes[row.name] = variants
+        names.add(normalize_catalog_text(row.name))
+    if not names:
+        return
+    entries = db.execute(
+        select(WineCatalogEntry, WineCatalogAlias.normalized_alias)
+        .outerjoin(WineCatalogAlias, WineCatalogAlias.catalog_entry_id == WineCatalogEntry.id)
+        .where(
+            WineCatalogEntry.is_active.is_(True),
+            or_(
+                func.lower(func.trim(WineCatalogEntry.name)).in_(names),
+                WineCatalogAlias.normalized_alias.in_(names),
+            ),
+        )
+    )
+    candidates: dict[str, dict[UUID, WineCatalogEntry]] = {name: {} for name in names}
+    for entry, alias in entries:
+        for key in {normalize_catalog_text(entry.name), alias} & names:
+            candidates[key][entry.id] = entry
+    for row in extraction.rows:
+        variants = prefixes.get(row.name, [])
+        if not variants or len(row.warnings) >= 10:
+            continue
+        # A full catalog name/alias takes precedence over an apparent geographic suffix.
+        if candidates.get(normalize_catalog_text(row.name)):
+            continue
+        matches: dict[tuple[str, str], tuple[str, str]] = {}
+        for prefix, suffix in variants:
+            for entry in candidates[prefix].values():
+                producer = normalize_catalog_text(entry.producer)
+                if row.producer.strip() and producer != normalize_catalog_text(row.producer):
+                    continue
+                origins = {
+                    normalize_catalog_text(entry.appellation),
+                    normalize_catalog_text(entry.region),
+                    normalize_catalog_text(entry.country),
+                } - {""}
+                if all(part in origins for part in suffix):
+                    key = (normalize_catalog_text(entry.name), producer)
+                    origin = ", ".join(part.strip() for part in row.name.split(",")[-len(suffix) :])
+                    matches[key] = (entry.name.strip(), origin)
+        if len(matches) == 1:
+            name, origin = next(iter(matches.values()))
+            row.name = name
+            row.warnings.append(
+                f"Origine riportata nel documento: {origin}. Non fa parte del nome del vino."
+                if locale == "it"
+                else f"Origin stated in the document: {origin}. It is not part of the wine name."
+            )
+
+
 def fill_purchase_producers_from_catalog(db: Session, extraction: PurchaseExtraction) -> None:
     """Complete missing producers only when approved catalog identities agree."""
     names = {

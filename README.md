@@ -72,6 +72,14 @@ Bottle format is separate from the wine name. Explicit volumes such as `750ml`,
 if the extracted format is missing, a single explicit volume supplies it in ml.
 This also applies when reopening an existing draft. Numbers belonging to wine
 names (such as `Bin 389` or `1000 Stories`) are preserved.
+The purchase extraction prompt also separates clearly identified origin suffixes
+from commercial wine names (for example `Le C des Carmes Haut-Brion, Pessac-Léognan`),
+retaining the place in review warnings. Preview additionally cleans such suffixes
+when an approved central-catalog name or alias and its appellation, region or
+country agree unambiguously, before producer recovery and cellar matching. This
+also works for previously analyzed drafts without another AI request. Full catalog
+names containing commas, conflicting producers and unsupported or ambiguous places
+are preserved; private cellar data is not used as evidence for this cleanup.
 During review, matching wine name and producer can propose up to ten available
 photos from the shared reference library. Selection is optional; check the vintage
 and bottle format before choosing. Editing the identity, vintage, format or target

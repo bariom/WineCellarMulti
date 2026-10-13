@@ -35,6 +35,7 @@ from app.services.purchase_import import (
     purchase_document,
     purchase_photo_suggestions,
     scoped_purchase,
+    separate_purchase_origins_from_catalog,
 )
 
 router = APIRouter(prefix="/imports/purchases")
@@ -68,8 +69,11 @@ def extraction_schema() -> dict:
     return {"name": "purchase_import", "schema": schema}
 
 
-def preview(db: Session, context: CurrentContext, record: PurchaseImport, cost=Decimal("0")):
+def preview(
+    db: Session, context: CurrentContext, record: PurchaseImport, cost=Decimal("0"), *, locale="it"
+):
     extraction = PurchaseExtraction.model_validate(record.draft)
+    separate_purchase_origins_from_catalog(db, extraction, locale=locale)
     fill_purchase_producers_from_catalog(db, extraction)
     wines = list(db.scalars(select(Wine).where(Wine.household_id == context.household.id)))
 
@@ -224,7 +228,7 @@ def analyze(content: bytes, mime: str, locale: str, db: Session, context: Curren
         )
     )
     if existing:
-        return preview(db, context, existing)
+        return preview(db, context, existing, locale=locale)
     prompt = purchase_import_prompt(locale=locale, document_text=document.text)
     response, provider = create_ai_response(
         db,
@@ -266,7 +270,7 @@ def analyze(content: bytes, mime: str, locale: str, db: Session, context: Curren
     if existing:
         audit(existing.id, "Concurrent purchase extraction reused the existing review")
         db.commit()
-        return preview(db, context, existing, response.charged_cost_usd)
+        return preview(db, context, existing, response.charged_cost_usd, locale=locale)
     try:
         if response.incomplete:
             raise ValueError("Incomplete purchase")
@@ -289,7 +293,7 @@ def analyze(content: bytes, mime: str, locale: str, db: Session, context: Curren
     audit(record.id, "Purchase document extraction for review")
     db.commit()
     charged_cost = response.charged_cost_usd if provider == "credits" else Decimal("0")
-    return preview(db, context, record, charged_cost)
+    return preview(db, context, record, charged_cost, locale=locale)
 
 
 @router.post("/preview", response_model=PurchasePreview)

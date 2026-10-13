@@ -757,7 +757,7 @@ def test_confirmation_validates_untrusted_values(changes):
 def test_prompt_language_and_constraints():
     for locale, language in [("it", "Italian"), ("en", "English")]:
         prompt = purchase_import_prompt(locale=locale)
-        assert prompt.id == "purchase_import" and prompt.version == "1.2.0"
+        assert prompt.id == "purchase_import" and prompt.version == "1.3.0"
         for phrase in [
             language,
             "untrusted",
@@ -891,6 +891,26 @@ def test_document_prompt_preserves_untrusted_data_and_payment_constraints():
         assert rule in prompt.system
 
 
+@pytest.mark.parametrize("locale,language", [("it", "Italian"), ("en", "English")])
+def test_purchase_prompt_separates_geographic_suffix_without_truncating_names(locale, language):
+    prompt = purchase_import_prompt(locale=locale)
+    assert prompt.id == "purchase_import" and prompt.version == "1.3.0"
+    assert language in prompt.system
+    for rule in [
+        "Le C des Carmes Haut-Brion, Pessac-Léognan",
+        "name='Le C des Carmes Haut-Brion'",
+        "retain 'Pessac-Léognan' in warnings",
+        "Keep the complete commercial name",
+        "Never assume everything after a comma is a place",
+        "When the suffix is ambiguous, keep it",
+        "Do not infer a producer from a place",
+        "Never correct wine spelling from memory",
+        "required JSON schema",
+        "Do not browse",
+    ]:
+        assert rule in prompt.system
+
+
 def test_purchase_migration_round_trip():
     path = Path(__file__).parents[1] / "alembic/versions/0117_purchase_imports.py"
     spec = importlib.util.spec_from_file_location("purchase_migration", path)
@@ -1009,3 +1029,113 @@ def test_missing_producer_is_not_inferred_from_private_cellars(client, monkeypat
     result = missing_producer_preview(client, monkeypatch)
     assert result["extraction"]["rows"][0]["producer"] == ""
     assert result["matches"][0] == []
+
+
+def test_purchase_origin_suffix_is_removed_before_producer_and_cellar_matching(client, monkeypatch):
+    test, db, _, wine, calls = client
+    name = "Le C des Carmes Haut-Brion"
+    wine.name = name
+    wine.producer = "Producer"
+    db.add(
+        WineCatalogEntry(
+            name=name, producer="Producer", appellation="Pessac-Léognan", is_active=True
+        )
+    )
+    db.commit()
+    original = name + ", Pessac-Léognan 750ml"
+    result = missing_producer_preview(client, monkeypatch, original)
+    row = result["extraction"]["rows"][0]
+    assert row["name"] == name and row["producer"] == "Producer"
+    assert row["format"] == "0.75L"
+    assert "Pessac-Léognan" in row["warnings"][-1]
+    assert result["matches"][0][0]["id"] == str(wine.id)
+    record = db.get(PurchaseImport, UUID(result["id"]))
+    assert "Pessac-Léognan" in record.draft["rows"][0]["name"]
+    reopened = preview(test)
+    assert reopened["extraction"]["rows"][0] == row
+    assert len(calls) == 1
+    payload = confirmation()
+    payload["rows"][0].update(name=row["name"], producer=row["producer"])
+    response = test.post(f"/imports/purchases/{result['id']}/confirm", json=payload)
+    assert response.status_code == 200, response.text
+    assert db.get(Wine, UUID(response.json()["wine_ids"][0])).name == name
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "unapproved",
+        "unrelated-place",
+        "ambiguous",
+        "full-name",
+        "private",
+        "producer-conflict",
+        "no-catalog",
+    ],
+)
+def test_purchase_origin_cleanup_requires_unambiguous_catalog_evidence(client, monkeypatch, case):
+    _, db, _, wine, _ = client
+    entry = WineCatalogEntry(
+        name="Wine", producer="Producer", region="Toscana", is_active=case != "unapproved"
+    )
+    if case not in {"private", "no-catalog"}:
+        db.add(entry)
+    if case == "ambiguous":
+        db.add(
+            WineCatalogEntry(
+                name="Wine", producer="Other Producer", region="Toscana", is_active=True
+            )
+        )
+    if case == "full-name":
+        db.add(WineCatalogEntry(name="Wine, Toscana", producer="Producer", is_active=True))
+    if case == "private":
+        wine.name = "Wine"
+        wine.region = "Toscana"
+    if case == "producer-conflict":
+        entry.producer = ""
+        db.add(WineCatalogEntry(name="Wine", producer="", region="Toscana", is_active=True))
+    db.commit()
+    source = "Wine, Bordeaux" if case == "unrelated-place" else "Wine, Toscana"
+    if case == "producer-conflict":
+        from app.services.purchase_import import separate_purchase_origins_from_catalog
+
+        extraction = PurchaseExtraction.model_validate(extracted())
+        extraction.rows[0].name = source
+        separate_purchase_origins_from_catalog(db, extraction)
+        assert extraction.rows[0].name == source
+    else:
+        assert (
+            missing_producer_preview(client, monkeypatch, source)["extraction"]["rows"][0]["name"]
+            == source
+        )
+
+
+def test_origin_cleanup_preserves_commas_in_name_and_supports_catalog_alias_and_multiple_places(
+    client,
+):
+    from app.services.purchase_import import separate_purchase_origins_from_catalog
+
+    _, db, _, _, _ = client
+    entry = WineCatalogEntry(
+        name="Rosso, Riserva",
+        producer="Producer",
+        appellation="Chianti",
+        region="Toscana",
+        is_active=True,
+    )
+    db.add(entry)
+    db.flush()
+    db.add(
+        WineCatalogAlias(
+            catalog_entry_id=entry.id, alias="Alias, Riserva", normalized_alias="alias, riserva"
+        )
+    )
+    db.commit()
+    extraction = PurchaseExtraction.model_validate(extracted())
+    extraction.rows[0].name = "Alias, Riserva, Chianti, Toscana"
+    separate_purchase_origins_from_catalog(db, extraction, locale="en")
+    assert extraction.rows[0].name == "Rosso, Riserva"
+    assert (
+        extraction.rows[0].warnings[-1]
+        == "Origin stated in the document: Chianti, Toscana. It is not part of the wine name."
+    )
