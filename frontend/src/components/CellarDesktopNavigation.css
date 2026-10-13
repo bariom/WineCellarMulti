@@ -122,7 +122,8 @@
   }
 
   :root .authenticated-app-shell:not(.cellar-home-edition) .home-workspace > .cellar-intelligence {
-    margin-inline: auto;
+    max-width: none;
+    margin: 0;
   }
 
   :root .authenticated-app-shell:not(.cellar-home-edition) .content-workspace > .wine-list {

@@ -126,7 +126,7 @@ test.describe("Wine Detail compact/mobile", () => {
 });
 
 
-test("Intelligence stays centered on wide screens and within mobile bounds", async ({ page }, testInfo) => {
+test("Intelligence fills the desktop navigation width and stays within mobile bounds", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await mockApi(page);
   await page.goto("/");
@@ -144,12 +144,17 @@ test("Intelligence stays centered on wide screens and within mobile bounds", asy
     const leftGap = content.x - workspace.x;
     const rightGap = workspace.x + workspace.width - content.x - content.width;
     expect(leftGap).toBeCloseTo(rightGap, 0);
+    if (viewport.width >= 1100) {
+      const navigation = (await page.locator(".view-tabs").boundingBox())!;
+      expect(content.x).toBeCloseTo(navigation.x, 0);
+      expect(content.width).toBeCloseTo(navigation.width, 0);
+    }
     expect(content.x).toBeGreaterThanOrEqual(0);
     expect(content.x + content.width).toBeLessThanOrEqual(viewport.width);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await panel.getByRole("heading", { name: "Piano cantina", exact: true }).scrollIntoViewIfNeeded();
     if (viewport.width === 1920 || viewport.width === 390) {
-      await page.screenshot({ path: testInfo.outputPath(`intelligence-centered-${viewport.width}.png`) });
+      await page.screenshot({ path: testInfo.outputPath(`intelligence-full-width-${viewport.width}.png`) });
     }
   }
 });

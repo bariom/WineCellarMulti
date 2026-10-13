@@ -525,4 +525,4 @@ responses are mocked; no real account or email is created.
 
 External tasting metadata corrections are covered by `npx playwright test e2e/tasting-wine-detail.spec.ts`: Italian/mobile and English/desktop saves, retry after a failed save, blank-name validation, retained tasting fields, and 360/390/430 px geometry checks. `external-tasting-editor-compact.png` protects the visually reviewed 390 px editor; cellar tastings keep their existing editor.
 
-`npx playwright test e2e/intelligence.spec.ts` checks symmetric Intelligence content margins at 1440/1920 px and content bounds/overflow at 360/390/430 px. The 1920 px case detects right alignment caused by navigation overrides on the capped-width panel.
+`npx playwright test e2e/intelligence.spec.ts` checks that Intelligence matches the navigation's left edge and full width at 1440/1920 px, plus symmetric margins and content bounds/overflow at 360/390/430 px. The 1920 px case detects unwanted width caps or right alignment.
