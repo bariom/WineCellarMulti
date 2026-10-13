@@ -3,7 +3,7 @@ import { useChartReveal } from "./chartMotion";
 
 type IllustrationWineTone = "red" | "white" | "sparkling" | "rose" | "sweet" | "other";
 
-function KeyPositionWineIllustration() {
+export function KeyPositionWineIllustration() {
   return (
     <div className="key-position-wine-illustration" aria-hidden="true">
       <svg viewBox="0 0 120 190" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

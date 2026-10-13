@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { wine } from "./fixtures/app";
+import { mockApi, session, snapshotChrome, wine } from "./fixtures/app";
 
 for (const mode of ["discovery", "empty", "countries"] as const) {
   test(`taste origins explain evidence and handle ${mode}`, async ({ page }) => {
@@ -53,5 +53,56 @@ for (const mode of ["discovery", "empty", "countries"] as const) {
       await expect(page.getByRole("button", { name: "Apri la bottiglia da esplorare" })).toHaveCount(0);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+}
+
+for (const mode of ["photo", "detail", "missing", "broken"] as const) {
+  test(`taste discovery handles ${mode} bottle images in the real dashboard`, async ({ page }, testInfo) => {
+    const locale = mode === "detail" ? "en" : "it";
+    const theme = mode === "detail" ? "private-cellar" : "light";
+    const candidate = { ...wine, id: "explore-wine", name: "Merlot da esplorare", region: "Valais", grapes: [{ name: "Merlot" }],
+      photo_thumbnail_url: mode === "photo" ? wine.photo_thumbnail_url : mode === "broken" || mode === "detail" ? "/missing-thumb.jpg" : "",
+      photo_detail_url: mode === "detail" ? wine.photo_thumbnail_url : mode === "broken" ? "/missing-detail.jpg" : "",
+    };
+    await mockApi(page, [], false, undefined, [wine, candidate], { ...session, locale, theme_preference: theme });
+    await page.route("**/missing-*.jpg", route => route.fulfill({ status: 404 }));
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/");
+    await page.locator(".dashboard-analysis-switcher > summary").click();
+    await page.getByRole("tab", { name: locale === "it" ? "Il mio gusto" : "My Taste", exact: true }).click();
+    const geography = page.getByRole("region", { name: locale === "it" ? "Dove vale la pena esplorare" : "Where to explore next", exact: true });
+    const discovery = geography.locator(".taste-origin-discovery");
+    await expect(discovery.getByRole("heading", { name: candidate.name, exact: true })).toBeVisible();
+    await expect(discovery).toContainText(locale === "it" ? "Già nella tua cantina" : "Already in your cellar");
+    if (mode === "photo" || mode === "detail") {
+      const photo = discovery.getByRole("img", { name: new RegExp(candidate.name) });
+      await expect(photo).toBeVisible();
+      await expect.poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+      await expect(photo).toHaveCSS("object-fit", "contain");
+    } else {
+      await expect(discovery.locator(".taste-discovery-placeholder .key-position-wine-illustration")).toBeVisible();
+      await expect(discovery.getByText("Foto non disponibile", { exact: true })).toHaveCount(0);
+      await expect(discovery.getByRole("img")).toHaveCount(0);
+    }
+    for (const viewport of [{ width: 1440, height: 1000 }, { width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }]) {
+      await page.setViewportSize(viewport);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const box = (await discovery.boundingBox())!;
+      const picture = (await discovery.locator(".taste-discovery-visual").boundingBox())!;
+      const copy = (await discovery.locator(".taste-discovery-copy").boundingBox())!;
+      expect(picture.x + picture.width <= copy.x || picture.y + picture.height <= copy.y).toBe(true);
+      const button = discovery.getByRole("button");
+      const action = (await button.boundingBox())!;
+      expect(action.height).toBeGreaterThanOrEqual(44);
+      expect(action.x).toBeGreaterThanOrEqual(box.x);
+      expect(action.x + action.width).toBeLessThanOrEqual(box.x + box.width);
+      if ((mode === "photo" || mode === "detail") && (viewport.width === 390 || viewport.width === 1440)) {
+        await snapshotChrome(page, false);
+        await geography.screenshot({ path: testInfo.outputPath(`taste-explore-${viewport.width}.png`) });
+        if (mode === "photo" && viewport.width === 390) await expect(discovery).toHaveScreenshot("taste-discovery-compact.png");
+        await snapshotChrome(page, true);
+      }
+      if (mode === "missing" && viewport.width === 390) await discovery.screenshot({ path: testInfo.outputPath("discovery-glass-390.png") });
+    }
   });
 }

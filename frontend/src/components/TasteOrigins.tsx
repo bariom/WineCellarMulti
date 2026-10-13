@@ -1,8 +1,33 @@
+import { useState } from "react";
 import type { Locale, TasteProfile, Wine } from "../types";
 import { isWinePhysicallyInCellar } from "../domain/cellar";
+import { AppIcon } from "./AppIcon";
+import { KeyPositionWineIllustration } from "./KeyPositionCardParts";
 import "./TasteOrigins.css";
 
 const normalize = (value: string) => value.trim().toLocaleLowerCase();
+
+function OriginLandscape() {
+  return <svg className="taste-origin-landscape" viewBox="0 0 400 90" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+    <circle cx="320" cy="24" r="17" fill="currentColor" opacity=".3" />
+    <path d="M0 64Q90 2 190 51T400 32V90H0Z" fill="currentColor" opacity=".13" />
+    <path d="M0 85Q110 22 230 64T400 48" fill="none" stroke="currentColor" strokeWidth="1.5" opacity=".65" />
+    <path d="M0 100Q120 38 240 76T400 64M50 100Q145 54 260 88T400 80M120 100Q195 70 300 100" fill="none" stroke="currentColor" opacity=".35" />
+  </svg>;
+}
+
+function DiscoveryBottle({ wine, locale }: { wine: Wine; locale: Locale }) {
+  const [failedUrls, setFailedUrls] = useState<string[]>([]);
+  const url = [wine.photo_thumbnail_url, wine.photo_detail_url].find(value => value && !failedUrls.includes(value));
+  return <div className="taste-discovery-visual">
+    <div className="taste-discovery-photo">
+      {url ? <img src={url} alt={locale === "it" ? `Foto di ${wine.name}` : `Photo of ${wine.name}`} loading="lazy"
+        onError={() => setFailedUrls(current => [...current, url])} />
+        : <span className="taste-discovery-placeholder"><KeyPositionWineIllustration /></span>}
+    </div>
+    <span className="taste-discovery-stock"><AppIcon name="cellar" />{locale === "it" ? "Già nella tua cantina" : "Already in your cellar"}</span>
+  </div>;
+}
 
 export function TasteOrigins({ profile, wines, locale, onOpenWine }: {
   profile: TasteProfile; wines?: Wine[]; locale: Locale; onOpenWine?: (wine: Wine) => void;
@@ -35,7 +60,8 @@ export function TasteOrigins({ profile, wines, locale, onOpenWine }: {
         const available = stock.filter(wine => normalize(regional ? wine.region : wine.vineyard_country || "") === normalize(name));
         const quantity = available.reduce((total, wine) => total + wine.quantity, 0);
         return <article className="taste-origin-card" key={name}>
-          <span className="taste-origin-rank">{index + 1} · {it ? (regional ? "Regione" : "Paese") : (regional ? "Region" : "Country")}</span>
+          <div className="taste-origin-illustration"><OriginLandscape /><span className="taste-origin-rank"><b>{String(index + 1).padStart(2, "0")}</b>{it ? (regional ? "Regione" : "Paese") : (regional ? "Region" : "Country")}</span><AppIcon name="location" size="1.2rem" /></div>
+          <div className="taste-origin-card-content">
           <h5>{name}</h5>
           <p>{wines ? (it ? `${quantity} ${quantity === 1 ? "bottiglia" : "bottiglie"} in cantina · ${available.length} ${available.length === 1 ? "etichetta" : "etichette"}` : `${quantity} ${quantity === 1 ? "bottle" : "bottles"} in cellar · ${available.length} ${available.length === 1 ? "label" : "labels"}`) : (it ? "Disponibilità in cantina non presente in questa vista." : "Cellar availability is not provided in this view.")}</p>
           {available.length ? <details className="taste-origin-wines">
@@ -44,18 +70,23 @@ export function TasteOrigins({ profile, wines, locale, onOpenWine }: {
               ? <button type="button" className="secondary" onClick={() => onOpenWine(wine)}>{wine.name} · {wine.vintage}<small>{wine.producer} · {wine.quantity} {it ? "bottiglie" : "bottles"}</small></button>
               : <span>{wine.name} · {wine.vintage}</span>}</li>)}</ul>
           </details> : null}
+          </div>
         </article>;
       })}
     </div>
     {!origins.length ? <p>{it ? "Non ci sono ancora segnali sufficienti per ordinare le origini." : "There is not enough evidence to rank origins yet."}</p> : null}
-    <article className="taste-origin-discovery">
+    <article className={`taste-origin-discovery${discovery && regions.length ? " has-suggestion" : ""}`}>
+      {discovery && regions.length ? <DiscoveryBottle key={discovery.wine.id} wine={discovery.wine} locale={locale} /> : <div className="taste-discovery-empty-icon" aria-hidden="true"><AppIcon name="location" size="2.5rem" /></div>}
+      <div className="taste-discovery-copy">
       <span className="taste-origin-rank">{it ? "Una scoperta da provare" : "A discovery to try"}</span>
       {discovery && regions.length ? <>
-        <h4>{discovery.wine.region} · {discovery.wine.name}</h4>
-        <p>{it ? `${discovery.grape} emerge tra le uve associate ai tuoi giudizi positivi. Questa bottiglia è già in cantina e viene da una regione fuori dalle tue origini principali.` : `${discovery.grape} appears among grapes associated with your positive ratings. This bottle is already in your cellar and comes from outside your leading regions.`}</p>
+        <h4>{discovery.wine.name}</h4>
+        <span className="taste-discovery-identity">{[discovery.wine.region, discovery.wine.vintage, discovery.wine.producer].filter(Boolean).join(" · ")}</span>
+        <p>{it ? `${discovery.grape} emerge tra le uve associate ai tuoi giudizi positivi. Provalo in una regione diversa dalle tue origini principali.` : `${discovery.grape} appears among grapes associated with your positive ratings. Explore it in a region outside your leading origins.`}</p>
         <small>{it ? "Una proposta da verificare con una degustazione: non è una previsione di gradimento." : "A suggestion to test with a tasting, rather than a predicted rating."}</small>
-        {onOpenWine ? <button type="button" className="secondary" onClick={() => onOpenWine(discovery.wine)}>{it ? "Apri la bottiglia da esplorare" : "Open the bottle to explore"}</button> : null}
+        {onOpenWine ? <button type="button" className="secondary" onClick={() => onOpenWine(discovery.wine)}>{it ? "Apri la bottiglia da esplorare" : "Open the bottle to explore"}<AppIcon name="chevron-right" /></button> : null}
       </> : <p>{it ? "Degusta un vino di un'altra regione e registra il tuo giudizio per ampliare il confronto. Non ci sono ancora bottiglie con dati sufficienti per una proposta mirata." : "Taste a wine from another region and record your rating to broaden the comparison. No bottles currently have enough data for a targeted suggestion."}</p>}
+      </div>
     </article>
   </div>;
 }

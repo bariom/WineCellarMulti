@@ -127,6 +127,13 @@ portrait must fill its container rather than inherit the narrower dashboard
 carousel-card width. Geometry checks cover light/private-cellar themes at
 360/390/430 px, tablet and desktop, including internal horizontal overflow.
 
+Taste origins use decorative landscape illustrations and a highlighted discovery
+card with the suggested wine's existing bottle thumbnail (falling back to its
+detail photo, then the shared wine-glass illustration). `taste-origins.spec.ts` covers the
+real dashboard in light/private-cellar themes, Italian/English, missing or failed
+images, geometry at 360/390/430 px and desktop, and a reviewed compact discovery
+baseline. Origin ranking, stock counts and suggestion selection stay unchanged.
+
 Other existing specs (for example `taste-profile.spec.ts`, sensory profiles,
 buying advice and wishlist flows) remain independently selectable through
 `npx playwright test e2e/<feature>.spec.ts`. The taste-profile layout suite does
