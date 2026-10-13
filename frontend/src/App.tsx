@@ -10418,7 +10418,14 @@ export function App() {
             </button> : null}
             <details className={`view-tabs-ai-group${aiNavigationActive ? " is-active" : ""}`}>
               <summary><AppIcon name="assistant" variant="ai" detailLevel="rich" />{t("aiTools")}</summary>
-              <div className="view-tabs-ai-options">
+              <div className="view-tabs-ai-options" onClick={(event) => {
+                if (!(event.target as Element).closest("button")) return;
+                const menu = event.currentTarget.closest("details");
+                if (menu) {
+                  menu.open = false;
+                  menu.querySelector("summary")?.focus();
+                }
+              }}>
               <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
                 <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
                 {t("pairing")}

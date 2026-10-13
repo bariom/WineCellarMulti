@@ -1,6 +1,39 @@
 import { expect, test } from "@playwright/test";
 import { wine, session, memberships, multiCellarMemberships, mockApi, openRecordTasting } from "./fixtures/app";
 
+
+for (const locale of ["it", "en"] as const) {
+  test(`AI tools menu closes after selecting each destination (${locale})`, async ({ page }, testInfo) => {
+    const it = locale === "it";
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockApi(page, [], false, memberships, [wine], { ...session, locale, cellar_ai_assistant_available: true });
+    await page.goto("/");
+    const menu = page.locator(".view-tabs-ai-group");
+    const summary = menu.locator("summary");
+    const destinations = [
+      [it ? "Abbinamento" : "Pairing", it ? "Trova abbinamento" : "Find pairing"],
+      [it ? "Sommelier acquisti" : "Buying sommelier", it ? "Sommelier acquisti" : "AI buying sommelier"],
+      ["Intelligence", it ? "Piano cantina" : "Cellar plan"],
+      [it ? "Assistente AI" : "AI Assistant", it ? "Assistente Cantina AI" : "AI Cellar Assistant"],
+    ];
+    for (const [label, heading] of destinations) {
+      for (const repeat of [false, true]) {
+        await summary.click();
+        await expect(menu).toHaveAttribute("open", "");
+        const action = menu.getByRole("button", { name: label, exact: true });
+        if (repeat) { await action.focus(); await page.keyboard.press("Enter"); }
+        else await action.click();
+        await expect(menu).not.toHaveAttribute("open", "");
+        await expect(action).toBeHidden();
+        await expect(summary).toBeFocused();
+        await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+      }
+      if (label === "Intelligence") await page.screenshot({ path: testInfo.outputPath(`ai-menu-closed-${locale}.png`) });
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+}
+
 for (const width of [1200, 1440]) {
   test(`Home AI navigation overlays without shifting content ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
@@ -338,6 +371,7 @@ test("opens the buying sommelier from desktop and mobile navigation", async ({ p
   await page.locator(".mobile-navigation-ai-group > summary").click();
   await page.getByRole("button", { name: "Sommelier acquisti", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Sommelier acquisti", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Menu di navigazione" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockApi, openRecordTasting, wine, tastingArchive, memberships, session } from "./fixtures/app";
+import { gpsPhoto } from "./fixtures/gpsPhoto";
 
 async function picture(page: Page) {
   return page.evaluate(() => {
@@ -10,6 +11,72 @@ async function picture(page: Page) {
     context.fillStyle = "#ead9aa"; context.fillRect(700, 180, 800, 840);
     context.fillStyle = "#71334a"; context.fillRect(800, 500, 600, 420);
     return canvas.toDataURL("image/png").split(",")[1];
+  });
+}
+
+for (const origin of ["cellar", "external"] as const) {
+  test(`original JPG retains GPS through ${origin} tasting photo compression`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockApi(page);
+    await page.goto("/");
+    await openRecordTasting(page);
+    const dialog = page.getByRole("dialog", { name: "Registra bevuta" });
+    await dialog.getByRole("button", { name: origin === "cellar" ? /Dalla mia cantina/ : /Un altro vino/ }).click();
+    if (origin === "cellar") await dialog.getByRole("button", { name: /Nebbiolo di Test/ }).click();
+    else await dialog.getByLabel("Nome del vino", { exact: true }).fill("Ricordo GPS");
+    const memory = dialog.getByRole("region", { name: "Foto ricordo", exact: true });
+    const gallery = memory.getByLabel("Scegli foto ricordo", { exact: true });
+    await gallery.setInputFiles({ name: "senza-gps.png", mimeType: "image/png", buffer: Buffer.from(await picture(page), "base64") });
+    await expect(memory.getByRole("status")).toContainText("GPS non rilevato nel file ricevuto");
+    // The general chooser must not inherit the image-only filter/capture mode.
+    const original = memory.getByLabel("Carica file originale della foto ricordo", { exact: true });
+    expect(await original.getAttribute("accept")).toBeNull();
+    expect(await original.getAttribute("capture")).toBeNull();
+    const chooser = page.waitForEvent("filechooser");
+    await memory.getByRole("button", { name: "Carica da file", exact: true }).click();
+    await (await chooser).setFiles({ name: "originale.jpg", mimeType: "image/jpeg", buffer: gpsPhoto });
+    await expect(memory.getByText("Posizione della foto inclusa nel ricordo. Potrai mostrarla sulla mappa.")).toBeVisible();
+    await expect(memory.getByText(/GPS non rilevato/)).toHaveCount(0);
+    const preview = memory.getByRole("img", { name: "Foto ricordo della bevuta" });
+    const compressed = (await preview.getAttribute("src"))!;
+    const location = await page.evaluate(async value => {
+      const path = "/src/domain/photoLocation.ts";
+      const { photoLocation } = await import(path);
+      return photoLocation(new File([await (await fetch(value)).blob()], "compressed.jpg"));
+    }, compressed);
+    expect(location.latitude).toBeCloseTo(43.77, 6);
+    expect(location.longitude).toBeCloseTo(11.25, 6);
+    expect(Buffer.from(compressed.split(",")[1], "base64").length).toBeLessThanOrEqual(200_000);
+    await original.setInputFiles({ name: "fake.jpg", mimeType: "image/jpeg", buffer: Buffer.from("not a photo") });
+    await expect(memory.getByRole("alert")).toBeVisible();
+    await expect(preview).toHaveAttribute("src", compressed);
+    await expect(memory.getByText(/Posizione della foto inclusa/)).toBeVisible();
+    for (const width of [360, 390, 430, 1440]) {
+      await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
+      const container = (await memory.boundingBox())!;
+      for (const button of await memory.getByRole("button").all()) {
+        const bounds = (await button.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(container.x);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(container.x + container.width);
+        expect(bounds.height).toBeGreaterThanOrEqual(44);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await memory.screenshot({ path: testInfo.outputPath("original-photo-gps-390.png") });
+    await page.evaluate(({ origin, fixture }) => {
+      const original = window.fetch;
+      window.fetch = async (input, init) => {
+        if (init?.method === "POST" && String(input).endsWith(origin === "cellar" ? "/consume" : "/wishlist/tastings")) {
+          (window as any).memoryTastingPayload = JSON.parse(String(init.body));
+          return new Response(JSON.stringify(origin === "cellar" ? fixture : { id: "gps-memory" }), { headers: { "Content-Type": "application/json" } });
+        }
+        return original(input, init);
+      };
+    }, { origin, fixture: wine });
+    await dialog.getByRole("button", { name: "Salva bevuta" }).click();
+    await expect(dialog.getByText("Bevuta salvata nello Storico", { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => (window as any).memoryTastingPayload.memory_photo)).toBe(compressed);
   });
 }
 

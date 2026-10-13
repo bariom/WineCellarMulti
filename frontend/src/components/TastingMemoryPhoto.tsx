@@ -8,6 +8,14 @@ import "./TastingMemoryPhoto.css";
 
 async function compactPhoto(file: File): Promise<{ value: string; location: PhotoLocation | null }> {
   if (file.size > 25_000_000) throw new Error("size");
+  // The original-file picker deliberately accepts all files, so validate bytes
+  // rather than trusting the extension or the MIME type supplied by Android.
+  const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const jpeg = header[0] === 255 && header[1] === 216 && header[2] === 255;
+  const png = [137, 80, 78, 71, 13, 10, 26, 10].every((byte, index) => header[index] === byte);
+  const webp = String.fromCharCode(...header.slice(0, 4)) === "RIFF"
+    && String.fromCharCode(...header.slice(8, 12)) === "WEBP";
+  if (!jpeg && !png && !webp) throw new Error("format");
   const location = await photoLocation(file);
   const url = URL.createObjectURL(file);
   try {
@@ -38,9 +46,10 @@ export function TastingMemoryPhotoInput({ locale, value, existingUrl, disabled, 
   const it = locale === "it";
   const camera = useRef<HTMLInputElement>(null);
   const gallery = useRef<HTMLInputElement>(null);
+  const original = useRef<HTMLInputElement>(null);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
-  const [hasLocation, setHasLocation] = useState(false);
+  const [hasLocation, setHasLocation] = useState<boolean | null>(null);
   const preview = value === undefined ? existingUrl : value;
   async function choose(file?: File) {
     if (!file) return;
@@ -62,11 +71,18 @@ export function TastingMemoryPhotoInput({ locale, value, existingUrl, disabled, 
     <div className="tasting-memory-actions">
       <button type="button" className="tasting-memory-camera" disabled={disabled || processing} onClick={() => camera.current?.click()}><AppIcon name="camera" />{it ? "Scatta foto" : "Take photo"}</button>
       <button type="button" className="secondary" disabled={disabled || processing} onClick={() => gallery.current?.click()}><AppIcon name="dashboard-cards" />{it ? "Scegli foto" : "Choose photo"}</button>
+      <button type="button" className="secondary tasting-memory-original" disabled={disabled || processing} onClick={() => original.current?.click()}>{it ? "Carica da file" : "Upload from files"}</button>
     </div>
-    {preview ? <div className="tasting-memory-footer"><small><AppIcon name="tasting" />{it ? "Foto allegata alla bevuta" : "Photo attached to the tasting"}</small><button type="button" className="tasting-memory-remove" disabled={disabled || processing} onClick={() => { onChange(""); setHasLocation(false); setError(""); }}><AppIcon name="delete" />{it ? "Rimuovi foto" : "Remove photo"}</button></div> : null}
+    {preview ? <div className="tasting-memory-footer"><small><AppIcon name="tasting" />{it ? "Foto allegata alla bevuta" : "Photo attached to the tasting"}</small><button type="button" className="tasting-memory-remove" disabled={disabled || processing} onClick={() => { onChange(""); setHasLocation(null); setError(""); }}><AppIcon name="delete" />{it ? "Rimuovi foto" : "Remove photo"}</button></div> : null}
     <input ref={camera} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden aria-label={it ? "Scatta foto ricordo" : "Take memory photo"} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
     <input ref={gallery} type="file" accept="image/jpeg,image/png,image/webp" hidden aria-label={it ? "Scegli foto ricordo" : "Choose memory photo"} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
+    {/* No image-only accept filter: offer the general file chooser alongside the
+        Android photo picker, which can redact GPS before the browser sees it. */}
+    <input ref={original} type="file" hidden aria-label={it ? "Carica file originale della foto ricordo" : "Upload original memory photo file"} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
     {hasLocation && preview ? <small>{it ? "Posizione della foto inclusa nel ricordo. Potrai mostrarla sulla mappa." : "Photo location included in this memory. You can view it on the map."}</small> : null}
+    {hasLocation === false && preview ? <small role="status">{it
+      ? "GPS non rilevato nel file ricevuto. Su Android la galleria può escluderlo: prova Carica da file e scegli la foto originale."
+      : "No GPS detected in the received file. Android's gallery may omit it: try Upload from files and choose the original photo."}</small> : null}
     {processing ? <small role="status">{it ? "Preparazione foto…" : "Preparing photo…"}</small> : null}
     {error ? <p role="alert">{error}</p> : null}
   </section>;

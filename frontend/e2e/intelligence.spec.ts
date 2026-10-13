@@ -124,3 +124,32 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(overlay).toBeHidden();
   });
 });
+
+
+test("Intelligence stays centered on wide screens and within mobile bounds", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await mockApi(page);
+  await page.goto("/");
+  await page.locator(".view-tabs-ai-group > summary").click();
+  await page.getByRole("button", { name: "Intelligence", exact: true }).click();
+  const panel = page.locator(".cellar-intelligence");
+  await expect(panel.getByRole("heading", { name: "Piano cantina", exact: true })).toBeVisible();
+  for (const viewport of [
+    { width: 1920, height: 1080 }, { width: 1440, height: 900 },
+    { width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const workspace = (await page.locator(".workspace").boundingBox())!;
+    const content = (await panel.boundingBox())!;
+    const leftGap = content.x - workspace.x;
+    const rightGap = workspace.x + workspace.width - content.x - content.width;
+    expect(leftGap).toBeCloseTo(rightGap, 0);
+    expect(content.x).toBeGreaterThanOrEqual(0);
+    expect(content.x + content.width).toBeLessThanOrEqual(viewport.width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await panel.getByRole("heading", { name: "Piano cantina", exact: true }).scrollIntoViewIfNeeded();
+    if (viewport.width === 1920 || viewport.width === 390) {
+      await page.screenshot({ path: testInfo.outputPath(`intelligence-centered-${viewport.width}.png`) });
+    }
+  }
+});

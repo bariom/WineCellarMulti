@@ -121,6 +121,10 @@
     margin-right: 0;
   }
 
+  :root .authenticated-app-shell:not(.cellar-home-edition) .home-workspace > .cellar-intelligence {
+    margin-inline: auto;
+  }
+
   :root .authenticated-app-shell:not(.cellar-home-edition) .content-workspace > .wine-list {
     grid-column: 1;
     grid-row: 2;

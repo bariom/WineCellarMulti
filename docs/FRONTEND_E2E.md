@@ -446,6 +446,15 @@ Photo selection reads EXIF GPS from supported JPEG/PNG/WebP files before canvas
 compression, forwards only GPS metadata, and saves validated coordinates separately
 from the metadata-free served JPEG. **Show place on map** loads a map only on demand.
 Photos without valid GPS still save normally. No device location is requested.
+The uploader reports whether GPS was found in the received file. **Upload from
+files** offers an unfiltered file chooser alongside camera/gallery; selected files
+are still validated as JPEG/PNG/WebP before decoding. Android's photo picker can
+redact location before the browser receives the image (see [MediaStore](https://developer.android.com/reference/android/provider/MediaStore)).
+Selecting an original JPG from a file provider may preserve GPS; this depends on
+the Android/browser/provider combination and should be checked on the device.
+Browser regressions use a deterministic JPEG with independently written EXIF GPS
+to verify compression and the submitted payload for cellar and external tastings,
+plus missing GPS, invalid-file retry and responsive controls at 360/390/430 px.
 Existing sanitized photos cannot recover discarded GPS; replacing them with the
 original photo captures it. Apply Alembic revision `0113_memory_photo_location`
 before using the new backend.
@@ -515,3 +524,5 @@ these baselines. No backend is required: session, public configuration and signu
 responses are mocked; no real account or email is created.
 
 External tasting metadata corrections are covered by `npx playwright test e2e/tasting-wine-detail.spec.ts`: Italian/mobile and English/desktop saves, retry after a failed save, blank-name validation, retained tasting fields, and 360/390/430 px geometry checks. `external-tasting-editor-compact.png` protects the visually reviewed 390 px editor; cellar tastings keep their existing editor.
+
+`npx playwright test e2e/intelligence.spec.ts` checks symmetric Intelligence content margins at 1440/1920 px and content bounds/overflow at 360/390/430 px. The 1920 px case detects right alignment caused by navigation overrides on the capped-width panel.
