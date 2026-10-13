@@ -303,6 +303,29 @@ npm.cmd run build
 ```
 ## AI responses with no estimable dimensions
 
+The batch UI starts generation with `POST /taste-profile/admin/batches` (HTTP 202)
+and polls `GET /taste-profile/admin/batches/{id}`. Start/status requests do not wait
+for AI. A snapshot contains up to 50 missing identities in the chosen scope. Each
+wine and its progress counters commit together, preserving completed profiles
+when another wine fails or the browser disconnects. Empty AI results and provider
+errors are counted separately. Available or validated profiles are not replaced.
+
+The browser remembers the run ID across refreshes and retries only status reads
+after transient gateway/network errors. An active batch is reused on repeated
+start requests from the same user/scope; a household cannot start a second active
+batch. Status is restricted to the requesting administrator and active household,
+and worker authorization is checked before every wine. Profile identity locks
+prevent two batch workers from overwriting the same available shared profile.
+
+Apply migration `0120_sensory_batch` with `alembic upgrade head` before deploying
+the updated frontend. Jobs use FastAPI background tasks, without a separate worker
+queue: an API restart can interrupt processing. After 15 minutes without progress,
+status becomes interrupted; already committed profiles remain saved. AI work is
+never automatically retried. Check a new preview to retry remaining wines. The
+legacy synchronous `/admin/enrich-missing` endpoint remains for older clients.
+Regression coverage: `pytest tests/test_sensory_batch_jobs.py tests/test_taste_profiles.py`
+and `npx.cmd playwright test e2e/sensory-profiles.spec.ts`.
+
 A structured response with every dimension set to `null` means insufficient data.
 The wine remains without an available profile and batch generation continues with
 other wines. The summary distinguishes created profiles from unresolved wines.

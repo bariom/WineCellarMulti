@@ -194,5 +194,20 @@ class BatchEnrichmentPreview(BaseModel):
     requires_ai: int
 
 
+class SensoryBatchRunResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: UUID
+    scope: SensoryAdminScope
+    status: Literal["queued", "running", "completed", "failed"]
+    issue: str
+    total: int
+    processed: int
+    resolved: int
+    ai_generated: int
+    skipped: int
+    failed: int
+
+
 class BatchProfileApprovalResponse(BaseModel):
     approved: int

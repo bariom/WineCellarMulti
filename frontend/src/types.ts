@@ -1645,6 +1645,19 @@ export type WineSensoryBatchPreview = {
   requires_ai: number;
 };
 
+export type WineSensoryBatchRun = {
+  id: string;
+  scope: SensoryAdminScope;
+  status: "queued" | "running" | "completed" | "failed";
+  issue: string;
+  total: number;
+  processed: number;
+  resolved: number;
+  ai_generated: number;
+  skipped: number;
+  failed: number;
+};
+
 export type SensoryProfileBaseline = {
   id: string;
   entity_type: string;

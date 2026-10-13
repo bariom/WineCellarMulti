@@ -26,6 +26,7 @@ from app.models.operational_metrics import OperationalAlertState, OperationalMet
 from app.models.passkey import PasskeyChallenge, UserPasskey
 from app.models.purchase_import import PurchaseDocumentWine, PurchaseImport
 from app.models.sensory_agent import SensoryAgentRun
+from app.models.sensory_batch import SensoryBatchRun
 from app.models.sensory_refinement import SensoryRefinementRun
 from app.models.session import UserSession
 from app.models.shared_wine_data import SharedWineFact, SharedWineIdentity
@@ -103,6 +104,7 @@ __all__ = [
     "UserSession",
     "UserTag",
     "UserWineTag",
+    "SensoryBatchRun",
     "SensoryProfileBaseline",
     "UserTasteProfile",
     "UserTasteProfileRevision",

@@ -1,5 +1,74 @@
 import { test, expect } from "@playwright/test";
 
+function completedBatch(processed: number, resolved: number, skipped = 0, ai_generated = 0) {
+  return { id: "sensory-batch-test", scope: "cellar", status: "completed", issue: "", total: processed, processed, resolved, skipped, ai_generated, failed: 0 };
+}
+
+test("Background generation reconnects after a gateway timeout and page refresh without restarting AI", async ({ page }, testInfo) => {
+  await page.route("**/sensory-background-test", route => route.fulfill({ contentType: "text/html", body: `
+    <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
+    import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window);
+    window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => (type) => type;
+    window.__vite_plugin_react_preamble_installed__ = true;
+    const {default: React} = await import('/node_modules/.vite/deps/react.js');
+    const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
+    const {default: Panel} = await import('/src/components/AdminSensoryProfilesPanel.tsx');
+    await import('/src/styles.css');
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Panel, {locale:'it'}));
+    </script></body></html>` }));
+  let starts = 0;
+  let gatewayFailure = false;
+  let finished = false;
+  const running = { ...completedBatch(1, 1), scope: "catalog", total: 3, status: "running" };
+  await page.route("**/api/v1/taste-profile/admin/**", route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/summary")) return route.fulfill({ json: { wines_with_profile: 1, wines_without_profile: 2 } });
+    if (path.endsWith("/batch-preview")) return route.fulfill({ json: { missing: 3, deterministic: 0, requires_ai: 3 } });
+    if (path.endsWith("/batches")) { starts++; return route.fulfill({ status: 202, json: { ...running, id: `run-${starts}`, status: "queued", processed: 0 } }); }
+    if (path.includes("/batches/")) {
+      if (gatewayFailure) { gatewayFailure = false; return route.fulfill({ status: 504, json: { detail: "Gateway Time-out" } }); }
+      if (starts > 1) return route.fulfill({ json: { ...running, id: `run-${starts}`, status: "failed", issue: "interrupted" } });
+      return route.fulfill({ json: finished ? { ...completedBatch(3, 1), scope: "catalog", id: "run-1", failed: 1 } : { ...running, id: "run-1" } });
+    }
+    return route.fulfill({ json: [] });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/sensory-background-test");
+  await page.getByLabel("Su quali vini vuoi lavorare?").selectOption("catalog");
+  const preview = page.getByRole("button", { name: "Mostra anteprima", exact: true });
+  const generate = page.getByRole("button", { name: "Genera mancanti con AI", exact: true });
+  await preview.click(); await generate.click();
+  const progress = page.getByRole("status").filter({ hasText: "Generazione in corso" });
+  await expect(progress).toContainText("1 / 3 vini esaminati");
+  gatewayFailure = true;
+  await page.reload();
+  await expect(progress).toContainText("Connessione interrotta");
+  await expect(page.getByRole("button", { name: "Generazione in corso…", exact: true })).toBeDisabled();
+  await expect(progress).toContainText("1 / 3 vini esaminati", { timeout: 10000 });
+  await expect(page.getByLabel("Su quali vini vuoi lavorare?")).toHaveValue("catalog");
+  expect(starts).toBe(1);
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    await progress.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const box = (await progress.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`sensory-background-${width}.png`), fullPage: true });
+  }
+  finished = true;
+  const completed = page.getByRole("status").filter({ hasText: "Generazione completata" });
+  await expect(completed).toContainText("1 con errore");
+  await expect(completed).toContainText("1 senza dati sufficienti");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("sensory-batch-id"))).toBeNull();
+  await preview.click(); await generate.click();
+  await expect(page.getByRole("alert")).toContainText("I profili già creati sono salvati");
+  await expect(page.getByRole("status").filter({ hasText: "Generazione interrotta" })).toBeVisible();
+  await expect(preview).toBeEnabled();
+  expect(starts).toBe(2);
+});
+
 for (const locale of ["it", "en"] as const) {
   test(`Empty AI sensory results leave missing profiles actionable without blocking the batch (${locale})`, async ({ page }, testInfo) => {
     const it = locale === "it";
@@ -15,11 +84,13 @@ for (const locale of ["it", "en"] as const) {
       ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Panel, {locale:'${locale}'}));
       </script></body></html>` }));
     let batches = 0;
+    let batch = completedBatch(0, 0);
     await page.route("**/api/v1/taste-profile/admin/**", route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith("/summary")) return route.fulfill({ json: { wines_with_profile: 1, wines_without_profile: 1 } });
       if (path.endsWith("/batch-preview")) return route.fulfill({ json: { missing: 2, deterministic: 0, requires_ai: 2 } });
-      if (path.endsWith("/enrich-missing")) return route.fulfill({ json: { processed: 2, resolved: ++batches === 1 ? 1 : 0, skipped: 0, ai_generated: batches === 1 ? 1 : 0 } });
+      if (path.endsWith("/batches")) { batch = completedBatch(2, ++batches === 1 ? 1 : 0, 0, batches === 1 ? 1 : 0); return route.fulfill({ status: 202, json: batch }); }
+      if (path.includes("/batches/")) return route.fulfill({ json: batch });
       if (path.endsWith("/regenerate")) return route.fulfill({ status: 422, json: { detail: "No sensory profile can be inferred" } });
       if (path.endsWith("/profiles")) return route.fulfill({ json: [{ identity_id: "unknown", name: "La Luna dei Tempi", producer: "Massucco", vintage: "2019", source: "missing", confidence: 0, validated: false, dimensions: {}, generation_status: "pending" }] });
       return route.fulfill({ json: [] });
@@ -83,12 +154,13 @@ test("Simple workflow previews the shared catalog before batch generation", asyn
       if (previewCalls === 1) return route.fulfill({ status: 503, json: { detail: "Anteprima non disponibile" } });
       return route.fulfill({ json: { missing: generated && scope === "cellar" ? 0 : 8, deterministic: generated && scope === "cellar" ? 0 : 8, requires_ai: 0 } });
     }
-    if (path.endsWith("/enrich-missing")) {
+    if (path.endsWith("/batches")) {
       expect(route.request().postDataJSON()).toEqual({ limit: 50, allow_ai: true, scope: "cellar" });
       generationCalls++;
       generated = true;
-      return route.fulfill({ json: { processed: 8, resolved: 8, ai_generated: 0, skipped: 1 } });
+      return route.fulfill({ status: 202, json: completedBatch(8, 8, 1) });
     }
+    if (path.includes("/batches/")) return route.fulfill({ json: completedBatch(8, 8, 1) });
     expect(route.request().method()).toBe("GET");
     expect(path).not.toContain("references");
     return route.fulfill({ json: path.endsWith("/summary") ? { wines_with_profile: generated ? 9 : 1, wines_without_profile: generated ? 0 : 8 } : path.endsWith("/profiles") ? [{ identity_id: "test", name: "Testamatta", producer: "Bibi Graetz", vintage: "2018", source: "hybrid", confidence: .72, validated: true, dimensions: { body: .64 } }] : [] });
@@ -270,9 +342,11 @@ test("AI actions send opt-in and show single-wine errors", async ({ page }, test
     } else if (url.pathname.endsWith("/approve-pending")) {
       approved = true;
       body = { approved: 1 };
-    } else if (url.pathname.endsWith("/enrich-missing")) {
+    } else if (url.pathname.endsWith("/batches")) {
       batch = route.request().postDataJSON().allow_ai === true;
-      body = { processed: 1, resolved: 1, ai_generated: 1, skipped: 0 };
+      body = completedBatch(1, 1, 0, 1);
+    } else if (url.pathname.includes("/batches/")) {
+      body = completedBatch(1, 1, 0, 1);
     } else if (url.pathname.endsWith("/profiles")) body = [{ identity_id: "test", name: "Amarone Classico", producer: "Villa Verona", vintage: "2019", source: "missing", confidence: 0, validated: false, dimensions: {}, generation_status: "pending" }];
     await route.fulfill({ json: body });
   });

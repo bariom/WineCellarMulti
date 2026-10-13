@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import type { SensoryAdminScope, Locale, SensoryRefinementRun, SensoryProfileBaseline, WineSensoryBatchPreview, WineSensoryProfile, WineSensoryProfileSummary } from "../types";
+import type { SensoryAdminScope, Locale, SensoryRefinementRun, SensoryProfileBaseline, WineSensoryBatchPreview, WineSensoryBatchRun, WineSensoryProfile, WineSensoryProfileSummary } from "../types";
 import { ApiError, api } from "../services/api";
 import SensoryReferencesPanel from "./SensoryReferencesPanel";
 import SensoryWineReview from "./SensoryWineReview";
 
 const dimensions = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
 const emptyBaseline: Omit<SensoryProfileBaseline, "id"> = { entity_type: "grape", entity_key: "", dimensions: {}, confidence: 0.5, is_active: true };
-type BatchResult = { processed: number; resolved: number; ai_generated: number; skipped: number };
+type BatchResult = { processed: number; resolved: number; ai_generated: number; skipped: number; failed: number };
 type ApprovalResult = { approved: number };
 type MetadataEnrichmentResult = WineSensoryProfile & { metadata_updated: string[]; estimated_cost_usd: string };
 
@@ -24,6 +24,9 @@ export function AdminSensoryProfilesPanel({ locale }: { locale: Locale }) {
   const [editingBaseline, setEditingBaseline] = useState<SensoryProfileBaseline | null>(null);
   const [preview, setPreview] = useState<WineSensoryBatchPreview | null>(null);
   const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
+  const [batchRunId, setBatchRunId] = useState<string | null>(() => localStorage.getItem("sensory-batch-id"));
+  const [batchRun, setBatchRun] = useState<WineSensoryBatchRun | null>(null);
+  const [batchConnectionLost, setBatchConnectionLost] = useState(false);
   const [approvalResult, setApprovalResult] = useState<ApprovalResult | null>(null);
   const [batchError, setBatchError] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -39,17 +42,51 @@ export function AdminSensoryProfilesPanel({ locale }: { locale: Locale }) {
   const [hasNext, setHasNext] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function load(nextOffset = offset, activeFilter = filter) {
+  async function load(nextOffset = offset, activeFilter = filter, activeScope = scope) {
     setLoading(true);
     try {
-    const query = new URLSearchParams({ scope, limit: "31", offset: String(nextOffset) });
+    const query = new URLSearchParams({ scope: activeScope, limit: "31", offset: String(nextOffset) });
     for (const [key, value] of Object.entries(activeFilter)) if (typeof value === "string" ? value.trim() : value) query.set(key, String(value).trim());
-    const [nextSummary, nextProfiles, nextBaselines] = await Promise.all([api<WineSensoryProfileSummary>(`/api/v1/taste-profile/admin/summary?scope=${scope}`), api<WineSensoryProfile[]>(`/api/v1/taste-profile/admin/profiles?${query}`), api<SensoryProfileBaseline[]>("/api/v1/taste-profile/admin/baselines")]);
+    const [nextSummary, nextProfiles, nextBaselines] = await Promise.all([api<WineSensoryProfileSummary>(`/api/v1/taste-profile/admin/summary?scope=${activeScope}`), api<WineSensoryProfile[]>(`/api/v1/taste-profile/admin/profiles?${query}`), api<SensoryProfileBaseline[]>("/api/v1/taste-profile/admin/baselines")]);
     setSummary(nextSummary); setProfiles(nextProfiles.slice(0, 30)); setHasNext(nextProfiles.length > 30); setOffset(nextOffset); setBaselines(nextBaselines);
     } catch (error) { setBatchError(errorMessage(error, italian ? "Impossibile caricare i profili." : "Unable to load profiles.")); }
     finally { setLoading(false); }
   }
   useEffect(() => { void load(0); }, [scope]);
+  useEffect(() => {
+    if (!batchRunId) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    setBusy(true);
+    async function poll() {
+      try {
+        const run = await api<WineSensoryBatchRun>(`/api/v1/taste-profile/admin/batches/${batchRunId}`);
+        if (cancelled) return;
+        setBatchConnectionLost(false); setBatchRun(run); setScope(run.scope);
+        if (run.status === "queued" || run.status === "running") {
+          timer = setTimeout(() => void poll(), 2000);
+          return;
+        }
+        localStorage.removeItem("sensory-batch-id"); setBatchRunId(null); setBusy(false);
+        setBatchResult(run);
+        if (run.status === "failed") setBatchError(run.issue === "session_expired"
+          ? (italian ? "Sessione non più autorizzata. Accedi di nuovo; i profili già creati sono salvati." : "Session no longer authorized. Sign in again; profiles already created are saved.")
+          : (italian ? "Generazione interrotta. I profili già creati sono salvati. Controlla l’anteprima prima di riprovare." : "Generation interrupted. Profiles already created are saved. Check the preview before retrying."));
+        await load(0, filter, run.scope);
+      } catch (error) {
+        if (cancelled) return;
+        if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+          localStorage.removeItem("sensory-batch-id"); setBatchRunId(null); setBusy(false); setBatchRun(null);
+          setBatchError(errorMessage(error, italian ? "Generazione non recuperabile." : "Unable to retrieve generation."));
+        } else {
+          setBatchConnectionLost(true);
+          timer = setTimeout(() => void poll(), 5000);
+        }
+      }
+    }
+    void poll();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [batchRunId, italian]);
   useEffect(() => {
     if (!refinementId) return;
     let cancelled = false;
@@ -103,10 +140,11 @@ export function AdminSensoryProfilesPanel({ locale }: { locale: Locale }) {
     finally { setPreviewLoading(false); }
   }
   async function enrich() {
-    setBusy(true); setBatchError(""); setPreview(null);
-    try { const result = await api<BatchResult>("/api/v1/taste-profile/admin/enrich-missing", { method: "POST", body: JSON.stringify({ limit: 50, allow_ai: true, scope }) }); setBatchResult(result); await load(); }
-    catch (error) { setBatchResult(null); setBatchError(errorMessage(error, italian ? "Impossibile generare i profili." : "Unable to generate profiles.")); }
-    finally { setBusy(false); }
+    setBusy(true); setBatchError(""); setPreview(null); setBatchResult(null); setBatchRun(null); setBatchConnectionLost(false);
+    try {
+      const run = await api<WineSensoryBatchRun>("/api/v1/taste-profile/admin/batches", { method: "POST", body: JSON.stringify({ limit: 50, allow_ai: true, scope }) });
+      localStorage.setItem("sensory-batch-id", run.id); setBatchRun(run); setBatchRunId(run.id);
+    } catch (error) { setBusy(false); setBatchError(errorMessage(error, italian ? "Impossibile avviare la generazione. Controlla l’anteprima prima di riprovare." : "Unable to start generation. Check the preview before retrying.")); }
   }
   async function approvePendingProfiles() {
     if (!window.confirm(italian ? "Vuoi approvare tutti i profili disponibili ancora da validare?" : "Approve every available profile that is still awaiting validation?")) return;
@@ -173,7 +211,7 @@ export function AdminSensoryProfilesPanel({ locale }: { locale: Locale }) {
   async function removeBaseline(baseline: SensoryProfileBaseline) { setBusy(true); try { await api(`/api/v1/taste-profile/admin/baselines/${baseline.id}`, { method: "DELETE" }); await load(); } finally { setBusy(false); } }
 
   const editor = editingBaseline || baselineDraft;
-  const unresolved = batchResult ? Math.max(0, batchResult.processed - batchResult.resolved) : 0;
+  const unresolved = batchResult ? Math.max(0, batchResult.processed - batchResult.resolved - batchResult.skipped - batchResult.failed) : 0;
   const metric: Array<[string, number]> = summary ? [["profiles", summary.wines_with_profile], ["missing", summary.wines_without_profile], ["metadata", summary.inferred_from_metadata], ["AI", summary.generated_by_ai], ["validated", summary.manually_validated], ["low_confidence", summary.low_confidence]] : [];
   return <section className="settings-card settings-card-wide admin-sensory-profiles">
     <div className="settings-card-heading"><div><span>{italian ? "Gestione dei profili" : "Profile management"}</span><h3>{italian ? "Profili sensoriali dei vini" : "Wine Sensory Profiles"}</h3></div></div>
@@ -193,8 +231,13 @@ export function AdminSensoryProfilesPanel({ locale }: { locale: Locale }) {
 
     <section className="admin-sensory-batch" aria-labelledby="sensory-batch-title"><div><span>{italian ? "Generazione assistita" : "Assisted generation"}</span><h4 id="sensory-batch-title">{italian ? "1. Controlla i mancanti" : "1. Check missing profiles"}</h4><p id="sensory-batch-help">{italian ? "L’anteprima non modifica nulla: indica quali vini possono ricevere un profilo dai metadati già presenti." : "The preview changes nothing: it shows which wines can receive a profile from their current metadata."}</p></div><button type="button" className="secondary compact" disabled={busy || previewLoading} aria-describedby="sensory-batch-help" onClick={() => void previewBatch()}>{previewLoading ? (italian ? "Calcolo in corso…" : "Calculating…") : italian ? "Mostra anteprima" : "Show preview"}</button><button type="button" disabled={busy || previewLoading || !preview?.missing} onClick={() => void enrich()}>{busy ? (italian ? "Generazione in corso…" : "Generating…") : italian ? "Genera mancanti con AI" : "Generate missing with AI"}</button></section>
     <p>{italian ? "2. Dopo l’anteprima, genera fino a 50 profili per volta. L’AI può completare i metadati mancanti e consumare crediti; non avvia ricerche sensoriali approfondite. La generazione riguarda i mancanti nell’ambito scelto; i filtri della lista non la limitano." : "2. After previewing, generate up to 50 profiles per run. AI may complete missing metadata and use credits; it does not start in-depth sensory research. Generation covers missing profiles in the selected scope; list filters do not limit it."}</p>
+    {batchRunId ? <div className="admin-sensory-feedback admin-sensory-feedback-preview" role="status" aria-live="polite">
+      <strong>{italian ? "Generazione in corso" : "Generation in progress"}</strong>
+      <p>{batchRun ? <>{batchRun.processed} / {batchRun.total} {italian ? "vini esaminati" : "wines reviewed"} · {batchRun.resolved} {italian ? "profili creati" : "profiles created"}</> : (italian ? "Recupero avanzamento..." : "Retrieving progress...")}</p>
+      <p>{batchConnectionLost ? (italian ? "Connessione interrotta: recupero avanzamento senza avviare una nuova generazione." : "Connection interrupted: retrieving progress without starting generation again.") : (italian ? "Puoi aggiornare la pagina: la generazione continua e ogni profilo viene salvato appena pronto." : "You can refresh the page: generation continues and each profile is saved when ready.")}</p>
+    </div> : null}
     {preview ? <div className="admin-sensory-feedback admin-sensory-feedback-preview" role="status" aria-live="polite"><strong>{italian ? "Esito dell’anteprima" : "Preview result"}</strong><div className="admin-sensory-feedback-values"><span><b>{preview.missing}</b>{italian ? " senza profilo" : " without a profile"}</span><span><b>{preview.deterministic}</b>{italian ? " generabili ora" : " can be generated now"}</span><span><b>{preview.requires_ai}</b>{italian ? " richiedono AI" : " require AI"}</span></div><p>{preview.missing ? (italian ? "Genera mancanti con AI completa i metadati quando necessario, poi calcola il profilo." : "Generate missing with AI completes metadata when needed, then calculates the profile.") : (italian ? "Non ci sono profili mancanti da generare." : "There are no missing profiles to generate.")}</p></div> : null}
-    {batchResult ? <div className="admin-sensory-feedback admin-sensory-feedback-success" role="status" aria-live="polite"><strong>{italian ? "Generazione completata" : "Generation completed"}</strong><div className="admin-sensory-feedback-values"><span><b>{batchResult.processed}</b>{italian ? " esaminati" : " reviewed"}</span><span><b>{batchResult.resolved}</b>{italian ? " profili creati" : " profiles created"}</span><span><b>{batchResult.skipped}</b>{italian ? " saltati" : " skipped"}</span>{unresolved > 0 ? <span><b>{unresolved}</b>{italian ? " senza dati sufficienti" : " with insufficient data"}</span> : null}</div>{unresolved > 0 ? <p>{italian ? "Alcuni vini restano senza profilo: l’AI non dispone di dati sufficienti. Completa tipologia, vitigni o denominazione prima di riprovare. I profili generati sono stati salvati." : "Some wines still have no profile: AI has insufficient data. Add wine type, grapes or appellation before retrying. Generated profiles have been saved."}</p> : null}<p>{batchResult.processed === 50 ? (italian ? "Ogni esecuzione elabora al massimo 50 vini. Se restano profili mancanti, ripeti l’azione." : "Each run processes up to 50 wines. Repeat the action if profiles are still missing.") : (italian ? "I contatori in alto sono stati aggiornati." : "The counters above have been updated.")}</p></div> : null}
+    {batchResult ? <div className="admin-sensory-feedback admin-sensory-feedback-success" role="status" aria-live="polite"><strong>{batchRun?.status === "failed" ? (italian ? "Generazione interrotta" : "Generation interrupted") : (italian ? "Generazione completata" : "Generation completed")}</strong><div className="admin-sensory-feedback-values"><span><b>{batchResult.processed}</b>{italian ? " esaminati" : " reviewed"}</span><span><b>{batchResult.resolved}</b>{italian ? " profili creati" : " profiles created"}</span><span><b>{batchResult.skipped}</b>{italian ? " saltati" : " skipped"}</span>{batchResult.failed > 0 ? <span><b>{batchResult.failed}</b>{italian ? " con errore" : " failed"}</span> : null}{unresolved > 0 ? <span><b>{unresolved}</b>{italian ? " senza dati sufficienti" : " with insufficient data"}</span> : null}</div>{unresolved > 0 ? <p>{italian ? "Alcuni vini restano senza profilo: l’AI non dispone di dati sufficienti. Completa tipologia, vitigni o denominazione prima di riprovare. I profili generati sono stati salvati." : "Some wines still have no profile: AI has insufficient data. Add wine type, grapes or appellation before retrying. Generated profiles have been saved."}</p> : null}<p>{batchResult.processed === 50 ? (italian ? "Ogni esecuzione elabora al massimo 50 vini. Se restano profili mancanti, ripeti l’azione." : "Each run processes up to 50 wines. Repeat the action if profiles are still missing.") : (italian ? "I contatori in alto sono stati aggiornati." : "The counters above have been updated.")}</p></div> : null}
     {approvalResult ? <div className="admin-sensory-feedback admin-sensory-feedback-success" role="status" aria-live="polite"><strong>{italian ? "Approvazione completata" : "Approval completed"}</strong><p>{approvalResult.approved ? (italian ? `${approvalResult.approved} profili approvati.` : `${approvalResult.approved} profiles approved.`) : (italian ? "Non ci sono profili da approvare." : "There are no profiles to approve.")}</p></div> : null}
     {refinementMessage ? <p role="status" aria-live="polite">{refinementMessage}</p> : null}
     {batchError ? <div className="admin-sensory-feedback admin-sensory-feedback-error" role="alert">{batchError}</div> : null}

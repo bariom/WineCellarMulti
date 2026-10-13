@@ -52,6 +52,7 @@ from app.schemas.taste_profile import (
     SensoryAdminScope,
     SensoryBaselineInput,
     SensoryBaselineResponse,
+    SensoryBatchRunResponse,
     SensoryMetadataEnrichmentResponse,
     SensoryProfileResponse,
     SensoryProfileUpdate,
@@ -1393,3 +1394,26 @@ def enrich_missing_profiles(
         "skipped": skipped,
         "ai_enabled": settings.wine_sensory_ai_enabled,
     }
+
+
+@router.post("/admin/batches", status_code=202, response_model=SensoryBatchRunResponse)
+def start_sensory_batch(
+    payload: BatchEnrichmentRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> SensoryBatchRunResponse:
+    from app.services.sensory_batch_jobs import start_batch
+
+    return start_batch(db, context, payload, background_tasks)
+
+
+@router.get("/admin/batches/{run_id}", response_model=SensoryBatchRunResponse)
+def sensory_batch_status(
+    run_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> SensoryBatchRunResponse:
+    from app.services.sensory_batch_jobs import scoped_run
+
+    return SensoryBatchRunResponse.model_validate(scoped_run(db, context, run_id))
