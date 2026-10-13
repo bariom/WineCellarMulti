@@ -130,3 +130,5 @@
 .purchase-photo-none { align-self: center; }
 .purchase-photo-error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .purchase-photo-preserved { font-size: .82rem; }
+.purchase-import-archive { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 12px; }
+.purchase-import-archive summary { min-height: 44px; cursor: pointer; padding: 12px 0; }

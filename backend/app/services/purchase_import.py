@@ -26,6 +26,7 @@ from app.schemas.purchase_import import PurchaseConfirmation, PurchaseExtraction
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.merchants import get_or_create_merchant
 from app.services.pdf_sources import extract_pdf_document
+from app.services.purchase_documents import link_document_wines
 from app.services.stock_ledger import add_inbound_stock
 from app.services.storage import add_to_storage
 from app.services.wine_photo_library import (
@@ -329,5 +330,6 @@ def apply_purchase(
     record.status = result.status
     record.confirmed = payload.model_dump(mode="json")
     record.result = result.model_dump(mode="json")
+    link_document_wines(db, record, wine_ids)
     db.flush()
     return result

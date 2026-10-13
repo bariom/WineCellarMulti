@@ -24,7 +24,7 @@ from app.models.merchant import Merchant
 from app.models.notification import UserNotification, UserNotificationDismissal
 from app.models.operational_metrics import OperationalAlertState, OperationalMetricSample
 from app.models.passkey import PasskeyChallenge, UserPasskey
-from app.models.purchase_import import PurchaseImport
+from app.models.purchase_import import PurchaseDocumentWine, PurchaseImport
 from app.models.sensory_agent import SensoryAgentRun
 from app.models.sensory_refinement import SensoryRefinementRun
 from app.models.session import UserSession
@@ -62,6 +62,7 @@ from app.models.wishlist import ExternalWineTasting, WishlistItem, WishlistList
 
 __all__ = [
     "PurchaseImport",
+    "PurchaseDocumentWine",
     "SensoryRefinementRun",
     "SensoryAgentRun",
     "AiAuditLog",

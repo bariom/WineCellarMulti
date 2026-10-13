@@ -1770,4 +1770,5 @@ export type PurchaseImportPreview = {
 };
 export type PendingPurchase = { id: string; supplier: string; reference: string; expected_delivery: string | null; bottles: number };
 export type PurchasePhotoSuggestion = { id: string; thumbnail_url: string };
+export type PurchaseDocument = { id: string; filename: string; mime: string; size: number; supplier: string; reference: string; status: string; wine_count: number; url: string };
 export type PurchaseImportResult = { id: string; status: "received" | "pending"; wine_ids: string[]; bottles: number; unavailable_photo_wine_ids?: string[] };

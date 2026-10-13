@@ -77,6 +77,7 @@ services:
       WINE_RECOGNITION_JPEG_QUALITY: ${WINE_RECOGNITION_JPEG_QUALITY:-88}
       WINE_RECOGNITION_TIMEOUT_SECONDS: ${WINE_RECOGNITION_TIMEOUT_SECONDS:-45}
       WINE_PHOTO_STORAGE_DIR: /data/wine-photos
+      PURCHASE_DOCUMENT_STORAGE_DIR: /data/purchase-documents
       WINE_PHOTO_AI_ENABLED: ${WINE_PHOTO_AI_ENABLED:-true}
       WINE_PHOTO_AI_MODEL: ${WINE_PHOTO_AI_MODEL:-birefnet-general-lite}
       WINE_PHOTO_AI_TIMEOUT_SECONDS: ${WINE_PHOTO_AI_TIMEOUT_SECONDS:-90}
@@ -98,6 +99,7 @@ services:
       # with PostgreSQL. Run scripts/migrate-photo-storage.sh before recreating
       # an existing backend that still uses the former named volume.
       - ${WINE_PHOTO_BACKUP_PATH:-./backend/data/wine-photos}:/data/wine-photos
+      - ${PURCHASE_DOCUMENT_BACKUP_PATH:-./backend/data/purchase-documents}:/data/purchase-documents
       - wine-photo-model-data:/data/photo-ai-models
     depends_on:
       postgres:

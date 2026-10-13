@@ -8,7 +8,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/restore-db.sh /path/to/vinaris_YYYYMMDDTHHMMSSZ.tar.gz
 
-Restores PostgreSQL and the wine-photo store from a verified Vinaris bundle.
+Restores PostgreSQL, wine photos and purchase documents from a verified Vinaris bundle.
 The application backend must be stopped before running this command.
 EOF
 }
@@ -40,6 +40,7 @@ fi
 POSTGRES_DB="${POSTGRES_DB:-winecellarmulti}"
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
 PHOTO_TARGET_SETTING="${WINE_PHOTO_BACKUP_PATH:-backend/data/wine-photos}"
+DOCUMENT_TARGET_SETTING="${PURCHASE_DOCUMENT_BACKUP_PATH:-backend/data/purchase-documents}"
 
 require_command docker
 require_command tar
@@ -52,6 +53,16 @@ else
 fi
 if [[ "$PHOTO_TARGET" == "/" || "$PHOTO_TARGET" == "$ROOT_DIR" ]]; then
   echo "Unsafe WINE_PHOTO_BACKUP_PATH: $PHOTO_TARGET" >&2
+  exit 1
+fi
+
+if [[ "$DOCUMENT_TARGET_SETTING" = /* ]]; then
+  DOCUMENT_TARGET="$(realpath -m "$DOCUMENT_TARGET_SETTING")"
+else
+  DOCUMENT_TARGET="$(realpath -m "$ROOT_DIR/$DOCUMENT_TARGET_SETTING")"
+fi
+if [[ "$DOCUMENT_TARGET" == "/" || "$DOCUMENT_TARGET" == "$ROOT_DIR" ]]; then
+  echo "Unsafe PURCHASE_DOCUMENT_BACKUP_PATH: $DOCUMENT_TARGET" >&2
   exit 1
 fi
 
@@ -99,8 +110,12 @@ for required in backup.meta manifest.sha256 database.dump wine-photos; do
 done
 
 format_version="$(sed -n 's/^format_version=//p' "$restore_dir/backup.meta")"
-if [[ "$format_version" != "1" ]]; then
+if [[ "$format_version" != "1" && "$format_version" != "2" ]]; then
   echo "Unsupported backup format version: ${format_version:-missing}" >&2
+  exit 1
+fi
+if [[ "$format_version" == "2" && ! -d "$restore_dir/purchase-documents" ]]; then
+  echo "Backup is missing purchase-documents" >&2
   exit 1
 fi
 
@@ -113,6 +128,9 @@ cd "$ROOT_DIR"
 docker compose exec -T postgres pg_restore --list < "$restore_dir/database.dump" >/dev/null
 
 echo "About to overwrite database '$POSTGRES_DB' and photo storage '$PHOTO_TARGET'."
+if [[ -d "$restore_dir/purchase-documents" ]]; then
+  echo "Purchase document storage '$DOCUMENT_TARGET' will also be restored."
+fi
 read -r -p "Type RESTORE $POSTGRES_DB WITH PHOTOS to continue: " confirmation
 if [[ "$confirmation" != "RESTORE $POSTGRES_DB WITH PHOTOS" ]]; then
   echo "Restore cancelled"
@@ -150,6 +168,28 @@ if ! mv "$restore_dir/wine-photos" "$PHOTO_TARGET"; then
     mv "$pre_restore_path" "$PHOTO_TARGET"
   fi
   exit 1
+fi
+
+if [[ -d "$restore_dir/purchase-documents" ]]; then
+  document_parent="$(dirname "$DOCUMENT_TARGET")"
+  document_name="$(basename "$DOCUMENT_TARGET")"
+  mkdir -p "$document_parent"
+  document_pre_restore="$document_parent/${document_name}.pre-restore.$(date -u +%Y%m%dT%H%M%SZ)"
+  if [[ -e "$DOCUMENT_TARGET" ]]; then
+    mv "$DOCUMENT_TARGET" "$document_pre_restore"
+  fi
+  if ! mv "$restore_dir/purchase-documents" "$DOCUMENT_TARGET"; then
+    if [[ -e "$document_pre_restore" && ! -e "$DOCUMENT_TARGET" ]]; then
+      mv "$document_pre_restore" "$DOCUMENT_TARGET"
+    fi
+    echo "Unable to install restored purchase documents" >&2
+    exit 1
+  fi
+  if [[ -e "$document_pre_restore" ]]; then
+    echo "Previous purchase documents retained at: $document_pre_restore"
+  fi
+else
+  echo "Older bundle contains no purchase documents; existing document storage was not changed."
 fi
 
 echo "Restore complete"

@@ -1,5 +1,59 @@
 import { test, expect } from "@playwright/test";
 
+for (const locale of ["it", "en"] as const) {
+  test(`Empty AI sensory results leave missing profiles actionable without blocking the batch (${locale})`, async ({ page }, testInfo) => {
+    const it = locale === "it";
+    await page.route("**/sensory-empty-test", route => route.fulfill({ contentType: "text/html", body: `
+      <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
+      import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window);
+      window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => (type) => type;
+      window.__vite_plugin_react_preamble_installed__ = true;
+      const {default: React} = await import('/node_modules/.vite/deps/react.js');
+      const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
+      const {default: Panel} = await import('/src/components/AdminSensoryProfilesPanel.tsx');
+      await import('/src/styles.css');
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Panel, {locale:'${locale}'}));
+      </script></body></html>` }));
+    let batches = 0;
+    await page.route("**/api/v1/taste-profile/admin/**", route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("/summary")) return route.fulfill({ json: { wines_with_profile: 1, wines_without_profile: 1 } });
+      if (path.endsWith("/batch-preview")) return route.fulfill({ json: { missing: 2, deterministic: 0, requires_ai: 2 } });
+      if (path.endsWith("/enrich-missing")) return route.fulfill({ json: { processed: 2, resolved: ++batches === 1 ? 1 : 0, skipped: 0, ai_generated: batches === 1 ? 1 : 0 } });
+      if (path.endsWith("/regenerate")) return route.fulfill({ status: 422, json: { detail: "No sensory profile can be inferred" } });
+      if (path.endsWith("/profiles")) return route.fulfill({ json: [{ identity_id: "unknown", name: "La Luna dei Tempi", producer: "Massucco", vintage: "2019", source: "missing", confidence: 0, validated: false, dimensions: {}, generation_status: "pending" }] });
+      return route.fulfill({ json: [] });
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/sensory-empty-test");
+    const preview = page.getByRole("button", { name: it ? "Mostra anteprima" : "Show preview", exact: true });
+    const generate = page.getByRole("button", { name: it ? "Genera mancanti con AI" : "Generate missing with AI", exact: true });
+    await preview.click();
+    await generate.click();
+    const feedback = page.getByRole("status").filter({ hasText: it ? "Generazione completata" : "Generation completed" });
+    await expect(feedback).toContainText(it ? "1 senza dati sufficienti" : "1 with insufficient data");
+    await expect(feedback).toContainText(it ? "I profili generati sono stati salvati." : "Generated profiles have been saved.");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(preview).toBeEnabled();
+    for (const width of [360, 390, 430, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      await feedback.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`sensory-empty-${locale}-${width}.png`), fullPage: true });
+    }
+    await preview.click();
+    await generate.click();
+    await expect(feedback).toContainText(it ? "2 senza dati sufficienti" : "2 with insufficient data");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await page.getByLabel(it ? "Mostra strumenti avanzati" : "Show advanced tools", { exact: true }).check();
+    await page.getByText(it ? "Profili vino (1)" : "Wine profiles (1)", { exact: true }).click();
+    await page.getByRole("button", { name: it ? "Genera profilo con AI" : "Generate profile with AI", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: it ? "Dati insufficienti per stimare questo profilo." : "Insufficient data to estimate this profile." })).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(preview).toBeEnabled();
+  });
+}
+
 test("Simple workflow previews the shared catalog before batch generation", async ({ page }, testInfo) => {
   await page.route("**/sensory-simple-test", route => route.fulfill({ contentType: "text/html", body: `
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">

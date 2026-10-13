@@ -2,20 +2,22 @@ import hashlib
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentContext, require_write_context
+from app.api.deps import CurrentContext, get_current_context, require_write_context
 from app.core.config import settings
 from app.db.session import get_db
-from app.models import Household, PurchaseImport, Wine
+from app.models import Household, PurchaseDocumentWine, PurchaseImport, Wine
 from app.prompts.purchase_import import purchase_import_prompt
 from app.schemas.purchase_import import (
     PendingPurchase,
     PurchaseConfirmation,
+    PurchaseDocumentResponse,
     PurchaseExtraction,
     PurchaseMatch,
     PurchasePhotoSuggestion,
@@ -25,6 +27,7 @@ from app.schemas.purchase_import import (
 from app.services.ai_credits import ai_credit_balance
 from app.services.free_tier import is_free_tier
 from app.services.openai_client import parse_json_response
+from app.services.purchase_documents import archive_document, document_path
 from app.services.purchase_import import (
     MAX_DOCUMENT_BYTES,
     apply_purchase,
@@ -108,6 +111,101 @@ def suggest_purchase_photos(
     _: CurrentContext = Depends(require_write_context),
 ):
     return purchase_photo_suggestions(db, name, producer)
+
+
+def document_links(db: Session, context: CurrentContext) -> dict[UUID, set[UUID]]:
+    links: dict[UUID, set[UUID]] = {}
+    for purchase_id, wine_id in db.execute(
+        select(PurchaseDocumentWine.purchase_import_id, PurchaseDocumentWine.wine_id)
+        .join(Wine, Wine.id == PurchaseDocumentWine.wine_id)
+        .where(
+            PurchaseDocumentWine.household_id == context.household.id,
+            Wine.household_id == context.household.id,
+        )
+    ):
+        links.setdefault(purchase_id, set()).add(wine_id)
+    return links
+
+
+@router.get("/documents", response_model=list[PurchaseDocumentResponse])
+def list_purchase_documents(
+    wine_id: UUID | None = None,
+    unlinked_only: bool = False,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+):
+    if wine_id and not db.scalar(
+        select(Wine.id).where(Wine.id == wine_id, Wine.household_id == context.household.id)
+    ):
+        raise HTTPException(404, "Wine not found")
+    links = document_links(db, context)
+    records = db.scalars(
+        select(PurchaseImport)
+        .where(
+            PurchaseImport.household_id == context.household.id,
+            PurchaseImport.document_size > 0,
+        )
+        .order_by(PurchaseImport.created_at.desc())
+    )
+    return [
+        PurchaseDocumentResponse(
+            id=r.id,
+            filename=r.document_name,
+            mime=r.document_mime,
+            size=r.document_size,
+            supplier=str(r.confirmed.get("supplier") or r.draft.get("supplier") or ""),
+            reference=str(r.confirmed.get("reference") or r.draft.get("reference") or ""),
+            status=r.status,
+            wine_count=len(links.get(r.id, set())),
+            url=f"/api/v1/imports/purchases/{r.id}/document",
+        )
+        for r in records
+        if (not wine_id or wine_id in links.get(r.id, set()))
+        and (not unlinked_only or not links.get(r.id))
+        and document_path(r).is_file()
+    ]
+
+
+@router.get("/{import_id}/document", response_class=FileResponse)
+def read_purchase_document(
+    import_id: UUID,
+    download: bool = False,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+):
+    record = scoped_purchase(db, context, import_id)
+    path = document_path(record)
+    if not record.document_size or not path.is_file():
+        raise HTTPException(404, "Document not available")
+    return FileResponse(
+        path,
+        media_type=record.document_mime,
+        filename=record.document_name,
+        content_disposition_type="attachment" if download else "inline",
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.delete("/{import_id}/document", status_code=204)
+def delete_purchase_document(
+    import_id: UUID,
+    only_unlinked: bool = False,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+):
+    db.scalar(select(Household.id).where(Household.id == context.household.id).with_for_update())
+    record = scoped_purchase(db, context, import_id)
+    if only_unlinked and document_links(db, context).get(record.id):
+        raise HTTPException(409, "Document is still linked to wines")
+    try:
+        document_path(record).unlink(missing_ok=True)
+    except OSError as exc:
+        raise HTTPException(503, "Document could not be deleted; please retry") from exc
+    record.document_name = ""
+    record.document_mime = ""
+    record.document_size = 0
+    db.commit()
+    return Response(status_code=204)
 
 
 def analyze(content: bytes, mime: str, locale: str, db: Session, context: CurrentContext):
@@ -201,12 +299,33 @@ async def analyze_purchase(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ):
-    if is_free_tier(context) and ai_credit_balance(db, context.user) <= 0:
-        raise HTTPException(402, "An AI Pack is required on the free tier")
     content = await document.read(MAX_DOCUMENT_BYTES + 1)
-    return await run_in_threadpool(
+    if is_free_tier(context) and ai_credit_balance(db, context.user) <= 0:
+        previous = db.scalar(
+            select(PurchaseImport.id).where(
+                PurchaseImport.household_id == context.household.id,
+                PurchaseImport.document_hash == hashlib.sha256(content).hexdigest(),
+            )
+        )
+        if not previous:
+            raise HTTPException(402, "An AI Pack is required on the free tier")
+    result = await run_in_threadpool(
         analyze, content, document.content_type or "", locale, db, context
     )
+    try:
+        archive_document(
+            db,
+            scoped_purchase(db, context, result.id),
+            content,
+            document.content_type or "",
+            document.filename or "document",
+        )
+    except OSError as exc:
+        raise HTTPException(
+            503,
+            "Document could not be archived; retry the same upload without repeating AI analysis",
+        ) from exc
+    return result
 
 
 @router.get("/pending", response_model=list[PendingPurchase])

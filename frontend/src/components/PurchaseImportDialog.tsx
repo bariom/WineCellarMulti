@@ -4,6 +4,7 @@ import { api, ApiError } from "../services/api";
 import type { Locale, PendingPurchase, PurchaseImportPreview, PurchaseImportResult } from "../types";
 import PurchaseImagePreview from "./PurchaseImagePreview";
 import PurchasePhotoSuggestions from "./PurchasePhotoSuggestions";
+import PurchaseDocuments from "./PurchaseDocuments";
 import "./PurchaseImportDialog.css";
 
 const PurchasePdfPreview = lazy(() => import("./PurchasePdfPreview"));
@@ -36,6 +37,7 @@ export default function PurchaseImportDialog({ locale, canAnalyze, included, isA
   const [result, setResult] = useState<PurchaseImportResult | null>(null);
   const [pending, setPending] = useState<PendingPurchase[]>([]);
   const [pendingError, setPendingError] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   useEffect(() => {
     const element = dialog.current!;
@@ -182,5 +184,9 @@ export default function PurchaseImportDialog({ locale, canAnalyze, included, isA
     </>}
     {pendingError ? <p role="alert">{it ? "Impossibile caricare gli acquisti in attesa." : "Unable to load pending purchases."} <button type="button" className="secondary" onClick={() => void loadPending()}>{it ? "Riprova" : "Retry"}</button></p> : null}
     {pending.length ? <section className="purchase-import-pending"><h3>{it ? "In attesa di consegna" : "Awaiting delivery"}</h3>{pending.map(p => <article key={p.id}><div><strong>{p.supplier || (it ? "Acquisto" : "Purchase")}</strong><p>{p.reference} · {p.bottles} {it ? "bottiglie" : "bottles"}{p.expected_delivery ? ` · ${p.expected_delivery}` : ""}</p></div><button type="button" className="secondary" disabled={busy} onClick={() => void receive(p.id)}>{it ? "Registra ricezione completa" : "Record full delivery"}</button></article>)}</section> : null}
+    {!preview || result ? <details className="purchase-import-archive" onToggle={event => setArchiveOpen(event.currentTarget.open)}>
+      <summary>{it ? "Documenti archiviati" : "Archived documents"}</summary>
+      {archiveOpen ? <PurchaseDocuments locale={locale} canWrite refreshKey={`${preview?.id || ""}-${result?.id || ""}-${result?.status || ""}`} /> : null}
+    </details> : null}
   </dialog>, document.body);
 }

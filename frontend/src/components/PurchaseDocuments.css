@@ -1,0 +1,8 @@
+.purchase-documents { display: grid; gap: 12px; min-width: 0; }
+.purchase-documents h4, .purchase-documents p { margin: 0; }
+.purchase-documents p, .purchase-documents small { font-size: .82rem; line-height: 1.5; color: var(--text-muted); }
+.purchase-documents article { display: grid; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.purchase-documents article > div:first-child { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.purchase-document-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.purchase-document-actions a { display: inline-flex; align-items: center; min-height: 44px; }
+.purchase-document-actions button { min-height: 44px; max-width: 100%; white-space: normal; }

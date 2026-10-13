@@ -616,13 +616,25 @@ def _ai_sensory_profile(wine: Wine) -> tuple[dict[str, float], str]:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="AI returned an invalid sensory profile",
         ) from exc
-    dimensions = validated_dimensions(result)
-    if not dimensions:
+    if (
+        not isinstance(result, dict)
+        or set(result) != set(schema["schema"]["required"])
+        or any(
+            value is not None
+            and (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not 0 <= value <= 1
+            )
+            for value in result.values()
+        )
+    ):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="AI returned an empty sensory profile",
+            detail="AI returned an invalid sensory profile",
         )
-    return dimensions, response.model
+    # All-null is a valid abstention, not a provider failure. The batch must continue.
+    return validated_dimensions(result), response.model
 
 
 def _ai_sensory_metadata(

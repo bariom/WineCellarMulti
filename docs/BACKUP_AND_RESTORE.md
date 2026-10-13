@@ -20,6 +20,7 @@ Nel `.env` della root:
 
 ```env
 WINE_PHOTO_BACKUP_PATH=./backend/data/wine-photos
+PURCHASE_DOCUMENT_BACKUP_PATH=./backend/data/purchase-documents
 BACKUP_REMOTE_PATH=pcloud:VinarisBackups/vinaris
 LOCAL_BACKUP_RETENTION_DAYS=14
 REMOTE_BACKUP_RETENTION_DAYS=30
@@ -43,6 +44,17 @@ sopra il provider scelto e usare quel remote in `BACKUP_REMOTE_PATH`.
 
 ## Creazione manuale
 
+I bundle in formato 2 includono anche `purchase-documents/`, con gli originali
+privati di fatture e scontrini. Il percorso host è configurato con
+`PURCHASE_DOCUMENT_BACKUP_PATH` e viene montato in Docker in `/data/purchase-documents`.
+Il backup controlla che il numero di originali copra i riferimenti presenti nel DB.
+Usare gli script aggiornati per ripristinare i bundle in formato 2: gli originali
+vengono ripristinati insieme al database, conservando la directory precedente
+con suffisso `.pre-restore.<timestamp>`. I vecchi bundle in formato 1 rimangono
+supportati e non modificano la directory dei documenti. I backup JSON esportati
+dall'app non includono gli allegati originali. Eliminare un allegato dall'app
+non elimina le copie nei backup già creati: seguono la normale conservazione.
+
 ```bash
 bash scripts/backup-db.sh
 ```
@@ -60,6 +72,7 @@ backup.meta
 manifest.sha256
 database.dump
 wine-photos/
+purchase-documents/
 ```
 
 Il file definitivo viene pubblicato soltanto dopo la verifica dei checksum e

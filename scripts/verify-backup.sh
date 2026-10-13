@@ -69,3 +69,6 @@ echo "Disposable restore verified successfully"
 echo "Alembic version: ${schema_version//$'\r'/}"
 echo "Users restored: ${user_count//$'\r'/}"
 echo "Photo files verified: $photo_files"
+if [[ -d "$verify_dir/purchase-documents" ]]; then
+  echo "Purchase documents verified: $(find "$verify_dir/purchase-documents" -type f -name original | wc -l | tr -d ' ')"
+fi

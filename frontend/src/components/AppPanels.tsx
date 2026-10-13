@@ -18,6 +18,7 @@ import LocalizedDateInput from "./LocalizedDateInput";
 import { TastingMemoryPhoto, TastingMemoryPhotoInput } from "./TastingMemoryPhoto";
 import { WineSensorySignaturePanel } from "./WineSensorySignaturePanel";
 const WineLotsSection = lazy(() => import("./WineLotsSection"));
+const PurchaseDocuments = lazy(() => import("./PurchaseDocuments"));
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 const VineyardMap = lazy(() => import("../views/WineGeographyMap").then((module) => ({ default: module.VineyardMap })));
 
@@ -1414,6 +1415,14 @@ export function WineDetail({
           </div>
           {!restaurantMode ? <strong className="detail-current-value"><span>{t("currentValue")}</span>{detailValue}</strong> : null}
         </div>
+        {canWrite && wine.quantity > 0 ? <section className="wine-detail-quick-actions" aria-label={locale === "it" ? "Azioni sul vino" : "Wine actions"}>
+          <div><span>{locale === "it" ? "Azioni rapide" : "Quick actions"}</span><strong>{locale === "it" ? "Cosa vuoi registrare?" : "What would you like to record?"}</strong></div>
+          <div>
+            {!restaurantMode ? <button type="button" onClick={() => revealAction("consume", consumePanelRef)}>{locale === "it" ? "Registra bevuta" : "Record tasting"}</button> : null}
+            <button type="button" className={restaurantMode ? "" : "secondary"} onClick={() => revealAction("sale", salePanelRef)}>{locale === "it" ? "Registra vendita" : "Record sale"}</button>
+            {restaurantMode ? <button type="button" className="secondary" onClick={() => revealAction("glass", glassSalePanelRef)}>{locale === "it" ? "Registra mescita" : "Record glasses"}</button> : null}
+          </div>
+        </section> : null}
         {!restaurantMode ? photoOriginActions : null}
 
         <Suspense fallback={<LoadingState label={locale === "it" ? "Carico la mappa" : "Loading map"} compact />}>
@@ -1586,15 +1595,6 @@ export function WineDetail({
           </div>
         ) : null}
       </div>
-
-      {canWrite && wine.quantity > 0 ? <section className="wine-detail-quick-actions" aria-label={locale === "it" ? "Azioni sul vino" : "Wine actions"}>
-        <div><span>{locale === "it" ? "Azioni rapide" : "Quick actions"}</span><strong>{locale === "it" ? "Cosa vuoi registrare?" : "What would you like to record?"}</strong></div>
-        <div>
-          {!restaurantMode ? <button type="button" onClick={() => revealAction("consume", consumePanelRef)}>{locale === "it" ? "Registra bevuta" : "Record tasting"}</button> : null}
-          <button type="button" className={restaurantMode ? "" : "secondary"} onClick={() => revealAction("sale", salePanelRef)}>{locale === "it" ? "Registra vendita" : "Record sale"}</button>
-          {restaurantMode ? <button type="button" className="secondary" onClick={() => revealAction("glass", glassSalePanelRef)}>{locale === "it" ? "Registra mescita" : "Record glasses"}</button> : null}
-        </div>
-      </section> : null}
 
       <details className="detail-overview-block wine-detail-view-section" data-wine-detail-section="01" tabIndex={-1}>
         <summary className="wine-detail-structured-summary">
@@ -1838,6 +1838,7 @@ export function WineDetail({
         <summary className="wine-detail-structured-summary"><div><span>05</span><strong>{locale === "it" ? "Giacenza e acquisti" : "Stock and purchases"}</strong></div><small>{locale === "it" ? "Posizione, lotti e costi" : "Location, lots and costs"}</small></summary>
         <WineStorageSection wine={wine} canWrite={canWrite} locale={locale} onChanged={onLotsChanged} focusRequestId={focusStorageRequestId} />
         <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><WineLotsSection wine={wine} canWrite={canWrite} saving={saving} locale={locale} onChanged={onLotsChanged} /></Suspense>
+        <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><PurchaseDocuments wineId={wine.id} locale={locale} canWrite={canWrite} /></Suspense>
       </details>
 
       {(wine.ai_notes || wine.ai_value_notes || wine.notes || coOwnershipSection || (!restaurantMode && wine.tasting_history?.length)) ? <details className="detail-section wine-detail-group wine-detail-group--history" data-wine-detail-section="06" tabIndex={-1}>

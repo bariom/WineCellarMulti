@@ -4684,6 +4684,7 @@ export function App() {
     setSaving(true);
     setError("");
     try {
+      const attachedDocuments = await api<Array<{ id: string; filename: string }>>(`/api/v1/imports/purchases/documents?wine_id=${encodeURIComponent(wine.id)}`).catch(() => []);
       await api<void>(`/api/v1/wines/${wine.id}`, { method: "DELETE" });
       if (editingId === wine.id) {
         setEditingId(null);
@@ -4694,6 +4695,20 @@ export function App() {
         setSelectedWineId(null);
       }
       await loadWines();
+      if (attachedDocuments.length) {
+        try {
+          const unlinked = await api<Array<{ id: string; filename: string }>>("/api/v1/imports/purchases/documents?unlinked_only=true");
+          for (const document of unlinked.filter(item => attachedDocuments.some(previous => previous.id === item.id))) {
+            if (window.confirm(locale === "it"
+              ? `Il vino è stato eliminato. “${document.filename}” non è più collegato ad alcun vino. Vuoi eliminare definitivamente anche il documento? Se lo conservi, rimane nell’archivio documenti degli acquisti.`
+              : `The wine was deleted. “${document.filename}” is no longer linked to any wine. Permanently delete the document too? If kept, it remains in the purchase document archive.`)) {
+              await api<void>(`/api/v1/imports/purchases/${document.id}/document?only_unlinked=true`, { method: "DELETE" });
+            }
+          }
+        } catch {
+          setError(locale === "it" ? "Il vino è stato eliminato. Non è stato possibile completare la gestione dei documenti: controlla l’archivio documenti degli acquisti." : "The wine was deleted. Document cleanup could not be completed: check the purchase document archive.");
+        }
+      }
     } finally {
       setSaving(false);
     }

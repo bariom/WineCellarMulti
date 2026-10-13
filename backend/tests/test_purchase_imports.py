@@ -260,8 +260,9 @@ def image():
 
 
 @pytest.fixture
-def client(setup, monkeypatch):
+def client(setup, monkeypatch, tmp_path):
     db, context, wine = setup
+    monkeypatch.setattr(settings, "purchase_document_storage_dir", str(tmp_path / "documents"))
     app = FastAPI()
     app.include_router(routes.router)
     app.dependency_overrides[get_db] = lambda: db

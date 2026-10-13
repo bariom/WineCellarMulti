@@ -1,5 +1,14 @@
 # Frontend E2E checks
 
+Wine Detail checks also verify that quick actions appear immediately after wine
+identity, before stock metrics and the drinking window, and are visible without
+scrolling at 360/390/430 px and desktop. Restaurant mode covers sale and glass actions.
+
+`npm run test:e2e:purchase-import` also runs document consultation/deletion checks
+from wine detail and the purchase archive, preserving wine data and explicitly
+keeping or removing an original after its last linked wine is deleted. Documents
+use deterministic private-API fixtures; responsive checks cover 360/390/430 px and desktop.
+
 Data import: `npm run test:e2e:data-import` checks the CellarTracker CSV and Vinaris
 JSON source cards in Italian and English, preview before confirmation, switching
 sources, duplicate-mode guidance and both import endpoints. Responsive checks

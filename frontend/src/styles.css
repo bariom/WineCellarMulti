@@ -25583,7 +25583,7 @@ body,
   .mobile-detail-sheet .detail-hero-metrics { order: 3; }
   .mobile-detail-sheet .restaurant-wine-sales-history { order: 4; }
   .mobile-detail-sheet .detail-hero-window { order: 5; }
-  .mobile-detail-sheet .wine-detail-quick-actions { order: 6; }
+  .mobile-detail-sheet .wine-detail-quick-actions { order: 2; }
   .mobile-detail-sheet .wine-detail-operations { order: 7; }
   .mobile-detail-sheet .wine-strategy-section { order: 12; }
   .mobile-detail-sheet .detail-overview-block { order: 9; }
@@ -25921,7 +25921,7 @@ body,
   .wine-detail .detail-hero-metrics { order: 3; }
   .wine-detail .restaurant-wine-sales-history { order: 4; }
   .wine-detail .detail-hero-window { order: 5; }
-  .wine-detail .wine-detail-quick-actions { order: 6; }
+  .wine-detail .wine-detail-quick-actions { order: 2; }
   .wine-detail .wine-detail-operations { order: 7; }
   .wine-detail .wine-strategy-section { order: 12; }
   .wine-detail .detail-overview-block { order: 9; }

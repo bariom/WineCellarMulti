@@ -301,3 +301,11 @@ cd ../frontend
 npx.cmd playwright test e2e/sensory-profiles.spec.ts
 npm.cmd run build
 ```
+## AI responses with no estimable dimensions
+
+A structured response with every dimension set to `null` means insufficient data.
+The wine remains without an available profile and batch generation continues with
+other wines. The summary distinguishes created profiles from unresolved wines.
+Complete wine type, grapes or appellation before retrying. Unknown values are not
+invented or converted to zero; a numeric zero remains valid. Malformed JSON,
+missing dimensions and out-of-range values are still rejected.

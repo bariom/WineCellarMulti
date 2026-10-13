@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 # ruff: noqa: E501
 from datetime import date
 from decimal import Decimal
@@ -129,14 +131,21 @@ def test_admin_scope_separates_cellar_references_and_other_households(monkeypatc
     context = SimpleNamespace(user=user, household=home)
     for scope, count in [("cellar", 1), ("references", 1), ("catalog", 3)]:
         assert taste_profile_routes.batch_preview(db, context, scope).missing == count
-        assert taste_profile_routes.sensory_profile_summary(db, context, scope)["wines_without_profile"] == count
+        assert (
+            taste_profile_routes.sensory_profile_summary(db, context, scope)[
+                "wines_without_profile"
+            ]
+            == count
+        )
         rows = taste_profile_routes.list_sensory_profiles(
             missing=True, search=None, offset=0, limit=100, db=db, context=context, scope=scope
         )
         assert len(rows) == count
     # Global catalog can use public identities, never another household's metadata.
     candidates = taste_profile_routes._batch_candidates(db, context, "catalog")
-    foreign_candidate = next(w for w in candidates if w.shared_identity_id == foreign.shared_identity_id)
+    foreign_candidate = next(
+        w for w in candidates if w.shared_identity_id == foreign.shared_identity_id
+    )
     assert foreign_candidate.household_id is None and foreign_candidate.type == ""
     calls = []
     original = taste_profile_routes._generate_with_sensory_metadata
@@ -151,7 +160,10 @@ def test_admin_scope_separates_cellar_references_and_other_households(monkeypatc
     )
     assert result["resolved"] == 1
     assert calls == [own.shared_identity_id]
-    assert db.scalar(select(WineSensoryProfile).where(WineSensoryProfile.identity_id == reference_id)) is None
+    assert (
+        db.scalar(select(WineSensoryProfile).where(WineSensoryProfile.identity_id == reference_id))
+        is None
+    )
     assert taste_profile_routes.batch_preview(db, context, "cellar").missing == 0
     assert taste_profile_routes.batch_preview(db, context, "references").missing == 1
     # A reference also held in the active cellar belongs to both scopes, once each.
@@ -224,6 +236,112 @@ def test_ai_fallback_generates_a_profile_when_metadata_has_no_signal() -> None:
     assert profile.source == "ai"
     assert profile.dimensions == {"body": 0.7, "fruit": 0.6}
     assert profile.model == "test-model"
+
+
+@pytest.mark.parametrize(
+    "payload", [None, [], {}, {"body": 0.5}, "not-json", "invalid-number", "boolean"]
+)
+def test_ai_sensory_rejects_malformed_output(monkeypatch, payload) -> None:
+    from app.services.taste_profiles import SENSORY_DIMENSIONS
+
+    value = {key: None for key in SENSORY_DIMENSIONS}
+    if payload == "invalid-number":
+        value["body"] = 1.5
+    elif payload == "boolean":
+        value["body"] = True
+    else:
+        value = payload
+    monkeypatch.setattr(taste_profile_routes.settings, "wine_sensory_ai_enabled", True)
+    monkeypatch.setattr(
+        taste_profile_routes,
+        "create_response",
+        lambda *args, **kwargs: SimpleNamespace(
+            text="not-json" if payload == "not-json" else json.dumps(value), model="test-model"
+        ),
+    )
+    wine = SimpleNamespace(
+        name="La Luna dei Tempi",
+        producer="Massucco",
+        vintage="2019",
+        type="",
+        region="",
+        appellation="",
+        grapes=[],
+        ai_notes="",
+    )
+    with pytest.raises(HTTPException) as error:
+        taste_profile_routes._ai_sensory_profile(wine)
+    assert error.value.status_code == 502
+    assert error.value.detail == "AI returned an invalid sensory profile"
+
+
+def test_all_null_sensory_output_does_not_abort_batch_or_invent_zeroes(monkeypatch) -> None:
+    from app.services.taste_profiles import SENSORY_DIMENSIONS
+
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="admin-null@example.test", display_name="Admin", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    first = make_wine(db, household, name="Before abstention", wine_type="")
+    unknown = make_wine(db, household, name="La Luna dei Tempi", wine_type="")
+    unknown.producer = "Massucco"
+    unknown.vintage = "2019"
+    last = make_wine(db, household, name="After abstention", wine_type="")
+    nulls = {key: None for key in SENSORY_DIMENSIONS}
+    outputs = iter([{**nulls, "body": 0}, nulls, {**nulls, "body": 0.8}])
+    monkeypatch.setattr(taste_profile_routes.settings, "wine_sensory_ai_enabled", True)
+    monkeypatch.setattr(taste_profile_routes, "_ai_sensory_metadata", lambda _wine: ({}, ""))
+    monkeypatch.setattr(
+        taste_profile_routes,
+        "create_response",
+        lambda *args, **kwargs: SimpleNamespace(text=json.dumps(next(outputs)), model="test-model"),
+    )
+    result = taste_profile_routes.enrich_missing_profiles(
+        BatchEnrichmentRequest(limit=3, allow_ai=True, scope="cellar"),
+        db,
+        SimpleNamespace(user=user, household=household),
+    )
+    assert result["processed"] == 3 and result["resolved"] == 2 and result["ai_generated"] == 2
+    db.expire_all()
+    for wine, expected in [(first, 0), (last, 0.8)]:
+        profile = taste_profile_routes.sensory_profile_for_wine(db, wine)
+        assert profile and profile.dimensions == {"body": expected}
+        assert profile.generation_status == "available"
+    missing = taste_profile_routes.sensory_profile_for_wine(db, unknown)
+    assert missing is None or missing.generation_status == "pending"
+    assert missing is None or not missing.dimensions
+
+
+def test_all_null_sensory_output_keeps_existing_pending_profile(monkeypatch) -> None:
+    from app.services.taste_profiles import SENSORY_DIMENSIONS
+
+    db = Session()
+    household = Household(name="Home")
+    db.add(household)
+    db.flush()
+    wine = make_wine(db, household, wine_type="")
+    pending = WineSensoryProfile(
+        identity_id=wine.shared_identity_id,
+        dimensions={},
+        source="missing",
+        generation_status="pending",
+    )
+    db.add(pending)
+    db.flush()
+    monkeypatch.setattr(taste_profile_routes.settings, "wine_sensory_ai_enabled", True)
+    monkeypatch.setattr(
+        taste_profile_routes,
+        "create_response",
+        lambda *args, **kwargs: SimpleNamespace(
+            text=json.dumps({key: None for key in SENSORY_DIMENSIONS}), model="test-model"
+        ),
+    )
+    generated = generate_wine_sensory_profile(
+        db, wine, allow_ai=True, ai_generate=taste_profile_routes._ai_sensory_profile
+    )
+    assert generated is pending and generated.generation_status == "pending"
+    assert not generated.dimensions and not generated.validated
 
 
 def test_batch_skips_available_profiles_before_applying_ai_limit(monkeypatch) -> None:

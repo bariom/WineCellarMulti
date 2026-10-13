@@ -124,6 +124,18 @@ class PurchasePhotoSuggestion(BaseModel):
     thumbnail_url: str
 
 
+class PurchaseDocumentResponse(BaseModel):
+    id: UUID
+    filename: str
+    mime: str
+    size: int
+    supplier: str
+    reference: str
+    status: str
+    wine_count: int
+    url: str
+
+
 class PurchasePreview(BaseModel):
     id: UUID
     status: str

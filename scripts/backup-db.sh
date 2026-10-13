@@ -25,6 +25,7 @@ LOCAL_RETENTION_DAYS="${LOCAL_BACKUP_RETENTION_DAYS:-14}"
 REMOTE_RETENTION_DAYS="${REMOTE_BACKUP_RETENTION_DAYS:-30}"
 REMOTE_PATH="${BACKUP_REMOTE_PATH:-}"
 PHOTO_SOURCE_SETTING="${WINE_PHOTO_BACKUP_PATH:-backend/data/wine-photos}"
+DOCUMENT_SOURCE_SETTING="${PURCHASE_DOCUMENT_BACKUP_PATH:-backend/data/purchase-documents}"
 
 require_command docker
 require_command tar
@@ -38,6 +39,15 @@ else
 fi
 if [[ "$PHOTO_SOURCE" == "/" || "$PHOTO_SOURCE" == "$ROOT_DIR" ]]; then
   echo "Unsafe WINE_PHOTO_BACKUP_PATH: $PHOTO_SOURCE" >&2
+  exit 1
+fi
+if [[ "$DOCUMENT_SOURCE_SETTING" = /* ]]; then
+  DOCUMENT_SOURCE="$(realpath -m "$DOCUMENT_SOURCE_SETTING")"
+else
+  DOCUMENT_SOURCE="$(realpath -m "$ROOT_DIR/$DOCUMENT_SOURCE_SETTING")"
+fi
+if [[ "$DOCUMENT_SOURCE" == "/" || "$DOCUMENT_SOURCE" == "$ROOT_DIR" ]]; then
+  echo "Unsafe PURCHASE_DOCUMENT_BACKUP_PATH: $DOCUMENT_SOURCE" >&2
   exit 1
 fi
 
@@ -141,23 +151,44 @@ if (( thumbnail_count < expected_photo_sets || detail_count < expected_photo_set
   exit 1
 fi
 
+mkdir -p "$stage_dir/purchase-documents"
+document_column_exists="$(docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'purchase_imports' AND column_name = 'document_size';")"
+document_count_expected=0
+if [[ "${document_column_exists//$'\r'/}" == "1" ]]; then
+  document_count_expected="$(docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM purchase_imports WHERE document_size > 0;")"
+  document_count_expected="${document_count_expected//$'\r'/}"
+fi
+if [[ ! "$document_count_expected" =~ ^[0-9]+$ ]]; then
+  echo "Unable to determine purchase document count" >&2
+  exit 1
+fi
+if [[ -d "$DOCUMENT_SOURCE" ]]; then
+  cp -a "$DOCUMENT_SOURCE"/. "$stage_dir/purchase-documents/"
+fi
+document_file_count="$(find "$stage_dir/purchase-documents" -type f -name original | wc -l | tr -d ' ')"
+if (( document_file_count < document_count_expected )); then
+  echo "Purchase document backup is incomplete: database=$document_count_expected files=$document_file_count" >&2
+  exit 1
+fi
+
 cat > "$stage_dir/backup.meta" <<EOF
-format_version=1
+format_version=2
 created_at_utc=$timestamp
 database=$POSTGRES_DB
 photo_sets_expected=$expected_photo_sets
 photo_thumbnails=$thumbnail_count
 photo_details=$detail_count
+purchase_documents=$document_file_count
 EOF
 
 echo "Creating checksums and backup bundle"
 (
   cd "$stage_dir"
-  find backup.meta database.dump wine-photos -type f -print0 \
+  find backup.meta database.dump wine-photos purchase-documents -type f -print0 \
     | sort -z \
     | xargs -0 sha256sum > manifest.sha256
 )
-tar -C "$stage_dir" -czf "$tmp_path" backup.meta manifest.sha256 database.dump wine-photos
+tar -C "$stage_dir" -czf "$tmp_path" backup.meta manifest.sha256 database.dump wine-photos purchase-documents
 
 echo "Verifying completed bundle"
 tar -xzf "$tmp_path" -C "$verify_dir"

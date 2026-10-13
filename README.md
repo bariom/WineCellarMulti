@@ -41,6 +41,26 @@ This repository is intentionally separate from the existing `WineCellar` project
 
 ## Purchase lots
 
+Receipt/invoice originals uploaded from this version are privately archived per
+household after successful analysis, including drafts. A single document is linked
+to all wines in its confirmed purchase. Open **Stock and purchases → Invoices and
+receipts** in wine detail to open, download or delete the original. **Archived
+documents** in the purchase import dialog also lists drafts and documents whose
+wines have all been deleted. Deleting a document removes only the file; purchase
+data, stock lots and duplicate-import protection remain. Deleting the last linked
+wine offers an explicit choice to remove the original or keep it in the archive.
+Older imports have no stored originals; uploading their original again can archive
+it without repeating AI analysis or adding stock again.
+
+Deploy migration `0119_purchase_documents` with `alembic upgrade head`. Configure
+`PURCHASE_DOCUMENT_STORAGE_DIR` (default `data/purchase-documents`); Docker mounts
+`PURCHASE_DOCUMENT_BACKUP_PATH` (default `./backend/data/purchase-documents`) at
+`/data/purchase-documents`. Keep this private directory persistent. Server backups
+include it with checksums; restore `purchase-documents/` alongside the database.
+JSON exports do not contain original attachment files. Deleting a live document
+does not remove copies already held in retained server backups or downloaded by users.
+Targeted backend checks: `pytest tests/test_purchase_imports.py tests/test_purchase_documents.py`.
+
 **Aggiungi vino / Add wine → Aggiungi un acquisto da ricevuta o fattura / Add a
 purchase from receipt or invoice** opens bulk purchase import. Photograph a receipt
 or upload JPG/PNG/WebP/PDF (10 MB, at most 10 PDF pages and 60 wine rows).

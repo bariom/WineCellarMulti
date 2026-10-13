@@ -1,5 +1,56 @@
 import { expect, test } from "@playwright/test";
-import { wine, mockApi, openWineDetail } from "./fixtures/app";
+import { wine, mockApi, openWineDetail, session, memberships } from "./fixtures/app";
+
+test("wine quick actions are visible at the start of the detail on phones and desktop", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openWineDetail(page);
+  const detail = page.locator(".wine-detail:visible").first();
+  const actions = detail.getByRole("region", { name: "Azioni sul vino", exact: true });
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: width === 360 ? 800 : width === 1440 ? 900 : 844 });
+    const title = detail.getByRole("heading", { name: wine.name, exact: true });
+    await title.scrollIntoViewIfNeeded();
+    const quick = (await actions.boundingBox())!;
+    const heading = (await title.boundingBox())!;
+    const metrics = (await detail.locator(".detail-hero-metrics").boundingBox())!;
+    const drinking = (await detail.locator(".detail-hero-window").boundingBox())!;
+    expect(quick.y).toBeGreaterThanOrEqual(heading.y + heading.height);
+    expect(quick.y + quick.height).toBeLessThanOrEqual(metrics.y);
+    expect(quick.y + quick.height).toBeLessThanOrEqual(drinking.y);
+    for (const label of ["Registra bevuta", "Registra vendita"]) {
+      const button = detail.getByRole("button", { name: label, exact: true });
+      await expect(button).toHaveCount(1);
+      await expect(button).toBeInViewport({ ratio: 1 });
+      const box = (await button.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(quick.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(quick.x + quick.width);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`wine-quick-actions-${width}.png`) });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await detail.getByRole("heading", { name: wine.name, exact: true }).scrollIntoViewIfNeeded();
+  await actions.getByRole("button", { name: "Registra bevuta", exact: true }).click();
+  await expect(detail.getByLabel("Data in formato giorno, mese, anno", { exact: true })).toBeVisible();
+});
+
+test("restaurant quick sale and glass actions are visible at the start of the detail", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], false, memberships, [wine], { ...session, active_household_mode: "restaurant", restaurant_mode_available: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: /^Cantina/ }).first().click();
+  await page.locator('[data-wine-row-id="wine-e2e-1"] article').click();
+  const detail = page.locator(".wine-detail:visible").first();
+  const actions = detail.getByRole("region", { name: "Azioni sul vino", exact: true });
+  for (const label of ["Registra vendita", "Registra mescita"]) {
+    await expect(actions.getByRole("button", { name: label, exact: true })).toBeInViewport({ ratio: 1 });
+    await expect(actions.getByRole("button", { name: label, exact: true })).toHaveCount(1);
+  }
+  await expect(actions.getByRole("button", { name: "Registra bevuta", exact: true })).toHaveCount(0);
+  const bounds = (await actions.boundingBox())!;
+  const window = (await detail.locator(".detail-hero-window").boundingBox())!;
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(window.y);
+});
 
 for (const failFirst of [false, true]) {
   test(`wine detail rechecks central photos on opening and offers an optional choice (${failFirst ? "failed lookup" : "new photo"})`, async ({ page }, testInfo) => {
