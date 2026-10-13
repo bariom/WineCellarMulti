@@ -5,17 +5,83 @@ import uuid
 from hashlib import sha256
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models import Wine, WinePhotoLibraryEntry
+from app.models import Wine, WineCatalogAlias, WineCatalogEntry, WinePhotoLibraryEntry
+from app.services.shared_wine_data import normalize_identity_part
 
 PHOTO_FILE_NAMES = ("thumbnail", "detail")
 
 
 def normalize_photo_identity(value: str) -> str:
     return " ".join(value.strip().casefold().split())[:200]
+
+
+def _producer_signature(value: str) -> tuple[str, ...]:
+    # French articles often differ between invoices and the approved estate name.
+    # Keep every distinctive word; this is not fuzzy matching.
+    return tuple(
+        word
+        for word in normalize_identity_part(value).split()
+        if word not in {"de", "des", "du", "le", "les", "la", "l"}
+    )
+
+
+def matching_reference_photos(
+    db: Session, name: str, producer: str, *, available_only: bool = True
+) -> list[WinePhotoLibraryEntry]:
+    """Find shared assets across vintages, with approved catalog identity variants."""
+    identity = (normalize_photo_identity(name), normalize_photo_identity(producer))
+    if not all(identity):
+        return []
+    entries = list(
+        db.scalars(
+            select(WineCatalogEntry)
+            .outerjoin(WineCatalogAlias, WineCatalogAlias.catalog_entry_id == WineCatalogEntry.id)
+            .where(
+                WineCatalogEntry.is_active.is_(True),
+                or_(
+                    func.lower(func.trim(WineCatalogEntry.name)) == identity[0],
+                    WineCatalogAlias.normalized_alias == identity[0],
+                ),
+            )
+        ).unique()
+    )
+    signature = _producer_signature(producer)
+    catalog_identities = {
+        (normalize_photo_identity(entry.name), normalize_photo_identity(entry.producer))
+        for entry in entries
+        if signature and _producer_signature(entry.producer) == signature
+    }
+    # An ambiguous catalog identity must never expand the exact lookup.
+    compatible = (
+        {
+            (catalog_name, _producer_signature(catalog_producer))
+            for catalog_name, catalog_producer in catalog_identities
+        }
+        if len(catalog_identities) == 1
+        else set()
+    )
+    names = {identity[0], *(item[0] for item in compatible)}
+    photos = db.scalars(
+        select(WinePhotoLibraryEntry)
+        .where(WinePhotoLibraryEntry.normalized_name.in_(names))
+        .order_by(WinePhotoLibraryEntry.created_at.desc(), WinePhotoLibraryEntry.id.desc())
+    )
+    return [
+        photo
+        for photo in photos
+        if (
+            (photo.normalized_name, photo.normalized_producer) == identity
+            or (photo.normalized_name, _producer_signature(photo.producer)) in compatible
+        )
+        and (
+            not available_only
+            or all(library_photo_path(photo, size).is_file() for size in PHOTO_FILE_NAMES)
+        )
+    ]
 
 
 def wine_photo_path(wine: Wine, size: str) -> Path:
@@ -28,12 +94,7 @@ def wine_photo_path(wine: Wine, size: str) -> Path:
 
 
 def library_photo_path(photo: WinePhotoLibraryEntry, size: str) -> Path:
-    return (
-        Path(settings.wine_photo_storage_dir)
-        / "library"
-        / str(photo.id)
-        / f"{size}.png"
-    )
+    return Path(settings.wine_photo_storage_dir) / "library" / str(photo.id) / f"{size}.png"
 
 
 def archive_wine_photo(

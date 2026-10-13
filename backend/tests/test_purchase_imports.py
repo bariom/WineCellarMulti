@@ -43,6 +43,64 @@ from app.services.purchase_import import purchase_document
 from app.services.wine_photo_library import library_photo_path, wine_photo_path
 
 
+@pytest.mark.parametrize("approved,conflicting", [(True, False), (False, False), (True, True)])
+def test_reference_photos_resolve_catalog_verified_producer_variants(
+    client, reference_photo, approved, conflicting
+):
+    from app.api.routes.wines import suggest_wine_photos
+    from app.services.purchase_import import attach_purchase_photo, purchase_photo_suggestions
+
+    _, db, context, wine, _ = client
+    name = "Le C des Carmes Haut-Brion"
+    producer = "Chateau Les Carmes Haut-Brion"
+    db.add(WineCatalogEntry(name=name, producer=producer, is_active=approved))
+    if conflicting:
+        db.add(WineCatalogEntry(name=name, producer="Chateau des Carmes Haut-Brion"))
+    db.commit()
+    first = reference_photo(name=name, producer=producer)
+    second = reference_photo(name=name, producer="Château Les Carmes Haut-Brion")
+    reference_photo(name=name, producer="Other estate")
+    reference_photo(name="Les Carmes Haut-Brion", producer=producer)
+    reference_photo(name=name, producer=producer, files=False)
+    invoice_producer = "Chateau des Carmes Haut-Brion"
+    wine.name, wine.producer, wine.vintage = name, invoice_producer, "2022"
+    db.commit()
+    expected = {str(first.id), str(second.id)} if approved and not conflicting else set()
+    assert {
+        str(item["id"]) for item in purchase_photo_suggestions(db, name, invoice_producer)
+    } == expected
+    assert {
+        item["source_wine_id"] for item in suggest_wine_photos(name, invoice_producer, db, context)
+    } == expected
+    if expected:
+        assert attach_purchase_photo(db, wine, first.id)
+        assert wine.photo_version
+        assert wine.producer == invoice_producer
+        assert wine.vintage == "2022"
+
+
+def test_reference_photos_support_approved_name_aliases(client, reference_photo):
+    from app.services.purchase_import import purchase_photo_suggestions
+
+    _, db, _, _, _ = client
+    entry = WineCatalogEntry(
+        name="Le C des Carmes Haut-Brion", producer="Chateau Les Carmes Haut-Brion"
+    )
+    db.add(entry)
+    db.flush()
+    db.add(
+        WineCatalogAlias(
+            catalog_entry_id=entry.id, alias="C des Carmes", normalized_alias="c des carmes"
+        )
+    )
+    db.commit()
+    photo = reference_photo(name=entry.name, producer=entry.producer)
+    assert [
+        item["id"] for item in purchase_photo_suggestions(db, "C des Carmes", entry.producer)
+    ] == [photo.id]
+    assert purchase_photo_suggestions(db, "C des Carmes", "Other estate") == []
+
+
 @pytest.fixture
 def reference_photo(client, tmp_path, monkeypatch):
     _, db, _, _, _ = client

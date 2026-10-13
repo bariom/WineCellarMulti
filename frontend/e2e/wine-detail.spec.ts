@@ -1,6 +1,39 @@
 import { expect, test } from "@playwright/test";
 import { wine, mockApi, openWineDetail, session, memberships } from "./fixtures/app";
 
+test("editing an invoice wine identity rechecks reference photos from other vintages", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const name = "Le C des Carmes Haut-Brion";
+  const imported = { ...wine, name: `${name}, Pessac-Léognan`, producer: "Chateau des Carmes Haut-Brion", vintage: "2022", photo_thumbnail_url: "", photo_detail_url: "" };
+  await mockApi(page, [], false, memberships, [imported]);
+  await page.addInitScript(({ imported, name, image }) => {
+    const original = window.fetch;
+    window.fetch = async (input, init) => {
+      const url = new URL(String(input), location.href);
+      if (url.pathname.endsWith("/wines/photo/suggestions")) {
+        if (url.searchParams.get("name") !== name || url.searchParams.get("producer") !== imported.producer) return Response.json([]);
+        sessionStorage.setItem("corrected-photo-query", url.search);
+        return Response.json([1, 2].map(id => ({ source_wine_id: `photo-${id}`, thumbnail_url: image, detail_url: image })));
+      }
+      return original(input, init);
+    };
+  }, { imported, name, image: wine.photo_thumbnail_url });
+  await page.goto("/");
+  await page.getByRole("button", { name: /^Cantina/ }).first().click();
+  await page.locator(`[data-wine-row-id="${wine.id}"] article`).click();
+  await page.getByRole("button", { name: "Modifica selezionato" }).click();
+  const editor = page.locator(".wine-editor-form");
+  await expect(editor.getByText("Foto già disponibile", { exact: true })).toHaveCount(0);
+  await editor.getByLabel("Nome", { exact: true }).fill(name);
+  await expect(editor.getByText("Foto già disponibile", { exact: true })).toBeVisible();
+  await expect(editor.getByText("1 / 2", { exact: true })).toBeVisible();
+  await editor.getByRole("button", { name: "Successiva", exact: true }).click();
+  await expect(editor.getByText("2 / 2", { exact: true })).toBeVisible();
+  const query = await page.evaluate(() => sessionStorage.getItem("corrected-photo-query"));
+  expect(query).not.toContain("vintage");
+  await page.screenshot({ path: testInfo.outputPath("corrected-invoice-photo-offer.png") });
+});
+
 test("wine quick actions are visible at the start of the detail on phones and desktop", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openWineDetail(page);

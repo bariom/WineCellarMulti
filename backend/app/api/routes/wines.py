@@ -111,6 +111,7 @@ from app.services.wine_photo_library import (
     archive_wine_photo,
     copy_library_photo,
     library_photo_path,
+    matching_reference_photos,
     normalize_photo_identity,
     reuse_best_matching_photo,
 )
@@ -1655,22 +1656,13 @@ def suggest_wine_photos(
     name: str = Query(min_length=2, max_length=200),
     producer: str = Query(min_length=1, max_length=200),
     db: Session = Depends(get_db),
-    _: CurrentContext = Depends(require_write_context),
+    context: CurrentContext = Depends(require_write_context),
 ) -> list[dict[str, str]]:
     normalized_name = normalize_photo_identity(name)
     normalized_producer = normalize_photo_identity(producer)
     if not normalized_name or not normalized_producer:
         return []
-    library_photos = list(
-        db.scalars(
-            select(WinePhotoLibraryEntry)
-            .where(
-                WinePhotoLibraryEntry.normalized_name == normalized_name,
-                WinePhotoLibraryEntry.normalized_producer == normalized_producer,
-            )
-            .order_by(WinePhotoLibraryEntry.created_at.desc())
-        )
-    )
+    library_photos = matching_reference_photos(db, name, producer)
     suggestions = [
         photo_suggestion_response(photo)
         for photo in library_photos
@@ -1681,6 +1673,7 @@ def suggest_wine_photos(
     wine = db.scalar(
         select(Wine)
         .where(
+            Wine.household_id == context.household.id,
             Wine.photo_version != "",
             func.lower(func.trim(Wine.name)) == normalized_name,
             func.lower(func.trim(Wine.producer)) == normalized_producer,

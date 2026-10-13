@@ -30,10 +30,8 @@ from app.services.purchase_documents import link_document_wines
 from app.services.stock_ledger import add_inbound_stock
 from app.services.storage import add_to_storage
 from app.services.wine_photo_library import (
-    PHOTO_FILE_NAMES,
     copy_library_photo,
-    library_photo_path,
-    normalize_photo_identity,
+    matching_reference_photos,
 )
 
 MAX_DOCUMENT_BYTES = 10_000_000
@@ -41,31 +39,15 @@ MAX_DOCUMENT_BYTES = 10_000_000
 
 def purchase_photo_suggestions(db: Session, name: str, producer: str) -> list[dict]:
     """Read shared reference assets only, never another household's wines."""
-    identity = (normalize_photo_identity(name), normalize_photo_identity(producer))
-    if not all(identity):
-        return []
-    photos = db.scalars(
-        select(WinePhotoLibraryEntry)
-        .where(
-            WinePhotoLibraryEntry.normalized_name == identity[0],
-            WinePhotoLibraryEntry.normalized_producer == identity[1],
-        )
-        .order_by(WinePhotoLibraryEntry.created_at.desc(), WinePhotoLibraryEntry.id.desc())
-    )
-    suggestions = []
-    for photo in photos:
-        if all(library_photo_path(photo, size).is_file() for size in PHOTO_FILE_NAMES):
-            suggestions.append(
-                {
-                    "id": photo.id,
-                    "thumbnail_url": (
-                        f"/api/v1/wines/photo/library/{photo.id}/thumbnail?v={photo.photo_version}"
-                    ),
-                }
-            )
-            if len(suggestions) == 10:
-                break
-    return suggestions
+    return [
+        {
+            "id": photo.id,
+            "thumbnail_url": (
+                f"/api/v1/wines/photo/library/{photo.id}/thumbnail?v={photo.photo_version}"
+            ),
+        }
+        for photo in matching_reference_photos(db, name, producer)[:10]
+    ]
 
 
 def attach_purchase_photo(db: Session, wine: Wine, photo_id: UUID) -> bool:
@@ -74,11 +56,7 @@ def attach_purchase_photo(db: Session, wine: Wine, photo_id: UUID) -> bool:
     photo = db.get(WinePhotoLibraryEntry, photo_id)
     if photo is None:
         return False
-    if (
-        not wine.producer.strip()
-        or photo.normalized_name != normalize_photo_identity(wine.name)
-        or photo.normalized_producer != normalize_photo_identity(wine.producer)
-    ):
+    if photo not in matching_reference_photos(db, wine.name, wine.producer, available_only=False):
         raise HTTPException(422, "Selected reference photo does not match the reviewed wine")
     try:
         copy_library_photo(photo, wine)

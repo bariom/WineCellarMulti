@@ -81,8 +81,14 @@ also works for previously analyzed drafts without another AI request. Full catal
 names containing commas, conflicting producers and unsupported or ambiguous places
 are preserved; private cellar data is not used as evidence for this cleanup.
 During review, matching wine name and producer can propose up to ten available
-photos from the shared reference library. Selection is optional; check the vintage
-and bottle format before choosing. Editing the identity, vintage, format or target
+photos from the shared reference library. Selection is optional. Photo lookup also
+accepts approved catalog name aliases and
+unambiguous producer variants differing only in accents or French articles (for
+example, Chateau des/Les Carmes Haut-Brion). Distinctive producer words must match;
+inactive or ambiguous catalog entries cannot expand an exact photo lookup. The
+same matching rules apply during invoice review, confirmation and wine editing.
+Photos from every vintage are eligible; the original wine identity is preserved.
+Check the vintage and bottle format before choosing. Editing the identity, vintage, format or target
 cellar record clears the choice. Existing cellar photos are preserved. A selected
 photo is copied when confirming the purchase, including purchases awaiting delivery.
 If it is no longer available, the purchase is still saved with a warning. The wine
