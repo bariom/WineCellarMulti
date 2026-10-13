@@ -68,6 +68,7 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
     format: rawString(raw.format),
     type: normalizeWineType(rawString(raw.type)),
     region: rawString(raw.region),
+    wine_zone: rawString(raw.wine_zone),
     appellation: rawString(raw.appellation),
     merchant: rawString(raw.merchant),
     order_date: rawNullableString(raw.order_date),

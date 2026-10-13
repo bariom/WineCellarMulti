@@ -61,6 +61,7 @@ export type Wine = {
   format: string;
   type: string;
   region: string;
+  wine_zone?: string;
   appellation: string;
   merchant: string;
   order_date: string | null;
@@ -235,6 +236,8 @@ export type CatalogWine = {
   name: string;
   producer: string;
   region: string;
+  wine_zone?: string;
+  locality?: string;
   appellation: string;
   type: string;
   format: string;
@@ -245,6 +248,8 @@ export type CatalogWine = {
 };
 
 export type CatalogWineMetadataUpdate = Pick<CatalogWine, "region" | "appellation" | "type" | "format"> & {
+  wine_zone: string;
+  locality: string;
   country: string;
   grapes_text: string;
 };
@@ -280,6 +285,8 @@ export type WineDraft = {
   format: string;
   type: string;
   region: string;
+  wine_zone: string;
+  vineyard_locality: string;
   appellation: string;
   merchant: string;
   initial_stock_reference: string;

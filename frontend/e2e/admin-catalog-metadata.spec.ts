@@ -43,6 +43,8 @@ for (const locale of ["it", "en"] as const) {
     const editor = section.getByRole("form", { name: `${it ? "Dati condivisi" : "Shared metadata"}: La Luna dei Tempi`, exact: true });
     await editor.getByLabel(it ? "Tipologia" : "Wine type", { exact: true }).selectOption("Red");
     await editor.getByLabel(it ? "Regione" : "Region", { exact: true }).fill("Piemonte");
+    await editor.getByLabel(it ? "Zona vitivinicola" : "Wine-growing area", { exact: true }).fill("Roero");
+    await editor.getByLabel(it ? "Località / Comune" : "Locality / Municipality", { exact: true }).fill("Castagnito");
     await editor.getByLabel(it ? "Denominazione" : "Appellation", { exact: true }).fill("Langhe DOC");
     await editor.getByLabel(it ? "Paese" : "Country", { exact: true }).fill("Italia");
     await editor.getByLabel(it ? "Formato" : "Bottle format", { exact: true }).fill("750ml");
@@ -73,7 +75,7 @@ for (const locale of ["it", "en"] as const) {
     await save.click();
     await expect(editor.getByRole("status")).toContainText(it ? "Dati condivisi salvati" : "Shared metadata saved");
     const payload = await page.evaluate(() => JSON.parse(sessionStorage.getItem("catalog-metadata-change") || "null"));
-    expect(payload).toEqual({ type: "Red", region: "Piemonte", appellation: "Langhe DOC", country: "Italia", format: "750ml", grapes_text: "Nebbiolo, Barbera" });
+    expect(payload).toEqual({ type: "Red", region: "Piemonte", wine_zone: "Roero", locality: "Castagnito", appellation: "Langhe DOC", country: "Italia", format: "750ml", grapes_text: "Nebbiolo, Barbera" });
     await section.getByRole("button", { name: it ? "Cerca" : "Search", exact: true }).click();
     await expect(editor.getByLabel(it ? "Regione" : "Region", { exact: true })).toHaveValue("Piemonte");
     expect(pageErrors).toEqual([]);

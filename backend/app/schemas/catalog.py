@@ -12,6 +12,8 @@ class CatalogWineResponse(BaseModel):
     name: str
     producer: str = ""
     region: str = ""
+    wine_zone: str = ""
+    locality: str = ""
     appellation: str = ""
     type: str = ""
     format: str = ""
@@ -25,6 +27,8 @@ class CatalogWineCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     producer: str = ""
     region: str = ""
+    wine_zone: str = Field(default="", max_length=120)
+    locality: str = Field(default="", max_length=240)
     appellation: str = ""
     type: str = ""
     format: str = ""
@@ -37,13 +41,17 @@ class CatalogWineMetadataUpdate(BaseModel):
     model_config = {"extra": "forbid"}
 
     region: str = Field(max_length=120)
+    wine_zone: str = Field(default="", max_length=120)
+    locality: str = Field(default="", max_length=240)
     appellation: str = Field(max_length=120)
     type: str = Field(max_length=80)
     format: str = Field(max_length=80)
     country: str = Field(max_length=120)
     grapes_text: str = Field(max_length=2000)
 
-    @field_validator("region", "appellation", "format", "country", "grapes_text")
+    @field_validator(
+        "region", "wine_zone", "locality", "appellation", "format", "country", "grapes_text"
+    )
     @classmethod
     def trim_metadata(cls, value: str) -> str:
         return value.strip()

@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from test_sensory_agent import setup as setup  # noqa: F401
 
 from app.api.deps import get_current_context
-from app.api.routes import catalog, taste_profiles
+from app.api.routes import catalog, taste_profiles, wines
 from app.db.session import get_db
 from app.models import Household, SensoryProfileBaseline, Wine, WineCatalogEntry, WineSensoryProfile
 from app.schemas.taste_profile import BatchEnrichmentRequest
@@ -22,6 +22,8 @@ PAYLOAD = {
     "country": "Italia",
     "format": "750ml",
     "grapes_text": "Nebbiolo, Barbera",
+    "wine_zone": "Roero",
+    "locality": "Castagnito",
 }
 
 
@@ -47,6 +49,7 @@ def editor(setup):
     db.commit()
     app = FastAPI()
     app.include_router(catalog.router, prefix="/wines")
+    app.include_router(wines.router, prefix="/wines")
     app.include_router(taste_profiles.router)
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_current_context] = lambda: context
@@ -65,6 +68,7 @@ def test_admin_edits_catalog_metadata_without_changing_private_inventory(editor,
     assert response.status_code == 200, response.text
     result = response.json()
     assert result["region"] == "Piemonte" and result["type"] == "Red"
+    assert result["wine_zone"] == "Roero" and result["locality"] == "Castagnito"
     assert result["is_active"] is active
     db.refresh(entry)
     db.refresh(foreign)
@@ -111,6 +115,7 @@ def test_shared_identity_uses_manual_catalog_metadata_for_single_and_batch_gener
     )
     assert carrier.id is None
     assert carrier.type == "Red" and carrier.region == "Piemonte"
+    assert carrier.wine_zone == "Roero" and carrier.vineyard_locality == "Castagnito"
     assert carrier.grapes == [{"name": "Nebbiolo"}, {"name": "Barbera"}]
     response = client.post(f"/taste-profile/admin/profiles/{identity.id}/regenerate?allow_ai=false")
     assert response.status_code == 200, response.text
@@ -149,3 +154,31 @@ def test_shared_identity_ignores_unapproved_or_ambiguous_catalog_metadata(editor
         db.delete(entry)
     db.commit()
     assert taste_profiles._identity_metadata(identity, db).type == ""
+
+
+def test_private_wine_geography_round_trip_and_household_isolation(editor):
+    client, db, context, _, foreign, _ = editor
+    payload = {
+        "name": "Geographic wine",
+        "region": "Piemonte",
+        "wine_zone": "Roero",
+        "vineyard_locality": "Castagnito",
+    }
+    created = client.post("/wines", json=payload)
+    assert created.status_code == 201, created.text
+    result = created.json()
+    assert result["wine_zone"] == "Roero" and result["vineyard_locality"] == "Castagnito"
+    assert result["vineyard_latitude"] is None and result["vineyard_longitude"] is None
+    changed = client.patch(f"/wines/{result['id']}", json={"wine_zone": "Langhe"})
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["vineyard_locality"] == "Castagnito"
+    assert client.patch(f"/wines/{foreign.id}", json={"wine_zone": "Langhe"}).status_code == 404
+    assert client.patch(f"/wines/{result['id']}", json={"wine_zone": None}).status_code == 422
+    assert (
+        client.patch(f"/wines/{result['id']}", json={"vineyard_locality": "x" * 241}).status_code
+        == 422
+    )
+    from app.api.routes.imports import legacy_wine_data
+
+    restored = legacy_wine_data(result, context)
+    assert restored["wine_zone"] == "Roero" and restored["vineyard_locality"] == "Castagnito"

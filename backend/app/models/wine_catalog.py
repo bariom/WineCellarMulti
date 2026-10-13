@@ -16,6 +16,8 @@ class WineCatalogEntry(Base):
     name: Mapped[str] = mapped_column(String(200), index=True)
     producer: Mapped[str] = mapped_column(String(200), default="", index=True)
     region: Mapped[str] = mapped_column(String(120), default="", index=True)
+    wine_zone: Mapped[str] = mapped_column(String(120), default="", server_default="")
+    locality: Mapped[str] = mapped_column(String(240), default="", server_default="")
     appellation: Mapped[str] = mapped_column(String(120), default="", index=True)
     type: Mapped[str] = mapped_column(String(80), default="")
     format: Mapped[str] = mapped_column(String(80), default="")

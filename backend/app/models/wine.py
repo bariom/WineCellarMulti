@@ -75,6 +75,7 @@ class Wine(Base):
     format: Mapped[str] = mapped_column(String(80), default="")
     type: Mapped[str] = mapped_column(String(80), default="")
     region: Mapped[str] = mapped_column(String(120), default="")
+    wine_zone: Mapped[str] = mapped_column(String(120), default="", server_default="")
     appellation: Mapped[str] = mapped_column(String(120), default="")
     merchant: Mapped[str] = mapped_column(String(160), default="")
     order_date: Mapped[date | None] = mapped_column(Date, nullable=True)

@@ -892,6 +892,8 @@ def _identity_metadata(
         shared_identity_id=identity.id,
         type=entry.type if entry else "",
         region=entry.region if entry else "",
+        wine_zone=entry.wine_zone if entry else "",
+        vineyard_locality=entry.locality if entry else "",
         appellation=entry.appellation if entry else "",
         format=entry.format if entry else "",
         grapes=[

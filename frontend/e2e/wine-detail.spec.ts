@@ -1,6 +1,70 @@
 import { expect, test } from "@playwright/test";
 import { wine, mockApi, openWineDetail, session, memberships } from "./fixtures/app";
 
+test("wine geography can be edited and remains visible without precise coordinates", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page);
+  await page.addInitScript(wine => {
+    const original = window.fetch;
+    let current = { ...wine, wine_zone: "", vineyard_locality: "", vineyard_latitude: null, vineyard_longitude: null };
+    window.fetch = async (input, init) => {
+      const path = new URL(String(input), location.href).pathname;
+      if (path.endsWith(`/wines/${wine.id}`)) {
+        if (init?.method === "PATCH") {
+          const data = JSON.parse(String(init.body));
+          sessionStorage.setItem("wine-geography-saved", JSON.stringify(data));
+          current = { ...current, ...data };
+        }
+        return Response.json(current);
+      }
+      if (path === "/api/v1/wines") return Response.json([current]);
+      return original(input, init);
+    };
+  }, wine);
+  await page.goto("/");
+  await page.getByRole("button", { name: /^Cantina/ }).first().click();
+  await page.locator(`[data-wine-row-id="${wine.id}"] article`).click();
+  await page.getByRole("button", { name: "Modifica selezionato", exact: true }).click();
+  const editor = page.locator(".wine-editor-form");
+  await editor.getByLabel("Regione", { exact: true }).fill("Piemonte");
+  await editor.getByLabel("Zona vitivinicola", { exact: true }).fill("Roero");
+  await editor.getByLabel("Località / Comune", { exact: true }).fill("Castagnito");
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    await editor.getByLabel("Zona vitivinicola", { exact: true }).scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+  await page.getByRole("button", { name: "Salva modifiche", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await page.locator(`[data-wine-row-id="${wine.id}"] article`).click();
+  await page.locator('.wine-detail:visible').first().locator('[data-wine-detail-section="01"] > summary').click();
+  const geographic = page.locator(".wine-detail:visible").first().getByRole("group", { name: "Dettagli geografici", exact: true });
+  await expect(geographic).toContainText("Roero");
+  await expect(geographic).toContainText("Castagnito");
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    const identity = page.locator('.wine-detail:visible').first().locator('[data-wine-detail-section="01"]');
+    if (await identity.getAttribute("open") === null) await identity.locator("summary").click();
+    await expect(geographic).toBeVisible();
+    await geographic.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const bounds = (await geographic.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    for (const field of await geographic.locator(".detail-field").all()) {
+      const label = (await field.locator("span").boundingBox())!;
+      const value = (await field.locator("strong").boundingBox())!;
+      expect(label.y + label.height).toBeLessThanOrEqual(value.y);
+    }
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`wine-geography-${width}.png`), fullPage: true });
+  }
+  const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("wine-geography-saved") || "null"));
+  expect(saved).toMatchObject({ region: "Piemonte", wine_zone: "Roero", vineyard_locality: "Castagnito" });
+  await page.getByRole("button", { name: "Modifica selezionato", exact: true }).click();
+  await expect(editor.getByLabel("Zona vitivinicola", { exact: true })).toHaveValue("Roero");
+  await expect(editor.getByLabel("Località / Comune", { exact: true })).toHaveValue("Castagnito");
+});
+
 test("editing an invoice wine identity rechecks reference photos from other vintages", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const name = "Le C des Carmes Haut-Brion";

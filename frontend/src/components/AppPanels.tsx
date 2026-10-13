@@ -1425,6 +1425,7 @@ export function WineDetail({
         </section> : null}
         {!restaurantMode ? photoOriginActions : null}
 
+
         <Suspense fallback={<LoadingState label={locale === "it" ? "Carico la mappa" : "Loading map"} compact />}>
           <VineyardMap wine={wine} locale={locale} openRequestId={originMapOpenRequest} />
         </Suspense>
@@ -1616,6 +1617,10 @@ export function WineDetail({
           {restaurantMode && wine.open_bottle_ml > 0 ? <DetailField label={locale === "it" ? "Bottiglia aperta" : "Open bottle"} value={`${(wine.open_bottle_ml / 100).toLocaleString(locale)} dl`} emptyLabel={t("notSpecified")} /> : null}
           <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
         </div>
+        {wine.wine_zone || wine.vineyard_locality ? <div className="detail-grid detail-facts-grid" role="group" aria-label={locale === "it" ? "Dettagli geografici" : "Geographic details"}>
+          {wine.wine_zone ? <DetailField label={locale === "it" ? "Zona vitivinicola" : "Wine-growing area"} value={wine.wine_zone} emptyLabel={t("notSpecified")} /> : null}
+          {wine.vineyard_locality ? <DetailField label={locale === "it" ? "Località / Comune" : "Locality / Municipality"} value={wine.vineyard_locality} emptyLabel={t("notSpecified")} /> : null}
+        </div> : null}
       </details>
 
       {!restaurantMode ? <TasteNote wineId={wine.id} locale={locale} /> : null}

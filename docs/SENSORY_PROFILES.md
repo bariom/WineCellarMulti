@@ -9,7 +9,9 @@ from Wine Pulse, AI pricing and Monitor device administration.
 For a wine outside the active cellar, open **Catalogo vini → Cerca e gestisci le
 schede**, search the central catalog and expand **Modifica dati condivisi**.
 Administrators can edit wine type, region, appellation, country, bottle format
-and comma-separated grape names, including for entries awaiting approval. These
+and comma-separated grape names, including for entries awaiting approval. Wine-growing
+area and locality/municipality are separate fields: for example, region **Piemonte**,
+area **Roero**, locality **Castagnito**. These
 are catalog facts common to all vintages; saving does not rename an identity,
 approve a pending entry, change private cellar records or replace sensory profiles.
 The admin-only endpoint is `PUT /wines/catalog/{entry_id}/metadata`.
@@ -19,7 +21,15 @@ in the administrator's active cellar, both in batch preview/generation and singl
 profile generation. Pending, missing and ambiguous catalog records provide no
 inferred metadata. After saving, open **Profili sensoriali**, select **Catalogo
 condiviso completo** and generate the missing profile. Existing validated profiles
-remain protected. This feature requires no new database migration.
+remain protected.
+
+Geographic fields require migration `0121_wine_geography` (`alembic upgrade head`).
+Existing regions and localities are preserved; new fields default to empty strings.
+The ordinary wine editor also exposes area and locality; the latter reuses the
+existing `vineyard_locality` field and can be saved without map coordinates. Both
+are displayed under **Identità e disponibilità** and preserved in JSON backups.
+Catalog templates copy these values into a wine draft without modifying other
+households' wines. No coordinates or appellations are inferred from a locality.
 
 The default screen is the ordinary semiautomatic batch workflow: **Mostra
 anteprima**, then **Genera mancanti con AI**. Generation is enabled only after a

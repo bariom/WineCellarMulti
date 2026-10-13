@@ -64,7 +64,7 @@ def ensure_app_admin(context: CurrentContext) -> None:
 
 
 def has_complementary_catalog_data(data: dict) -> bool:
-    return any(str(data.get(field) or "").strip() for field in ("producer", "region", "appellation", "type", "country", "grapes_text"))
+    return any(str(data.get(field) or "").strip() for field in ("producer", "region", "wine_zone", "locality", "appellation", "type", "country", "grapes_text"))
 
 
 def session_has_catalog_alias(db: Session, normalized_alias: str) -> bool:
@@ -89,6 +89,8 @@ def catalog_response(entry: WineCatalogEntry) -> CatalogWineResponse:
         name=entry.name,
         producer=entry.producer,
         region=entry.region,
+        wine_zone=entry.wine_zone,
+        locality=entry.locality,
         appellation=entry.appellation,
         type=normalize_wine_type(entry.type),
         format=entry.format,
@@ -219,6 +221,7 @@ def search_all_catalog_entries(db: Session, query: str, limit: int) -> list[Wine
 
 
 def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str = "user_saved") -> WineCatalogEntry | None:
+    data = {**data, "locality": data.get("locality") or data.get("vineyard_locality") or ""}
     name = str(data.get("name") or "").strip()
     if not name:
         return None
@@ -240,7 +243,7 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
             if existing.is_active and source == "confirmed_recognition":
                 return existing
             changed = False
-            for field in ("producer", "region", "appellation", "type", "format", "country", "grapes_text"):
+            for field in ("producer", "region", "wine_zone", "locality", "appellation", "type", "format", "country", "grapes_text"):
                 next_value = str(data.get(field) or "").strip()
                 if field == "type":
                     next_value = normalize_wine_type(next_value)
@@ -256,6 +259,8 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
         name=name,
         producer=producer,
         region=str(data.get("region") or "").strip(),
+        wine_zone=str(data.get("wine_zone") or "").strip(),
+        locality=str(data.get("locality") or data.get("vineyard_locality") or "").strip(),
         appellation=str(data.get("appellation") or "").strip(),
         type=normalize_wine_type(str(data.get("type") or "").strip()),
         format=str(data.get("format") or "").strip(),
@@ -387,7 +392,7 @@ def create_wine_catalog_entry(
     )
     if existing is not None:
         changed = False
-        for field in ("producer", "region", "appellation", "type", "format", "country", "grapes_text"):
+        for field in ("producer", "region", "wine_zone", "locality", "appellation", "type", "format", "country", "grapes_text"):
             next_value = str(getattr(payload, field) or "").strip()
             if field == "type":
                 next_value = normalize_wine_type(next_value)
@@ -473,7 +478,7 @@ def update_catalog_wine_metadata(
     entry = db.get(WineCatalogEntry, entry_id)
     if entry is None:
         raise HTTPException(404, "Catalog entry not found")
-    for field, value in payload.model_dump().items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(entry, field, value)
     entry.search_text = build_search_text(
         entry.name,
@@ -483,6 +488,8 @@ def update_catalog_wine_metadata(
         entry.type,
         entry.country,
         entry.grapes_text,
+        entry.wine_zone,
+        entry.locality,
     )
     entry.updated_at = datetime.now(UTC)
     db.commit()

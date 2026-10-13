@@ -27,6 +27,8 @@ class WineCreate(BaseModel):
     format: str = ""
     type: str = ""
     region: str = ""
+    wine_zone: str = Field(default="", max_length=120)
+    vineyard_locality: str = Field(default="", max_length=240)
     appellation: str = ""
     merchant: str = ""
     initial_stock_reference: str = Field(default="", max_length=160)
@@ -83,6 +85,8 @@ class WineUpdate(BaseModel):
     format: str | None = None
     type: str | None = None
     region: str | None = None
+    wine_zone: str = Field(default="", max_length=120)
+    vineyard_locality: str = Field(default="", max_length=240)
     appellation: str | None = None
     merchant: str | None = None
     order_date: date | None = None
@@ -254,6 +258,7 @@ class WineResponse(BaseModel):
     format: str
     type: str
     region: str
+    wine_zone: str = ""
     appellation: str
     merchant: str
     order_date: date | None = None

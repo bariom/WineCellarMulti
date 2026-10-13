@@ -482,6 +482,8 @@ const emptyDraft: WineDraft = {
   format: "",
   type: "",
   region: "",
+  wine_zone: "",
+  vineyard_locality: "",
   appellation: "",
   merchant: "",
   initial_stock_reference: "",
@@ -1876,6 +1878,8 @@ export function App() {
       ...baseDraft,
       producer: template.producer || baseDraft.producer,
       region: template.region || baseDraft.region,
+      wine_zone: template.wine_zone || baseDraft.wine_zone,
+      vineyard_locality: ("vineyard_locality" in template ? template.vineyard_locality : "locality" in template ? template.locality : "") || baseDraft.vineyard_locality,
       appellation: template.appellation || baseDraft.appellation,
       format: template.format || baseDraft.format,
       type: normalizeWineType(template.type || baseDraft.type),
@@ -1928,6 +1932,8 @@ export function App() {
       name: item.name || current.name,
       producer: item.producer || current.producer,
       region: item.region || current.region,
+      wine_zone: item.wine_zone || current.wine_zone,
+      vineyard_locality: item.locality || current.vineyard_locality,
       appellation: item.appellation || current.appellation,
       format: item.format || current.format,
       type: normalizeWineType(item.type || current.type),
@@ -12011,6 +12017,10 @@ export function App() {
                     <span>{t("appellation")}</span>
                     <input value={draft.appellation} onChange={(event) => setDraft({ ...draft, appellation: event.target.value })} disabled={!canWriteWine} />
                   </label>
+                </div>
+                <div className="form-row">
+                  <label><span>{locale === "it" ? "Zona vitivinicola" : "Wine-growing area"}</span><input maxLength={120} value={draft.wine_zone} onChange={event => setDraft({ ...draft, wine_zone: event.target.value })} disabled={!canWriteWine} /></label>
+                  <label><span>{locale === "it" ? "Località / Comune" : "Locality / Municipality"}</span><input maxLength={240} value={draft.vineyard_locality} onChange={event => setDraft({ ...draft, vineyard_locality: event.target.value })} disabled={!canWriteWine} /></label>
                 </div>
                   <div className="form-row vintage-companion-row">
                     <div className="vintage-field">

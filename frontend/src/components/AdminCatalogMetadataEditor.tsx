@@ -6,7 +6,8 @@ import "./AdminCatalogMetadataEditor.css";
 
 function metadata(entry: CatalogWine): CatalogWineMetadataUpdate {
   return { type: normalizeWineType(entry.type), region: entry.region, appellation: entry.appellation,
-    country: entry.country || "", format: entry.format, grapes_text: entry.grapes_text || "" };
+    country: entry.country || "", format: entry.format, grapes_text: entry.grapes_text || "",
+    wine_zone: entry.wine_zone || "", locality: entry.locality || "" };
 }
 
 export default function AdminCatalogMetadataEditor({ entry, locale, disabled, onSaved }: {
@@ -41,7 +42,7 @@ export default function AdminCatalogMetadataEditor({ entry, locale, disabled, on
           <option value="">{it ? "Non specificata" : "Not specified"}</option>
           {canonicalWineTypes.map(type => <option key={type} value={type}>{typeLabels[type] || type}</option>)}
         </select></label>
-        {(["region", "appellation", "country", "format"] as const).map(field => <label key={field}><span>{{ region: it ? "Regione" : "Region", appellation: it ? "Denominazione" : "Appellation", country: it ? "Paese" : "Country", format: it ? "Formato" : "Bottle format" }[field]}</span><input value={draft[field]} maxLength={field === "format" ? 80 : 120} disabled={saving || disabled} onChange={event => update(field, event.target.value)} /></label>)}
+        {(["country", "region", "wine_zone", "locality", "appellation", "format"] as const).map(field => <label key={field}><span>{{ region: it ? "Regione" : "Region", wine_zone: it ? "Zona vitivinicola" : "Wine-growing area", locality: it ? "Località / Comune" : "Locality / Municipality", appellation: it ? "Denominazione" : "Appellation", country: it ? "Paese" : "Country", format: it ? "Formato" : "Bottle format" }[field]}</span><input value={draft[field]} maxLength={field === "format" ? 80 : field === "locality" ? 240 : 120} disabled={saving || disabled} onChange={event => update(field, event.target.value)} /></label>)}
         <label className="admin-catalog-grapes"><span id={`${fieldId}-grapes`}>{it ? "Vitigni" : "Grapes"}</span><textarea aria-labelledby={`${fieldId}-grapes`} aria-describedby={`${fieldId}-grapes-help`} rows={2} maxLength={2000} value={draft.grapes_text} disabled={saving || disabled} onChange={event => update("grapes_text", event.target.value)} /><small id={`${fieldId}-grapes-help`}>{it ? "Separa i nomi con una virgola, ad esempio: Nebbiolo, Barbera." : "Separate names with commas, for example: Nebbiolo, Barbera."}</small></label>
       </div>
       {error ? <p className="error" role="alert">{error}</p> : null}

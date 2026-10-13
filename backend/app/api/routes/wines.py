@@ -386,6 +386,7 @@ def wine_response(
         format=wine.format,
         type=wine.type,
         region=wine.region,
+        wine_zone=wine.wine_zone or "",
         appellation=wine.appellation,
         merchant=wine.merchant,
         order_date=wine.order_date,
