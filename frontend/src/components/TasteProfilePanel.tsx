@@ -5,6 +5,8 @@ import type { LegacyTastingClaimResult, LegacyTastingClaimStatus, Locale, TasteP
 import { api } from "../services/api";
 import { TasteOrigins } from "./TasteOrigins";
 import { PreferenceRankingChart } from "./PreferenceRankingChart";
+import TasteSignatureWheel from "./TasteSignatureWheel";
+import "./TasteProfilePortrait.css";
 
 const WineGeographyMap = lazy(() => import("../views/WineGeographyMap"));
 
@@ -339,6 +341,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
           <p>{profileVoice}</p>
           <small>{preferenceExplanation}</small>
         </div>
+        {insight ? <TasteSignatureWheel dimensions={overall.dimensions} labels={labels} locale={locale} /> : null}
         <div className="taste-profile-hero-data">
           <div className="taste-profile-hero-metrics">
             {strongest.map(([dimension, value]) => <article key={dimension}>

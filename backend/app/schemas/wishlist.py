@@ -87,6 +87,29 @@ class ExternalWineTastingCreate(BaseModel):
     tasting_companions: str = Field(default="", max_length=300)
 
 
+class TastingWineMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=200)
+    producer: str = Field(default="", max_length=200)
+    vintage: str = Field(default="", max_length=16)
+    format: str = Field(default="", max_length=80)
+    type: str = Field(default="", pattern="^(|Red|White|Rose|Sparkling|Sweet|Fortified|Other)$")
+    region: str = Field(default="", max_length=120)
+    appellation: str = Field(default="", max_length=120)
+
+    @field_validator(
+        "name", "producer", "vintage", "format", "region", "appellation", mode="before"
+    )
+    @classmethod
+    def strip_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class ExternalWineTastingUpdate(ExternalWineTastingCreate):
+    wine: TastingWineMetadata | None = None
+
+
 class ExternalWineTastingResponse(BaseModel):
     memory_photo_location: dict[str, float] | None = None
     memory_photo_url: str = ""

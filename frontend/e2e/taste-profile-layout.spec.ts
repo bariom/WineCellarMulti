@@ -1,5 +1,62 @@
 import { expect, test } from "@playwright/test";
-import { mockApi, snapshotChrome } from "./fixtures/app";
+import { mockApi, session, snapshotChrome } from "./fixtures/app";
+
+for (const locale of ["it", "en"] as const) {
+  test(`My Taste portrait keeps its signature and metrics readable (${locale})`, async ({ page }, testInfo) => {
+    const it = locale === "it";
+    await mockApi(page, [], false, undefined, undefined, { ...session, locale });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/");
+    await page.locator(".dashboard-analysis-switcher > summary").click();
+    await page.getByRole("tab", { name: it ? "Il mio gusto" : "My Taste", exact: true }).click();
+    const hero = page.getByRole("region", { name: it ? "Ritratto del gusto" : "Taste portrait", exact: true });
+    const wheel = hero.getByRole("figure", { name: it ? "La tua firma sensoriale" : "Your sensory signature", exact: true });
+    await expect(wheel).toBeVisible();
+    await expect(hero).toHaveCSS("background-image", /linear-gradient/);
+    await expect(wheel.locator(".taste-wheel-point")).toHaveCount(9);
+    await expect(wheel.locator(".taste-wheel-shape")).toHaveCount(1);
+    for (const viewport of [{ width: 1440, height: 1000 }, { width: 820, height: 1180 }, { width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }]) {
+      await page.setViewportSize(viewport);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const copy = (await hero.locator(".taste-profile-hero-copy").boundingBox())!;
+      const graphic = (await wheel.boundingBox())!;
+      const metrics = (await hero.locator(".taste-profile-hero-data").boundingBox())!;
+      const intersects = (a: typeof copy, b: typeof copy) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+      expect(intersects(copy, graphic)).toBe(false);
+      expect(intersects(graphic, metrics)).toBe(false);
+      expect(intersects(copy, metrics)).toBe(false);
+      for (const label of await wheel.locator("svg text").all()) {
+        const box = (await label.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(graphic.x);
+        expect(box.x + box.width).toBeLessThanOrEqual(graphic.x + graphic.width);
+      }
+      if (it && (viewport.width === 390 || viewport.width === 1440)) {
+        await snapshotChrome(page, false);
+        await hero.screenshot({ path: testInfo.outputPath(`taste-portrait-${viewport.width}.png`) });
+        if (viewport.width === 390) await expect(hero).toHaveScreenshot("taste-portrait-compact.png", { animations: "disabled" });
+        await snapshotChrome(page, true);
+      }
+    }
+  });
+}
+
+test("Taste signature distinguishes a zero preference from missing dimensions", async ({ page }) => {
+  await page.route("**/taste-wheel-test", route => route.fulfill({ contentType: "text/html", body: `
+    <html><body><div id="root"></div><script type="module">
+    import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window);
+    window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => (type) => type;
+    window.__vite_plugin_react_preamble_installed__ = true;
+    const {default: React} = await import('/node_modules/.vite/deps/react.js');
+    const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
+    const {default: Wheel} = await import('/src/components/TasteSignatureWheel.tsx');
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Wheel, {locale:'it', labels:{body:'Corpo', acidity:'Acidità', tannin:'Tannini'}, dimensions:{body:{preference:0}, acidity:{preference:.75}}}));
+    </script></body></html>` }));
+  await page.goto("/taste-wheel-test");
+  await expect(page.locator("svg desc")).toContainText("Corpo: 0/100");
+  await expect(page.locator("svg desc")).toContainText("Tannini: dati insufficienti");
+  await expect(page.locator(".taste-wheel-point")).toHaveCount(2);
+  await expect(page.locator(".taste-wheel-shape")).toHaveCount(0);
+});
 
 // Retain the original suite title and viewport for stable test identity.
 test.describe("Wine Detail compact/mobile", () => {

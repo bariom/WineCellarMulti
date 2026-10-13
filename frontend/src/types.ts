@@ -127,6 +127,7 @@ export type Wine = {
 };
 
 export type ConsumeWineDraft = {
+  wine?: TastingWineIdentity;
   memory_photo?: string;
   memory_photo_url?: string;
   memory_photo_processing?: boolean;

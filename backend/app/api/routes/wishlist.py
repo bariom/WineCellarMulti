@@ -25,6 +25,7 @@ from app.schemas.taste_profile import TasteMatchResponse
 from app.schemas.wishlist import (
     ExternalWineTastingCreate,
     ExternalWineTastingResponse,
+    ExternalWineTastingUpdate,
     StandaloneWineTastingCreate,
     WishlistConvert,
     WishlistCreate,
@@ -937,7 +938,7 @@ def save_external_tasting(
 @router.patch("/tastings/{tasting_id}", response_model=ExternalWineTastingResponse)
 def update_wishlist_tasting(
     tasting_id: UUID,
-    payload: ExternalWineTastingCreate,
+    payload: ExternalWineTastingUpdate,
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> ExternalWineTastingResponse:
@@ -953,18 +954,30 @@ def update_wishlist_tasting(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="External tasting not found"
         )
+    if payload.wine is not None:
+        for field, value in payload.wine.model_dump().items():
+            setattr(tasting, field, value)
+        resolve_shared_identity(db, tasting, create=True)
+        mark_wine_for_sensory_enrichment(db, tasting)
     tasting.consumed_at = payload.consumed_at or tasting.consumed_at
-    tasting.note = payload.note.strip()
-    tasting.rating = payload.tasting_rating
-    tasting.enjoyment = payload.tasting_enjoyment
-    tasting.occasion = payload.tasting_occasion.strip()
-    tasting.pairing = payload.tasting_pairing.strip()
-    tasting.companions = payload.tasting_companions.strip()
+    for field, target in (
+        ("note", "note"),
+        ("tasting_rating", "rating"),
+        ("tasting_enjoyment", "enjoyment"),
+        ("tasting_occasion", "occasion"),
+        ("tasting_pairing", "pairing"),
+        ("tasting_companions", "companions"),
+    ):
+        if field in payload.model_fields_set:
+            value = getattr(payload, field)
+            setattr(tasting, target, value.strip() if isinstance(value, str) else value)
     if payload.memory_photo is not None:
         tasting.memory_photo = process_memory_photo(payload.memory_photo)
         tasting.memory_photo_location = extract_photo_location(payload.memory_photo)
         tasting.memory_photo_version = uuid.uuid4().hex if tasting.memory_photo else ""
-    if payload.tasting_rating > 0 or payload.tasting_enjoyment:
+    if payload.wine is None and (payload.tasting_rating > 0 or payload.tasting_enjoyment):
+        # Manual wine corrections rebuild preferences using existing sensory data;
+        # paid enrichment remains an explicit, separate action for these edits.
         mark_wine_for_sensory_enrichment(db, tasting)
         db.flush()
         enrich_external_tasting_sensory_profile(db, context, tasting)

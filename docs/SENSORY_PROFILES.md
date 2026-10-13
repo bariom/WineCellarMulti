@@ -357,3 +357,12 @@ other wines. The summary distinguishes created profiles from unresolved wines.
 Complete wine type, grapes or appellation before retrying. Unknown values are not
 invented or converted to zero; a numeric zero remains valid. Malformed JSON,
 missing dimensions and out-of-range values are still rejected.
+
+External tastings can be corrected from History → tasting → Edit, including wine
+name, producer, vintage, format, type, region and appellation. Corrections are
+private to that tasting: they do not modify cellar stock, wishlist items or the
+shared catalog. Saving rebuilds the user's taste categories without calling AI
+or consuming credits. Notes, scores and memory photos are retained unless edited.
+Changing name, producer or vintage resolves the shared identity again so the
+previous wine's sensory profile is not reused for a different wine. A type-only
+correction retains the identity's existing sensory dimensions.

@@ -118,6 +118,12 @@ checks cover 1440×900, 1200×700 and 1024×600, including zoom and data scrolli
 The PDF filename and zoom share one compact desktop toolbar (32 px controls);
 mobile controls retain 44 px touch targets and wrap when needed.
 
+The My Taste portrait in `taste-profile-layout.spec.ts` covers its wine-colored
+hero, sensory signature, readable metrics and geometry at 360/390/430 px,
+tablet and desktop. The signature represents personal preferences on the existing
+0–100 scale; missing dimensions are omitted, while a numeric zero remains valid.
+The compact hero baseline is reviewed at 390 px before acceptance.
+
 Other existing specs (for example `taste-profile.spec.ts`, sensory profiles,
 buying advice and wishlist flows) remain independently selectable through
 `npx playwright test e2e/<feature>.spec.ts`. The taste-profile layout suite does
@@ -504,3 +510,5 @@ The reviewed `landing-it-compact.png` and `landing-en-compact.png` baselines pro
 the full landing at 390 × 844. Review visual differences before explicitly updating
 these baselines. No backend is required: session, public configuration and signup
 responses are mocked; no real account or email is created.
+
+External tasting metadata corrections are covered by `npx playwright test e2e/tasting-wine-detail.spec.ts`: Italian/mobile and English/desktop saves, retry after a failed save, blank-name validation, retained tasting fields, and 360/390/430 px geometry checks. `external-tasting-editor-compact.png` protects the visually reviewed 390 px editor; cellar tastings keep their existing editor.

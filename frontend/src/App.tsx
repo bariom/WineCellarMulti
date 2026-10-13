@@ -5363,6 +5363,7 @@ export function App() {
         method: "PATCH",
         body: JSON.stringify({
           ...tastingRequest(payload),
+          wine: payload.wine,
         }),
       });
       await loadTastingArchiveOverview();

@@ -41,6 +41,7 @@ type TastingArchiveEntry = {
 };
 
 type ConsumeWineDraft = {
+  wine?: Omit<WineLike, "id">;
   memory_photo?: string;
   memory_photo_url?: string;
   memory_photo_processing?: boolean;
@@ -84,6 +85,11 @@ function emptyConsumeWineDraft(): ConsumeWineDraft {
 
 function consumeDraftFromTastingEntry(entry: TastingArchiveEntry): ConsumeWineDraft {
   return {
+    ...(entry.source === "external_tasting" ? { wine: {
+      name: entry.wine.name, producer: entry.wine.producer, vintage: entry.wine.vintage,
+      format: entry.wine.format, type: entry.wine.type, region: entry.wine.region,
+      appellation: entry.wine.appellation,
+    } } : {}),
     memory_photo_url: entry.memory_photo_url,
     consumed_at: entry.consumed_at || new Date().toISOString().slice(0, 10),
     note: entry.note || "",
@@ -165,6 +171,7 @@ function TastingEntryEditor({
   saving,
   t,
   locale,
+  displayValue,
   onSave,
   onCancel,
   onDelete,
@@ -174,12 +181,44 @@ function TastingEntryEditor({
   saving: boolean;
   t: (key: any) => string;
   locale: "en" | "it";
+  displayValue: TastingArchiveSectionProps["displayValue"];
   onSave: () => Promise<void>;
   onCancel: () => void;
   onDelete: () => Promise<void>;
 }) {
   return (
     <div className="tasting-entry-editor">
+      {draft.wine ? (
+        <section aria-label={locale === "it" ? "Dati del vino degustato" : "Tasted wine details"}>
+          <h4>{locale === "it" ? "Dati del vino degustato" : "Tasted wine details"}</h4>
+          <p className="muted">{locale === "it"
+            ? "Correggi i dati di questa degustazione. Le modifiche aggiornano anche Il mio gusto."
+            : "Correct this tasting's wine details. Changes also update My Taste."}</p>
+          <div className="detail-grid consume-grid">
+            {([
+              ["name", locale === "it" ? "Nome vino" : "Wine name", 200],
+              ["producer", locale === "it" ? "Produttore" : "Producer", 200],
+              ["vintage", locale === "it" ? "Annata" : "Vintage", 16],
+              ["format", locale === "it" ? "Formato" : "Format", 80],
+              ["region", locale === "it" ? "Regione" : "Region", 120],
+              ["appellation", locale === "it" ? "Denominazione" : "Appellation", 120],
+            ] as const).map(([field, label, maxLength]) => (
+              <label key={field}><span>{label}</span><input value={draft.wine![field]} maxLength={maxLength}
+                disabled={saving} required={field === "name"}
+                onChange={event => setDraft(current => ({ ...current, wine: { ...current.wine!, [field]: event.target.value } }))} /></label>
+            ))}
+            <label><span>{locale === "it" ? "Tipologia" : "Wine type"}</span>
+              <select value={draft.wine.type} disabled={saving}
+                onChange={event => setDraft(current => ({ ...current, wine: { ...current.wine!, type: event.target.value } }))}>
+                <option value="">{t("notSpecified")}</option>
+                {["Red", "White", "Rose", "Sparkling", "Sweet", "Fortified", "Other"].map(type => (
+                  <option key={type} value={type}>{displayValue(type, locale, "type")}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </section>
+      ) : null}
       <div className="detail-grid consume-grid">
         <label>
           <span>{t("tastingDate")}</span>
@@ -244,7 +283,7 @@ function TastingEntryEditor({
       </label>
       <TastingMemoryPhotoInput locale={locale} value={draft.memory_photo} existingUrl={draft.memory_photo_url} disabled={saving} onChange={memory_photo => setDraft(current => ({ ...current, memory_photo }))} onProcessingChange={memory_photo_processing => setDraft(current => ({ ...current, memory_photo_processing }))} />
       <div className="tasting-entry-actions">
-        <button type="button" disabled={saving || draft.memory_photo_processing} onClick={() => onSave().catch(() => undefined)}>
+        <button type="button" disabled={saving || draft.memory_photo_processing || (draft.wine !== undefined && !draft.wine.name.trim())} onClick={() => onSave().catch(() => undefined)}>
           {saving ? t("saving") : t("saveChanges")}
         </button>
         <button type="button" className="secondary compact" disabled={saving} onClick={onCancel}>
@@ -359,6 +398,7 @@ export default function TastingArchiveSection({
               saving={saving}
               t={t}
               locale={locale}
+              displayValue={displayValue}
               onSave={async () => {
                 await onUpdateEntry(entry, editDraft);
                 setEditingId(null);

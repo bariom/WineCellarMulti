@@ -1892,3 +1892,118 @@ def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
         )
     finally:
         app.dependency_overrides.clear()
+
+
+def test_external_tasting_metadata_correction_rebuilds_categories_without_ai(monkeypatch):
+    from app.schemas.wishlist import ExternalWineTastingUpdate
+
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="correction@example.test", display_name="Taster", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    tasting = ExternalWineTasting(
+        household_id=household.id, created_by_user_id=user.id,
+        name="Lambrusco dolce", producer="Producer", vintage="2023", type="Sweet",
+        consumed_at=date(2026, 10, 1), rating=5, enjoyment="positive", note="Friends",
+        occasion="Dinner", pairing="Cheese", companions="Alex",
+        memory_photo=b"existing-photo", memory_photo_version="photo-version",
+    )
+    db.add(tasting)
+    resolve_shared_identity(db, tasting, create=True)
+    original_identity = tasting.shared_identity_id
+    db.add(WineSensoryProfile(
+        identity_id=original_identity, dimensions={"sweetness": 0.8},
+        confidence=0.8, generation_status="available",
+    ))
+    db.commit()
+    rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+    db.commit()
+    assert db.scalar(select(UserTasteProfile).where(UserTasteProfile.category == "Sweet"))
+
+    def unexpected_ai(*args, **kwargs):
+        raise AssertionError("Manual correction must not invoke AI")
+
+    monkeypatch.setattr(wishlist_routes, "enrich_external_tasting_sensory_profile", unexpected_ai)
+    context = SimpleNamespace(user=user, household=household)
+    response = wishlist_routes.update_wishlist_tasting(
+        tasting.id, ExternalWineTastingUpdate(wine={
+            "name": " Lambrusco dolce ", "producer": "Producer", "vintage": "2023",
+            "type": "Red", "format": "750ml", "region": "Emilia-Romagna",
+            "appellation": "Lambrusco",
+        }), db, context,
+    )
+    assert tasting.type == "Red"
+    assert tasting.shared_identity_id == original_identity
+    assert (response.rating, response.note, response.enjoyment) == (5, "Friends", "positive")
+    assert (response.occasion, response.pairing, response.companions) == ("Dinner", "Cheese", "Alex")
+    assert response.consumed_at == date(2026, 10, 1)
+    assert tasting.memory_photo == b"existing-photo"
+    assert "photo-version" in response.memory_photo_url
+    profiles = {p.category: p for p in db.scalars(select(UserTasteProfile))}
+    assert set(profiles) == {"global", "Red"}
+    assert profiles["Red"].sample_count == 1
+    assert db.scalar(select(Wine.id)) is None
+    assert db.scalar(select(WineSensoryProfile)).dimensions == {"sweetness": 0.8}
+
+    # Changing identity must detach the old wine's sensory profile.
+    wishlist_routes.update_wishlist_tasting(
+        tasting.id, ExternalWineTastingUpdate(wine={"name": "Different wine", "type": "White"}),
+        db, context,
+    )
+    assert tasting.shared_identity_id is None
+    assert db.scalar(select(WineSensoryProfile)).identity_id == original_identity
+    wishlist_routes.update_wishlist_tasting(
+        tasting.id, ExternalWineTastingUpdate(wine={
+            "name": "Different wine", "producer": "Producer", "vintage": "2024", "type": "White",
+        }), db, context,
+    )
+    assert tasting.shared_identity_id != original_identity
+    new_profile = db.scalar(select(WineSensoryProfile).where(
+        WineSensoryProfile.identity_id == tasting.shared_identity_id,
+    ))
+    assert new_profile.generation_status == "pending"
+    assert not new_profile.dimensions
+
+
+@pytest.mark.parametrize("foreign_scope", ["household", "user"])
+def test_external_tasting_metadata_correction_is_private(foreign_scope):
+    from app.schemas.wishlist import ExternalWineTastingUpdate
+
+    db = Session()
+    home = Household(name="Home")
+    other_home = Household(name="Other")
+    owner = User(email="owner@example.test", display_name="Owner", password_hash="x")
+    other = User(email="other@example.test", display_name="Other", password_hash="x")
+    db.add_all([home, other_home, owner, other])
+    db.flush()
+    tasting = ExternalWineTasting(
+        household_id=home.id, created_by_user_id=owner.id,
+        name="Private tasting", type="Sweet", consumed_at=date(2026, 10, 1),
+    )
+    db.add(tasting)
+    db.commit()
+    context = SimpleNamespace(
+        user=owner if foreign_scope == "household" else other,
+        household=other_home if foreign_scope == "household" else home,
+    )
+    with pytest.raises(HTTPException) as error:
+        wishlist_routes.update_wishlist_tasting(
+            tasting.id, ExternalWineTastingUpdate(wine={"name": "Private tasting", "type": "Red"}),
+            db, context,
+        )
+    assert error.value.status_code == 404
+    assert tasting.type == "Sweet"
+
+
+@pytest.mark.parametrize("wine", [
+    {"name": "   "}, {"name": "Wine", "type": "invalid"},
+    {"name": "Wine", "region": "x" * 121}, {"name": "Wine", "household_id": "spoofed"},
+])
+def test_external_tasting_metadata_validation(wine):
+    from pydantic import ValidationError
+
+    from app.schemas.wishlist import ExternalWineTastingUpdate
+
+    with pytest.raises(ValidationError):
+        ExternalWineTastingUpdate(wine=wine)
