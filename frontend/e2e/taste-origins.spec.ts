@@ -106,3 +106,45 @@ for (const mode of ["photo", "detail", "missing", "broken"] as const) {
     }
   });
 }
+
+
+test("discovery glass reflects the proposed wine type", async ({ page }, testInfo) => {
+  const candidate = { ...wine, name: "Vino da esplorare", region: "Valais", grapes: [{ name: "Merlot" }], photo_thumbnail_url: "", photo_detail_url: "" };
+  await page.route("**/taste-glass-colors", route => route.fulfill({ contentType: "text/html", body: `
+    <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
+      import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window);
+      window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => (type) => type;
+      window.__vite_plugin_react_preamble_installed__ = true;
+      const {default: React} = await import('/node_modules/.vite/deps/react.js');
+      const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
+      const {TasteOrigins} = await import('/src/components/TasteOrigins.tsx');
+      await import('/src/styles.css');
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      window.showWineType = type => root.render(React.createElement(TasteOrigins, {
+        locale:'it', profile:{attributes:{preferred_regions:[['Toscana',8]],preferred_grapes:[['Merlot',10]]}},
+        wines:[{...${JSON.stringify(candidate)},type}]
+      }));
+      window.showWineType('Red');
+    </script></body></html>` }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/taste-glass-colors");
+  const fill = page.locator(".taste-discovery-placeholder .key-position-wine-fill");
+  await expect(fill).toBeAttached();
+  for (const [type, rgb] of [
+    ["Red", [143, 32, 57]], ["White", [214, 180, 72]], ["Rose", [215, 131, 148]],
+    ["Sparkling", [185, 160, 93]], ["Sweet", [201, 130, 44]], ["", [120, 144, 134]],
+    ["Rosso", [143, 32, 57]], ["Bianco", [214, 180, 72]], ["Rosato", [215, 131, 148]],
+  ] as const) {
+    await page.evaluate(type => (window as any).showWineType(type), type);
+    await expect.poll(() => fill.evaluate((element, expected) => {
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+      const context = canvas.getContext('2d')!;
+      context.fillStyle = getComputedStyle(element).fill; context.fillRect(0, 0, 1, 1);
+      // The translucent fill's 8-bit premultiplied-alpha round trip can lose
+      // one RGB level; keep that quantization tolerance separate from the hue.
+      return Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3)
+        .every((value, index) => Math.abs(value - expected[index]) <= 1);
+    }, [...rgb])).toBe(true);
+    if (["Red", "White", "Rose"].includes(type)) await page.locator(".taste-discovery-photo").screenshot({ path: testInfo.outputPath(`glass-${type}.png`) });
+  }
+});

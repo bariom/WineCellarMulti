@@ -3,6 +3,7 @@ import type { Locale, TasteProfile, Wine } from "../types";
 import { isWinePhysicallyInCellar } from "../domain/cellar";
 import { AppIcon } from "./AppIcon";
 import { KeyPositionWineIllustration } from "./KeyPositionCardParts";
+import { wineTone } from "./panelSupport";
 import "./TasteOrigins.css";
 
 const normalize = (value: string) => value.trim().toLocaleLowerCase();
@@ -23,7 +24,7 @@ function DiscoveryBottle({ wine, locale }: { wine: Wine; locale: Locale }) {
     <div className="taste-discovery-photo">
       {url ? <img src={url} alt={locale === "it" ? `Foto di ${wine.name}` : `Photo of ${wine.name}`} loading="lazy"
         onError={() => setFailedUrls(current => [...current, url])} />
-        : <span className="taste-discovery-placeholder"><KeyPositionWineIllustration /></span>}
+        : <span className={`taste-discovery-placeholder tone-${wineTone(wine.type)}`}><KeyPositionWineIllustration /></span>}
     </div>
     <span className="taste-discovery-stock"><AppIcon name="cellar" />{locale === "it" ? "Già nella tua cantina" : "Already in your cellar"}</span>
   </div>;

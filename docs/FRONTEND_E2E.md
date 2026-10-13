@@ -129,7 +129,9 @@ carousel-card width. Geometry checks cover light/private-cellar themes at
 
 Taste origins use decorative landscape illustrations and a highlighted discovery
 card with the suggested wine's existing bottle thumbnail (falling back to its
-detail photo, then the shared wine-glass illustration). `taste-origins.spec.ts` covers the
+detail photo, then the shared wine-glass illustration). The glass uses the cellar
+wine-type palette, with a neutral tone for unknown types; rendering checks cover
+red, white, rose, sparkling, sweet and Italian type names. `taste-origins.spec.ts` covers the
 real dashboard in light/private-cellar themes, Italian/English, missing or failed
 images, geometry at 360/390/430 px and desktop, and a reviewed compact discovery
 baseline. Origin ranking, stock counts and suggestion selection stay unchanged.

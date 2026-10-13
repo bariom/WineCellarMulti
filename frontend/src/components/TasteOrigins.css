@@ -28,7 +28,7 @@
 .taste-discovery-visual { display: grid; gap: 12px; min-width: 0; }
 .taste-discovery-photo { display: grid; place-items: center; height: 194px; min-width: 0; padding: 14px; border: 1px solid #f4dbab80; border-radius: 18px; background: radial-gradient(ellipse at center, #fffef8, #eee7d5); }
 .taste-discovery-photo img { display: block; width: 100%; height: 164px; object-fit: contain; filter: drop-shadow(0 8px 7px #1a30252b); }
-.taste-discovery-placeholder { --wine-tone: #648374; display: grid; place-items: center; width: 100%; height: 100%; color: #496655; }
+.taste-discovery-placeholder { display: grid; place-items: center; width: 100%; height: 100%; color: color-mix(in srgb, var(--wine-tone) 70%, #243c31); }
 .taste-discovery-placeholder .key-position-wine-illustration { width: min(100%, 104px); }
 .taste-discovery-placeholder .key-position-wine-illustration svg { width: 100%; height: 164px; }
 .taste-discovery-stock { display: inline-flex; align-items: center; justify-content: center; gap: 7px; color: #eed19a; font-size: .7rem; line-height: 1.5; }
