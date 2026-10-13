@@ -213,3 +213,40 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(page.getByRole("dialog", { name: "Nebbiolo di Test", exact: true })).toBeVisible();
   });
 });
+
+for (const theme of ["light", "private-cellar"] as const) {
+  test(`My Taste uses the available width in ${theme}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockApi(page, [], false, undefined, undefined, { ...session, theme_preference: theme });
+    await page.goto("/");
+    await page.locator(".dashboard-analysis-switcher > summary").click();
+    await page.getByRole("tab", { name: "Il mio gusto", exact: true }).click();
+    const profile = page.locator(".taste-profile-panel--insight");
+    const grid = page.locator(".taste-dashboard-carousel > .dashboard-grid");
+    const hero = profile.getByRole("region", { name: "Ritratto del gusto", exact: true });
+    await expect(hero).toBeVisible();
+    for (const viewport of [
+      { width: 360, height: 800 }, { width: 390, height: 844 },
+      { width: 430, height: 932 }, { width: 820, height: 1180 },
+      { width: 1440, height: 1000 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const gridBox = (await grid.boundingBox())!;
+      const profileBox = (await profile.boundingBox())!;
+      expect(profileBox.x).toBe(gridBox.x);
+      expect(profileBox.width).toBe(gridBox.width);
+      expect(profileBox.x).toBeGreaterThanOrEqual(0);
+      expect(profileBox.x + profileBox.width).toBeLessThanOrEqual(viewport.width);
+      expect(await grid.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      expect(await profile.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      if (viewport.width === 390 || viewport.width === 1440) {
+        await profile.getByRole("heading", { name: "Il mio gusto", exact: true }).scrollIntoViewIfNeeded();
+        await page.screenshot({ path: testInfo.outputPath(`taste-width-${viewport.width}.png`) });
+        await snapshotChrome(page, false);
+        await hero.screenshot({ path: testInfo.outputPath(`taste-hero-${viewport.width}.png`) });
+        await snapshotChrome(page, true);
+      }
+    }
+  });
+}

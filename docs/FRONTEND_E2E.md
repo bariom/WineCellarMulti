@@ -122,7 +122,10 @@ The My Taste portrait in `taste-profile-layout.spec.ts` covers its wine-colored
 hero, sensory signature, readable metrics and geometry at 360/390/430 px,
 tablet and desktop. The signature represents personal preferences on the existing
 0–100 scale; missing dimensions are omitted, while a numeric zero remains valid.
-The compact hero baseline is reviewed at 390 px before acceptance.
+The compact hero baseline is reviewed at 390 px before acceptance. The single
+portrait must fill its container rather than inherit the narrower dashboard
+carousel-card width. Geometry checks cover light/private-cellar themes at
+360/390/430 px, tablet and desktop, including internal horizontal overflow.
 
 Other existing specs (for example `taste-profile.spec.ts`, sensory profiles,
 buying advice and wishlist flows) remain independently selectable through

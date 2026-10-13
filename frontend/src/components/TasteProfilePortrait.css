@@ -1,3 +1,15 @@
+:root .home-dashboard.home-dashboard-secondary .taste-dashboard-carousel > .dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0;
+  overflow: visible;
+  scroll-snap-type: none;
+}
+:root .home-dashboard.home-dashboard-secondary .taste-dashboard-carousel > .dashboard-grid > .taste-profile-panel--insight {
+  width: 100%;
+  min-width: 0;
+  grid-column: 1 / -1;
+}
 :root .home-dashboard.home-dashboard-secondary .taste-profile-panel--insight .taste-profile-page-heading > div > span {
   display: inline-flex; align-items: center; gap: 10px; color: var(--primary);
 }
