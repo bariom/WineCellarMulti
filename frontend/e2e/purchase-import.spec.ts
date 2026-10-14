@@ -54,8 +54,8 @@ async function openPurchase(page: Page, locale: "it" | "en" = "it", empty = fals
   return page.getByRole("dialog", { name: it ? "Aggiungi un acquisto" : "Add a purchase", exact: true });
 }
 
-async function receipt(page: Page, tall = false) {
-  const base64 = await page.evaluate(tall => {
+async function receipt(page: Page, tall = false, mimeType = "image/png") {
+  const base64 = await page.evaluate(({ tall, mimeType }) => {
     const canvas = document.createElement("canvas"); canvas.width = 560; canvas.height = tall ? 1800 : 750;
     const context = canvas.getContext("2d")!;
     context.fillStyle = "#faf8f2"; context.fillRect(0, 0, 560, canvas.height);
@@ -63,10 +63,58 @@ async function receipt(page: Page, tall = false) {
     context.fillText("ENOTECA DELLE COLLINE", 42, 76);
     context.font = "18px monospace";
     ["FATTURA INV-42", "09.10.2026", "", "Cantina Vinaris", "Nebbiolo di Test 2019", "3 x 0.75 L      CHF 42.00", "", "TOTALE        CHF 126.00", "", "Grazie per il vostro acquisto"].forEach((line, i) => context.fillText(line, 42, 132 + i * 38));
-    return canvas.toDataURL("image/png").split(",")[1];
-  }, tall);
-  return { name: "receipt.png", mimeType: "image/png", buffer: Buffer.from(base64, "base64") };
+    return canvas.toDataURL(mimeType).split(",")[1];
+  }, { tall, mimeType });
+  return { name: mimeType === "image/jpeg" ? "receipt.jpg" : "receipt.png", mimeType, buffer: Buffer.from(base64, "base64") };
 }
+
+test.describe("receipt on touch screens", () => {
+  test.use({ isMobile: true, hasTouch: true });
+  test("mobile receipt document expansion keeps the dialog and scroll position stable", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    const dialog = await openPurchase(page);
+    await dialog.locator('input[type="file"]').first().setInputFiles(await receipt(page, true, "image/jpeg"));
+    await dialog.getByRole("button", { name: "Analizza acquisto", exact: true }).click();
+    const image = dialog.getByRole("img", { name: "Ricevuta originale", exact: true });
+    for (const [width, height] of [[360, 800], [390, 844], [430, 932]]) {
+      await page.setViewportSize({ width, height });
+      const toggle = dialog.getByRole("button", { name: "Mostra documento", exact: true });
+      await toggle.scrollIntoViewIfNeeded();
+      const before = await dialog.evaluate(el => ({ top: el.scrollTop, y: el.getBoundingClientRect().y, height: el.getBoundingClientRect().height }));
+      await toggle.tap();
+      await expect(image).toBeVisible();
+      await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.complete && el.naturalHeight === 1800)).toBe(true);
+      const frames = await dialog.evaluate(async el => {
+        const samples: { top: number; y: number; height: number }[] = [];
+        for (let i = 0; i < 40; i++) {
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+          const box = el.getBoundingClientRect();
+          samples.push({ top: el.scrollTop, y: box.y, height: box.height });
+        }
+        return samples;
+      });
+      for (const frame of frames) {
+        expect(Math.abs(frame.top - before.top)).toBeLessThanOrEqual(1);
+        expect(Math.abs(frame.y - before.y)).toBeLessThanOrEqual(1);
+        expect(Math.abs(frame.height - before.height)).toBeLessThanOrEqual(1);
+      }
+      expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      if (width === 390) await page.screenshot({ path: testInfo.outputPath("receipt-document-expanded-390.png") });
+      await dialog.getByRole("button", { name: "Nascondi documento", exact: true }).tap();
+      await expect(image).toBeHidden();
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await expect(image).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Verifica l’acquisto", exact: true })).toBeVisible();
+    expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("receipt-document-desktop-1440.png") });
+    expect(errors).toEqual([]);
+  });
+});
 
 for (const locale of ["it", "en"] as const) {
   test(`purchase reference photo selection is optional, responsive and saved (${locale})`, async ({ page }, testInfo) => {

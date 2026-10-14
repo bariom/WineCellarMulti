@@ -108,12 +108,21 @@
   .purchase-import-document:not(.is-expanded) .purchase-import-document-content { display: none; }
   .purchase-import-document-content { margin-top: 16px; }
   .purchase-import { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 16px; border-radius: 14px; }
+  /* Keep the review anchored when expanding a photo or browser chrome changes.
+     Dynamic viewport sizing and scroll anchoring can otherwise move the dialog. */
+  .purchase-import[data-stage=review]:has(.purchase-import-workspace) {
+    inset-block: 8px auto; margin-block: 0;
+    height: calc(100svh - 16px); max-height: calc(100svh - 16px);
+    overflow-anchor: none; overscroll-behavior: contain;
+  }
+  /* Avoid repainting a blurred full-screen backdrop while scrolling large photos. */
+  .purchase-import::backdrop { backdrop-filter: none; }
   .purchase-import-heading { gap: 12px; }
   .purchase-import-heading > div { min-width: 0; }
   .purchase-import-upload { align-items: stretch; flex-direction: column; padding: 14px; gap: 16px; }
   .purchase-import-workspace { grid-template-columns: minmax(0, 1fr); gap: 20px; }
   .purchase-import-document { position: static; }
-  .purchase-pdf-viewport { max-height: 40dvh; }
+  .purchase-pdf-viewport { max-height: 40svh; }
   .purchase-import fieldset { padding: 12px; }
   .purchase-import-fields { gap: 12px; }
   .purchase-import-fields label { grid-column: 1 / -1; }
