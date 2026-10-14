@@ -17,5 +17,5 @@
 .plan-recommendation.is-unavailable .plan-recommendation-main:disabled { opacity: 1; cursor: default; }
 .plan-recommendation.is-unavailable .plan-recommendation-wine { grid-template-columns: minmax(0, 1fr); }
 .plan-recommendation.is-unavailable .plan-recommendation-wine:has(> .intelligence-bottle-thumbnail) { grid-template-columns: auto minmax(0, 1fr); }
-.plan-unavailable-status { display: inline-flex; align-items: center; gap: .4rem; width: fit-content; max-width: 100%; margin-top: .35rem; padding: .3rem .6rem .3rem .4rem; border: 1px solid color-mix(in srgb, var(--danger) 18%, transparent); border-radius: 999px; color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); font-size: .75rem; font-weight: 700; line-height: 1.4; }
+.plan-unavailable-status { display: inline-flex; align-items: center; gap: .4rem; width: fit-content; max-width: 100%; margin-top: .35rem; padding: .3rem .6rem .3rem .4rem; border: 1px solid color-mix(in srgb, var(--danger) 18%, transparent); border-radius: var(--radius-pill); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); font-size: .75rem; font-weight: 700; line-height: 1.4; }
 .plan-unavailable-status > svg { flex: 0 0 1.15rem; width: 1.15rem; height: 1.15rem; }

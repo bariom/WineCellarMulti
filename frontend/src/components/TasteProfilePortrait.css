@@ -43,7 +43,7 @@
 .taste-signature-wheel figcaption small { display: block; margin-top: 5px; color: #ddc1b8; font-size: .65rem; letter-spacing: 0; }
 :root .home-dashboard.home-dashboard-secondary .taste-profile-panel--insight .taste-profile-hero-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 :root .home-dashboard.home-dashboard-secondary .taste-profile-panel--insight .taste-profile-hero-metrics article {
-  min-height: 0; padding: 14px 16px; border: 1px solid #edc58330; border-radius: 14px;
+  min-height: 0; padding: 14px 16px; border: 1px solid #edc58330; border-radius: var(--radius-card);
   background: #fff4dc09; transition: background .2s ease, border-color .2s ease;
 }
 :root .home-dashboard.home-dashboard-secondary .taste-profile-panel--insight .taste-profile-hero-metrics article:hover { background: #fff4dc15; border-color: #edc58388; }

@@ -10,7 +10,7 @@
   padding: 18px 24px;
   border: 1px solid var(--border);
   border-top: 16px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background:
     linear-gradient(var(--surface), var(--surface-muted)) padding-box,
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--primary) 22%, transparent) 0 8px, transparent 8px 16px) border-box,

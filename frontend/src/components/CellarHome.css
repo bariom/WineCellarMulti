@@ -48,7 +48,7 @@
   .cellar-home-edition .home-dashboard > .dashboard-focus-navigation { margin: 0; border-bottom: 1px solid var(--home-rule); }
   .authenticated-app-shell.cellar-home-edition .home-dashboard-editorial .focus-switcher-primary { gap: 6px; margin: 0; }
   .authenticated-app-shell.cellar-home-edition .home-dashboard-editorial .focus-switcher-primary button {
-    justify-content: flex-start; padding: 10px; min-height: 44px; border: 1px solid transparent; border-radius: 8px;
+    justify-content: flex-start; padding: 10px; min-height: 44px; border: 1px solid transparent; border-radius: var(--radius-control);
     font-size: .72rem; text-align: left;
   }
   .authenticated-app-shell.cellar-home-edition .home-dashboard-editorial .focus-switcher-primary button[aria-selected="true"] {
@@ -83,7 +83,7 @@
   .cellar-home-edition .collector-mobile-highlights .collector-photo-rail .cellar-featured-wine {
     display: grid; grid-template-columns: minmax(100px, .8fr) minmax(0, 1fr); grid-template-rows: auto auto auto auto;
     align-content: start; align-items: start; column-gap: 16px; row-gap: 16px; padding: 16px;
-    border: 1px solid var(--home-rule); border-radius: 14px; background: var(--home-paper); box-shadow: 0 5px 16px #192c2008;
+    border: 1px solid var(--home-rule); border-radius: var(--radius-card); background: var(--home-paper); box-shadow: 0 5px 16px #192c2008;
   }
   .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .key-position-bottle-visual {
     grid-column: 1; grid-row: 1 / 3; align-self: stretch; width: 100%; height: 224px; max-height: none; margin: 0;
@@ -114,12 +114,12 @@
   .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail button { padding: 16px 12px; border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper); gap: 8px; }
   .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail strong { font-size: 1.12rem; line-height: 1.25; }
   .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail small { padding-top: 8px; border: 0; font-size: .65rem; }
-  .cellar-riserva { padding: 24px; border-radius: 14px; background: #183c31; color: #faf7ef; border: 1px solid #436052; }
+  .cellar-riserva { padding: 24px; border-radius: var(--radius-card); background: #183c31; color: #faf7ef; border: 1px solid #436052; }
   .cellar-riserva > p:first-child { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; font: normal .68rem/1.4 var(--font-display); letter-spacing: .2em; }
   .cellar-riserva > p:first-child > span, .cellar-riserva .app-icon { color: #e1b293; }
   .cellar-riserva h2 { margin: 0 0 12px; font: normal 1.65rem/1.15 var(--font-display); color: inherit; }
   .cellar-riserva > p { margin: 0; font-size: .8rem; line-height: 1.6; color: #e2e6d9; }
-  .cellar-riserva button { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 44px; margin-top: 20px; padding: 10px 16px; border-radius: 8px; border: 1px solid #d1a183; background: #9a6248; color: #fffaf2; box-shadow: none; font-size: .8rem; }
+  .cellar-riserva button { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 44px; margin-top: 20px; padding: 10px 16px; border-radius: var(--radius-control); border: 1px solid #d1a183; background: #9a6248; color: #fffaf2; box-shadow: none; font-size: .8rem; }
   .cellar-home-edition .mobile-bottom-navigation { background: var(--home-paper); border: 1px solid var(--home-rule); border-bottom: 0; border-radius: 22px 22px 0 0; box-shadow: 0 -3px 16px #192c200c; backdrop-filter: none; align-items: center; padding-top: 8px; }
   .cellar-home-edition .mobile-bottom-navigation button { font-size: .65rem; font-weight: 500; min-height: 52px; }
   .cellar-home-edition .mobile-bottom-navigation button .app-icon { font-size: 1.35rem; }
@@ -162,7 +162,7 @@
   }
   .cellar-home-edition .hero-kpis:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
   :root .cellar-home-edition .home-dashboard-secondary :is(.dashboard-card, .dashboard-card:hover, .dashboard-summary, .taste-profile-premium-hero) {
-    min-width: 0; padding: 18px 16px; border: 1px solid var(--home-rule); border-radius: 14px;
+    min-width: 0; padding: 18px 16px; border: 1px solid var(--home-rule); border-radius: var(--radius-card);
     background: var(--home-paper); box-shadow: 0 5px 16px #192c2008; transform: none;
   }
   :root .cellar-home-edition .home-dashboard-secondary :is(.card-heading h2, .dashboard-summary > header h3) {
@@ -204,7 +204,7 @@
   }
   :root .cellar-home-edition .topbar {
     position: relative; top: auto; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 420px) auto;
-    gap: 8px 24px; padding: 18px 28px 22px; margin: 0; border: 0; border-radius: 14px;
+    gap: 8px 24px; padding: 18px 28px 22px; margin: 0; border: 0; border-radius: var(--radius-card);
     color: #faf7ef; background: var(--home-forest);
     box-shadow: none;
   }
@@ -250,7 +250,7 @@
   :root .cellar-home-edition .view-tabs-navigation > button:not(.secondary), :root .cellar-home-edition .view-tabs-ai-group.is-active > summary { color: var(--text); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); font-weight: 650; box-shadow: inset 0 -2px var(--home-copper); }
   .cellar-home-edition .view-tabs-navigation > button .app-icon { display: none; }
   :root .cellar-home-edition .view-tabs-ai-group { display: block; position: relative; width: auto; border: 0; padding: 0; }
-  :root .cellar-home-edition .view-tabs-ai-group[open] { background: var(--surface); border-radius: 8px; }
+  :root .cellar-home-edition .view-tabs-ai-group[open] { background: var(--surface); border-radius: var(--radius-control); }
   :root .cellar-home-edition .view-tabs-ai-group[open] > summary { color: var(--text); }
   :root .cellar-home-edition .view-tabs-ai-group .view-tabs-ai-options {
     position: absolute; z-index: 20; top: 100%; left: 0;
@@ -281,7 +281,7 @@
   .cellar-home-edition .collector-editorial-masthead { display: none; }
   :root .cellar-home-edition .collector-dashboard-content { gap: 48px; }
   :root .cellar-home-edition .collector-wine-stage { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 48px 32px; align-items: start; }
-  :root .cellar-home-edition .collector-wine-stage > .key-position-card { grid-column: 1 / -1; grid-row: auto; width: 100%; border: 1px solid var(--home-rule); border-radius: 14px; background: var(--home-paper); box-shadow: var(--home-shadow); }
+  :root .cellar-home-edition .collector-wine-stage > .key-position-card { grid-column: 1 / -1; grid-row: auto; width: 100%; border: 1px solid var(--home-rule); border-radius: var(--radius-card); background: var(--home-paper); box-shadow: var(--home-shadow); }
   :root .cellar-home-edition .collector-wine-stage > .key-position-card:has(> .empty-state) { min-height: 0; padding: 32px; }
   .cellar-home-edition .key-position-card > .empty-state { margin: 0; border: 0; background: transparent; }
   :root .cellar-home-edition .key-position-card-heading { padding: 24px 32px 0; font-size: .85rem; letter-spacing: .1em; }
@@ -317,12 +317,12 @@
   .cellar-home-edition .collector-desktop-insight > .app-icon { color: var(--home-copper); }
   .cellar-home-edition .collector-desktop-explore { grid-column: 2; font: 600 .85rem/1.5 var(--font-ui); color: var(--primary); }
   .cellar-home-edition .collector-desktop-riserva { display: block; grid-column: 1 / -1; }
-  .cellar-home-edition .cellar-riserva { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 48px; padding: 32px 40px; border-radius: 14px; background: var(--home-forest); color: #faf7ef; }
+  .cellar-home-edition .cellar-riserva { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 48px; padding: 32px 40px; border-radius: var(--radius-card); background: var(--home-forest); color: #faf7ef; }
   .cellar-home-edition .cellar-riserva > p:first-child { display: flex; align-items: center; gap: 12px; font: normal .75rem var(--home-serif); letter-spacing: .18em; }
   .cellar-home-edition .cellar-riserva > p:first-child > span, .cellar-home-edition .cellar-riserva .app-icon { color: #e1b293; }
   .cellar-home-edition .cellar-riserva h2 { grid-column: 1; margin: 0; font: normal 2rem/1.2 var(--home-serif); color: inherit; }
   .cellar-home-edition .cellar-riserva p { grid-column: 1; margin: 0; font-size: .9rem; line-height: 1.6; color: #e2e6d9; }
-  .cellar-home-edition .cellar-riserva button { grid-column: 2; grid-row: 1 / 4; align-self: center; min-height: 48px; padding: 12px 24px; border: 1px solid #d1a183; border-radius: 8px; background: #9a6248; color: #fffaf2; box-shadow: none; }
+  .cellar-home-edition .cellar-riserva button { grid-column: 2; grid-row: 1 / 4; align-self: center; min-height: 48px; padding: 12px 24px; border: 1px solid #d1a183; border-radius: var(--radius-control); background: #9a6248; color: #fffaf2; box-shadow: none; }
   :root .cellar-home-edition .collector-wine-stage > .recent-wines-card { grid-column: 1; grid-row: auto; padding: 0; }
   :root .cellar-home-edition .collector-wine-stage > .priority-card { grid-column: 2; grid-row: auto; padding: 0 0 0 24px; border-left: 1px solid var(--home-rule); }
   :root .cellar-home-edition .collector-wine-stage :is(.recent-wines-card, .priority-card) .card-heading h2 { font: normal clamp(1.75rem, 2.1vw, 2.25rem)/1.2 var(--home-serif); }

@@ -42,6 +42,14 @@
   font-size: var(--text-xs);
 }
 
+/* One uppercase label per block: the card eyebrow keeps it, KPI and
+ * indicator labels read in sentence case like the collector stats. */
+.home-dashboard .hero-kpi > span,
+.home-dashboard .balance-indicator > span {
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
 @media (max-width: 900px) {
   /* Views as pill tabs in a 2 x 2 grid: every choice stays visible without
    * scrolling, and the active one is unmistakable. */

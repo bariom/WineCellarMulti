@@ -80,10 +80,10 @@
 .tasting-memory-viewer-heading h2 { margin: 6px 0; font-family: var(--font-display); font-weight: 400; font-size: clamp(1.3rem, 3vw, 1.8rem); overflow-wrap: anywhere; }
 .tasting-memory-viewer-heading p { margin: 0; color: var(--text-muted); font-size: .8rem; }
 .tasting-memory-viewer-heading button { min-height: 44px; flex-shrink: 0; }
-.tasting-memory-viewer > img { display: block; width: auto; height: auto; max-width: 100%; max-height: 72dvh; margin-inline: auto; object-fit: contain; border-radius: 8px; }
+.tasting-memory-viewer > img { display: block; width: auto; height: auto; max-width: 100%; max-height: 72dvh; margin-inline: auto; object-fit: contain; border-radius: var(--radius-control); }
 .tasting-memory-photo button:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
 @media (max-width: 480px) {
-  .tasting-memory-input { padding: 16px; gap: 14px; border-radius: 14px; }
+  .tasting-memory-input { padding: 16px; gap: 14px; border-radius: var(--radius-card); }
   .tasting-memory-frame { padding: 6px; }
   .tasting-memory-footer { gap: 4px; }
   .tasting-memory-footer small { flex-basis: 100%; }

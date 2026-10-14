@@ -8,7 +8,7 @@
   height: 360px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 86%, var(--primary));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: #dce9e8;
 }
 
@@ -22,7 +22,7 @@
   max-width: min(210px, calc(100vw - 44px));
   padding: 6px 8px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--surface) 96%, transparent);
   box-shadow: 0 5px 16px color-mix(in srgb, var(--collector-depth) 26%, transparent);
   font: 700 .68rem/1.2 var(--font-body, inherit);
@@ -74,7 +74,7 @@
 .vineyard-origin-trigger > i { display: none; }
 .vineyard-map-heading-actions { display: flex; align-items: center; justify-content: end; gap: 10px; }
 .vineyard-location-precision { display:inline-flex; align-items:center; gap:5px; }
-.vineyard-location-precision.precise { padding:4px 8px; border:1px solid color-mix(in srgb, #b58a3a 54%, var(--border)); border-radius:999px; color:color-mix(in srgb, #376f56 82%, var(--text)); background:color-mix(in srgb, #376f56 9%, var(--surface)); font-weight:800; }
+.vineyard-location-precision.precise { padding:4px 8px; border:1px solid color-mix(in srgb, #b58a3a 54%, var(--border)); border-radius: var(--radius-pill); color:color-mix(in srgb, #376f56 82%, var(--text)); background:color-mix(in srgb, #376f56 9%, var(--surface)); font-weight:800; }
 .vineyard-location-precision i { color:#b58a3a; font-size:.86rem; font-style:normal; line-height:1; }
 .vineyard-map-expand { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 .vineyard-map-expand > span { color: currentColor !important; font-size: 1rem !important; letter-spacing: 0 !important; }
@@ -82,9 +82,9 @@
 .vineyard-map-copy strong { font-size: .96rem; }
 .vineyard-map-copy span, .vineyard-map-copy p { color: var(--text-muted); font-size: .8rem; }
 .vineyard-map-copy p { max-width: 70ch; margin: 5px 0 0; line-height: 1.5; }
-.vineyard-detail-map { z-index: 0; width: 100%; height: 310px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-muted); }
+.vineyard-detail-map { z-index: 0; width: 100%; height: 310px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-muted); }
 .vineyard-detail-map .leaflet-control-attribution { font-size: .58rem; }
-.vineyard-detail-map .leaflet-tooltip { max-width: min(260px, 70vw); overflow: hidden; border-color: var(--border); border-radius: 8px; color: #211d19; font-family: inherit; font-size: .74rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.vineyard-detail-map .leaflet-tooltip { max-width: min(260px, 70vw); overflow: hidden; border-color: var(--border); border-radius: var(--radius-control); color: #211d19; font-family: inherit; font-size: .74rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .vineyard-detail-map .leaflet-tooltip.nearby-wine-place-label,
 .vineyard-fullscreen-map .leaflet-tooltip.nearby-wine-place-label {
   max-width: min(190px, 52vw);

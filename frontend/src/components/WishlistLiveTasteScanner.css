@@ -5,7 +5,7 @@
   min-height: 44px;
   padding: 9px 14px;
   border: 1px solid color-mix(in srgb, var(--accent) 68%, white);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: #fff9e8;
   background: linear-gradient(135deg, #6a1732, #3b0d20);
   box-shadow: 0 10px 24px rgba(74, 14, 38, .25);
@@ -84,7 +84,7 @@
   max-width: calc(100% - 28px);
   padding: 8px 12px;
   border: 1px solid rgba(255,255,255,.2);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: white;
   background: rgba(7, 10, 8, .72);
   backdrop-filter: blur(10px);

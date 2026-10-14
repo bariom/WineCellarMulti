@@ -1,5 +1,5 @@
 .memory-table-hint { margin: 8px 0 14px; color: var(--text-muted); font-size: .78rem; line-height: 1.5; }
-.memory-table-surface { --polaroid-width: clamp(140px, 30vw, 200px); position: relative; isolation: isolate; border: 1px solid var(--border); border-radius: 8px; background: url("/images/memory-cellar-oak-v1.webp") center / cover no-repeat, #362a22; overflow: hidden; }
+.memory-table-surface { --polaroid-width: clamp(140px, 30vw, 200px); position: relative; isolation: isolate; border: 1px solid var(--border); border-radius: var(--radius-control); background: url("/images/memory-cellar-oak-v1.webp") center / cover no-repeat, #362a22; overflow: hidden; }
 .memory-table button.memory-polaroid { position: absolute; width: var(--polaroid-width); height: var(--polaroid-height, 204px); display: grid; grid-template-rows: 124px minmax(0, 1fr) auto; gap: 6px; padding: 9px 9px 12px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface-raised); color: var(--text); box-shadow: 0 7px 16px #0003; cursor: grab; user-select: none; touch-action: none; white-space: normal; }
 .memory-table button.memory-polaroid:hover { background: var(--surface-raised); box-shadow: 0 10px 22px #0004; }
 .memory-table button.memory-polaroid.is-dragging { cursor: grabbing; transform: rotate(0deg) scale(1.02) !important; }

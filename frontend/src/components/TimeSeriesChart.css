@@ -32,7 +32,7 @@
   overflow-wrap: anywhere;
   padding: 6px 8px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface-raised);
   color: var(--text-muted);
   box-shadow: 0 8px 18px color-mix(in srgb, var(--collector-depth) 28%, transparent);

@@ -16,7 +16,7 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.55rem 0.8rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .cellar-assistant-microphone.is-listening {

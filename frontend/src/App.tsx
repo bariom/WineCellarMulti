@@ -4,7 +4,7 @@ import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, 
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import PremiumMemoriesNotice from "./components/PremiumMemoriesNotice";
-import AdminAmbassadorEditor, { type AmbassadorChange } from "./components/AdminAmbassadorEditor";
+import type { AmbassadorChange } from "./components/AdminAmbassadorEditor";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
 import { WishlistVintageField, DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
@@ -104,6 +104,7 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 }
 
 const PairingView = lazy(() => import("./views/PairingView"));
+const AdminAmbassadorEditor = lazy(() => import("./components/AdminAmbassadorEditor"));
 const WishlistOverview = lazy(() => import("./components/WishlistOverview"));
 const WineLotsSection = lazy(() => import("./components/WineLotsSection"));
 const MarketPreferences = lazy(() => import("./components/MarketPreferences"));
@@ -14822,7 +14823,7 @@ export function App() {
                             </dl>
                           </section>
 
-                          {!user.is_app_admin && !user.has_demo_access && user.is_approved ? <AdminAmbassadorEditor key={user.id} user={user} locale={locale} saving={saving} onSave={change => updateUserAmbassador(user, change)} /> : null}
+                          {!user.is_app_admin && !user.has_demo_access && user.is_approved ? <Suspense fallback={null}><AdminAmbassadorEditor key={user.id} user={user} locale={locale} saving={saving} onSave={change => updateUserAmbassador(user, change)} /></Suspense> : null}
 
                           <details className="admin-user-detail-accordion" open>
                             <summary><span><AppIcon name="star" /><strong>AI Credit</strong><small>{locale === "it" ? "Gestisci il credito AI dell'utente" : "Manage this user's AI credit"}</small></span></summary>

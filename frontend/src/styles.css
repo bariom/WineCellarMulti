@@ -722,7 +722,7 @@ summary:focus-visible {
   display: block;
   width: 56px;
   height: 56px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   object-fit: cover;
   box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 20%, transparent);
 }
@@ -780,7 +780,7 @@ summary:focus-visible {
   min-width: 0;
   padding: 8px 10px;
   border: 1px solid #ccd5cd;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: #fff;
 }
 
@@ -853,7 +853,7 @@ summary:focus-visible {
   min-width: 20px;
   height: 20px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--primary-contrast);
   background: var(--danger);
   font-size: 0.72rem;
@@ -931,7 +931,7 @@ summary:focus-visible {
   gap: 6px;
   width: 100%;
   padding: 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: var(--text);
   text-align: left;
   background: var(--surface-muted);
@@ -1032,7 +1032,7 @@ summary:focus-visible {
   min-width: 34px;
   min-height: 34px;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--primary);
   background: color-mix(in srgb, var(--primary) 14%, transparent);
   font-size: 0.88rem;
@@ -1138,7 +1138,7 @@ summary:focus-visible {
   gap: 4px;
   padding: 12px 14px;
   border: 1px solid #b7c8bd;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: #245142;
   background: #eef5f0;
 }
@@ -1312,7 +1312,7 @@ summary:focus-visible {
   align-items: center;
   padding: 16px 18px;
   border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--accent) 7%, var(--surface-raised));
 }
 
@@ -1535,7 +1535,7 @@ summary:focus-visible {
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-raised);
   color: var(--text);
   font-size: 1rem;
@@ -1598,7 +1598,7 @@ summary:focus-visible {
 .status-pill {
   padding: 7px 10px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-muted);
   background: var(--surface-muted);
   font-size: 0.78rem;
@@ -1960,7 +1960,7 @@ summary:focus-visible {
   .authenticated-app-shell .dashboard-focus-navigation {
     grid-template-columns: minmax(150px, 0.7fr) minmax(0, 3.3fr) auto;
     padding: 12px;
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     box-shadow: 0 8px 20px color-mix(in srgb, var(--collector-depth) 38%, transparent);
   }
 
@@ -1975,7 +1975,7 @@ summary:focus-visible {
   }
 
   .authenticated-app-shell .hero-panel {
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     box-shadow: 0 8px 20px color-mix(in srgb, var(--collector-depth) 34%, transparent);
   }
 }
@@ -2231,7 +2231,7 @@ summary:focus-visible {
   height: 30px;
   place-items: center;
   border: 2px solid currentColor;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -2383,7 +2383,7 @@ summary:focus-visible {
   min-width: 0;
   padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
 }
 
@@ -2433,7 +2433,7 @@ summary:focus-visible {
   align-items: flex-start;
   padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   color: var(--text);
   text-decoration: none;
   background: color-mix(in srgb, var(--surface-muted) 80%, var(--surface));
@@ -2493,7 +2493,7 @@ summary:focus-visible {
   gap: 6px;
   padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
 }
 
@@ -3077,7 +3077,7 @@ summary:focus-visible {
 .public-collector-strip span {
   padding: 8px 12px;
   border: 1px solid color-mix(in srgb, var(--landing-champagne) 44%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: color-mix(in srgb, #fffaf1 92%, transparent);
   font-size: 0.78rem;
   font-weight: 800;
@@ -3704,7 +3704,7 @@ summary:focus-visible {
   width: 10px;
   height: 10px;
   flex: 0 0 auto;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .showcase-breakdown-card .tone-red { background: #a51d45; }
@@ -3722,7 +3722,7 @@ summary:focus-visible {
   align-content: center;
   width: 86px;
   aspect-ratio: 1;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   position: relative;
 }
 
@@ -3785,7 +3785,7 @@ summary:focus-visible {
 .showcase-track-line {
   position: absolute;
   inset: 5px 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 18%, var(--surface)) 0%, color-mix(in srgb, var(--accent) 30%, var(--surface)) 100%);
 }
 
@@ -3795,7 +3795,7 @@ summary:focus-visible {
   width: 16px;
   height: 16px;
   border: 2px solid var(--surface);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--danger);
 }
 
@@ -3824,7 +3824,7 @@ summary:focus-visible {
   align-items: center;
   padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--surface-raised);
 }
 
@@ -3863,7 +3863,7 @@ summary:focus-visible {
   gap: 4px;
   padding: 12px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--surface-raised);
 }
 
@@ -3872,7 +3872,7 @@ summary:focus-visible {
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--surface-raised);
 }
 
@@ -3896,7 +3896,7 @@ summary:focus-visible {
 .showcase-drink-track {
   position: relative;
   height: 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--drink-young) 78%, var(--surface)) 0%, color-mix(in srgb, var(--drink-ideal) 72%, var(--surface)) 58%, color-mix(in srgb, var(--drink-past) 42%, var(--surface)) 100%);
 }
@@ -3907,7 +3907,7 @@ summary:focus-visible {
   top: -4px;
   width: 3px;
   height: 22px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--text);
 }
 
@@ -3966,7 +3966,7 @@ summary:focus-visible {
   width: fit-content;
   padding: 4px 9px;
   border: 1px solid color-mix(in srgb, var(--landing-burgundy) 32%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--landing-burgundy);
   font-size: 0.7rem;
   font-weight: 800;
@@ -3991,7 +3991,7 @@ summary:focus-visible {
   align-items: center;
   width: fit-content;
   padding: 4px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--primary-contrast);
   font-size: 0.72rem;
   font-weight: 800;
@@ -4019,7 +4019,7 @@ summary:focus-visible {
   gap: 14px;
   padding: 18px;
   border: 1px solid #d8ded7;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: #fff;
 }
 
@@ -4061,7 +4061,7 @@ summary:focus-visible {
   width: fit-content;
   padding: 5px 9px;
   border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--accent) 12%, var(--panel));
   color: var(--text);
   font-size: 0.72rem;
@@ -4334,7 +4334,7 @@ summary:focus-visible {
   min-width: 28px;
   min-height: 28px;
   padding: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 1rem;
 }
 
@@ -4364,7 +4364,7 @@ summary:focus-visible {
   gap: 8px;
   padding: 10px;
   border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--primary) 6%, var(--surface));
   color: var(--text);
   font-size: 0.8rem;
@@ -4380,7 +4380,7 @@ button.vintage-choice {
   min-width: 42px;
   min-height: 30px;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   box-shadow: none;
 }
 
@@ -4665,7 +4665,7 @@ textarea {
   gap: 3px;
   padding: 3px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-muted) 74%, var(--surface));
 }
 
@@ -4673,7 +4673,7 @@ textarea {
   min-height: 28px;
   padding: 4px 11px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-muted);
   background: transparent;
   box-shadow: none;
@@ -4724,7 +4724,7 @@ textarea {
   min-width: 92px;
   min-height: 42px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-weight: 700;
   color: #fff;
   background: var(--wine-tone, var(--primary));
@@ -4781,7 +4781,7 @@ textarea {
   gap: 10px;
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface);
 }
 
@@ -4798,7 +4798,7 @@ textarea {
 
 .stats-panel-wrapper summary span {
   padding: 4px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--primary);
   background: var(--surface-subtle);
   font-size: 0.78rem;
@@ -4881,7 +4881,7 @@ textarea {
   top: 8px;
   padding: 4px;
   margin: -4px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   backdrop-filter: blur(14px) saturate(1.08);
 }
@@ -4920,7 +4920,7 @@ textarea {
 
 .filter-panel .cellar-filter-summary-main small {
   padding: 4px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--primary);
   background: color-mix(in srgb, var(--primary) 9%, var(--surface-muted));
   font-size: 0.68rem;
@@ -4966,7 +4966,7 @@ textarea {
 .active-cellar-filter-scroll button,
 .clear-active-cellar-filters {
   min-height: 30px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font: inherit;
   white-space: nowrap;
   cursor: pointer;
@@ -5049,7 +5049,7 @@ textarea {
   gap: 12px;
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 96%, transparent) 0%, var(--surface) 100%);
 }
 
@@ -5095,7 +5095,7 @@ textarea {
   right: 8px;
   top: 50%;
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--border-strong) 68%, var(--surface-subtle));
   transform: translateY(-50%);
 }
@@ -5104,7 +5104,7 @@ textarea {
   position: absolute;
   top: 50%;
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
   transform: translateY(-50%);
 }
@@ -5198,7 +5198,7 @@ textarea {
   align-items: center;
   gap: 6px;
   border: 1px solid #d8ded7;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 7px 10px;
   background: #f8faf8;
   color: var(--text);
@@ -5414,7 +5414,7 @@ textarea {
 
 .grapes-list label {
   width: 100%;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   align-items: start;
 }
 
@@ -5462,7 +5462,7 @@ textarea {
   overflow-y: auto;
   padding: 18px;
   border: 1px solid #d8ded7;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: #fff;
 }
 
@@ -5481,7 +5481,7 @@ textarea {
 
 .collapsible-panel {
   border: 1px solid #e3e9e2;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   padding: 12px;
 }
 
@@ -5566,7 +5566,7 @@ textarea {
 .trial-redeem-kicker {
   width: fit-content;
   padding: 6px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--accent) 18%, var(--surface-raised));
   color: var(--text);
   font-size: 0.74rem;
@@ -5673,7 +5673,7 @@ textarea {
 .settings-admin-subpanel {
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface) 70%, var(--surface-raised));
 }
 
@@ -5743,7 +5743,7 @@ textarea {
     gap: 14px;
     padding: 16px;
     border-color: color-mix(in srgb, var(--border) 78%, var(--collector-edge));
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 14%, transparent), transparent 46%),
       color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
@@ -5779,7 +5779,7 @@ textarea {
     align-items: end;
     padding: 14px;
     border: 1px solid color-mix(in srgb, var(--border) 76%, var(--collector-edge));
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--surface) 74%, var(--surface-raised));
   }
 
@@ -5796,7 +5796,7 @@ textarea {
     display: block;
     padding: 12px 14px;
     border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 18%, transparent), transparent 44%),
       color-mix(in srgb, var(--surface) 80%, var(--surface-muted));
@@ -5871,7 +5871,7 @@ textarea {
     display: grid;
     gap: 10px;
     padding: 14px;
-    border-radius: 14px;
+    border-radius: var(--radius-card);
   }
 
   .settings-ai-card .settings-model-grid {
@@ -5975,7 +5975,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 7px 12px;
   color: var(--priority-color, #245142);
   background:
@@ -6057,7 +6057,7 @@ textarea {
   align-items: center;
   gap: 6px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 52%),
@@ -6199,7 +6199,7 @@ textarea {
   min-height: 40px;
   padding: 8px 11px;
   border: 1px solid color-mix(in srgb, var(--text) 18%, var(--surface));
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--surface) 92%, var(--text) 8%);
   color: color-mix(in srgb, var(--text) 68%, var(--surface));
   font-size: 0.84rem;
@@ -6250,7 +6250,7 @@ textarea {
   height: 36px;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--border) 68%, var(--collector-edge));
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
   color: var(--text-muted);
   font-size: 1.3rem;
@@ -6314,7 +6314,7 @@ textarea {
   overflow: hidden;
   height: 10px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface));
 }
 
@@ -6355,7 +6355,7 @@ textarea {
   align-items: center;
   padding: 12px;
   border: 1px solid #d8ded7;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background:
     radial-gradient(circle at top left, rgba(194, 172, 102, 0.24), transparent 36%),
     linear-gradient(135deg, #fff 0%, #edf4ee 100%);
@@ -6508,7 +6508,7 @@ textarea {
   right: 22px;
   left: 22px;
   height: 2px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 72%, var(--primary)), transparent);
 }
 
@@ -6549,7 +6549,7 @@ textarea {
 
 .focus-switcher-primary button i {
   padding: 2px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--accent) 16%, var(--surface));
   color: var(--text-muted);
   font-size: 0.64rem;
@@ -6571,7 +6571,7 @@ textarea {
   min-height: 38px;
   padding: 9px 34px 9px 14px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--surface-muted);
   color: var(--text-muted);
   font-weight: 800;
@@ -6965,7 +6965,7 @@ textarea {
   max-width: 100%;
   padding: 3px 7px;
   border: 1px solid color-mix(in srgb, var(--key-card-positive) 38%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--key-card-positive) 11%, var(--surface-muted));
   color: color-mix(in srgb, var(--key-card-positive) 76%, var(--text));
   font-size: 0.68rem;
@@ -6992,7 +6992,7 @@ textarea {
   width: max-content;
   max-width: 100%;
   padding: 3px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-muted);
   color: var(--text-muted);
   font-size: 0.72rem;
@@ -7042,7 +7042,7 @@ textarea {
   min-height: 116px;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, var(--collector-edge));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background:
     linear-gradient(145deg, color-mix(in srgb, var(--surface-raised) 92%, transparent), transparent),
     color-mix(in srgb, var(--surface-muted) 82%, var(--collector-glow) 6%);
@@ -7386,7 +7386,7 @@ button.balance-indicator:focus-visible {
   height: 18px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   box-shadow: none;
 }
@@ -7395,7 +7395,7 @@ button.balance-indicator:focus-visible {
   content: "";
   width: 7px;
   height: 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--text-muted) 34%, transparent);
   transition: transform 120ms ease, background 120ms ease;
 }
@@ -7498,7 +7498,7 @@ button.balance-indicator:focus-visible {
   place-items: center;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
   color: var(--primary);
   box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 12%, transparent);
@@ -7778,7 +7778,7 @@ button.balance-indicator:focus-visible {
   width: fit-content;
   padding: 7px 11px 7px 9px;
   border: 1px solid color-mix(in srgb, var(--recommendation-tone) 34%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--recommendation-tone) 8%, var(--surface-raised));
   color: var(--recommendation-tone);
   font-size: 0.78rem;
@@ -7790,7 +7790,7 @@ button.balance-indicator:focus-visible {
   height: 6px;
   flex: 0 0 auto;
   border: 1px solid currentColor;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: currentColor;
 }
 
@@ -7886,7 +7886,7 @@ button.balance-indicator:focus-visible {
   width: 2px;
   height: 20px;
   z-index: 2;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--financial-text);
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--surface) 78%, transparent),
@@ -7902,7 +7902,7 @@ button.balance-indicator:focus-visible {
   width: 7px;
   height: 7px;
   border: 1px solid color-mix(in srgb, var(--surface) 82%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--financial-text);
   transform: translateX(-50%);
 }
@@ -8130,7 +8130,7 @@ button.balance-indicator:focus-visible {
   gap: 12px;
   padding: 14px;
   border: 1px solid var(--ai-panel-border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--ai-panel-inset-bg);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 72%, transparent);
 }
@@ -8274,7 +8274,7 @@ button.balance-indicator:focus-visible {
   min-height: 26px;
   padding: 4px 9px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, var(--collector-edge));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -8788,7 +8788,7 @@ button.balance-indicator:focus-visible {
 .restaurant-wine-list-result-heading > div:first-child > span { color: var(--accent); font-size: .72rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
 .restaurant-wine-list-result-heading h4 { margin: 4px 0 0; font-size: 1.18rem; }
 .restaurant-wine-list-ai-meta { display: grid; justify-items: end; gap: 4px; }
-.restaurant-wine-list-ai-meta > span { padding: 5px 9px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); font-size: .76rem; font-weight: 750; white-space: nowrap; }
+.restaurant-wine-list-ai-meta > span { padding: 5px 9px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); font-size: .76rem; font-weight: 750; white-space: nowrap; }
 .restaurant-wine-list-ai-meta > .restaurant-wine-list-profile-applied { background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: var(--success); }
 .restaurant-wine-list-ai-meta small { color: var(--text-muted); font-size: .72rem; }
 .restaurant-wine-list-ai-meta button { margin-top: 4px; }
@@ -8804,7 +8804,7 @@ button.balance-indicator:focus-visible {
 .restaurant-wine-list-recommendation-head .restaurant-taste-affinity { display: flex; gap: 2px; margin-top: 2px; color: color-mix(in srgb, var(--accent) 26%, var(--line)); font-size: .76rem; line-height: 1; }
 .restaurant-wine-list-recommendation-head .restaurant-taste-affinity i { font-style: normal; }
 .restaurant-wine-list-recommendation-head .restaurant-taste-affinity i.filled { color: var(--accent); }
-.restaurant-wine-list-recommendation-head > b { padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line)); border-radius: 8px; color: var(--accent); font-size: .82rem; white-space: nowrap; }
+.restaurant-wine-list-recommendation-head > b { padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line)); border-radius: var(--radius-control); color: var(--accent); font-size: .82rem; white-space: nowrap; }
 .restaurant-wine-list-result article p { margin: 0; color: var(--text); line-height: 1.48; }
 .restaurant-wine-list-result article small { display: flex; gap: 7px; align-items: baseline; color: var(--text-muted); font-size: .82rem; }
 .restaurant-wine-list-result article small span { color: var(--accent); font-size: .7rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
@@ -8865,7 +8865,7 @@ button.balance-indicator:focus-visible {
   top: 10px;
   right: 11px;
   padding: 3px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--primary-contrast);
   background: var(--primary);
   font-size: 0.62rem;
@@ -9010,7 +9010,7 @@ button.balance-indicator:focus-visible {
 .buying-recommendation {
   padding: 14px;
   border: 1px solid var(--ai-panel-border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--ai-panel-inset-bg);
 }
 
@@ -9043,7 +9043,7 @@ button.balance-indicator:focus-visible {
 
 .buying-recommendation-badges span {
   padding: 4px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
   color: var(--text);
   font-size: 0.7rem;
@@ -9340,7 +9340,7 @@ button.balance-indicator:focus-visible {
 .bar-track {
   height: 9px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #e8ede8;
 }
 
@@ -9368,7 +9368,7 @@ button.balance-indicator:focus-visible {
   width: fit-content;
   padding: 7px 10px;
   border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: var(--text);
   background: color-mix(in srgb, var(--surface-raised) 88%, var(--primary));
   font-size: 0.88rem;
@@ -9466,7 +9466,7 @@ button.balance-indicator:focus-visible {
   max-width: 100%;
   padding: 7px 10px;
   border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   color: var(--text);
   font-size: 0.82rem;
@@ -9527,7 +9527,7 @@ button.balance-indicator:focus-visible {
   height: 32px;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--border) 74%, var(--collector-edge));
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 26%, transparent), transparent 48%),
     color-mix(in srgb, var(--wine-tone, var(--accent)) var(--heatmap-weight), var(--surface-muted));
@@ -9613,7 +9613,7 @@ button.balance-indicator:focus-visible {
   flex-wrap: wrap;
   padding: 8px;
   border: 1px solid color-mix(in srgb, var(--border) 74%, var(--collector-edge));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
 }
 
@@ -9656,7 +9656,7 @@ button.balance-indicator:focus-visible {
   max-width: 100%;
   padding: 7px 10px;
   border: 1px solid color-mix(in srgb, var(--primary) 34%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--primary) 8%, var(--surface));
   color: var(--primary);
   font-size: 0.82rem;
@@ -9668,7 +9668,7 @@ button.balance-indicator:focus-visible {
   gap: 12px;
   padding: 12px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 48%),
     color-mix(in srgb, var(--surface-muted) 80%, var(--surface));
@@ -9766,7 +9766,7 @@ button.balance-indicator:focus-visible {
 
 .regional-ai-proposal span {
   padding: 5px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--financial-text);
   background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
   font-size: 0.76rem;
@@ -9942,7 +9942,7 @@ button.balance-indicator:focus-visible {
 .regional-radar-legend i {
   width: 18px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .regional-legend-current {
@@ -9985,7 +9985,7 @@ button.balance-indicator:focus-visible {
   width: 24px;
   height: 24px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--primary);
   background: color-mix(in srgb, var(--surface-muted) 76%, var(--surface));
   font-weight: 900;
@@ -10112,7 +10112,7 @@ button.balance-indicator:focus-visible {
   .maturity-mobile-panel-switcher button {
     min-height: 36px;
     padding: 7px 8px;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     font-size: 0.76rem;
     white-space: nowrap;
   }
@@ -10233,7 +10233,7 @@ button.balance-indicator:focus-visible {
     gap: 12px;
     align-items: center;
     padding: 12px;
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     box-shadow:
       inset 0 1px 0 color-mix(in srgb, var(--surface-raised) 82%, transparent),
       0 10px 24px color-mix(in srgb, var(--text) 7%, transparent);
@@ -10289,7 +10289,7 @@ button.balance-indicator:focus-visible {
   .focus-switcher button {
     min-height: 36px;
     padding-inline: 16px;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
   }
 
   .dashboard-grid {
@@ -10366,7 +10366,7 @@ button.balance-indicator:focus-visible {
   position: relative;
   height: 14px;
   margin-inline: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background:
     linear-gradient(90deg, transparent 0 6px, var(--surface) 6px 12px) 0 0 / 22px 100%,
     linear-gradient(90deg, color-mix(in srgb, var(--primary) 30%, transparent), color-mix(in srgb, #c2ac66 58%, transparent));
@@ -10379,7 +10379,7 @@ button.balance-indicator:focus-visible {
   width: 18px;
   height: 18px;
   border: 3px solid var(--surface);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--wine-tone, var(--primary));
   transform: translate(-50%, -50%);
   box-shadow: 0 0 0 1px var(--border), 0 4px 12px rgba(23, 32, 28, 0.22);
@@ -10401,7 +10401,7 @@ button.balance-indicator:focus-visible {
   padding: 12px;
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--surface-muted);
   text-align: left;
 }
@@ -10659,7 +10659,7 @@ button.stat-card:hover {
 .breakdown-marker {
   width: 0.75rem;
   height: 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-block;
   margin-right: 0.45rem;
   flex: 0 0 auto;
@@ -10815,7 +10815,7 @@ button.stat-card:hover {
   box-sizing: border-box;
   flex: 0 0 14px;
   margin-right: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--wine-tone, #789086);
   border: 2px solid var(--wine-tone-bg, #edf3f0);
   vertical-align: -0.12em;
@@ -10851,7 +10851,7 @@ button.stat-card:hover {
   position: absolute;
   inset: 6px auto 6px 6px;
   width: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(180deg, color-mix(in srgb, var(--wine-tone, #d8ded7) 98%, white 2%), color-mix(in srgb, var(--wine-tone, #d8ded7) 68%, black 32%));
   box-shadow: 0 0 16px color-mix(in srgb, var(--wine-tone, #d8ded7) 22%, transparent);
 }
@@ -11032,7 +11032,7 @@ button.stat-card:hover {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 4px 8px;
   color: color-mix(in srgb, var(--primary) 78%, var(--text));
   background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface));
@@ -11061,7 +11061,7 @@ button.stat-card:hover {
   max-width: 100%;
   min-height: 30px;
   padding: 5px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--border) 66%, var(--collector-edge));
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 13%, transparent), transparent 48%),
@@ -11114,7 +11114,7 @@ button.stat-card:hover {
   width: 64px;
   height: 2px;
   margin: 0 0 10px auto;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--collector-edge) 84%, transparent));
 }
 
@@ -11246,7 +11246,7 @@ button.stat-card:hover {
   position: relative;
   height: 14px;
   overflow: visible;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background:
     linear-gradient(
       90deg,
@@ -11272,7 +11272,7 @@ button.stat-card:hover {
 .mini-window-peak {
   position: absolute;
   inset-block: -2px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(90deg, var(--drink-ideal), color-mix(in srgb, var(--drink-ideal) 70%, var(--accent)));
   box-shadow:
     0 0 0 2px var(--surface),
@@ -11285,7 +11285,7 @@ button.stat-card:hover {
   top: -6px;
   bottom: -6px;
   width: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--text);
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 6px color-mix(in srgb, var(--collector-glow) 64%, transparent);
   transform: translateX(-50%);
@@ -11370,7 +11370,7 @@ button.stat-card:hover {
   min-height: 32px;
   padding: 7px 10px;
   border: 1px solid color-mix(in srgb, #e85d9a 72%, var(--border));
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background:
     linear-gradient(180deg, color-mix(in srgb, #ff9cc3 28%, transparent), transparent 48%),
     color-mix(in srgb, #fff1f7 88%, var(--surface-muted));
@@ -11515,7 +11515,7 @@ button.stat-card:hover {
   min-width: 0;
   padding: 12px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 14%, transparent), transparent 42%),
     color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
@@ -11556,7 +11556,7 @@ button.stat-card:hover {
   max-width: 100%;
   padding: 6px 10px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 14%, transparent), transparent 48%),
     color-mix(in srgb, var(--surface-muted) 86%, var(--surface));
@@ -11648,7 +11648,7 @@ button.stat-card:hover {
 .value-history-delta {
   justify-self: end;
   padding: 6px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   background: color-mix(in srgb, var(--surface) 78%, transparent);
   font-size: 0.82rem;
@@ -11724,7 +11724,7 @@ button.stat-card:hover {
   min-height: 180px;
   padding: 15px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, var(--collector-edge));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface) 76%, var(--surface-raised));
 }
 
@@ -11833,7 +11833,7 @@ button.stat-card:hover {
   margin-top: 10px;
   padding: 10px 12px;
   border: 1px solid var(--ai-panel-border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--ai-panel-inset-bg);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent);
 }
@@ -12011,7 +12011,7 @@ button.stat-card:hover {
   width: 9px;
   height: 9px;
   margin-top: 0.48em;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--accent) 86%, var(--text));
   box-shadow:
     0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent),
@@ -12039,7 +12039,7 @@ button.stat-card:hover {
 .loading-state.compact {
   margin-top: 10px;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   font-size: 0.92rem;
 }
 
@@ -12064,7 +12064,7 @@ button.stat-card:hover {
   min-height: 92px;
   padding: 14px 16px;
   border: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface-raised) 90%, var(--surface));
 }
 
@@ -12075,7 +12075,7 @@ button.stat-card:hover {
 .global-loading-skeleton span {
   display: block;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--text-muted) 12%, var(--surface-muted));
 }
 
@@ -12209,7 +12209,7 @@ button.stat-card:hover {
 .loading-spinner span {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 92%, white), color-mix(in srgb, var(--accent) 70%, var(--text)));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--collector-edge) 58%, transparent);
   animation: collector-loader-pulse 1.05s ease-in-out infinite;
@@ -12332,7 +12332,7 @@ button.stat-card:hover {
   align-items: center;
   padding: 4px 7px;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   white-space: nowrap;
 }
@@ -12407,7 +12407,7 @@ button.stat-card:hover {
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-raised) 90%, transparent);
   color: var(--text);
   box-shadow: 0 14px 28px rgba(20, 28, 24, 0.2);
@@ -12529,7 +12529,7 @@ button.stat-card:hover {
 .value-history-legend i {
   width: 8px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .value-history-legend .source-ai i {
@@ -12540,7 +12540,7 @@ button.stat-card:hover {
   background: var(--drink-ideal);
 }
 
-.row-sommelier-notice { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--border)); border-radius: 999px; color: var(--primary); font-weight: 800; background: var(--surface-muted); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 9%, transparent), 0 4px 10px color-mix(in srgb, var(--accent) 16%, transparent); animation: s 4.6s ease-in-out infinite; }
+.row-sommelier-notice { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--border)); border-radius: var(--radius-pill); color: var(--primary); font-weight: 800; background: var(--surface-muted); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 9%, transparent), 0 4px 10px color-mix(in srgb, var(--accent) 16%, transparent); animation: s 4.6s ease-in-out infinite; }
 @keyframes s { 50% { transform:scale(1.015); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent), 0 5px 14px color-mix(in srgb, var(--accent) 20%, transparent); } }
 
 
@@ -12613,7 +12613,7 @@ button.stat-card:hover {
 .glass-sale-panel summary small {
   padding: 4px 9px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-muted);
   font-size: 0.74rem;
   font-weight: 700;
@@ -12624,7 +12624,7 @@ button.stat-card:hover {
   gap: 12px;
   padding: 15px;
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: linear-gradient(135deg, color-mix(in srgb, var(--surface-muted) 72%, var(--accent) 6%), var(--surface));
 }
 
@@ -12663,7 +12663,7 @@ button.stat-card:hover {
 .restaurant-wine-sales-history-kpis span {
   padding: 7px 10px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-muted);
   background: var(--surface-raised);
   font-size: 0.79rem;
@@ -12788,7 +12788,7 @@ button.stat-card:hover {
   align-items: center;
   padding: 4px 8px;
   border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
   color: var(--text-muted);
   font-size: 0.72rem;
@@ -13004,7 +13004,7 @@ button.stat-card:hover {
   min-height: 30px;
   padding: 4px 9px;
   border: 1px solid color-mix(in srgb, var(--border) 62%, var(--accent));
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
   color: var(--text);
   font-size: 0.9rem;
@@ -13092,7 +13092,7 @@ button.stat-card:hover {
   max-width: 100%;
   padding: 5px 8px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, var(--collector-edge));
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--surface-muted) 74%, var(--surface));
   color: var(--text-muted);
   font-size: 0.88rem;
@@ -13109,7 +13109,7 @@ button.stat-card:hover {
 }
 
 .tasting-archive-entry .chip-list span {
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   padding: 7px 10px;
   color: color-mix(in srgb, var(--text) 78%, var(--text-muted));
   background: color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
@@ -13222,7 +13222,7 @@ button.stat-card:hover {
   justify-content: center;
   padding: 5px 8px;
   border: 1px solid color-mix(in srgb, var(--drink-ideal) 44%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--drink-ideal) 14%, var(--surface));
   color: var(--text);
   font-size: 1.05rem;
@@ -13374,7 +13374,7 @@ button.stat-card:hover {
   display: grid;
   width: 18px;
   height: 18px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   place-items: center;
   transform: translate(-50%, -50%);
 }
@@ -13438,7 +13438,7 @@ button.stat-card:hover {
 }
 
 .chip-list span {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 7px 10px;
   color: #245142;
   background: #e3e9e2;
@@ -13470,7 +13470,7 @@ button.stat-card:hover {
 }
 
 .wine-side-panel::-webkit-scrollbar-thumb {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #c9d2ca;
 }
 
@@ -13857,7 +13857,7 @@ textarea {
     padding: 10px 12px;
     justify-items: start;
     justify-content: start;
-    border-radius: 14px;
+    border-radius: var(--radius-card);
   }
 
   .session-pill > span,
@@ -13952,7 +13952,7 @@ textarea {
     top: 56px;
     padding: 10px;
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--surface) 92%, transparent);
     backdrop-filter: blur(14px);
     box-shadow: 0 12px 30px rgba(16, 22, 19, 0.14);
@@ -14056,7 +14056,7 @@ textarea {
     flex: 0 0 42px;
     padding: 0;
     border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     color: var(--text);
     background: color-mix(in srgb, var(--surface-muted) 86%, var(--surface));
     font-size: 1.65rem;
@@ -14441,7 +14441,7 @@ textarea {
     height: 30px;
     place-items: center;
     border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent));
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: color-mix(in srgb, var(--surface-muted) 74%, var(--surface));
     color: var(--text-muted);
     box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 62%, transparent);
@@ -14877,7 +14877,7 @@ textarea {
   .wine-form,
   .team-panel,
   .settings-card {
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     padding: 12px;
   }
 
@@ -15027,7 +15027,7 @@ textarea {
     gap: 5px;
     min-width: 0;
     padding: 10px;
-    border-radius: 14px;
+    border-radius: var(--radius-card);
   }
 
   .wishlist-market-estimate {
@@ -15043,7 +15043,7 @@ textarea {
   .wishlist-mobile-ai-preview-note {
     gap: 5px;
     padding: 10px;
-    border-radius: 14px;
+    border-radius: var(--radius-card);
   }
 
   .wishlist-signal-strip {
@@ -15252,7 +15252,7 @@ textarea {
   min-height: 34px;
   padding: 0;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 1.1rem;
 }
 
@@ -15298,7 +15298,7 @@ textarea {
   min-height: 1.25rem;
   padding: 0 .42rem;
   border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--accent-deep, var(--accent));
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   font-size: .61rem;
@@ -15392,7 +15392,7 @@ textarea {
   min-height: 32px;
   padding: 4px 7px 4px 9px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, var(--accent));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface));
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 64%, transparent);
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
@@ -15876,7 +15876,7 @@ button:hover {
   align-items: center;
   gap: 6px;
   min-height: 28px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border-color: color-mix(in srgb, var(--border) 64%, var(--accent));
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 88%, transparent), color-mix(in srgb, var(--surface-muted) 92%, transparent));
@@ -16222,7 +16222,7 @@ textarea:hover {
   min-width: 36px;
   min-height: 36px;
   padding: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 1.35rem;
   line-height: 1;
 }
@@ -16501,7 +16501,7 @@ textarea:hover {
   height: 18px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
 }
 
@@ -16535,7 +16535,7 @@ textarea:hover {
   min-height: 30px;
   padding: 5px 6px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -16553,7 +16553,7 @@ textarea:hover {
 .stacked-legend i {
   width: 10px;
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .stacked-legend span {
@@ -16786,7 +16786,7 @@ textarea:hover {
   gap: 6px;
   padding: 0;
   border-color: color-mix(in srgb, var(--border) 88%, transparent);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface);
   overflow: hidden;
 }
@@ -16802,7 +16802,7 @@ textarea:hover {
   min-width: 78px;
   min-height: 30px;
   padding: 0 11px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.78rem;
 }
 
@@ -16935,7 +16935,7 @@ textarea:hover {
   padding: 5px 11px 5px 8px;
   border: 1px solid color-mix(in srgb, var(--primary) 64%, var(--border));
   border-left: 3px solid var(--primary);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: color-mix(in srgb, var(--primary) 88%, var(--text));
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--primary) 19%, transparent), color-mix(in srgb, var(--accent) 6%, transparent) 38%, transparent 72%),
@@ -16994,7 +16994,7 @@ textarea:hover {
   justify-self: end;
   padding: 7px 10px;
   border: 1px solid color-mix(in srgb, var(--border) 66%, var(--accent));
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
   color: var(--financial-text);
   font-size: 1.02rem;
@@ -17065,7 +17065,7 @@ textarea:hover {
 }
 
 .operational-workspace .wine-detail {
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   box-shadow: none;
 }
 
@@ -17303,7 +17303,7 @@ textarea:hover {
 .market-note-block,
 .compare-ai-panel,
 .compare-wine-card {
-  border-radius: 8px;
+  border-radius: var(--radius-control);
 }
 
 .compare-ai-toolbar {
@@ -17341,7 +17341,7 @@ textarea:hover {
 
 .market-source-row,
 .market-note-block {
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   box-shadow: none;
 }
 
@@ -17358,7 +17358,7 @@ textarea:hover {
   gap: 8px;
   padding: 10px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(14px);
   box-shadow: 0 10px 28px color-mix(in srgb, var(--collector-depth) 58%, transparent);
@@ -17526,7 +17526,7 @@ textarea:hover {
 .wine-side-panel > .wine-detail,
 .wine-side-panel > .wine-form,
 .wine-side-panel > .share-panel {
-  border-radius: 8px;
+  border-radius: var(--radius-control);
 }
 
 .wine-side-panel > .wine-detail {
@@ -17566,7 +17566,7 @@ textarea:hover {
 .detail-title > strong {
   padding: 7px 10px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface-muted);
   font-size: 1rem;
 }
@@ -17608,7 +17608,7 @@ textarea:hover {
 
 .ai-actions {
   padding: 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   box-shadow: none;
 }
 
@@ -17622,7 +17622,7 @@ textarea:hover {
 .detail-section,
 .consume-panel,
 .ai-audit-detail {
-  border-radius: 8px;
+  border-radius: var(--radius-control);
 }
 
 .detail-field {
@@ -18087,7 +18087,7 @@ label > span,
 
 .wine-row {
   border-color: var(--vinaris-hairline);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--vinaris-surface);
   box-shadow: 0 8px 22px color-mix(in srgb, var(--collector-depth) 42%, transparent), inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 66%, transparent);
 }
@@ -18165,12 +18165,12 @@ label > span,
 }
 
 .wine-status-badge {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-muted) 78%, var(--status-color, var(--primary)) 8%);
 }
 
 .chip-list span {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 6px 10px;
   font-weight: 700;
 }
@@ -18190,7 +18190,7 @@ label > span,
 
 .detail-ai-actions::before {
   border-color: color-mix(in srgb, var(--vinaris-ai) 50%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--vinaris-ai-surface) 92%, var(--vinaris-ai) 8%);
   color: color-mix(in srgb, var(--vinaris-ai) 82%, var(--text));
   box-shadow: none;
@@ -18449,7 +18449,7 @@ tbody tr:hover {
   gap: 14px;
   padding: 16px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 62%, transparent), transparent 110px),
     color-mix(in srgb, var(--surface-muted) 48%, var(--surface));
@@ -18749,7 +18749,7 @@ tbody tr:hover {
   }
 
   .topbar {
-    border-radius: 14px;
+    border-radius: var(--radius-card);
   }
 
   .hero-panel {
@@ -18762,7 +18762,7 @@ tbody tr:hover {
   .workspace,
   .settings-card,
   .wine-form {
-    border-radius: 14px;
+    border-radius: var(--radius-card);
   }
 
   .empty-state-panel {
@@ -18928,7 +18928,7 @@ tbody tr:hover {
   min-height: 30px;
   padding: 5px 9px;
   border: 1px solid color-mix(in srgb, var(--vinaris-ai) 24%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
   color: var(--text-soft);
   font-size: 0.72rem;
@@ -19073,7 +19073,7 @@ tbody tr:hover {
   height: 19px;
   place-items: center;
   padding: 0 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: inherit;
   background: color-mix(in srgb, currentColor 13%, transparent);
   font-size: 0.68rem;
@@ -19164,7 +19164,7 @@ tbody tr:hover {
   height: 24px;
   place-items: center;
   padding-inline: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--primary);
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
   font-size: 0.72rem;
@@ -19505,7 +19505,7 @@ tbody tr:hover {
   margin-left: 0.55rem;
   padding: 3px 7px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.03em;
@@ -19545,7 +19545,7 @@ tbody tr:hover {
   margin-top: 14px;
   padding: 16px;
   border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface-muted) 62%, var(--surface));
 }
 
@@ -19642,7 +19642,7 @@ tbody tr:hover {
   flex: 0 0 auto;
   padding: 4px 8px;
   border: 1px solid color-mix(in srgb, var(--drink-young) 38%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--drink-young) 8%, var(--surface));
   color: color-mix(in srgb, var(--drink-young) 76%, var(--text));
   font-weight: 800;
@@ -20043,7 +20043,7 @@ tbody tr:hover {
   align-items: center;
   min-height: 24px;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-soft);
   background: color-mix(in srgb, var(--surface-muted) 82%, transparent);
   font-size: 0.76rem;
@@ -20279,14 +20279,14 @@ tbody tr:hover {
 .restaurant-detail-quick-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .62rem; margin-top: 13px; }
 .restaurant-detail-quick-actions > strong { margin-left: auto; color: var(--text); font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1; white-space: nowrap; }
 .wine-commercial-status { position: relative; display: inline-block; width: max-content; color: var(--text-muted); font-size: .76rem; }
-.wine-commercial-status > summary { display: flex; align-items: center; gap: .32rem; padding: .26rem .5rem; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--surface-muted) 70%, var(--surface)); color: inherit; cursor: pointer; list-style: none; }
+.wine-commercial-status > summary { display: flex; align-items: center; gap: .32rem; padding: .26rem .5rem; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--surface-muted) 70%, var(--surface)); color: inherit; cursor: pointer; list-style: none; }
 .wine-commercial-status > summary::-webkit-details-marker { display: none; }
 .wine-commercial-status > summary::after { content: "⌄"; font-size: .8rem; line-height: 1; }
 .wine-commercial-status > div { position: absolute; z-index: 8; top: calc(100% + .35rem); left: 0; display: grid; min-width: 9.4rem; padding: .25rem; border: 1px solid var(--border); border-radius: .6rem; background: var(--surface); box-shadow: 0 .65rem 1.4rem color-mix(in srgb, var(--text) 15%, transparent); }
 .wine-commercial-status button { padding: .44rem .5rem; border: 0; border-radius: .38rem; background: transparent; color: var(--text); font: inherit; font-size: .78rem; text-align: left; cursor: pointer; }
 .wine-commercial-status button:hover, .wine-commercial-status button:focus-visible { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); outline: none; }
 .wine-commercial-status button:disabled { color: var(--text-muted); cursor: default; }
-.wine-commercial-status--readonly { padding: .26rem .5rem; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--surface-muted) 70%, var(--surface)); }
+.wine-commercial-status--readonly { padding: .26rem .5rem; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--surface-muted) 70%, var(--surface)); }
 .wine-commercial-status.is-clearing_out { color: color-mix(in srgb, var(--accent) 82%, var(--text)); }
 .wine-commercial-status.is-suspended, .wine-commercial-status.is-off_list { color: var(--text-muted); }
 .restaurant-detail-quick-actions .detail-photo-actions { display: flex; }
@@ -20385,7 +20385,7 @@ tbody tr:hover {
   gap: 14px;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface-raised) 90%, var(--surface));
   box-shadow: none;
 }
@@ -20405,7 +20405,7 @@ tbody tr:hover {
   gap: 12px;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--primary) 6%, var(--surface-raised));
 }
 .wine-detail-quick-actions > div:first-child { display: grid; gap: 2px; }
@@ -20420,7 +20420,7 @@ tbody tr:hover {
 .wine-detail .ai-audit-detail {
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface-raised) 90%, var(--surface));
   box-shadow: none;
 }
@@ -20447,7 +20447,7 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.wine-detail-operations { display: grid; gap: 12px; padding: 14px; border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border)); border-radius: 14px; background: color-mix(in srgb, var(--primary) 4%, var(--surface-raised)); }
+.wine-detail-operations { display: grid; gap: 12px; padding: 14px; border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border)); border-radius: var(--radius-card); background: color-mix(in srgb, var(--primary) 4%, var(--surface-raised)); }
 
 .wine-strategy-editor { display: grid; gap: 12px; }
 .wine-strategy-editor .consume-help { margin: 0; }
@@ -21257,7 +21257,7 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
   align-self: start;
   gap: 7px;
   padding: 6px 10px 6px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   box-shadow: none;
   pointer-events: none;
 }
@@ -21360,7 +21360,7 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
   .key-position-metrics { gap: 10px; }
   .key-position-metrics.has-value-trend { grid-template-columns: minmax(112px, 0.8fr) minmax(94px, 0.55fr) minmax(176px, 1.35fr); }
   .key-position-metric,
-  .key-position-trend { min-height: 64px; padding: 7px 10px; border-radius: 14px; }
+  .key-position-trend { min-height: 64px; padding: 7px 10px; border-radius: var(--radius-card); }
   .key-position-metric > span { font-size: 0.58rem; }
   .key-position-metrics strong { font-size: 1.05rem; }
   .key-position-trend svg { min-height: 42px; }
@@ -21638,7 +21638,7 @@ body,
   padding: 13px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--wine-tone, var(--primary)) 34%, var(--border));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   color: var(--text);
   background:
     radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--wine-tone, var(--collector-glow)) 16%, transparent), transparent 42%),
@@ -22341,7 +22341,7 @@ body,
     gap: 4px;
     padding: 8px;
     border: 1px solid var(--vinaris-hairline-strong);
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--surface-raised) 96%, var(--surface));
     box-shadow: var(--vinaris-shadow-float);
   }
@@ -22490,7 +22490,7 @@ body,
     gap: 4px;
     padding: 8px;
     border: 1px solid var(--vinaris-hairline-strong);
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     background: color-mix(in srgb, var(--surface-raised) 96%, var(--surface));
     box-shadow: var(--vinaris-shadow-float);
   }
@@ -22601,7 +22601,7 @@ body,
   padding: 10px;
   overflow-x: auto;
   border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
   cursor: grab;
   scrollbar-width: none;
@@ -22705,7 +22705,7 @@ body,
     min-height: 34px;
     padding: 6px 10px;
     border: 1px solid color-mix(in srgb, var(--border) 74%, var(--accent));
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--surface-raised);
   }
 }
@@ -22767,7 +22767,7 @@ body,
   gap: 10px;
   min-height: 126px;
   padding: 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   box-shadow: none;
 }
 
@@ -22799,7 +22799,7 @@ body,
   min-height: 310px;
   padding: 18px;
   border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface-raised) 97%, var(--surface-muted));
   box-shadow: none;
 }
@@ -22896,7 +22896,7 @@ body,
   grid-column: 1 / -1;
   height: 8px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-muted) 80%, var(--border));
 }
 .cellar-bar-track i { display: block; height: 100%; border-radius: inherit; }
@@ -23054,7 +23054,7 @@ body,
 .admin-user-row-status em {
   padding: 4px 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-muted);
   background: var(--surface-muted);
   font-size: 0.62rem;
@@ -23065,7 +23065,7 @@ body,
 }
 .admin-user-feature-pills i.configured { color: var(--primary); background: var(--success-surface); }
 .admin-user-row-status { display: grid; justify-items: end; gap: 7px; }
-.admin-user-row-status > strong { padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.72rem; }
+.admin-user-row-status > strong { padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-control); font-size: 0.72rem; }
 .admin-user-row-status em { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); background: color-mix(in srgb, var(--danger) 8%, var(--surface-raised)); }
 .admin-user-row-chevron { color: var(--text-muted); font-size: 1.3rem; }
 
@@ -23076,7 +23076,7 @@ body,
 .admin-user-detail-identity h3 { margin: 0; overflow: hidden; font-family: var(--font-display); font-size: 1.16rem; text-overflow: ellipsis; white-space: nowrap; }
 .admin-user-detail-identity strong { color: var(--primary); font-size: 0.72rem; }
 .admin-user-detail-identity span { overflow: hidden; color: var(--text-muted); font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; }
-.admin-user-detail-identity i { justify-self: start; margin-top: 3px; padding: 3px 8px; border-radius: 999px; font-size: 0.61rem; font-style: normal; font-weight: 800; }
+.admin-user-detail-identity i { justify-self: start; margin-top: 3px; padding: 3px 8px; border-radius: var(--radius-pill); font-size: 0.61rem; font-style: normal; font-weight: 800; }
 .admin-user-detail-identity i.approved { color: var(--primary); background: var(--success-surface); }
 .admin-user-detail-identity i.pending { color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, var(--surface-raised)); }
 
@@ -23242,7 +23242,7 @@ body,
   .wishlist-portfolio-panel.wishlist-strategy-details{
     gap:8px;
     margin-top:0;
-    border-radius:14px;
+    border-radius: var(--radius-card);
   }
 
   .wishlist-strategy-summary .detail-title{
@@ -23607,7 +23607,7 @@ body,
     margin-top: 10px;
     padding: 2px 10px;
     border: 1px solid color-mix(in srgb, #fff 62%, var(--accent));
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--surface-raised);
     box-shadow: var(--vinaris-shadow-card);
   }
@@ -23660,7 +23660,7 @@ body,
     min-height: 34px;
     padding: 6px 10px;
     border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--surface-raised);
     box-shadow: 0 5px 14px color-mix(in srgb, var(--collector-depth) 36%, transparent);
   }
@@ -23738,7 +23738,7 @@ body,
     height: 18px;
     padding: 0 5px;
     place-items: center;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     color: var(--primary-contrast);
     background: var(--primary);
     font-size: 0.64rem;
@@ -24024,7 +24024,7 @@ body,
   .home-mobile-experience .key-position-trend {
     min-height: 68px;
     padding: 8px 12px;
-    border-radius: 14px;
+    border-radius: var(--radius-card);
   }
 
   .home-mobile-experience .key-position-trend svg {
@@ -24260,7 +24260,7 @@ body,
     min-height: 32px;
     padding: 5px 11px;
     border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     color: var(--text);
     background: var(--surface-raised);
     box-shadow: none;
@@ -24280,7 +24280,7 @@ body,
     height: 18px;
     padding: 0 5px;
     place-items: center;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     color: var(--primary-contrast);
     background: var(--primary);
     font-size: 0.64rem;
@@ -24440,7 +24440,7 @@ body,
   min-width: 0;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface-muted) 84%, var(--surface-raised));
   box-shadow: none;
 }
@@ -25094,7 +25094,7 @@ body,
 
   .mobile-detail-sheet .detail-hero-window.drink-window {
     padding: 12px;
-    border-radius: 14px;
+    border-radius: var(--radius-card);
   }
 
   .mobile-detail-sheet .detail-hero-window .maturity-horizon {
@@ -26244,7 +26244,7 @@ body,
   gap: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface) 74%, transparent);
 }
 
@@ -26384,7 +26384,7 @@ body,
   min-height: 24px;
   padding: 4px 8px;
   border: 1px solid color-mix(in srgb, var(--border) 80%, var(--accent));
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-raised) 88%, var(--accent) 5%);
   color: var(--text-muted);
   font-size: 0.64rem;
@@ -26415,7 +26415,7 @@ body,
 .wine-detail .value-history-chart {
   padding: 10px 8px 4px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 70%, transparent), transparent);
 }
 
@@ -26668,7 +26668,7 @@ body,
   position: relative;
   height: 7px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--border) 82%, var(--surface));
 }
 
@@ -26985,7 +26985,7 @@ body,
   align-items: baseline;
   gap: 4px;
   padding: 7px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface) 70%, var(--primary) 10%);
   color: var(--text-muted);
   font-size: 0.84rem;
@@ -27176,7 +27176,7 @@ body,
   position: relative;
   height: 8px;
   overflow: visible;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--border) 70%, var(--surface));
 }
 
@@ -27497,7 +27497,7 @@ body,
   margin-left: auto;
   padding: 7px 10px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--accent) 13%, var(--surface));
 }
 
@@ -27594,7 +27594,7 @@ body,
 
 .taste-profile-panel--insight .taste-profile-landmark-grid article b {
   padding: 7px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text);
   background: color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
   font-size: 0.82rem;
@@ -27666,7 +27666,7 @@ body,
   margin-top: 10px;
   padding: 3px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
 }
 
@@ -27674,7 +27674,7 @@ body,
   min-height: 38px;
   padding: 7px 12px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--text-muted);
   background: transparent;
   box-shadow: none;

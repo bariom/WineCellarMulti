@@ -51,7 +51,7 @@
 .summary-legend li span { overflow-wrap: anywhere; }
 .summary-legend i { width: 8px; height: 8px; border-radius: 50%; }
 .summary-mosaic { display: grid; gap: 14px; }
-.summary-mosaic > svg { display: block; width: 100%; height: auto; border-radius: 8px; }
+.summary-mosaic > svg { display: block; width: 100%; height: auto; border-radius: var(--radius-control); }
 .dashboard-summary .summary-mosaic text { fill: #fff; paint-order: stroke; stroke: #0006; stroke-width: 1.5px; }
 .dashboard-summary .summary-mosaic-label { font-size: 9px; font-weight: 600; letter-spacing: .02em; }
 .dashboard-summary .summary-mosaic-percentage { font-size: 17px; font-weight: 700; }

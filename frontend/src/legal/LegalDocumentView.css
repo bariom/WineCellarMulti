@@ -31,7 +31,7 @@
 }
 
 .legal-brand img {
-  border-radius: 14px;
+  border-radius: var(--radius-card);
 }
 
 .legal-language {
@@ -43,7 +43,7 @@
   min-width: 44px;
   padding: 8px 10px;
   border: 1px solid #425b50;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: #d7ded9;
   background: #16221d;
 }
@@ -93,7 +93,7 @@
   display: grid;
   gap: 4px;
   padding: 16px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: #0f1a16;
   font-style: normal;
 }
