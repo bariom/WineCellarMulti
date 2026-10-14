@@ -1,6 +1,6 @@
 import { CellarEmptyImage } from "./components/CellarEmptyImage";
 import { tastingRequest } from "./domain/tasting";
-import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
+import { CSSProperties, ChangeEvent, Children, ComponentProps, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import PremiumMemoriesNotice from "./components/PremiumMemoriesNotice";
@@ -35,6 +35,7 @@ import { CollectorCardGroup } from "./components/CollectorCardGroup";
 import { CollectorAtlas } from "./components/CollectorAtlas";
 import { CollectorDashboard } from "./components/CollectorDashboard";
 import { CellarHomeHero, CellarHomeStats } from "./components/CellarHomeHero";
+import { appUserActivityStatus, appUserEntitlementStatus, appUserInitials, appUserPlanLabel, appUserRoleLabel, appUserTierStatus } from "./domain/appUsers";
 import { CellarHomeBackdrop, resetHomeBackdropSession } from "./components/CellarHomeBackdrop";
 import { RiservaBanner } from "./components/RiservaBanner";
 import { featuredExplanation } from "./components/FeaturedWineDetails";
@@ -104,7 +105,7 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 }
 
 const PairingView = lazy(() => import("./views/PairingView"));
-const AdminAmbassadorEditor = lazy(() => import("./components/AdminAmbassadorEditor"));
+const AdminUsersWorkspace = lazy(() => import("./components/AdminUsersWorkspace"));
 const WishlistOverview = lazy(() => import("./components/WishlistOverview"));
 const WineLotsSection = lazy(() => import("./components/WineLotsSection"));
 const MarketPreferences = lazy(() => import("./components/MarketPreferences"));
@@ -632,47 +633,6 @@ function prioritySortValue(priority: string) {
   return 2;
 }
 
-function appUserEntitlementStatus(user: AppUser, locale: Locale): { label: string; style: CSSProperties } | null {
-  if (user.is_app_admin) return null;
-  if (user.has_demo_access) {
-    return {
-      label: locale === "it" ? "Demo · accesso illimitato" : "Demo · unlimited access",
-      style: { color: "var(--primary)", borderColor: "var(--primary)", background: "var(--success-surface)" },
-    };
-  }
-  const days = user.entitlement_days_remaining ?? 0;
-  const dayLabel = locale === "it" ? (days === 1 ? "giorno residuo" : "giorni residui") : (days === 1 ? "day remaining" : "days remaining");
-  if (days <= 0) return null;
-  if (days <= 7) {
-    return {
-      label: `${locale === "it" ? "In scadenza" : "Expiring"} · ${days} ${dayLabel}`,
-      style: { color: "var(--accent)", borderColor: "var(--accent)", background: "color-mix(in srgb, var(--accent) 14%, var(--surface-raised))" },
-    };
-  }
-  return {
-    label: `${locale === "it" ? "Attivo" : "Active"} · ${days} ${dayLabel}`,
-    style: { color: "var(--primary)", borderColor: "var(--primary)", background: "var(--success-surface)" },
-  };
-}
-
-function appUserTierStatus(user: AppUser, locale: Locale): { label: string; configured: boolean } {
-  if (user.is_ambassador) return { label: "Vinaris Ambassador", configured: true };
-  const hasActiveEntitlement = (user.entitlement_days_remaining ?? 0) > 0;
-  const tier = user.has_demo_access
-    ? (locale === "it" ? "Demo" : "Demo")
-    : user.is_app_admin
-      ? (locale === "it" ? "Riserva" : "Reserve")
-      : hasActiveEntitlement && user.can_use_restaurant_mode
-        ? (locale === "it" ? "Carta" : "Wine list")
-        : hasActiveEntitlement
-          ? (locale === "it" ? "Riserva" : "Reserve")
-          : (locale === "it" ? "Gratuito" : "Free");
-  return {
-    label: `${locale === "it" ? "Piano" : "Tier"} · ${tier}`,
-    configured: tier !== (locale === "it" ? "Gratuito" : "Free"),
-  };
-}
-
 function strategyPurposeLabel(purpose: WineStrategyPurpose, locale: Locale) {
   const labels = locale === "it"
     ? { drink: "Da bere", maturation: "Da affinare", investment: "Investimento", special_occasion: "Occasione speciale", undecided: "Da decidere" }
@@ -692,66 +652,6 @@ function dailyEligibleBottleCount(wine: Wine, session: Session | null) {
     : wine.strategy_purposes.length ? wine.quantity : 0);
   const drinkOrUnallocated = strategyPurposeBottleCount(wine, "drink") + Math.max(wine.quantity - allocated, 0);
   return Math.min(ownedBottleCount(wine, session), drinkOrUnallocated);
-}
-
-function appUserActivityStatus(user: AppUser, locale: Locale): { label: string; style: CSSProperties } {
-  const days = user.last_activity_days_ago;
-  if (days === null) {
-    return {
-      label: locale === "it" ? "Mai attivo" : "Never active",
-      style: { color: "var(--text-muted)", borderColor: "var(--border)", background: "var(--surface-muted)" },
-    };
-  }
-  if (days === 0) {
-    return {
-      label: locale === "it" ? "Attivo oggi" : "Active today",
-      style: { color: "var(--primary)", borderColor: "var(--primary)", background: "var(--success-surface)" },
-    };
-  }
-  if (days === 1) {
-    return {
-      label: locale === "it" ? "Attivo ieri" : "Active yesterday",
-      style: { color: "var(--primary)", borderColor: "var(--primary)", background: "var(--success-surface)" },
-    };
-  }
-  if (days <= 7) {
-    return {
-      label: locale === "it" ? `Attivo ${days} g fa` : `Active ${days}d ago`,
-      style: { color: "var(--primary)", borderColor: "var(--primary)", background: "var(--success-surface)" },
-    };
-  }
-  if (days <= 30) {
-    return {
-      label: locale === "it" ? `Ultima attivit\u00e0 ${days} g fa` : `Last active ${days}d ago`,
-      style: { color: "var(--accent)", borderColor: "var(--accent)", background: "color-mix(in srgb, var(--accent) 14%, var(--surface-raised))" },
-    };
-  }
-  return {
-    label: locale === "it" ? `Inattivo da ${days} g` : `Inactive ${days}d`,
-    style: { color: "var(--danger)", borderColor: "var(--danger)", background: "color-mix(in srgb, var(--danger) 10%, var(--surface-raised))" },
-  };
-}
-
-function appUserInitials(user: AppUser) {
-  const source = user.display_name.trim() || user.email.split("@")[0] || "V";
-  const parts = source.split(/\s+/).filter(Boolean);
-  return (parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1]?.[0] || ""}` : source.slice(0, 2)).toLocaleUpperCase();
-}
-
-function appUserRoleLabel(user: AppUser, locale: Locale) {
-  if (user.is_app_admin) return locale === "it" ? "Amministratore" : "Administrator";
-  if (user.can_use_restaurant_mode) return locale === "it" ? "Ristorante" : "Restaurant";
-  return locale === "it" ? "Utente" : "User";
-}
-
-function appUserPlanLabel(user: AppUser, locale: Locale) {
-  if (user.is_ambassador) return "Vinaris Ambassador";
-  const hasActiveEntitlement = (user.entitlement_days_remaining ?? 0) > 0;
-  if (user.has_demo_access) return "Demo";
-  if (user.is_app_admin) return locale === "it" ? "Riserva" : "Reserve";
-  if (hasActiveEntitlement && user.can_use_restaurant_mode) return locale === "it" ? "Carta" : "Wine list";
-  if (hasActiveEntitlement) return locale === "it" ? "Riserva" : "Reserve";
-  return locale === "it" ? "Gratuito" : "Free";
 }
 
 const classicRegionalGapTargets: RegionalGapTarget[] = [
@@ -925,244 +825,20 @@ function markAutomaticCellarSommelierPromptShown() {
   }
 }
 
-function breakdownColor(label: string, index: number, mode: "type" | "region") {
-  if (mode === "type") {
-    const tone = wineTone(label);
-    if (tone === "red") return "#a52d4a";
-    if (tone === "white") return "#d9b33d";
-    if (tone === "sparkling") return "#c3a34e";
-    if (tone === "rose") return "#d78197";
-    if (tone === "sweet") return "#d98936";
-    return "#5b8f7d";
-  }
-  const palette = ["#2f6f5e", "#9a8549", "#b55d5d", "#6f8ea8", "#8c6cb5", "#5b8f7d"];
-  return palette[index % palette.length];
+const LazyCellarDonutAnalytics = lazy(() => import("./components/CellarAnalyticsCharts").then((module) => ({ default: module.CellarDonutAnalytics })));
+const LazyCellarBarAnalytics = lazy(() => import("./components/CellarAnalyticsCharts").then((module) => ({ default: module.CellarBarAnalytics })));
+const LazyWineValueConstellation = lazy(() => import("./components/CellarAnalyticsCharts").then((module) => ({ default: module.WineValueConstellation })));
+
+function CellarDonutAnalytics(props: ComponentProps<typeof LazyCellarDonutAnalytics>) {
+  return <Suspense fallback={null}><LazyCellarDonutAnalytics {...props} /></Suspense>;
 }
 
-function breakdownDonutSegments(items: ValueBreakdownItem[], mode: "type" | "region") {
-  const total = items.reduce((sum, item) => sum + item.value, 0);
-  if (!total) return [];
-  let start = 0;
-  return items.map((item, index) => {
-    const size = (item.value / total) * 100;
-    const segment = {
-      ...item,
-      color: breakdownColor(item.label, index, mode),
-      start,
-      end: start + size,
-      pct: size,
-    };
-    start += size;
-    return segment;
-  });
+function CellarBarAnalytics(props: ComponentProps<typeof LazyCellarBarAnalytics>) {
+  return <Suspense fallback={null}><LazyCellarBarAnalytics {...props} /></Suspense>;
 }
 
-function BreakdownDonut({
-  items,
-  mode,
-  locale,
-}: {
-  items: ValueBreakdownItem[];
-  mode: "type" | "region";
-  locale: Locale;
-}) {
-  const segments = breakdownDonutSegments(items, mode);
-  if (!segments.length) return null;
-  const background = `conic-gradient(${segments.map((segment) => `${segment.color} ${segment.start}% ${segment.end}%`).join(", ")})`;
-  return (
-    <div className="breakdown-donut-wrap">
-      <div
-        className="breakdown-donut"
-        style={{ background }}
-        role="img"
-        aria-label={translate(locale, mode === "type" ? "typesLabel" : "regionsLabel")}
-      >
-        <div className="breakdown-donut-hole">
-          <strong>{segments.length}</strong>
-          <span>{translate(locale, mode === "type" ? "typesLabel" : "regionsLabel")}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CellarDonutAnalytics({
-  eyebrow,
-  title,
-  items,
-  locale,
-  metric,
-  onSelect,
-}: {
-  eyebrow: string;
-  title: string;
-  items: ValueBreakdownItem[];
-  locale: Locale;
-  metric: "value" | "bottles";
-  onSelect: (item: ValueBreakdownItem) => void;
-}) {
-  const total = items.reduce((sum, item) => sum + item.value, 0);
-  return (
-    <article className="cellar-analytics-card cellar-donut-card">
-      <div className="cellar-analytics-heading"><span>{eyebrow}</span><h3>{title}</h3></div>
-      <div className="cellar-donut-layout">
-        <BreakdownDonut items={items} mode="type" locale={locale} />
-        <div className="cellar-analytics-legend">
-          {items.map((item, index) => {
-            const pct = total ? (item.value / total) * 100 : 0;
-            const label = displayValue(item.label, locale, "type");
-            const formattedMetric = metric === "value" ? formatMoney(item.value, "CHF", locale) : formatBottleCount(item.value, locale);
-            return (
-              <button type="button" key={item.label} title={`${label}: ${formatPercentage(pct, locale, 1)} · ${formattedMetric}`} onClick={() => onSelect(item)}>
-                <i style={{ backgroundColor: breakdownColor(item.label, index, "type") }} aria-hidden="true" />
-                <span>{label}</span>
-                <strong>{formatPercentage(pct, locale, 0)}</strong>
-                <small>{formattedMetric}</small>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function CellarBarAnalytics({
-  eyebrow,
-  title,
-  items,
-  locale,
-  metric,
-  onSelect,
-}: {
-  eyebrow: string;
-  title: string;
-  items: ValueBreakdownItem[];
-  locale: Locale;
-  metric: "value" | "wines";
-  onSelect: (item: ValueBreakdownItem) => void;
-}) {
-  const total = items.reduce((sum, item) => sum + item.value, 0);
-  const maximum = Math.max(...items.map((item) => item.value), 1);
-  return (
-    <article className="cellar-analytics-card cellar-bars-card">
-      <div className="cellar-analytics-heading"><span>{eyebrow}</span><h3>{title}</h3></div>
-      <div className="cellar-horizontal-bars">
-        {items.map((item, index) => {
-          const pct = total ? (item.value / total) * 100 : 0;
-          const formattedMetric = metric === "value" ? formatMoney(item.value, "CHF", locale) : formatBottleCount(item.value, locale);
-          return (
-            <button type="button" key={item.label} title={`${item.label}: ${formatPercentage(pct, locale, 1)} · ${formattedMetric}`} onClick={() => onSelect(item)}>
-              <span className="cellar-bar-label">{item.label}</span>
-              <strong>{formatPercentage(pct, locale, 0)}</strong>
-              <small>{formattedMetric}</small>
-              <span className="cellar-bar-track"><i style={{ width: `${Math.max((item.value / maximum) * 100, 4)}%`, backgroundColor: breakdownColor(item.label, index, "region") }} /></span>
-            </button>
-          );
-        })}
-      </div>
-    </article>
-  );
-}
-
-type WineValueConstellationItem = ValueBreakdownItem & { bottles: number };
-
-function WineValueConstellation({
-  items,
-  locale,
-  onOpen,
-}: {
-  items: WineValueConstellationItem[];
-  locale: Locale;
-  onOpen: (item: WineValueConstellationItem) => void;
-}) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const total = items.reduce((sum, item) => sum + item.value, 0);
-  if (!total) return null;
-
-  const active = items[Math.min(activeIndex, items.length - 1)];
-  const circumference = 2 * Math.PI * 76;
-  let offset = 0;
-  const segments = items.map((item, index) => {
-    const share = item.value / total;
-    const dash = Math.max(circumference * share - 4, 2);
-    const segment = { ...item, index, share, dash, offset, color: breakdownColor(item.label, index, "type") };
-    offset += circumference * share;
-    return segment;
-  });
-  const typeLabel = (item: WineValueConstellationItem) => displayValue(item.label, locale, "type");
-  const select = (index: number) => setActiveIndex(index);
-
-  return (
-    <div className="wine-value-constellation">
-      <div className="wine-value-constellation-plot" role="group" aria-label={locale === "it" ? "Composizione del valore per tipologia" : "Value composition by wine type"}>
-        <svg viewBox="0 0 200 200" aria-hidden="true">
-          <circle className="wine-value-constellation-track" cx="100" cy="100" r="76" />
-          {segments.map((segment) => (
-            <circle
-              key={segment.label}
-              className={segment.index === activeIndex ? "active" : ""}
-              cx="100"
-              cy="100"
-              r="76"
-              stroke={segment.color}
-              strokeDasharray={`${segment.dash} ${circumference}`}
-              strokeDashoffset={-segment.offset}
-              transform="rotate(-90 100 100)"
-              onMouseEnter={() => select(segment.index)}
-              onClick={() => select(segment.index)}
-            />
-          ))}
-        </svg>
-        <div className="wine-value-constellation-core">
-          <span>{locale === "it" ? "Valore tipologie" : "Type value"}</span>
-          <strong>{formatMoney(total, "CHF", locale)}</strong>
-          <small>{items.length} {locale === "it" ? "tipologie" : "types"}</small>
-        </div>
-      </div>
-      <div className="wine-value-constellation-detail">
-        <i style={{ backgroundColor: breakdownColor(active.label, activeIndex, "type") }} aria-hidden="true" />
-        <span>{typeLabel(active)}</span>
-        <strong>{formatMoney(active.value, "CHF", locale)}</strong>
-        <small>{formatPercentage((active.value / total) * 100, locale, 1)} · {formatBottleCount(active.bottles, locale)} {locale === "it" ? "bottiglie" : "bottles"}</small>
-        <button type="button" className="secondary compact" onClick={() => onOpen(active)}>
-          {locale === "it" ? "Apri in cantina" : "Open in cellar"}
-        </button>
-      </div>
-      <div className="wine-value-constellation-legend">
-        {segments.map((segment) => (
-          <button
-            type="button"
-            className={segment.index === activeIndex ? "active" : ""}
-            key={segment.label}
-            onClick={() => select(segment.index)}
-          >
-            <i style={{ backgroundColor: segment.color }} aria-hidden="true" />
-            <span>{typeLabel(segment)}</span>
-            <strong>{formatPercentage(segment.share * 100, locale, 0)}</strong>
-          </button>
-        ))}
-      </div>
-      <div className="wine-value-constellation-density">
-        <span>{locale === "it" ? "Densità di valore" : "Value density"}</span>
-        <small>{locale === "it" ? "Valore medio per bottiglia, per tipologia" : "Average value per bottle, by type"}</small>
-        <div>
-          {segments.map((segment) => (
-            <button
-              type="button"
-              className={segment.index === activeIndex ? "active" : ""}
-              key={segment.label}
-              onClick={() => select(segment.index)}
-            >
-              <i style={{ backgroundColor: segment.color }} aria-hidden="true" />
-              <span>{typeLabel(segment)}</span>
-              <strong>{formatMoney(segment.bottles ? segment.value / segment.bottles : 0, "CHF", locale)}</strong>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+function WineValueConstellation(props: ComponentProps<typeof LazyWineValueConstellation>) {
+  return <Suspense fallback={null}><LazyWineValueConstellation {...props} /></Suspense>;
 }
 
 function collectorFocusSvgIcon(kind: "drink_now" | "past_window" | "future_deliveries" | "to_collect" | "missing_data" | "maturity" | "regions" | "producer") {
@@ -14602,270 +14278,50 @@ export function App() {
               ) : null}
 
               {settingsTab === "users" && canAppAdmin ? (
-                <section className="settings-card settings-card-wide settings-admin-card">
-                  <details className="collapsible-panel settings-admin-panel">
-                    <summary className="settings-admin-summary">
-                      <span>{t("redeemCodes")}</span>
-                      <span className="settings-admin-summary-meta">
-                        <span className="status-pill configured">{activeRedeemCodesCount} active</span>
-                        <span className="status-pill">{redeemCodes.length} total</span>
-                      </span>
-                    </summary>
-                    <div className="settings-card-heading">
-                      <div>
-                        <span>{t("billing")}</span>
-                        <h3>{t("redeemCodes")}</h3>
-                      </div>
-                      <button type="button" className="secondary compact" disabled={saving} onClick={() => loadBilling(true, true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load billing"))}>
-                        {t("loadingData")}
-                      </button>
-                    </div>
-                    <details className="settings-admin-subpanel" open={Boolean(generatedRedeemCode)}>
-                      <summary>{t("redeemCodeCreatePanel")}</summary>
-                      <form className="inline-form redeem-admin-form" onSubmit={createRedeemCode}>
-                        <label>
-                          <span>{t("message")}</span>
-                          <input value={redeemCodeDraft.label} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, label: event.target.value })} placeholder="Promo 30 giorni" />
-                        </label>
-                        <label>
-                          <span>{t("durationDays")}</span>
-                          <input type="number" min="1" max="3650" value={redeemCodeDraft.duration_days} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, duration_days: event.target.value })} />
-                        </label>
-                        <label>
-                          <span>{t("records")}</span>
-                          <input type="number" min="1" max="10000" value={redeemCodeDraft.max_redemptions} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, max_redemptions: event.target.value })} />
-                        </label>
-                        <label>
-                          <span>{t("email")}</span>
-                          <input type="email" value={redeemCodeDraft.email} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, email: event.target.value })} placeholder="opzionale" />
-                        </label>
-                        <label>
-                          <span>{t("expires")}</span>
-                          <input type="datetime-local" value={redeemCodeDraft.expires_at} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, expires_at: event.target.value })} />
-                        </label>
-                        <button type="submit" disabled={saving || !Number(redeemCodeDraft.duration_days)}>
-                          {t("createRedeemCode")}
-                        </button>
-                      </form>
-                      {generatedRedeemCode ? (
-                        <div className="invite-row">
-                          <div>
-                            <strong>{t("generatedCode")}</strong>
-                            <span>{generatedRedeemCode}</span>
-                          </div>
-                          <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(generatedRedeemCode)}>
-                            Copy
-                          </button>
-                        </div>
-                      ) : null}
-                    </details>
-                    <div className="settings-admin-subheading">
-                      <strong>{t("redeemCodeListPanel")}</strong>
-                      <span>{redeemCodes.length ? `${activeRedeemCodesCount}/${redeemCodes.length} active` : t("noActionItems")}</span>
-                    </div>
-                    {redeemCodes.length ? (
-                      <div className="member-list settings-admin-list">
-                        {redeemCodes.map((code) => (
-                          <details className="settings-admin-row settings-admin-detail-row redeem-admin-card" key={code.id}>
-                            <summary className="settings-admin-row-summary">
-                              <div>
-                                <strong>{code.label || code.code_prefix}</strong>
-                                <span>{code.code || code.code_prefix}</span>
-                              </div>
-                              <div className="settings-admin-summary-meta">
-                                <span className={code.is_active ? "status-pill configured" : "status-pill"}>{code.is_active ? "active" : "inactive"}</span>
-                                <span className="status-pill">{code.duration_days}d</span>
-                                <span className="status-pill">{code.redeemed_count}/{code.max_redemptions} {t("redeemed")}</span>
-                              </div>
-                            </summary>
-                            <div className="settings-admin-row-body">
-                              <div className="settings-admin-row-info">
-                                {code.email ? <span>{code.email}</span> : null}
-                                {code.expires_at ? <span>{t("expires")}: {formatDisplayDate(code.expires_at)}</span> : null}
-                              </div>
-                              <div className="member-actions settings-admin-actions">
-                                {code.code ? (
-                                  <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(code.code || "")}>
-                                    Copy
-                                  </button>
-                                ) : null}
-                                <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code)}>
-                                  {t("delete")}
-                                </button>
-                                {code.redeemed_count > 0 ? (
-                                  <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code, true)}>
-                                    Force delete
-                                  </button>
-                                ) : null}
-                              </div>
-                            </div>
-                          </details>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="empty-state">{t("noActionItems")}</p>
-                    )}
-                  </details>
-                </section>
-              ) : null}
-
-              {settingsTab === "users" && canAppAdmin ? (
-                <section className="admin-users-workspace settings-card-wide" aria-label={t("settingsUsers")}>
-                  <header className="admin-users-heading">
-                    <div>
-                      <span>{locale === "it" ? "AMMINISTRAZIONE" : "ADMINISTRATION"}</span>
-                      <h2>{t("settingsUsers")} <small>{appUsers.length} {locale === "it" ? "utenti" : "users"}</small></h2>
-                    </div>
-                    <button type="button" className="secondary compact" disabled={saving} onClick={() => loadAppUsers(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load users"))}>
-                      {locale === "it" ? "Aggiorna" : "Refresh"}
-                    </button>
-                  </header>
-
-                  <div className="admin-users-toolbar">
-                    <label className="admin-users-search">
-                      <AppIcon name="search" />
-                      <input
-                        value={adminUserQuery}
-                        onChange={(event) => setAdminUserQuery(event.target.value)}
-                        placeholder={locale === "it" ? "Cerca per nome, email o ruolo..." : "Search by name, email or role..."}
-                      />
-                    </label>
-                    <details className="admin-users-filter">
-                      <summary><AppIcon name="filter" /> {locale === "it" ? "Filtri" : "Filters"}{adminUserStatusFilter !== "all" ? <i aria-hidden="true" /> : null}</summary>
-                      <div>
-                        {(["all", "pending", "active", "inactive", "blocked"] as const).map((status) => (
-                          <button type="button" key={status} className={adminUserStatusFilter === status ? "active" : ""} onClick={() => setAdminUserStatusFilter(status)}>
-                            {status === "all" ? (locale === "it" ? "Tutti" : "All")
-                              : status === "pending" ? (locale === "it" ? "Da approvare" : "Pending")
-                                : status === "active" ? (locale === "it" ? "Attivi" : "Active")
-                                  : status === "inactive" ? (locale === "it" ? "Inattivi" : "Inactive")
-                                    : t("blocked")}
-                          </button>
-                        ))}
-                      </div>
-                    </details>
-                  </div>
-
-                  <div className={`admin-users-layout${selectedAdminUserId ? " detail-open" : ""}`}>
-                    <div className="admin-users-list" role="list">
-                      {filteredAdminUsers.length ? filteredAdminUsers.map((user, index) => {
-                        const tierStatus = appUserTierStatus(user, locale);
-                        const activityStatus = appUserActivityStatus(user, locale);
-                        const selected = selectedAdminUser?.id === user.id;
-                        return (
-                          <button
-                            type="button"
-                            role="listitem"
-                            className={`admin-user-row${selected ? " selected" : ""}`}
-                            key={user.id}
-                            onClick={() => setSelectedAdminUserId(user.id)}
-                          >
-                            <span className={`admin-user-avatar tone-${index % 4}`}>{appUserInitials(user)}</span>
-                            <span className="admin-user-identity">
-                              <span className="admin-user-name-line">
-                                <strong>{user.display_name || user.email}</strong>
-                                <small>{appUserRoleLabel(user, locale)}</small>
-                              </span>
-                              <span className="admin-user-email">{user.email}</span>
-                              <span className="admin-user-feature-pills">
-                                <i className={tierStatus.configured ? "configured" : ""}>{tierStatus.label}</i>
-                                {user.can_use_label_recognition ? <i>{t("labelRecognitionEnabled")}</i> : null}
-                                {user.can_manage_wine_photos ? <i>{locale === "it" ? "Foto abilitate" : "Photos enabled"}</i> : null}
-                                {user.can_use_restaurant_mode ? <i>{locale === "it" ? "Ristorante" : "Restaurant"}</i> : null}
-                              </span>
-                            </span>
-                            <span className="admin-user-row-status">
-                              <strong>{formatAiBudget(user.ai_credit_balance_usd || 0)}</strong>
-                              <i style={activityStatus.style}>{activityStatus.label}</i>
-                              {!user.is_approved ? <em>{locale === "it" ? "Da approvare" : "Pending"}</em> : null}
-                              {user.is_blocked ? <em>{t("blocked")}</em> : null}
-                            </span>
-                            <span className="admin-user-row-chevron" aria-hidden="true">›</span>
-                          </button>
-                        );
-                      }) : <p className="empty-state">{locale === "it" ? "Nessun utente corrisponde ai filtri." : "No users match these filters."}</p>}
-                    </div>
-
-                    {selectedAdminUser ? (() => {
-                      const user = selectedAdminUser;
-                      const activityStatus = appUserActivityStatus(user, locale);
-                      const entitlementStatus = appUserEntitlementStatus(user, locale);
-                      return (
-                        <aside className="admin-user-detail" aria-label={`${locale === "it" ? "Dettaglio" : "Details"} ${user.display_name || user.email}`}>
-                          <button type="button" className="admin-user-detail-close" aria-label={locale === "it" ? "Chiudi dettaglio" : "Close details"} onClick={() => setSelectedAdminUserId(null)}>×</button>
-                          <div className="admin-user-detail-identity">
-                            <span className="admin-user-avatar large">{appUserInitials(user)}</span>
-                            <div>
-                              <h3>{user.display_name || user.email}</h3>
-                              <strong>{appUserRoleLabel(user, locale)}</strong>
-                              <span>{user.email}</span>
-                              <i className={user.is_approved ? "approved" : "pending"}>{user.is_approved ? "approved" : (locale === "it" ? "in attesa" : "pending")}</i>
-                            </div>
-                          </div>
-
-                          <section className="admin-user-detail-section">
-                            <h4>{locale === "it" ? "Stato e attività" : "Status and activity"}</h4>
-                            <dl>
-                              <div><dt>{locale === "it" ? "Stato account" : "Account status"}</dt><dd className={user.is_blocked ? "danger" : "success"}>{user.is_blocked ? t("blocked") : (locale === "it" ? "Attivo" : "Active")}</dd></div>
-                              <div><dt>{locale === "it" ? "Ultima attività" : "Last activity"}</dt><dd style={activityStatus.style}>{activityStatus.label}</dd></div>
-                              <div><dt>{locale === "it" ? "Data attività" : "Activity date"}</dt><dd>{user.last_activity_at ? formatDisplayDate(user.last_activity_at) : "—"}</dd></div>
-                              <div><dt>{locale === "it" ? "Accesso residuo" : "Access remaining"}</dt><dd>{entitlementStatus?.label || (locale === "it" ? "Piano gratuito" : "Free plan")}</dd></div>
-                            </dl>
-                          </section>
-
-                          <section className="admin-user-detail-section">
-                            <h4>{locale === "it" ? "Piano e funzionalità" : "Plan and features"}</h4>
-                            <dl>
-                              <div><dt>{locale === "it" ? "Piano" : "Plan"}</dt><dd>{appUserPlanLabel(user, locale)}</dd></div>
-                              <div><dt>{locale === "it" ? "Riconoscimento etichette" : "Label recognition"}</dt><dd className={(user.can_use_label_recognition || user.is_ambassador) ? "success" : "muted"}>{(user.can_use_label_recognition || user.is_ambassador) ? (locale === "it" ? "Attivo" : "Active") : (locale === "it" ? "Disattivo" : "Disabled")}</dd></div>
-                              <div><dt>{locale === "it" ? "Caricamento foto" : "Photo uploads"}</dt><dd className={(user.can_manage_wine_photos || user.is_ambassador) ? "success" : "muted"}>{(user.can_manage_wine_photos || user.is_ambassador) ? (locale === "it" ? "Abilitato" : "Enabled") : (locale === "it" ? "Disabilitato" : "Disabled")}</dd></div>
-                              <div><dt>{locale === "it" ? "Modalità ristorante" : "Restaurant mode"}</dt><dd className={(user.can_use_restaurant_mode || user.is_ambassador) ? "success" : "muted"}>{(user.can_use_restaurant_mode || user.is_ambassador) ? (locale === "it" ? "Abilitata" : "Enabled") : (locale === "it" ? "Disabilitata" : "Disabled")}</dd></div>
-                            </dl>
-                          </section>
-
-                          {!user.is_app_admin && !user.has_demo_access && user.is_approved ? <Suspense fallback={null}><AdminAmbassadorEditor key={user.id} user={user} locale={locale} saving={saving} onSave={change => updateUserAmbassador(user, change)} /></Suspense> : null}
-
-                          <details className="admin-user-detail-accordion" open>
-                            <summary><span><AppIcon name="star" /><strong>AI Credit</strong><small>{locale === "it" ? "Gestisci il credito AI dell'utente" : "Manage this user's AI credit"}</small></span></summary>
-                            <div className="admin-user-credit-editor">
-                              <div className="admin-user-credit-balance"><span>{locale === "it" ? "Credito AI ordinario" : "Standard AI credit"}</span><strong>{formatAiBudget(user.standard_ai_credit_balance_usd ?? user.ai_credit_balance_usd ?? 0)}</strong></div>
-                              <label><span>{t("targetAiCreditBalance")}</span><input type="number" min="0" step="0.01" value={userAiBalanceDrafts[user.id] || ""} onChange={(event) => setUserAiBalanceDrafts((current) => ({ ...current, [user.id]: event.target.value }))} /></label>
-                              <label><span>{t("aiCreditAdminNote")}</span><input value={userAiNoteDrafts[user.id] || ""} onChange={(event) => setUserAiNoteDrafts((current) => ({ ...current, [user.id]: event.target.value }))} placeholder={t("aiCreditAdminNote")} /></label>
-                              <button type="button" className="secondary compact" disabled={saving || !(userAiBalanceDrafts[user.id] || "").trim()} onClick={() => updateUserAiCreditBalance(user)}>{t("saveAiCreditBalance")}</button>
-                            </div>
-                          </details>
-
-                          {!user.is_app_admin && !user.has_demo_access ? <details className="admin-user-detail-accordion">
-                            <summary><span><AppIcon name="settings" /><strong>{locale === "it" ? "Accesso app" : "App access"}</strong><small>{locale === "it" ? "Gestisci accesso e giorni residui" : "Manage access and remaining days"}</small></span></summary>
-                            <div className="admin-user-access-editor">
-                              <label><span>{locale === "it" ? "Giorni residui" : "Days remaining"}</span><input type="number" min="0" max="3650" step="1" value={userAccessDaysDrafts[user.id] || ""} onChange={(event) => setUserAccessDaysDrafts((current) => ({ ...current, [user.id]: event.target.value }))} /></label>
-                              <button type="button" className="secondary compact" disabled={saving || !(userAccessDaysDrafts[user.id] || "").trim()} onClick={() => updateUserAccessDays(user)}>{locale === "it" ? "Imposta accesso" : "Set access"}</button>
-                              {user.access_override_until ? <button type="button" className="secondary compact" disabled={saving} onClick={() => updateUserAccessDays(user, true)}>{locale === "it" ? "Ripristina automatico" : "Restore automatic"}</button> : null}
-                            </div>
-                          </details> : null}
-
-                          <details className="admin-user-detail-accordion">
-                            <summary><span><AppIcon name="settings" /><strong>{locale === "it" ? "Permessi e altre azioni" : "Permissions and other actions"}</strong><small>{locale === "it" ? "Ruolo e funzionalità amministrative" : "Role and administrative features"}</small></span></summary>
-                            <div className="admin-user-permission-actions">
-                              <button type="button" className={user.is_app_admin ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleAppAdmin(user)}>{user.is_app_admin ? "App admin" : "Make app admin"}</button>
-                              <button type="button" className={user.can_use_label_recognition ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleLabelRecognition(user)}>{user.can_use_label_recognition ? t("labelRecognitionEnabled") : t("labelRecognitionDisabled")}</button>
-                              <button type="button" className={user.can_use_restaurant_mode ? "compact" : "secondary compact"} disabled={saving || user.is_app_admin} onClick={() => toggleRestaurantModeAccess(user)}>{user.can_use_restaurant_mode ? (locale === "it" ? "Disabilita ristorante" : "Disable restaurant") : (locale === "it" ? "Abilita ristorante" : "Enable restaurant")}</button>
-                              <button type="button" className={user.can_manage_wine_photos ? "compact" : "secondary compact"} disabled={saving || user.is_app_admin} onClick={() => toggleWinePhotoAccess(user)}>{user.can_manage_wine_photos ? (locale === "it" ? "Disabilita foto" : "Disable photos") : (locale === "it" ? "Abilita foto" : "Enable photos")}</button>
-                            </div>
-                          </details>
-
-                          <div className="admin-user-detail-actions">
-                            <button type="button" className="secondary compact" disabled={saving} onClick={() => loadSingleAppUserStats(user).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load user stats"))}>{locale === "it" ? "Visualizza statistiche" : "View statistics"}</button>
-                            {!user.is_approved ? <button type="button" className="compact" disabled={saving} onClick={() => approveUser(user)}>{t("accept")}</button> : null}
-                            {!user.is_approved ? <button type="button" className="secondary compact" disabled={saving} onClick={() => rejectUser(user)}>{t("decline")}</button> : null}
-                            {user.is_approved ? <button type="button" className="secondary compact" disabled={saving} onClick={() => toggleUserBlocked(user)}>{user.is_blocked ? t("unblockAccess") : t("blockAccess")}</button> : null}
-                            <button type="button" className="danger compact admin-user-delete" disabled={saving} onClick={() => deleteAppUser(user)}>{t("delete")}</button>
-                          </div>
-                        </aside>
-                      );
-                    })() : null}
-                  </div>
-                </section>
+                <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
+                  <AdminUsersWorkspace
+                    activeRedeemCodesCount={activeRedeemCodesCount}
+                    adminUserQuery={adminUserQuery}
+                    adminUserStatusFilter={adminUserStatusFilter}
+                    appUsers={appUsers}
+                    filteredAdminUsers={filteredAdminUsers}
+                    generatedRedeemCode={generatedRedeemCode}
+                    locale={locale}
+                    redeemCodeDraft={redeemCodeDraft}
+                    redeemCodes={redeemCodes}
+                    saving={saving}
+                    selectedAdminUser={selectedAdminUser}
+                    selectedAdminUserId={selectedAdminUserId}
+                    userAccessDaysDrafts={userAccessDaysDrafts}
+                    userAiBalanceDrafts={userAiBalanceDrafts}
+                    userAiNoteDrafts={userAiNoteDrafts}
+                    t={t}
+                    setError={setError}
+                    setAdminUserQuery={setAdminUserQuery}
+                    setAdminUserStatusFilter={setAdminUserStatusFilter}
+                    setRedeemCodeDraft={setRedeemCodeDraft}
+                    setSelectedAdminUserId={setSelectedAdminUserId}
+                    setUserAccessDaysDrafts={setUserAccessDaysDrafts}
+                    setUserAiBalanceDrafts={setUserAiBalanceDrafts}
+                    setUserAiNoteDrafts={setUserAiNoteDrafts}
+                    approveUser={approveUser}
+                    createRedeemCode={createRedeemCode}
+                    deleteAppUser={deleteAppUser}
+                    deleteRedeemCode={deleteRedeemCode}
+                    loadAppUsers={loadAppUsers}
+                    loadBilling={loadBilling}
+                    loadSingleAppUserStats={loadSingleAppUserStats}
+                    rejectUser={rejectUser}
+                    toggleAppAdmin={toggleAppAdmin}
+                    toggleLabelRecognition={toggleLabelRecognition}
+                    toggleRestaurantModeAccess={toggleRestaurantModeAccess}
+                    toggleUserBlocked={toggleUserBlocked}
+                    toggleWinePhotoAccess={toggleWinePhotoAccess}
+                    updateUserAccessDays={updateUserAccessDays}
+                    updateUserAiCreditBalance={updateUserAiCreditBalance}
+                    updateUserAmbassador={updateUserAmbassador}
+                  />
+                </Suspense>
               ) : null}
 
               {settingsTab === "users" && canAppAdmin && false ? (

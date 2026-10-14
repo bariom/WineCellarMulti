@@ -37,13 +37,16 @@ export function useHorizontalScroll(initialIndex = 0) {
     const items = rail && Array.from(rail.children).filter(item => (item as HTMLElement).offsetWidth > 0);
     let item = items?.[Math.max(0, Math.min(index, items.length - 1))];
     if (!rail || !item) return;
+    // Aim at the snap position itself: with scroll-padding the browser would
+    // otherwise correct the scroll afterwards with its own animation.
+    const edge = rail.getBoundingClientRect().left + (parseFloat(getComputedStyle(rail).scrollPaddingLeft) || 0);
     // At the end, several cards can share the same clamped scroll position.
     // Previous must reach the preceding snap point, not another clamped card.
-    if (index < position.index && item.getBoundingClientRect().left >= rail.getBoundingClientRect().left - 2) {
-      item = items?.slice().reverse().find(candidate => candidate.getBoundingClientRect().left < rail.getBoundingClientRect().left - 2) || item;
+    if (index < position.index && item.getBoundingClientRect().left >= edge - 2) {
+      item = items?.slice().reverse().find(candidate => candidate.getBoundingClientRect().left < edge - 2) || item;
     }
     setInteracted(true);
-    const left = rail.scrollLeft + item.getBoundingClientRect().left - rail.getBoundingClientRect().left;
+    const left = rail.scrollLeft + item.getBoundingClientRect().left - edge;
     rail.scrollTo({ left, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
   useEffect(() => {

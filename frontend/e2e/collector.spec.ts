@@ -303,6 +303,15 @@ test("monitoring summary exposes closing and past-window wines in its detail", a
   await stats.getByRole("article", { name: "Da monitorare" }).click();
   await expect(page.getByRole("group", { name: "Scorrimento: Finestra degustazione" })).toContainText("3 di 4");
   const detail = page.locator(".readiness-dashboard-carousel .dashboard-card").filter({ has: page.getByRole("heading", { name: "Da monitorare" }) });
+  // The counter updates while the rail is still scrolling; measure once it has settled.
+  const scrollRail = page.locator(".readiness-dashboard-carousel .dashboard-grid");
+  let previousScroll = -1;
+  await expect.poll(async () => {
+    const current = await scrollRail.evaluate(element => element.scrollLeft);
+    const settled = current === previousScroll;
+    previousScroll = current;
+    return settled;
+  }, { intervals: [100] }).toBe(true);
   const detailBox = (await detail.boundingBox())!;
   const railBox = (await page.locator(".readiness-dashboard-carousel .dashboard-grid").boundingBox())!;
   expect(detailBox.x).toBeGreaterThanOrEqual(railBox.x - 1);
