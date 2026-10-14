@@ -68,7 +68,7 @@
     background: transparent;
     box-shadow: none;
     color: var(--text-muted);
-    font: 500 .85rem/1.4 "Segoe UI", sans-serif;
+    font: 500 .85rem/1.4 var(--font-ui);
   }
 
   :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-navigation > button:not(.secondary),

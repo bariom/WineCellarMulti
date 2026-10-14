@@ -3,6 +3,9 @@ import ReactDOM from "react-dom/client";
 import { CookieConsentBanner } from "./components/CookieConsentBanner";
 import { readCookieConsent } from "./services/cookieConsent";
 import { updateGoogleAdsConsent } from "./services/googleAds";
+import "@fontsource-variable/newsreader/opsz.css";
+import "@fontsource-variable/hanken-grotesk/wght.css";
+import "./tokens.css";
 import "./monitor.css";
 
 const storedCookieConsent = readCookieConsent();

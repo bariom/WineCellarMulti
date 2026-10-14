@@ -31,7 +31,7 @@
 
 .cookie-consent-banner h2 {
   margin: 0;
-  font: 1.35rem Georgia, serif;
+  font: 1.35rem var(--font-display);
 }
 
 .cookie-consent-banner span,

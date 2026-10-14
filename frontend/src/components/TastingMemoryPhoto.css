@@ -32,7 +32,7 @@
   text-transform: uppercase;
 }
 .tasting-memory-optional { color: var(--text-soft); font-size: .7rem; }
-.tasting-memory-intro strong { display: block; font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.25rem, 2vw, 1.5rem); font-weight: 400; line-height: 1.25; }
+.tasting-memory-intro strong { display: block; font-family: var(--font-display); font-size: clamp(1.25rem, 2vw, 1.5rem); font-weight: 400; line-height: 1.25; }
 .tasting-memory-photo .tasting-memory-intro p { margin: 8px 0 0; color: var(--text-muted); font-size: .8rem; line-height: 1.6; }
 .tasting-memory-frame {
   display: flex;
@@ -60,7 +60,7 @@
 .tasting-memory-view-hint { display: inline-flex; align-items: center; gap: 6px; justify-self: end; color: var(--text-muted); font-size: .7rem; font-weight: 400; }
 .tasting-memory-story figcaption { padding: 14px 0 0; border-top: 1px solid var(--memory-edge); }
 .tasting-memory-caption-heading time { color: var(--text-muted); font-size: .75rem; line-height: 1.5; }
-.tasting-memory-story .tasting-memory-note { margin: 10px 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.05rem; font-weight: 400; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tasting-memory-story .tasting-memory-note { margin: 10px 0 0; font-family: var(--font-display); font-size: 1.05rem; font-weight: 400; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
 .tasting-memory-viewer {
   box-sizing: border-box;
   width: min(1000px, calc(100vw - 24px));
@@ -77,7 +77,7 @@
 .tasting-memory-viewer::backdrop { background: rgb(12 18 15 / 85%); }
 .tasting-memory-viewer-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .tasting-memory-viewer-heading > div { min-width: 0; }
-.tasting-memory-viewer-heading h2 { margin: 6px 0; font-family: Georgia, "Times New Roman", serif; font-weight: 400; font-size: clamp(1.3rem, 3vw, 1.8rem); overflow-wrap: anywhere; }
+.tasting-memory-viewer-heading h2 { margin: 6px 0; font-family: var(--font-display); font-weight: 400; font-size: clamp(1.3rem, 3vw, 1.8rem); overflow-wrap: anywhere; }
 .tasting-memory-viewer-heading p { margin: 0; color: var(--text-muted); font-size: .8rem; }
 .tasting-memory-viewer-heading button { min-height: 44px; flex-shrink: 0; }
 .tasting-memory-viewer > img { display: block; width: auto; height: auto; max-width: 100%; max-height: 72dvh; margin-inline: auto; object-fit: contain; border-radius: 8px; }

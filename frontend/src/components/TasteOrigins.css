@@ -13,7 +13,7 @@
 .taste-origin-rank b { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border: 1px solid #f4dbab70; border-radius: 50%; color: #f4dbab; background: #172a2526; font-size: .8rem; }
 .taste-origin-illustration > .app-icon { grid-area: 1 / 2; margin-right: 18px; color: #fff7e7; }
 .taste-origin-card-content { display: grid; gap: 10px; padding: 18px 20px; }
-.taste-origin-card h5 { font-family: Georgia, serif; font-size: 1.55rem; font-weight: 500; }
+.taste-origin-card h5 { font-family: var(--font-display); font-size: 1.55rem; font-weight: 500; }
 .taste-origin-card p, .taste-origin-discovery p { font-size: .88rem; line-height: 1.65; }
 .taste-origin-discovery { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 18px; min-width: 0; padding: 22px; border: 1px solid var(--border); border-radius: 18px; background: color-mix(in srgb, var(--primary) 5%, var(--surface)); overflow-wrap: anywhere; }
 .taste-discovery-empty-icon { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; background: color-mix(in srgb, var(--primary) 9%, var(--surface)); color: var(--primary); }
@@ -21,7 +21,7 @@
 .taste-origin-discovery small { color: var(--text-muted); line-height: 1.5; }
 .taste-origin-discovery.has-suggestion { grid-template-columns: 190px minmax(0, 1fr); align-items: center; gap: 28px; padding: 26px; color: #fff8e9; border-color: #527561; background: radial-gradient(ellipse at 0 0, #66845d44, transparent 60%), linear-gradient(115deg, #183d31, #284d3d); }
 .taste-origin-discovery.has-suggestion .taste-origin-rank { color: #eed19a; font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.taste-origin-discovery.has-suggestion h4 { font-family: Georgia, serif; font-size: clamp(1.65rem, 2.5vw, 2.3rem); font-weight: 400; line-height: 1.15; color: #fff8e9; }
+.taste-origin-discovery.has-suggestion h4 { font-family: var(--font-display); font-size: clamp(1.65rem, 2.5vw, 2.3rem); font-weight: 400; line-height: 1.15; color: #fff8e9; }
 .taste-discovery-identity { font-size: .85rem; line-height: 1.5; color: #eed19a; }
 .taste-origin-discovery.has-suggestion p { color: #f0eee3; max-width: 70ch; }
 .taste-origin-discovery.has-suggestion small { color: #cad8cb; }

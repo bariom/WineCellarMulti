@@ -12,7 +12,7 @@ for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "dat
       await expect(dashboard).toBeVisible();
       const heading = dashboard.locator(focus === "taste" ? ".taste-dashboard-carousel h2" : ".hero-copy h2").first();
       await expect(heading).toBeVisible();
-      await expect(heading).toHaveCSS("font-family", "Georgia, serif");
+      await expect(heading).toHaveCSS("font-family", /^"Newsreader Variable", /);
       if (width < 900) {
         const header = page.locator(".cellar-home-hero");
         await expect(header).toBeVisible();

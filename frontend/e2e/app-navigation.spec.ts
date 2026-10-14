@@ -116,7 +116,7 @@ for (const [width, theme] of [[360, "atelier"], [390, "atelier"], [430, "atelier
     const header = page.locator(".cellar-compact-header");
     await expect(header).toBeVisible();
     await expect(header.locator(".topbar-brand-mark")).toBeHidden();
-    await expect(header.locator(".eyebrow")).toHaveCSS("font-family", "Georgia, serif");
+    await expect(header.locator(".eyebrow")).toHaveCSS("font-family", /^"Newsreader Variable", /);
     await expect(header.locator(".tier-badge")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     const bounds = (await header.boundingBox())!;
     expect(bounds.height).toBeLessThanOrEqual(110);

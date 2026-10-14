@@ -1,0 +1,111 @@
+.ai-generation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 350;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: 14px;
+  padding: clamp(24px, 4svh, 48px) 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  color: #f4eee2;
+  background:
+    radial-gradient(ellipse at 50% 40%, #183a3066, transparent 55%),
+    radial-gradient(ellipse at 18% 55%, #5e2b3b26, transparent 48%),
+    radial-gradient(ellipse at 86% 34%, #876f3521, transparent 42%),
+    #091916;
+  animation: ai-overlay-appear 320ms ease-out both;
+}
+.ai-generation-overlay.is-leaving { animation: ai-overlay-disappear 280ms ease-in both; }
+.ai-generation-brand {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 0 0 auto;
+  color: #deca9f;
+}
+.ai-generation-brand > span:first-child { font: 19px Georgia, serif; letter-spacing: .24em; }
+.ai-generation-brand > span:last-child { border-left: 1px solid #d8bd8c40; padding-left: 15px; font-size: 10px; letter-spacing: .22em; }
+.ai-generation-stage {
+  position: relative;
+  flex: 0 0 auto;
+  width: min(100%, 1050px);
+  height: clamp(210px, 42svh, 420px);
+  overflow: hidden;
+  pointer-events: none;
+}
+.ai-generation-art {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  left: 50%; right: auto;
+  width: max(680px, 100%);
+  height: 100%;
+  transform: translateX(-50%);
+}
+.ai-generation-ribbon { stroke-width: 2; opacity: .9; stroke-dasharray: 180 650; animation: ai-ribbon-flow 9s linear infinite; }
+.ai-generation-ribbon.ribbon-rose { stroke-width: 1.6; animation-duration: 12s; animation-delay: -4s; animation-direction: reverse; }
+.ai-generation-ribbon.ribbon-sage { animation-duration: 11s; animation-delay: -7s; }
+.ai-generation-sphere { transform-origin: 500px 260px; animation: ai-sphere-breathe 6s ease-in-out infinite; }
+.ai-generation-orbit-trail { stroke-dasharray: 24 76; animation: ai-orbit-flow 7s linear infinite; }
+.ai-generation-orbit-trail.trail-sage { stroke-dasharray: 15 85; animation-duration: 10s; animation-delay: -4s; animation-direction: reverse; }
+.ai-generation-orbit-trail.trail-rose { stroke-dasharray: 30 70; animation-duration: 13s; animation-delay: -8s; }
+.ai-generation-orbit-trail.trail-glow { opacity: .07; }
+.ai-generation-orbit-trail.trail-point { stroke-dasharray: .1 99.9; }
+.ai-generation-glints { animation: ai-light-breathe 5s ease-in-out infinite; }
+/* The bowl follows an oval gesture; liquid lags behind inside its clip. */
+.ai-generation-glass { transform-origin: 500px 339px; animation: ai-glass-swirl 3.6s ease-in-out infinite; }
+.ai-generation-wine { transform-origin: 500px 225px; animation: ai-wine-swirl 3.6s ease-in-out -.35s infinite; }
+.ai-generation-wine-current { stroke-dasharray: 28 72; animation: ai-orbit-flow 1.8s linear infinite; }
+.ai-generation-copy { display: grid; justify-items: center; flex: 0 0 auto; gap: 16px; width: min(100%, 570px); min-width: 0; text-align: center; }
+.ai-generation-label { display: flex; align-items: center; justify-content: center; gap: 10px; max-width: 100%; color: #d7bc8f; font-size: .68rem; font-weight: 600; line-height: 1.5; letter-spacing: .18em; text-transform: uppercase; }
+.ai-generation-label::before { content: ""; width: 5px; height: 5px; flex: 0 0 auto; border-radius: 50%; background: #d7bc8f; }
+.ai-generation-copy strong { color: #faf0dd; font: 400 clamp(1.9rem, 3.5vw, 2.8rem)/1.15 Georgia, "Times New Roman", serif; letter-spacing: -.035em; }
+.ai-generation-copy p { max-width: 46ch; margin: 0; color: #d2d8cd; font-size: .97rem; line-height: 1.75; }
+.ai-generation-progress { box-sizing: border-box; max-width: 100%; padding: 10px 18px; border: 1px solid #bba67d38; border-radius: 10px; color: #efdcba; background: #183129; font-size: .85rem; line-height: 1.5; overflow-wrap: anywhere; }
+.ai-generation-hint { max-width: 46ch; margin-top: 8px; padding-top: 18px; border-top: 1px solid #afbcaa25; color: #95a79b; font-size: .75rem; line-height: 1.65; }
+@keyframes ai-overlay-appear { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ai-overlay-disappear { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ai-ribbon-flow { to { stroke-dashoffset: -830; } }
+@keyframes ai-orbit-flow { to { stroke-dashoffset: -100; } }
+@keyframes ai-sphere-breathe { 0%, 100% { transform: scale(.98); } 50% { transform: scale(1.02); } }
+@keyframes ai-light-breathe { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+@keyframes ai-glass-swirl {
+  0%, 100% { transform: translate(0, -4px) rotate(-7deg); }
+  25% { transform: translate(12px, 0) rotate(-2deg); }
+  50% { transform: translate(0, 4px) rotate(7deg); }
+  75% { transform: translate(-12px, 0) rotate(2deg); }
+}
+@keyframes ai-wine-swirl {
+  0%, 100% { transform: translateY(-2px) rotate(11deg); }
+  25% { transform: translateY(2px) rotate(5deg); }
+  50% { transform: translateY(-2px) rotate(-11deg); }
+  75% { transform: translateY(2px) rotate(-5deg); }
+}
+@media (max-width: 600px) {
+  .ai-generation-overlay { padding: 24px 22px; gap: 10px; }
+  .ai-generation-stage { height: clamp(200px, 35svh, 300px); }
+  .ai-generation-copy { gap: 14px; }
+  .ai-generation-copy p { font-size: .9rem; line-height: 1.65; }
+  .ai-generation-hint { margin-top: 4px; padding-top: 14px; }
+}
+@media (max-height: 650px) and (max-width: 600px) {
+  .ai-generation-overlay { justify-content: flex-start; }
+  .ai-generation-stage { height: 180px; }
+}
+@media (max-height: 540px) and (min-width: 601px) {
+  .ai-generation-overlay { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-content: safe center; gap: 16px 24px; padding: 24px; }
+  .ai-generation-brand { grid-column: 1 / -1; justify-content: center; }
+  .ai-generation-stage { height: 250px; }
+  .ai-generation-copy { gap: 10px; }
+  .ai-generation-copy strong { font-size: 1.8rem; }
+  .ai-generation-copy p { font-size: .85rem; line-height: 1.5; }
+  .ai-generation-hint { margin-top: 0; padding-top: 10px; font-size: .7rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-generation-overlay, .ai-generation-overlay * { animation: none; }
+  .ai-generation-overlay.is-leaving { opacity: 0; }
+}

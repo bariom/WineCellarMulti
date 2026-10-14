@@ -13,7 +13,7 @@
 }
 .home-moments-copy { min-width: 0; max-width: 620px; }
 .home-moments-copy .home-moments-kicker { margin: 0 0 6px; color: var(--text-muted); font-size: .7rem; letter-spacing: .08em; }
-.home-moments-copy h2 { margin: 0 0 8px; font: italic 400 1.8rem/1.15 var(--font-display, Georgia, serif); color: var(--text); }
+.home-moments-copy h2 { margin: 0 0 8px; font: italic 400 1.8rem/1.15 var(--font-display); color: var(--text); }
 .home-moments-copy > p:last-child { margin: 0; font-size: .85rem; line-height: 1.6; color: var(--text-muted); }
 .home-moments-actions { display: flex; flex-wrap: wrap; gap: 10px; flex-shrink: 0; }
 .home-moments-actions > button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; white-space: normal; }

@@ -4,11 +4,11 @@
 .featured-wine-sheet header { display: flex; align-items: flex-start; gap: 12px; }
 .featured-wine-sheet header > div { flex: 1; min-width: 0; }
 .featured-wine-sheet header button { flex: 0 0 44px; min-height: 44px; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 1.6rem; }
-.featured-wine-sheet h2 { margin: 6px 0; font: 1.5rem/1.2 Georgia, serif; }
+.featured-wine-sheet h2 { margin: 6px 0; font: 1.5rem/1.2 var(--font-display); }
 .featured-wine-sheet p { margin: 0; font-size: .85rem; line-height: 1.55; color: var(--text-muted); }
 .featured-wine-reason { padding: 16px; border-radius: 16px; background: color-mix(in srgb, var(--primary) 7%, var(--surface)); }
 .featured-wine-reason h3 { margin: 0 0 8px; font-size: .88rem; }
-.featured-wine-reason > strong { display: block; margin-bottom: 10px; font: 2rem/1.2 Georgia, serif; color: var(--primary); }
+.featured-wine-reason > strong { display: block; margin-bottom: 10px; font: 2rem/1.2 var(--font-display); color: var(--primary); }
 .featured-wine-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; margin: 0; }
 .featured-wine-facts dt { color: var(--text-muted); font-size: .78rem; line-height: 1.45; }
 .featured-wine-facts dd { margin: 6px 0 0; font-size: 1.1rem; font-weight: 600; }

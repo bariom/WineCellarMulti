@@ -1369,7 +1369,7 @@ export function WineDetail({
             </div>
           ) : null}
           <div>
-            <p className="eyebrow">{t("wineDetail")}</p>
+            <p className="eyebrow detail-wine-origin">{[wine.appellation, wine.region].filter(Boolean).join(" · ") || t("wineDetail")}</p>
             <h2 className={`detail-wine-name ${wine.name.length > 34 ? "detail-wine-name--long" : wine.name.length > 20 ? "detail-wine-name--medium" : "detail-wine-name--short"}`}>
               <i className={`wine-dot tone-${wineTone(wine.type)}`} />
               <span>{wine.name}</span>
@@ -1382,7 +1382,7 @@ export function WineDetail({
                 onChange={(rating) => { void onUpdateRating(rating); }}
               />
             ) : wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null : null}
-            <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
+            <span className="detail-wine-meta">{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
             {collectorSignals.length ? <div className="detail-collector-signals" aria-label={locale === "it" ? "Segnali della collezione" : "Collection signals"}>
               {collectorSignals.map((signal) => <small key={signal.key} className={`detail-collector-signal is-${signal.key}`}>
                 <i aria-hidden="true" />{signal.label}
@@ -1416,7 +1416,6 @@ export function WineDetail({
           {!restaurantMode ? <strong className="detail-current-value"><span>{t("currentValue")}</span>{detailValue}</strong> : null}
         </div>
         {canWrite && wine.quantity > 0 ? <section className="wine-detail-quick-actions" aria-label={locale === "it" ? "Azioni sul vino" : "Wine actions"}>
-          <div><span>{locale === "it" ? "Azioni rapide" : "Quick actions"}</span><strong>{locale === "it" ? "Cosa vuoi registrare?" : "What would you like to record?"}</strong></div>
           <div>
             {!restaurantMode ? <button type="button" onClick={() => revealAction("consume", consumePanelRef)}>{locale === "it" ? "Registra bevuta" : "Record tasting"}</button> : null}
             <button type="button" className={restaurantMode ? "" : "secondary"} onClick={() => revealAction("sale", salePanelRef)}>{locale === "it" ? "Registra vendita" : "Record sale"}</button>

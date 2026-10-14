@@ -4,9 +4,9 @@
 .memories-widget figure > img { display: block; width: 100%; height: 190px; object-fit: cover; border-radius: 10px; }
 .memories-widget figcaption { display: grid; gap: 8px; padding-top: 14px; overflow-wrap: anywhere; }
 .memories-widget time { color: var(--text-muted); font-size: .75rem; }
-.memories-widget h4 { margin: 0; font: 400 1.4rem/1.2 var(--font-display, Georgia, serif); color: var(--text); }
+.memories-widget h4 { margin: 0; font: 400 1.4rem/1.2 var(--font-display); color: var(--text); }
 .memories-widget small { color: var(--text-muted); }
-.memories-widget blockquote { margin: 4px 0; padding-left: 12px; border-left: 2px solid var(--accent); color: var(--text-muted); font: italic 1rem/1.5 Georgia, serif; }
+.memories-widget blockquote { margin: 4px 0; padding-left: 12px; border-left: 2px solid var(--accent); color: var(--text-muted); font: italic 1rem/1.5 var(--font-display); }
 .memories-widget-companions { display: flex; align-items: start; gap: 8px; font-size: .85rem; }
 .memories-widget-companions svg { flex-shrink: 0; margin-top: 4px; }
 .memories-widget-photo-fallback, .memories-widget-empty { padding: 20px 0; color: var(--text-muted); }

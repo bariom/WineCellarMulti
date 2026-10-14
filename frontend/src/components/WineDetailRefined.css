@@ -1,0 +1,344 @@
+/*
+ * Wine Detail refinement. Loaded after the legacy layers in styles.css so the
+ * hero reads as one system: serif only for the name and figures, sans for
+ * labels, one control radius, one card radius. Colours come from theme tokens.
+ * The doubled .wine-detail class lifts specificity over the older layers
+ * without !important.
+ */
+
+.wine-detail.wine-detail .detail-wine-origin {
+  margin: 0 0 4px;
+  color: color-mix(in srgb, var(--accent) 62%, var(--text));
+  font: 600 var(--text-xs)/1.3 var(--font-ui);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.wine-detail.wine-detail .detail-wine-name {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+/* Legacy layers size the name through container queries and sheet scopes;
+ * this selector is deliberately specific enough to win over all of them. */
+.wine-detail.wine-detail .detail-hero .detail-title h2.detail-wine-name--short { font-size: 1.75rem; }
+.wine-detail.wine-detail .detail-hero .detail-title h2.detail-wine-name--medium { font-size: 1.5rem; }
+.wine-detail.wine-detail .detail-hero .detail-title h2.detail-wine-name--long { font-size: 1.3rem; }
+
+.wine-detail.wine-detail .detail-hero .detail-title h2.detail-wine-name > span {
+  color: inherit;
+  text-wrap: balance;
+}
+
+.wine-detail.wine-detail .detail-wine-name:has(> .wine-dot) {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.wine-detail.wine-detail .detail-wine-name .wine-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin: 0.42em 0 0;
+}
+
+.wine-detail.wine-detail .detail-wine-meta {
+  color: var(--text-muted);
+  font: 400 var(--text-sm)/1.4 var(--font-ui);
+}
+
+/* Rating: six light stars on one line; the reset control only when useful. */
+.wine-detail.wine-detail .rating-input {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0;
+  margin: 4px 0 2px -6px;
+}
+
+.wine-detail.wine-detail .rating-input > button[role="radio"] {
+  width: 34px;
+  min-width: 0;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  box-shadow: none;
+  color: color-mix(in srgb, var(--text-muted) 38%, transparent);
+  font-size: 1.2rem;
+  line-height: 1;
+  transform: none;
+}
+
+.wine-detail.wine-detail .rating-input > button[role="radio"].filled {
+  color: color-mix(in srgb, var(--accent) 82%, var(--text));
+}
+
+.wine-detail.wine-detail .rating-input > button[role="radio"]:hover:not(:disabled) {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.wine-detail.wine-detail .rating-input > .clear-rating {
+  width: 28px;
+  min-width: 0;
+  height: 28px;
+  min-height: 0;
+  margin-left: 4px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--text-muted);
+  font: 600 var(--text-xs)/1 var(--font-ui);
+}
+
+.wine-detail.wine-detail .rating-input > .clear-rating:disabled {
+  display: none;
+}
+
+/* Current value as a ledger line. */
+.wine-detail.wine-detail .detail-hero .detail-title .detail-current-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+  min-width: 0;
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--financial-text);
+  font: 500 clamp(1.375rem, 6.4vw, 1.75rem)/1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.wine-detail.wine-detail .detail-hero .detail-title .detail-current-value > span {
+  color: var(--text-muted);
+  font: 500 var(--text-xs)/1.3 var(--font-ui);
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+/* Quick actions: two twin buttons, no surrounding box. */
+.wine-detail.wine-detail .wine-detail-quick-actions {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.wine-detail.wine-detail .wine-detail-quick-actions > div {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.wine-detail.wine-detail .wine-detail-quick-actions button {
+  min-height: var(--control-height-lg);
+  padding: 0 14px;
+  border: 1.5px solid var(--primary);
+  border-radius: var(--radius-control);
+  background: var(--primary);
+  box-shadow: none;
+  color: var(--primary-contrast);
+  font: 600 var(--text-md)/1.2 var(--font-ui);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wine-detail.wine-detail .wine-detail-quick-actions button.secondary {
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Photo and origin: twin quiet controls instead of two unrelated styles. */
+.wine-detail.wine-detail .detail-photo-origin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.wine-detail.wine-detail .detail-photo-origin-actions > button,
+.wine-detail.wine-detail .detail-photo-origin-actions .wine-origin-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--text);
+  font: 500 var(--text-sm)/1 var(--font-ui);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wine-detail.wine-detail .detail-photo-origin-actions > .wine-origin-preview {
+  margin-left: 0;
+}
+
+/* AI tools toggle reads as a control, not as a shouted label. */
+.wine-detail.wine-detail .wine-ai-tools > summary {
+  min-height: 40px;
+  border-radius: var(--radius-pill);
+  font: 600 var(--text-sm)/1 var(--font-ui);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Status and quantity: one surface, two cells. */
+.wine-detail.wine-detail .detail-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.wine-detail.wine-detail .detail-hero-metric {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.wine-detail.wine-detail .detail-hero-metric + .detail-hero-metric {
+  border-left: 1px solid var(--border);
+}
+
+.wine-detail.wine-detail .detail-hero-metric > span {
+  color: var(--text-muted);
+  font: 500 var(--text-xs)/1.3 var(--font-ui);
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.wine-detail.wine-detail .detail-hero-metric > strong {
+  color: var(--text);
+  font: 600 var(--text-lg)/1.25 var(--font-ui);
+}
+
+/* Drinking window card. */
+.wine-detail.wine-detail .detail-hero-window {
+  border-radius: var(--radius-card);
+}
+
+.wine-detail.wine-detail .detail-hero-window .section-heading h3 {
+  font: 500 var(--title-sm)/1.2 var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.wine-detail.wine-detail .detail-hero-window .section-heading > span {
+  color: var(--text-muted);
+  font: 600 var(--text-sm)/1.2 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Keep the ideal period visible without the blurred halo. */
+.wine-detail.wine-detail .maturity-horizon-peak-zone {
+  background: color-mix(in srgb, var(--drink-ideal) 10%, transparent);
+  box-shadow: none;
+}
+
+.wine-detail.wine-detail .maturity-horizon-peak {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--drink-ideal) 18%, transparent);
+}
+
+.wine-detail.wine-detail .maturity-horizon-status span {
+  font: 600 var(--text-xs)/1.3 var(--font-ui);
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.wine-detail.wine-detail .maturity-horizon-status strong {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.wine-detail.wine-detail .maturity-horizon-years {
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Secondary sections: serif title, quiet number (Alt+number shortcut). */
+.wine-detail.wine-detail .wine-detail-structured-summary > div > span {
+  color: color-mix(in srgb, var(--accent) 62%, var(--text));
+  font: 500 var(--text-sm)/1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.wine-detail.wine-detail .wine-detail-structured-summary > div > strong {
+  font: 500 var(--title-sm)/1.2 var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.wine-detail.wine-detail .wine-detail-structured-summary > small {
+  color: var(--text-muted);
+  font: 400 var(--text-sm)/1.35 var(--font-ui);
+}
+
+/* Mobile sheet: the detail heading already names the wine, so the sheet
+ * head keeps its accessible title but shows only the close control. */
+.mobile-detail-sheet:has(> .wine-detail) .mobile-detail-sheet-head > :not(button) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.mobile-detail-sheet:has(> .wine-detail) .mobile-detail-sheet-head {
+  justify-content: flex-end;
+}
+
+.mobile-detail-sheet:has(> .wine-detail) .mobile-wine-actions {
+  display: grid;
+  grid-template-columns: none;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 10px;
+}
+
+.mobile-detail-sheet:has(> .wine-detail) .mobile-wine-actions > button {
+  justify-content: center;
+  min-height: var(--control-height);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+  font: 600 var(--text-md)/1.2 var(--font-ui);
+}

@@ -1,0 +1,30 @@
+/*
+ * Shared design foundations. Themes in styles.css change colours only;
+ * typography, radii and control sizes come from these tokens.
+ */
+:root {
+  --font-display: "Newsreader Variable", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --font-ui: "Hanken Grotesk Variable", "Segoe UI", system-ui, sans-serif;
+  --font-body: var(--font-ui);
+  --font-sans: var(--font-ui);
+
+  /* Type scale (rem at a 16px root). */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --title-sm: 1.25rem;
+  --title-md: 1.5rem;
+  --title-lg: 1.875rem;
+
+  /* Three radii: controls, cards, pills. md/lg/xl alias existing references. */
+  --radius-control: 8px;
+  --radius-card: 14px;
+  --radius-pill: 999px;
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-card);
+  --radius-xl: 18px;
+
+  --control-height: 44px;
+  --control-height-lg: 48px;
+}
