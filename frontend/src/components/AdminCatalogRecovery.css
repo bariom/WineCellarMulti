@@ -1,0 +1,5 @@
+.admin-catalog-recovery { display: grid; gap: 10px; min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }
+.admin-catalog-recovery h4, .admin-catalog-recovery p { margin: 0; }
+.admin-catalog-recovery p, .admin-catalog-recovery small { line-height: 1.6; overflow-wrap: anywhere; }
+.admin-catalog-recovery button { justify-self: start; max-width: 100%; min-height: 44px; white-space: normal; }
+.admin-catalog-recovery [role="alert"] { color: var(--danger); }

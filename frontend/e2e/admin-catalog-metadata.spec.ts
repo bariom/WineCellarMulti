@@ -10,8 +10,14 @@ for (const locale of ["it", "en"] as const) {
       const original = window.fetch;
       let entry = { id: "catalog-massucco", name: "La Luna dei Tempi", producer: "Massucco", type: "", region: "", appellation: "", country: "", format: "", grapes_text: "", is_active: true, source: "user" };
       let saves = 0;
+      let recoveries = 0;
       window.fetch = async (input, init) => {
         const path = new URL(String(input), location.href).pathname;
+        if (path.endsWith("/wines/catalog/recover") && init?.method === "POST") {
+          recoveries++;
+          if (recoveries === 1) return Response.json({ detail: "Temporary recovery failure" }, { status: 503 });
+          return Response.json({ scanned: 3, created: 1, existing: 1, skipped: 1 });
+        }
         if (path.endsWith("/admin/operations/overview")) return Response.json(null);
         if (path.endsWith("/admin/operations/vineyards")) return Response.json({ located: 0, pending: 0, not_found: 0, filtered: 0, candidates: [], precision_counts: {} });
         if (path.endsWith("/admin/operations/ai-pricing")) return Response.json({ price_book: {}, ai_pack_markup_percent: "15", free_tier_ai_pack_markup_percent: "100", updated_at: null });
@@ -37,6 +43,28 @@ for (const locale of ["it", "en"] as const) {
     await page.getByRole("button", { name: it ? /Catalogo vini/ : /Wine catalog/ }).click();
     await page.getByText(it ? "Cerca e gestisci le schede" : "Search and manage entries", { exact: true }).click();
     const section = page.locator(".settings-card").filter({ has: page.getByRole("heading", { name: it ? "Cerca entry catalogo" : "Search catalog entries", exact: true }) });
+    const recovery = section.getByRole("region", { name: it ? "Recupero catalogo da tutte le cantine" : "Recover catalog from all cellars" });
+    await expect(recovery).toContainText(it ? "tutte le cantine Vinaris" : "all Vinaris cellars");
+    await expect(recovery).toContainText(it ? "Le nuove schede restano da approvare" : "New entries require approval");
+    const recover = recovery.getByRole("button", { name: it ? "Recupera schede da approvare" : "Recover entries for review" });
+    await recover.click();
+    await expect(recovery.getByRole("alert")).toContainText("Temporary recovery failure");
+    await recover.click();
+    await expect(recovery.getByRole("status")).toContainText(it ? "Nuove schede da approvare: 1" : "New entries for review: 1");
+    await expect(recovery.getByRole("alert")).toHaveCount(0);
+    for (const width of [360, 390, 430, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      await recovery.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const bounds = (await recovery.boundingBox())!;
+      const button = (await recover.boundingBox())!;
+      expect(button.x).toBeGreaterThanOrEqual(bounds.x);
+      expect(button.x + button.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+      expect(button.height).toBeGreaterThanOrEqual(44);
+      if (it && (width === 390 || width === 1440)) {
+        await page.screenshot({ path: testInfo.outputPath(`admin-catalog-recovery-${width}.png`), fullPage: true });
+      }
+    }
     await section.getByPlaceholder("Dogaia, 36 lune...").fill("massucco");
     await section.getByRole("button", { name: it ? "Cerca" : "Search", exact: true }).click();
     await section.getByText(it ? "Modifica dati condivisi" : "Edit shared metadata", { exact: true }).click();

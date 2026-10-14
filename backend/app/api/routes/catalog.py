@@ -26,6 +26,7 @@ from app.models import (
     WineSensoryProfile,
 )
 from app.schemas.catalog import (
+    CatalogRecoveryResult,
     CatalogWineCreate,
     CatalogWineMetadataUpdate,
     CatalogWineResponse,
@@ -240,7 +241,9 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
             .where(WineCatalogAlias.normalized_alias == normalized),
         )
         if existing is not None:
-            if existing.is_active and source == "confirmed_recognition":
+            if existing.is_active and source in {
+                "confirmed_recognition", "cellar_sync", "cellar_import", "catalog_recovery"
+            }:
                 return existing
             changed = False
             for field in ("producer", "region", "wine_zone", "locality", "appellation", "type", "format", "country", "grapes_text"):
@@ -375,6 +378,19 @@ def list_admin_wine_catalog_entries(
 ) -> list[CatalogWineResponse]:
     ensure_app_admin(context)
     return [catalog_response(entry) for entry in search_all_catalog_entries(db, q, limit)]
+
+
+@router.post("/catalog/recover", response_model=CatalogRecoveryResult)
+def recover_global_catalog_entries(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CatalogRecoveryResult:
+    ensure_app_admin(context)
+    from app.services.catalog_sync import recover_global_catalog
+
+    result = recover_global_catalog(db)
+    db.commit()
+    return result
 
 
 @router.post("/catalog", response_model=CatalogWineResponse, status_code=status.HTTP_201_CREATED)

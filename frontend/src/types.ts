@@ -232,6 +232,8 @@ export type StockMovement = {
   created_at: string;
 };
 
+export type CatalogRecoveryResult = { scanned: number; created: number; existing: number; skipped: number };
+
 export type CatalogWine = {
   id?: string;
   name: string;

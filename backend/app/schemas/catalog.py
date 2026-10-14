@@ -7,6 +7,13 @@ from pydantic import BaseModel, Field, field_validator
 from app.core.wine_types import CANONICAL_WINE_TYPES, normalize_wine_type
 
 
+class CatalogRecoveryResult(BaseModel):
+    scanned: int = Field(default=0, ge=0)
+    created: int = Field(default=0, ge=0)
+    existing: int = Field(default=0, ge=0)
+    skipped: int = Field(default=0, ge=0)
+
+
 class CatalogWineResponse(BaseModel):
     id: UUID
     name: str

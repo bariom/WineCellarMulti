@@ -16,6 +16,23 @@ are catalog facts common to all vintages; saving does not rename an identity,
 approve a pending entry, change private cellar records or replace sensory profiles.
 The admin-only endpoint is `PUT /wines/catalog/{entry_id}/metadata`.
 
+Saving or updating a cellar wine, and importing Vinaris JSON, compatible legacy
+JSON or CellarTracker CSV, proposes missing shared catalog entries for approval.
+Only technical metadata is shared; quantities, prices, ratings and private notes
+remain in the cellar. A name without complementary metadata is insufficient.
+Existing approved catalog metadata is preserved.
+
+For wines saved before this synchronization existed, app administrators can open
+**Catalogo vini → Cerca e gestisci le schede → Recupera schede da approvare**.
+The app-admin-only `POST /wines/catalog/recover` projects technical metadata from
+all households, including archived wines, and returns checked, created, existing
+and insufficient-data counts. This is an explicit global catalog maintenance
+operation: it never loads household/user details, private notes, prices, quantities
+or whole private Wine entities. Ordinary household admins cannot run it. Running
+it again does not duplicate entries. Approve recovered entries through the normal
+catalog review workflow before they appear in wine suggestions in other cellars.
+No database migration or AI credits are needed.
+
 Approved, unambiguous catalog metadata is used for shared identities with no wine
 in the administrator's active cellar, both in batch preview/generation and single
 profile generation. Pending, missing and ambiguous catalog records provide no

@@ -134,6 +134,7 @@ const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then
 const TasteProfilePanel = lazy(() => import("./components/TasteProfilePanel"));
 const AdminSensoryProfilesPanel = lazy(() => import("./components/AdminSensoryProfilesPanel"));
 const AdminCatalogMetadataEditor = lazy(() => import("./components/AdminCatalogMetadataEditor"));
+const AdminCatalogRecovery = lazy(() => import("./components/AdminCatalogRecovery"));
 const AdminAnnouncementsPanel = lazy(() => import("./components/AdminAnnouncementsPanel"));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
@@ -15143,6 +15144,7 @@ export function App() {
                       <small>{t("catalogAdminSearchHelp")}</small>
                     </div>
                   </div>
+                  <AdminCatalogRecovery locale={locale} disabled={saving || !canWriteWine} onRecovered={async () => { await Promise.all([loadPendingCatalogEntries(), searchCatalogAdminEntries()]); }} />
                   <form className="inline-row-form" onSubmit={(event) => { event.preventDefault(); searchCatalogAdminEntries().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to search catalog")); }}>
                     <input value={catalogAdminQuery} onChange={(event) => setCatalogAdminQuery(event.target.value)} placeholder="Dogaia, 36 lune..." />
                     <button type="submit" className="secondary compact" disabled={saving || !catalogAdminQuery.trim()}>{t("search")}</button>

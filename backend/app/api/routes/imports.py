@@ -37,6 +37,7 @@ from app.models import (
     WishlistItem,
     WishlistList,
 )
+from app.services.catalog_sync import propose_wine_catalog_entry
 from app.services.free_tier import (
     ensure_free_tier_label_capacity,
     free_tier_label_limit,
@@ -1034,6 +1035,7 @@ def import_vinaris_json_payload(
         existing = existing_by_id_or_key(db, Wine, context.household.id, data, key, wine_keys)
         if mode == "skip_duplicates" and existing is not None:
             result.wines_skipped += 1
+            propose_wine_catalog_entry(db, existing, source="cellar_import")
             imported_wine_ids[original_id] = existing.id
             continue
         if mode == "update_existing" and existing is not None:
@@ -1056,6 +1058,7 @@ def import_vinaris_json_payload(
             result.wines_imported += 1
         imported_wine_ids[original_id] = wine.id
         db.flush()
+        propose_wine_catalog_entry(db, wine, source="cellar_import")
         raw_allocations = [
             item
             for item in as_list(raw_wine.get("storage_allocations"))
@@ -1602,6 +1605,7 @@ def import_cellartracker(
         existing = wine_keys.get(key)
         if mode == "skip_duplicates" and existing is not None:
             result.wines_skipped += 1
+            propose_wine_catalog_entry(db, existing, source="cellar_import")
             continue
         if mode == "update_existing" and existing is not None:
             ensure_free_tier_label_capacity(db, context, wine=existing, will_be_active=data["quantity"] > 0)
@@ -1618,6 +1622,7 @@ def import_cellartracker(
             result.wines_imported += 1
         db.flush()
         set_user_wine_tags(db, context, wine, data["tags"])
+        propose_wine_catalog_entry(db, wine, source="cellar_import")
         if wine.current_value is not None:
             db.add(WineValueHistory(wine_id=wine.id, value=wine.current_value, currency=wine.currency, source="imported"))
     db.commit()
@@ -1648,6 +1653,7 @@ def import_legacy_json(
         existing = existing_by_id_or_key(db, Wine, context.household.id, data, key, wine_keys)
         if mode == "skip_duplicates" and existing is not None:
             result.wines_skipped += 1
+            propose_wine_catalog_entry(db, existing, source="cellar_import")
             continue
         if mode == "update_existing" and existing is not None:
             ensure_free_tier_label_capacity(
@@ -1657,6 +1663,7 @@ def import_legacy_json(
                 if field != "id":
                     setattr(existing, field, value)
             result.wines_updated += 1
+            propose_wine_catalog_entry(db, existing, source="cellar_import")
             continue
         if mode == "add_all" and db.get(Wine, data["id"]) is not None:
             data["id"] = uuid4()
@@ -1664,6 +1671,7 @@ def import_legacy_json(
         wine = Wine(**data)
         db.add(wine)
         db.flush()
+        propose_wine_catalog_entry(db, wine, source="cellar_import")
         set_user_wine_tags(
             db, context, wine, [as_str(tag) for tag in as_list(raw_wine.get("tags")) if as_str(tag)]
         )

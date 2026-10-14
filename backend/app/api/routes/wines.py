@@ -32,7 +32,6 @@ from app.api.deps import (
     require_wine_photo_write_context,
     require_write_context,
 )
-from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
 from app.api.routes.tags import get_or_create_user_tag
 from app.core.config import settings
 from app.core.wine_types import normalize_wine_type
@@ -72,6 +71,7 @@ from app.services.bottle_photo_ai import (
     process_bottle_photo,
     warm_bottle_photo_worker,
 )
+from app.services.catalog_sync import propose_wine_catalog_entry
 from app.services.critic_scores import scores_for_display
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.merchants import get_or_create_merchant
@@ -1464,10 +1464,10 @@ def create_wine(
                 location_id=allocation.location_id,
                 bin_id=allocation.bin_id,
             )
-    ensure_catalog_entry_for_wine_data(db, data)
     shared_features = hydrate_wine_from_shared(
         db, wine, locale=context.user.locale or "it", market_country=context.user.market_country
     )
+    propose_wine_catalog_entry(db, wine)
     record_wine_value_history(db, wine, source="shared" if "value" in shared_features else "manual")
     set_user_wine_tags(db, context, wine, tag_names)
     if wine.rating > 0:
@@ -1991,6 +1991,7 @@ def update_wine(
         record_wine_value_history(db, wine, source="manual")
     if tag_names is not None:
         set_user_wine_tags(db, context, wine, tag_names)
+    propose_wine_catalog_entry(db, wine)
     db.commit()
     db.refresh(wine)
     return wine_response(
