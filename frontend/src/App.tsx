@@ -54,6 +54,7 @@ import "./components/CellarCompactHeader.css";
 import "./components/CellarHeaderTheme.css";
 import "./components/CellarDesktopNavigation.css";
 import "./components/WineDetailRefined.css";
+import "./components/HomeRefined.css";
 import { CollectorMaturity } from "./components/CollectorMaturity";
 
 type BreakdownDrilldown = {
@@ -8784,6 +8785,9 @@ export function App() {
   }
 
   function renderStyleBalanceWidget() {
+    // Largest styles first, so the proportion bar and the list read in the same order.
+    const toneRowsByStock = [...balancedToneRows].sort((first, second) => second.bottles - first.bottles);
+    const stockedToneRows = toneRowsByStock.filter((row) => row.bottles > 0);
     return (<article className="dashboard-card wide-card balance-overview-card">
                     <div className="card-heading">
                       <div>
@@ -8792,6 +8796,15 @@ export function App() {
                       </div>
                       <strong>{formatBottleCount(balancedAvailableBottleCount, locale)}</strong>
                     </div>
+                    {stockedToneRows.length ? (
+                      <div
+                        className="balance-mix"
+                        role="img"
+                        aria-label={`${t("balancedOverviewTitle")}: ${stockedToneRows.map((row) => `${row.label} ${formatBottleCount(row.bottles, locale)}`).join(", ")}`}
+                      >
+                        {stockedToneRows.map((row) => <span key={row.tone} className={`tone-${row.tone}`} style={{ flexGrow: row.bottles }} />)}
+                      </div>
+                    ) : null}
                     <div className="balance-indicator-grid">
                       <div className="balance-indicator balance-indicator-score">
                         <span>{t("balanceStyleIndex")}</span>
@@ -8819,10 +8832,11 @@ export function App() {
                       </div>
                     </div>
                     <div className="balance-tone-grid">
-                      {balancedToneRows.map((row) => (
+                      {toneRowsByStock.map((row) => (
                         <button
                           type="button"
                           key={row.tone}
+                          className={row.bottles ? undefined : "is-empty"}
                           onClick={() => {
                             clearFilters("cellar");
                             setTypeFilter(wineTypeForTone(row.tone));
