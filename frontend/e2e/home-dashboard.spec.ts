@@ -123,7 +123,7 @@ test("shows contextual KPIs for every dashboard insight", async ({ page }) => {
   const insightSwitcher = page.locator(".dashboard-analysis-switcher");
   const insights = [
     { focus: "Valore", labels: ["Valore totale", "Rendimento vs acquisto", "Valore medio bottiglia"] },
-    { focus: "Finestra degustazione", labels: ["Pronti da bere", "In attesa della finestra ideale", "Finestra scaduta"] },
+    { focus: "Finestra degustazione", labels: ["Pronti da bere", "In attesa della finestra ideale", "Da monitorare"] },
     { focus: "Timeline", labels: ["Consegne future", "Prossimi 30 giorni", "Prossima consegna"] },
     { focus: "Qualità dati", labels: ["Completezza dati", "Dati incompleti", "Campi da completare"] },
   ];

@@ -9,8 +9,10 @@ test("keeps location optional until immediate availability is requested", async 
       window.$RefreshReg$ = () => {};
       window.$RefreshSig$ = () => (type) => type;
       window.__vite_plugin_react_preamble_installed__ = true;
-      const {default: React} = await import('/node_modules/.vite/deps/react.js');
-      const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
+      // Use the same versioned URLs Vite gives app modules, or React loads twice.
+      const {browserHash} = await (await fetch('/node_modules/.vite/deps/_metadata.json')).json();
+      const {default: React} = await import('/node_modules/.vite/deps/react.js?v=' + browserHash);
+      const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js?v=' + browserHash);
       const {default: BuyingAdviceView} = await import('/src/views/BuyingAdviceView.tsx');
       const {translations} = await import('/src/i18n.ts');
       await import('/src/styles.css');

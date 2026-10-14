@@ -562,7 +562,9 @@ test("world map groups nearby photos, previews them and opens memories beyond th
   await page.setViewportSize({ width: 390, height: 844 });
   // Preserve the reviewed hover state independently of viewport changes.
   await book.getByRole("button", { name: "Mostra tutti i ricordi", exact: true }).hover();
-  await expect(book).toHaveScreenshot("moments-map-compact.png");
+  // The native month field is localised by the OS display language (e.g. "agosto"
+  // vs "août" on the same build), so it is masked rather than compared.
+  await expect(book).toHaveScreenshot("moments-map-compact.png", { mask: [book.locator("#memory-book-month")] });
   const navigation = () => (window as any).bookPeriodRequests.at(-1).offset;
   const offset = await page.evaluate(navigation);
   await europe.focus();
