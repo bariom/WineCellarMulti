@@ -37,6 +37,13 @@ On this Windows workstation add `C:\Program Files\nodejs` to PATH if necessary
 (older setups may use `C:\ERI\node`). Use `npm.cmd` / `npx.cmd` if PowerShell
 blocks the `.ps1` launchers.
 
+Suites run with reduced motion. Playwright 1.62 ignores the top-level
+`reducedMotion` option for new pages, so `playwright.config.ts` also sets it in
+`contextOptions`; check `matchMedia("(prefers-reduced-motion: reduce)")` if
+animations reappear after a Playwright upgrade. Native date and month inputs
+render in the operating system's display language, so screenshots mask them
+rather than compare their text.
+
 `PLAYWRIGHT_BASE_URL` can point to an already running Vite frontend. Without
 it, Playwright starts `npm run dev` automatically. The normal Vite API proxy
 remains available for future suites that use a test backend. The default port

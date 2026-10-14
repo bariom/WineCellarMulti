@@ -17219,7 +17219,11 @@ textarea:hover {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
+    /* Zero, not 0.01ms: with the default transition-property "all" a tiny
+     * duration turns every style change into a transition, so code that
+     * measures right after changing a style reads the previous value. */
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
   }
 }
 
@@ -21248,6 +21252,11 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
 .key-position-trend-area { fill: color-mix(in srgb, var(--trend-tone) 18%, transparent); opacity: 0; }
 .key-position-trend svg.chart-revealed .key-position-trend-line { animation: graph-line-draw 0.52s ease-out forwards; }
 .key-position-trend svg.chart-revealed .key-position-trend-area { animation: graph-area-in 0.32s 0.18s ease-out forwards; }
+/* Must follow the base rule above: the earlier reduced-motion block is
+ * overridden by its opacity: 0, which hid the area for reduced-motion users. */
+@media (prefers-reduced-motion: reduce) {
+  .key-position-trend-area { opacity: 1; }
+}
 .key-position-trend strong { grid-area: value; color: color-mix(in srgb, var(--trend-tone) 76%, var(--financial-text)); font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: clamp(0.86rem, 1.25vw, 1.02rem); font-variant-numeric: tabular-nums; letter-spacing: -0.035em; }
 .key-position-trend small { grid-area: period; color: var(--key-card-muted); font-size: clamp(0.58rem, 0.72vw, 0.67rem); font-variant-numeric: tabular-nums; }
 .key-position-trend em { grid-column: 1 / -1; align-self: center; color: var(--key-card-muted); font-size: 0.68rem; font-style: normal; line-height: 1.3; }

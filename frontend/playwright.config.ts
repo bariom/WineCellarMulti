@@ -24,6 +24,9 @@ export default defineConfig({
     screenshot: "only-on-failure",
     colorScheme: "light",
     reducedMotion: "reduce",
+    // Playwright 1.62 does not apply the top-level reducedMotion to new pages
+    // (matchMedia still reports no preference); contextOptions does.
+    contextOptions: { reducedMotion: "reduce" },
   },
   webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
     command: `npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,
