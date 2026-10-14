@@ -84,6 +84,8 @@ test.describe("receipt on touch screens", () => {
       const toggle = dialog.getByRole("button", { name: "Mostra documento", exact: true });
       await toggle.scrollIntoViewIfNeeded();
       const before = await dialog.evaluate(el => ({ top: el.scrollTop, y: el.getBoundingClientRect().y, height: el.getBoundingClientRect().height }));
+      expect(before.y).toBe(0);
+      expect(before.height).toBe(height);
       await toggle.tap();
       await expect(image).toBeVisible();
       await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.complete && el.naturalHeight === 1800)).toBe(true);
@@ -112,6 +114,9 @@ test.describe("receipt on touch screens", () => {
     await expect(dialog.getByRole("heading", { name: "Verifica l’acquisto", exact: true })).toBeVisible();
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath("receipt-document-desktop-1440.png") });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await dialog.evaluate(el => el.scrollTop = 0);
+    await page.screenshot({ path: testInfo.outputPath("receipt-review-collapsed-390.png") });
     expect(errors).toEqual([]);
   });
 });
