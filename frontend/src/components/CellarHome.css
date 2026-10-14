@@ -63,7 +63,7 @@
   .cellar-home-hero h2 { margin: 0 0 10px; font: normal clamp(2.2rem, 8.5vw, 3rem)/1.05 var(--font-display); letter-spacing: -.03em; color: inherit; }
   .cellar-home-count { margin: 0; font-size: .88rem; letter-spacing: .04em; color: #f1f0e5; }
   .cellar-home-stats { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(136px, 1fr); gap: 10px; min-width: 0; overflow-x: auto; padding: 2px 1px 10px; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: var(--home-rule) transparent; }
-  .cellar-home-stat { min-width: 0; display: grid; align-content: start; gap: 8px; padding: 12px; border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper); box-shadow: 0 5px 14px #192c2010; scroll-snap-align: start; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+  .cellar-home-stat { min-width: 0; display: grid; align-content: start; gap: 8px; padding: 12px; border: 1px solid var(--home-rule); border-radius: var(--radius-card); background: var(--home-paper); box-shadow: 0 5px 14px #192c2010; scroll-snap-align: start; color: inherit; text-align: left; font: inherit; cursor: pointer; }
   .cellar-home-stat > .app-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: color-mix(in srgb, var(--primary) 10%, var(--home-paper)); color: var(--primary); font-size: 1.1rem; }
   .cellar-home-stat h3 { margin: 0; font-size: .75rem; font-weight: 500; color: var(--text-muted); }
   .cellar-home-stat-values { display: grid; gap: 6px; }
@@ -105,13 +105,13 @@
   .cellar-home-edition .collector-maturity-endpoints { font-size: .72rem; }
   .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .cellar-wine-insight {
     grid-column: 1 / -1; grid-row: 4; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px 10px;
-    padding: 12px; border: 1px solid var(--home-rule); border-radius: 10px;
+    padding: 12px; border: 1px solid var(--home-rule); border-radius: var(--radius-control);
     background: color-mix(in srgb, var(--primary) 3%, var(--home-paper)); color: var(--text-muted); font: normal .8rem/1.5 var(--font-display);
   }
   .cellar-home-edition .cellar-wine-insight > .app-icon { color: var(--home-copper); font-size: 1.25rem; }
   .cellar-home-edition .cellar-wine-insight .featured-wine-discover { grid-column: 2; grid-row: 2; padding: 4px 0 0; text-align: left; font: 600 .75rem/1.5 var(--font-ui); color: var(--primary); }
   .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail { grid-auto-columns: 46%; gap: 12px; }
-  .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail button { padding: 16px 12px; border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper); gap: 8px; }
+  .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail button { padding: 16px 12px; border: 1px solid var(--home-rule); border-radius: var(--radius-card); background: var(--home-paper); gap: 8px; }
   .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail strong { font-size: 1.12rem; line-height: 1.25; }
   .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail small { padding-top: 8px; border: 0; font-size: .65rem; }
   .cellar-riserva { padding: 24px; border-radius: var(--radius-card); background: #183c31; color: #faf7ef; border: 1px solid #436052; }
@@ -142,7 +142,7 @@
   :root .cellar-home-edition .home-dashboard-secondary .hero-kpi {
     display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr;
     align-content: start; gap: 8px; min-width: 0; padding: 12px;
-    border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper);
+    border: 1px solid var(--home-rule); border-radius: var(--radius-card); background: var(--home-paper);
     box-shadow: 0 5px 14px #192c2010; scroll-snap-align: start;
   }
   :root .cellar-home-edition .home-dashboard-secondary .hero-kpi > span {
@@ -172,7 +172,7 @@
     color: var(--text-muted); font-size: .62rem; line-height: 1.5; letter-spacing: .1em;
   }
   :root .cellar-home-edition .home-dashboard-secondary :is(.daily-premium-panel, .dashboard-bottle-tile, .top-value-showcase-item) {
-    border: 1px solid var(--home-rule); border-radius: 12px; padding: 12px;
+    border: 1px solid var(--home-rule); border-radius: var(--radius-card); padding: 12px;
     background: color-mix(in srgb, var(--primary) 3%, var(--home-paper));
   }
   .cellar-home-edition .personal-dashboard-header { gap: 14px; }
@@ -241,10 +241,10 @@
   :root .cellar-home-edition .home-workspace > .view-tabs { display: block; position: relative; z-index: 10; width: 100%; margin: 0; padding: 0; overflow: visible; border: 0; background: transparent; box-shadow: none; }
   :root .authenticated-app-shell.cellar-home-edition .home-workspace .view-tabs-navigation {
     display: flex; position: static; flex-direction: row; flex-wrap: wrap; align-items: center; min-height: 0; height: auto; max-height: none; overflow: visible; gap: 2px 8px;
-    padding: 6px 8px; border: 1px solid var(--home-rule); border-radius: 10px; background: color-mix(in srgb, var(--primary) 4%, var(--surface)); color: var(--text); box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 3%, transparent);
+    padding: 6px 8px; border: 1px solid var(--home-rule); border-radius: var(--radius-control); background: color-mix(in srgb, var(--primary) 4%, var(--surface)); color: var(--text); box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 3%, transparent);
   }
   :root .cellar-home-edition .view-tabs-navigation > button, :root .cellar-home-edition .view-tabs-ai-group > summary {
-    flex: 0 1 auto; width: auto; min-height: 44px; padding: 10px; border: 0; border-radius: 6px;
+    flex: 0 1 auto; width: auto; min-height: 44px; padding: 10px; border: 0; border-radius: var(--radius-control);
     background: transparent; box-shadow: none; color: var(--text-muted); font: 500 .85rem/1.4 var(--font-ui);
   }
   :root .cellar-home-edition .view-tabs-navigation > button:not(.secondary), :root .cellar-home-edition .view-tabs-ai-group.is-active > summary { color: var(--text); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); font-weight: 650; box-shadow: inset 0 -2px var(--home-copper); }
@@ -255,7 +255,7 @@
   :root .cellar-home-edition .view-tabs-ai-group .view-tabs-ai-options {
     position: absolute; z-index: 20; top: 100%; left: 0;
     width: max(240px, 100%); padding: 8px;
-    border: 1px solid var(--home-rule); border-radius: 10px;
+    border: 1px solid var(--home-rule); border-radius: var(--radius-control);
     background: var(--home-paper); box-shadow: 0 12px 28px color-mix(in srgb, var(--text) 18%, transparent);
   }
   :root .cellar-home-edition .view-tabs-ai-options > button {
@@ -271,7 +271,7 @@
   .cellar-home-edition .focus-switcher-primary button { font-size: .85rem; }
   .cellar-home-edition .cellar-home-intro { display: block; }
   .cellar-home-edition .cellar-home-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
-  .cellar-home-edition .cellar-home-stat { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-content: start; gap: 10px 16px; padding: 24px; min-width: 0; border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper); box-shadow: var(--home-shadow); color: inherit; text-align: left; font: inherit; cursor: pointer; }
+  .cellar-home-edition .cellar-home-stat { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-content: start; gap: 10px 16px; padding: 24px; min-width: 0; border: 1px solid var(--home-rule); border-radius: var(--radius-card); background: var(--home-paper); box-shadow: var(--home-shadow); color: inherit; text-align: left; font: inherit; cursor: pointer; }
   .cellar-home-edition .cellar-home-stat > .app-icon { grid-column: 1; grid-row: 1 / 4; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: color-mix(in srgb, var(--primary) 10%, var(--home-paper)); font-size: 1.4rem; color: var(--primary); }
   .cellar-home-edition .cellar-home-stat h3 { margin: 0; font-size: .85rem; font-weight: 400; color: var(--text-muted); }
   .cellar-home-edition .cellar-home-stat-values { display: grid; gap: 8px; }

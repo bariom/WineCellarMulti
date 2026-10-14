@@ -106,7 +106,7 @@
   margin-bottom: 24px;
   padding: 14px 16px;
   border: 1px solid #a6753e;
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   color: #ffe1ad;
   background: #3a291b;
 }

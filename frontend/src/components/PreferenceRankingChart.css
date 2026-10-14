@@ -9,7 +9,7 @@
 .taste-preference-label strong { overflow-wrap: anywhere; font-weight: 600; line-height: 1.4; }
 .taste-preference-label small { flex: 0 0 auto; color: var(--muted); font-size: .72rem; font-variant-numeric: tabular-nums; }
 .taste-preference-value { flex: 0 0 auto; color: var(--text); font-variant-numeric: tabular-nums; }
-.taste-preference-track { height: 10px; border-radius: 6px; background: color-mix(in srgb, var(--border) 45%, transparent); overflow: hidden; }
+.taste-preference-track { height: 10px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--border) 45%, transparent); overflow: hidden; }
 .taste-preference-track > span { display: block; height: 100%; border-radius: inherit; background: var(--primary, #294d40); }
 .taste-preference-ranking li:first-child .taste-preference-track > span { background: var(--accent, #985036); }
 .taste-profile-grapes { padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); margin-block: 28px; min-width: 0; }

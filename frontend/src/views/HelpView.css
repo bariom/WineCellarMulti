@@ -3,7 +3,7 @@
 .help-hero { position: relative; padding-right: 68px; }
 .help-hero h2, .help-center h3, .help-article h2 { margin: 0; color: var(--text); }
 .help-hero p, .help-card small, .help-card span, .help-summary, .help-article li, .help-article > small { color: var(--text-muted); line-height: 1.5; }
-.help-search input { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); }
+.help-search input { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); color: var(--text); }
 .help-categories, .help-toolbar, .help-feedback, .help-related { display: flex; flex-wrap: wrap; gap: 8px; }
 .help-toolbar { align-items: center; }
 .help-categories button, .help-related button, .help-feedback button { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface); color: var(--text); }
@@ -12,7 +12,7 @@
 .help-card { display: grid; align-content: start; gap: 9px; min-height: 144px; padding: 18px; border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--surface) 94%, var(--surface-muted)); color: var(--text); text-align: left; box-shadow: 0 8px 22px color-mix(in srgb, var(--collector-depth) 10%, transparent); }
 .help-card:hover, .help-card:focus-visible { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 14px 28px color-mix(in srgb, var(--primary) 16%, transparent); }
 .help-card > span, .help-card em { font-size: .72rem; font-style: normal; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
-.help-card em, .help-role-note, .help-warnings { padding: 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); }
+.help-card em, .help-role-note, .help-warnings { padding: 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: var(--radius-control); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); }
 .help-ai-badge { width: fit-content; padding: 4px 8px; border: 1px solid color-mix(in srgb, var(--accent) 62%, var(--border)); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--accent) 20%, var(--surface)); color: var(--text); font-size: .68rem; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
 .help-ai-note { margin: 0; padding: 12px; border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--text); line-height: 1.45; }
 .help-close-button { position: relative; display: inline-grid; width: 38px; height: 38px; place-items: center; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); }

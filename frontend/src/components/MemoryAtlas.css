@@ -5,7 +5,7 @@
 .memory-atlas-map .leaflet-tile-pane { filter: saturate(.55); }
 .memory-atlas-marker { display: grid; place-items: center; border-radius: 50%; border: 3px solid var(--primary-contrast); background: var(--memory-wine); color: var(--primary-contrast); font: 600 14px system-ui, sans-serif; box-shadow: 0 0 0 6px #91482e18, 0 3px 12px #24121835; }
 .memory-atlas-marker:focus-visible { outline: 2px solid var(--primary); outline-offset: 5px; }
-.memory-atlas-map .leaflet-control-zoom { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 3px 10px #4d302315; }
+.memory-atlas-map .leaflet-control-zoom { border: 1px solid var(--border); border-radius: var(--radius-control); overflow: hidden; box-shadow: 0 3px 10px #4d302315; }
 .memory-atlas-map .leaflet-control-zoom a { width: 44px; height: 44px; line-height: 44px; background: var(--surface-raised); color: var(--memory-wine); border-color: var(--border); }
 .memory-atlas-map .leaflet-control-attribution { background: var(--surface-raised); font-size: 10px; }
 .memory-atlas-previews { display: flex; gap: 10px; overflow-x: auto; padding: 4px 0; scroll-snap-type: x proximity; }

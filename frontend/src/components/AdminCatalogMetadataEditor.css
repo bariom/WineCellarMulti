@@ -1,5 +1,5 @@
 .catalog-admin-entry { min-width: 0; }
-.admin-catalog-metadata { min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
+.admin-catalog-metadata { min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-card); }
 .admin-catalog-metadata > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 700; }
 .admin-catalog-metadata form { display: grid; gap: 14px; min-width: 0; }
 .admin-catalog-metadata form > p { margin: 0; line-height: 1.5; }

@@ -1,4 +1,4 @@
-.vineyard-location-editor { display:grid; gap:10px; padding:11px; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+.vineyard-location-editor { display:grid; gap:10px; padding:11px; border:1px solid var(--border); border-radius: var(--radius-card); background:var(--surface); }
 .vineyard-location-editor-heading { display:flex; align-items:start; justify-content:space-between; gap:12px; }
 .vineyard-location-editor-heading > div { display:grid; gap:3px; }
 .vineyard-location-editor-heading strong { font-size:.82rem; }
@@ -6,21 +6,21 @@
 .vineyard-location-editor-heading > .vineyard-location-editor-actions { display:flex; align-items:center; justify-content:end; }
 .vineyard-location-search { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; }
 .vineyard-location-search input { width:100%; min-width:0; padding:8px 10px; border:1px solid var(--border); border-radius: var(--radius-control); background:var(--surface-muted); color:var(--text); }
-.vineyard-location-search-results { display:grid; gap:5px; padding:6px; border:1px solid var(--border); border-radius:9px; background:var(--surface-muted); }
-.vineyard-location-search-results button { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; padding:8px 9px; border:0; border-radius:7px; background:transparent; color:var(--text); text-align:left; box-shadow:none; }
+.vineyard-location-search-results { display:grid; gap:5px; padding:6px; border:1px solid var(--border); border-radius: var(--radius-control); background:var(--surface-muted); }
+.vineyard-location-search-results button { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; padding:8px 9px; border:0; border-radius: var(--radius-control); background:transparent; color:var(--text); text-align:left; box-shadow:none; }
 .vineyard-location-search-results button:hover { background:var(--surface); }
 .vineyard-location-search-results button span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .vineyard-location-search-results button small { color:var(--text-muted); font-variant-numeric:tabular-nums; }
 .vineyard-location-search-feedback { margin:0; color:var(--text-muted); font-size:.74rem; }
-.vineyard-location-details { border:1px solid var(--border); border-radius:9px; background:var(--surface-muted); }
+.vineyard-location-details { border:1px solid var(--border); border-radius: var(--radius-control); background:var(--surface-muted); }
 .vineyard-location-details summary { padding:8px 10px; color:var(--text); cursor:pointer; font-size:.76rem; font-weight:800; }
 .vineyard-location-details > div { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; padding:0 10px 10px; }
 .vineyard-location-details label { display:grid; gap:4px; min-width:0; }
 .vineyard-location-details label span { color:var(--text-muted); font-size:.65rem; font-weight:750; letter-spacing:.04em; text-transform:uppercase; }
-.vineyard-location-details input, .vineyard-location-details textarea { width:100%; min-width:0; box-sizing:border-box; padding:7px 8px; border:1px solid var(--border); border-radius:7px; background:var(--surface); color:var(--text); font:inherit; font-size:.8rem; }
+.vineyard-location-details input, .vineyard-location-details textarea { width:100%; min-width:0; box-sizing:border-box; padding:7px 8px; border:1px solid var(--border); border-radius: var(--radius-control); background:var(--surface); color:var(--text); font:inherit; font-size:.8rem; }
 .vineyard-location-details textarea { resize:vertical; }
 .vineyard-location-details .vineyard-location-details-notes { grid-column:1 / -1; }
-.vineyard-location-editor-map { width:100%; height:320px; border:1px solid var(--border); border-radius:10px; cursor:crosshair; overflow:hidden; }
+.vineyard-location-editor-map { width:100%; height:320px; border:1px solid var(--border); border-radius: var(--radius-control); cursor:crosshair; overflow:hidden; }
 .vineyard-location-editor-controls { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; align-items:end; gap:9px; }
 .vineyard-location-editor-controls label { display:grid; gap:4px; min-width:0; }
 .vineyard-location-editor-controls label span { color:var(--text-muted); font-size:.69rem; font-weight:750; text-transform:uppercase; letter-spacing:.04em; }
@@ -28,7 +28,7 @@
 .vineyard-location-editor > p[role="alert"] { margin:0; color:var(--danger); font-size:.76rem; }
 .vineyard-location-fullscreen { position:fixed; z-index:900; inset:0; overflow:hidden; background:var(--surface); color:var(--text); }
 .vineyard-location-fullscreen-map { position:absolute; z-index:0; inset:0; width:100%; height:100%; cursor:crosshair; background:var(--surface-muted); }
-.vineyard-location-fullscreen-header, .vineyard-location-fullscreen-footer { position:absolute; z-index:1000; right:max(12px, env(safe-area-inset-right, 0px)); left:max(12px, env(safe-area-inset-left, 0px)); display:flex; align-items:center; width:min(680px, calc(100% - 24px)); margin-inline:auto; padding:10px; gap:12px; border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius:15px; background:color-mix(in srgb, var(--surface) 93%, transparent); box-shadow:0 14px 36px color-mix(in srgb, var(--collector-depth) 38%, transparent); backdrop-filter:blur(18px); }
+.vineyard-location-fullscreen-header, .vineyard-location-fullscreen-footer { position:absolute; z-index:1000; right:max(12px, env(safe-area-inset-right, 0px)); left:max(12px, env(safe-area-inset-left, 0px)); display:flex; align-items:center; width:min(680px, calc(100% - 24px)); margin-inline:auto; padding:10px; gap:12px; border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius: var(--radius-card); background:color-mix(in srgb, var(--surface) 93%, transparent); box-shadow:0 14px 36px color-mix(in srgb, var(--collector-depth) 38%, transparent); backdrop-filter:blur(18px); }
 .vineyard-location-fullscreen-header { top:max(12px, env(safe-area-inset-top, 0px)); }
 .vineyard-location-fullscreen-header > div, .vineyard-location-fullscreen-footer > div { display:grid; min-width:0; gap:2px; }
 .vineyard-location-fullscreen-header strong, .vineyard-location-fullscreen-header small, .vineyard-location-fullscreen-footer strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

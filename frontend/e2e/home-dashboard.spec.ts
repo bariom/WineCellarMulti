@@ -34,7 +34,7 @@ for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "dat
           const bounds = (await kpi.boundingBox())!;
           expect(value.x).toBeGreaterThanOrEqual(bounds.x);
           expect(value.x + value.width).toBeLessThanOrEqual(bounds.x + bounds.width);
-          await expect(kpi).toHaveCSS("border-radius", "12px");
+          await expect(kpi).toHaveCSS("border-radius", "14px");
         }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

@@ -90,7 +90,7 @@
   max-width: min(190px, 52vw);
   padding: 3px 6px;
   border-color: color-mix(in srgb, var(--border) 82%, #8f6230);
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--collector-depth) 20%, transparent);
   font-size: .68rem;
@@ -101,13 +101,13 @@
 
 .vineyard-fullscreen-view { position: fixed; z-index: 620; inset: 0; overflow: hidden; color: var(--text); background: var(--surface); }
 .vineyard-fullscreen-map { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; background: var(--surface-muted); }
-.vineyard-fullscreen-map .leaflet-tooltip { max-width: min(320px, 72vw); overflow: hidden; border-color: var(--border); border-radius: 9px; color: #211d19; font-family: inherit; font-size: .78rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.vineyard-fullscreen-map .leaflet-tooltip { max-width: min(320px, 72vw); overflow: hidden; border-color: var(--border); border-radius: var(--radius-control); color: #211d19; font-family: inherit; font-size: .78rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .vineyard-fullscreen-header { position: absolute; z-index: 800; top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: 14px; width: min(680px, calc(100% - max(24px, env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px)))); margin-inline: auto; padding: 10px; border: 1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 14px 36px color-mix(in srgb, var(--collector-depth) 36%, transparent); backdrop-filter: blur(18px); }
 .vineyard-fullscreen-header > div { display: grid; min-width: 0; gap: 2px; }
 .vineyard-fullscreen-header strong, .vineyard-fullscreen-header > div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vineyard-fullscreen-header strong { font-size: .92rem; }
 .vineyard-fullscreen-header > div span { color: var(--text-muted); font-size: .72rem; }
-.vineyard-fullscreen-back { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; min-height: 42px; padding: 8px 12px; border-radius: 11px; }
+.vineyard-fullscreen-back { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; min-height: 42px; padding: 8px 12px; border-radius: var(--radius-control); }
 .vineyard-fullscreen-back > span:first-child { font-size: 1.15rem; }
 .vineyard-fullscreen-card { position: absolute; z-index: 800; right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); display: grid; width: min(620px, calc(100% - max(24px, env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px)))); margin-inline: auto; padding: 14px 16px; gap: 7px; border: 1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--surface) 93%, transparent); box-shadow: 0 14px 36px color-mix(in srgb, var(--collector-depth) 40%, transparent); backdrop-filter: blur(18px); }
 .vineyard-fullscreen-card > div { display: grid; gap: 2px; }
@@ -134,7 +134,7 @@
   .detail-hero > .detail-vineyard-block { display: none; }
   .detail-hero > .detail-vineyard-block .section-heading,
   .detail-hero > .detail-vineyard-block .section-heading > div:first-child { display: block; }
-  .detail-hero > .detail-vineyard-block .vineyard-origin-trigger { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface)); }
+  .detail-hero > .detail-vineyard-block .vineyard-origin-trigger { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-card); background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface)); }
   .detail-hero > .detail-vineyard-block .vineyard-origin-trigger:hover,
   .detail-hero > .detail-vineyard-block .vineyard-origin-trigger:focus-visible { background: color-mix(in srgb, var(--surface-muted) 70%, var(--accent, var(--primary)) 8%); }
   .detail-hero > .detail-vineyard-block .vineyard-origin-trigger > strong,
@@ -180,5 +180,5 @@
   .wine-detail-modal-content .detail-vineyard-block .vineyard-map-copy span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wine-detail-modal-content .detail-vineyard-block .vineyard-map-copy p,
   .wine-detail-modal-content .detail-vineyard-block > .vineyard-map-source { display: none; }
-  .wine-detail-modal-content .detail-vineyard-block .vineyard-detail-map { height: 178px; border-radius: 12px; }
+  .wine-detail-modal-content .detail-vineyard-block .vineyard-detail-map { height: 178px; border-radius: var(--radius-card); }
 }

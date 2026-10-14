@@ -1,4 +1,4 @@
-.sensory-research { margin-block: 20px; padding: 20px; border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.sensory-research { margin-block: 20px; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-card); min-width: 0; }
 .sensory-research h4 { margin: 0; font-size: 1rem; }
 .sensory-research p { line-height: 1.55; overflow-wrap: anywhere; }
 .sensory-research-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }

@@ -56,6 +56,8 @@ import "./components/CellarHeaderTheme.css";
 import "./components/CellarDesktopNavigation.css";
 import "./components/WineDetailRefined.css";
 import "./components/HomeRefined.css";
+import "./components/LabelsRefined.css";
+import "./components/ButtonsRefined.css";
 import { CollectorMaturity } from "./components/CollectorMaturity";
 
 type BreakdownDrilldown = {

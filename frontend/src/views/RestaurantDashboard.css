@@ -332,7 +332,7 @@
     display: flex;
     gap: .25rem;
     padding: .32rem;
-    border-radius: 13px;
+    border-radius: var(--radius-card);
   }
 
   .restaurant-dashboard-tabs button {

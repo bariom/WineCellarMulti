@@ -19,5 +19,5 @@
 .featured-wine-sheet .key-position-trend > span, .featured-wine-sheet .key-position-trend small { max-width: none; color: var(--text-muted); font-size: .75rem; line-height: 1.5; letter-spacing: normal; text-transform: none; }
 .featured-wine-sheet .key-position-trend strong { color: var(--primary); font-size: 1.2rem; }
 .featured-wine-sheet .featured-wine-method { font-size: .75rem; }
-.featured-wine-open { min-height: 48px; width: 100%; padding: 12px; border-radius: 12px; }
+.featured-wine-open { min-height: 48px; width: 100%; padding: 12px; border-radius: var(--radius-card); }
 .collector-photo-rail button > .featured-wine-discover { color: var(--primary); font-size: .72rem; padding-top: 4px; text-decoration: underline; text-underline-offset: 3px; }

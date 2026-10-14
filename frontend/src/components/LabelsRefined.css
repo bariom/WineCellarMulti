@@ -1,0 +1,33 @@
+/*
+ * One uppercase label per block. Section eyebrows and kickers keep their
+ * small caps; form field labels and the labels of values read in sentence
+ * case, which is easier to scan. Loaded after the legacy layers.
+ */
+
+/* Form field labels. */
+.consume-form label span,
+.tasting-entry-editor label span,
+.pairing-budget-fields label span,
+.coownership-payment-form label > span,
+.ownership-edit-row label > span,
+.compact-field span,
+.vineyard-location-details label span,
+.vineyard-location-editor-controls label span,
+
+/* Labels of values inside KPI and metric groups. */
+.daily-summary-kpis span,
+.timeline-kpis span,
+.portfolio-value-insights span,
+.chart-drilldown-kpis span,
+.stat-card span,
+.key-position-trend > span,
+.key-position-maturity span,
+.collection-gauge span,
+.regional-target-total span,
+.taste-profile-signature-values > div > span,
+.taste-profile-meter > div:first-child > span,
+.operations-api-metrics,
+.operations-vineyards-metrics > small {
+  letter-spacing: 0.01em;
+  text-transform: none;
+}

@@ -7,8 +7,8 @@
 .admin-announcements button { min-height: 44px; white-space: normal; }
 .admin-announcements :is(p, strong, small, [role="alert"]) { overflow-wrap: anywhere; }
 .admin-announcements [role="alert"] { color: var(--danger); }
-.admin-announcements [role="status"] { padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
-.announcement-preview, .announcement-history article { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.admin-announcements [role="status"] { padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-card); }
+.announcement-preview, .announcement-history article { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); }
 .announcement-preview { margin-top: 20px; }
 .announcement-preview p, .announcement-history p { margin: 0; }
 .announcement-message { white-space: pre-wrap; }

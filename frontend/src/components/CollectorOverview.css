@@ -35,7 +35,7 @@
 .collector-card-group { min-width: 0; }
 .collector-ready-wines { display: grid; align-content: start; gap: 8px; min-width: 0; }
 .collector-ready-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 12px; }
-.collector-ready-wine { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 12px; min-width: 0; padding: 14px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; color: var(--text); text-align: left; box-shadow: var(--shadow-soft); }
+.collector-ready-wine { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 12px; min-width: 0; padding: 14px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-card); color: var(--text); text-align: left; box-shadow: var(--shadow-soft); }
 .collector-wine-stage .collector-ready-wine .key-position-bottle-visual { grid-area: auto; width: 80px; height: 140px; flex-shrink: 0; }
 .collector-ready-copy { display: grid; align-content: start; gap: 5px; width: 100%; overflow-wrap: anywhere; }
 .collector-ready-copy strong { font-size: .9rem; line-height: 1.3; }
@@ -117,7 +117,7 @@
   .collector-mobile-heading h2 { font: 1.65rem var(--font-display); margin: 0; }
   .collector-mobile-heading > span { color: var(--text-muted); font-size: .8rem; }
   .collector-mobile-navigation [role="tablist"] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: var(--radius-card); background: var(--surface-raised); border: 1px solid var(--border); }
-  .collector-mobile-navigation [role="tab"] { min-width: 0; min-height: 44px; padding: 8px 4px; background: transparent; color: var(--text-muted); box-shadow: none; font-size: .85rem; border-radius: 10px; }
+  .collector-mobile-navigation [role="tab"] { min-width: 0; min-height: 44px; padding: 8px 4px; background: transparent; color: var(--text-muted); box-shadow: none; font-size: .85rem; border-radius: var(--radius-control); }
   .collector-mobile-navigation [role="tab"][aria-selected="true"] { background: var(--primary); color: var(--on-primary, #fff); }
   .collector-mobile-photos { display: grid; gap: 24px; min-width: 0; }
   .collector-mobile-gallery { min-width: 0; }
@@ -152,7 +152,7 @@
   .collector-currency-total { gap: 8px; }
   .collector-currency-and { width: 1.1rem; }
   .collector-priority-grid { gap: 10px; }
-  .collector-priorities .collector-tile { border-radius: 10px; }
+  .collector-priorities .collector-tile { border-radius: var(--radius-control); }
   .collector-composition > summary { min-height: 48px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); cursor: pointer; font-size: 1.1rem; }
   .collector-composition[open] > summary { margin-bottom: 12px; }
 }
@@ -178,7 +178,7 @@
 .collector-distribution-entry summary > span { display: inline; float: right; margin: 0 0 0 10px; }
 .collector-distribution-entry summary::after { content: ""; display: block; clear: both; }
 .collector-glance-alerts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
-.collector-glance-alerts > .collector-selection { margin: 0; padding: 0 12px; border: 1px solid var(--border); border-left: 3px solid #c98740; border-radius: 6px; }
+.collector-glance-alerts > .collector-selection { margin: 0; padding: 0 12px; border: 1px solid var(--border); border-left: 3px solid #c98740; border-radius: var(--radius-control); }
 .collector-glance-details { border-top: 1px solid var(--border); }
 .collector-glance .collector-glance-details > summary { cursor: pointer; min-height: 48px; padding: 14px 0; font-size: .9rem; background: transparent; border: 0; }
 @media (max-width: 900px) {

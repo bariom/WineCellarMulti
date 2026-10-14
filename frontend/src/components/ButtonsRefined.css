@@ -1,0 +1,23 @@
+/*
+ * Three button variants: primary (filled), secondary (outlined) and danger.
+ * Each is marked by fill or border, never by stacked shadows and gradients.
+ * Base-level only; component-specific button styles still apply on top.
+ */
+button {
+  border-radius: var(--radius-control);
+  background: var(--primary);
+  box-shadow: none;
+}
+
+button.secondary {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+button.danger {
+  background: var(--danger);
+}
+
+button.compact {
+  border-radius: var(--radius-control);
+}

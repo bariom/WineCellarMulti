@@ -18,7 +18,7 @@
 .personal-onboarding label { display: grid; gap: 8px; margin-bottom: 18px; }
 .personal-onboarding select, .personal-onboarding input[type="text"] { width: 100%; min-width: 0; min-height: 44px; }
 .personal-onboarding .onboarding-help { font-size: 13px; line-height: 1.6; margin: 0 0 22px; }
-.personal-onboarding .onboarding-choices label { grid-template-columns: 24px minmax(0, 1fr); align-items: start; padding: 16px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.personal-onboarding .onboarding-choices label { grid-template-columns: 24px minmax(0, 1fr); align-items: start; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-card); cursor: pointer; }
 .personal-onboarding .onboarding-choices label.selected { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--surface)); }
 .personal-onboarding .onboarding-choices input { width: 20px; height: 20px; margin: 0; accent-color: var(--primary); }
 .personal-onboarding .onboarding-choices span { display: grid; gap: 6px; }
