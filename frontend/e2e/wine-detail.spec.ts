@@ -366,8 +366,15 @@ test("wine sensory signature shows intensity and missing values across viewports
   await expect(panel.locator('.wine-sensory-indicator').filter({ hasText: 'Legno' })).toContainText('Non disponibile');
   await expect(panel).toContainText('Affidabilità: 65%');
   await expect(panel.locator('header').getByText('Stima dai metadati', { exact: true })).toBeVisible();
+  const body = panel.locator('.wine-sensory-indicator').filter({ hasText: 'Corpo' });
+  await expect(body.locator('dd')).toHaveText('8 / 10');
+  await expect(panel.locator('dt')).toHaveCount(9);
+  await expect(panel.locator('dd')).toHaveCount(9);
+  await expect(panel.locator('.wine-sensory-track')).toHaveCount(9);
+  await expect(panel.getByText('Tu', { exact: true })).toHaveCount(0);
+  await expect(panel).not.toContainText('indice del tuo gusto');
   for (const width of [360, 390, 430, 1440]) {
-    await page.setViewportSize({ width, height: 844 });
+    await page.setViewportSize({ width, height: width === 360 ? 800 : width === 430 ? 932 : width === 1440 ? 900 : 844 });
     const visiblePanel = page.locator('.wine-detail:visible').first().getByRole('region', { name: 'Impronta sensoriale' });
     await visiblePanel.scrollIntoViewIfNeeded();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -375,10 +382,21 @@ test("wine sensory signature shows intensity and missing values across viewports
       const label = (await row.locator('dt').boundingBox())!;
       const value = (await row.locator('dd').boundingBox())!;
       expect(label.x + label.width).toBeLessThanOrEqual(value.x);
+      const track = (await row.locator('.wine-sensory-track').boundingBox())!;
+      expect(Math.max(label.y + label.height, value.y + value.height)).toBeLessThanOrEqual(track.y);
+      expect(track.x).toBeGreaterThanOrEqual(0);
+      expect(track.x + track.width).toBeLessThanOrEqual(width);
     }
-    await visiblePanel.screenshot({ path: testInfo.outputPath(`sensory-${width}.png`) });
-    if (width === 390) await expect(visiblePanel).toHaveScreenshot('wine-sensory-signature-compact.png', { animations: 'disabled' });
+    await visiblePanel.locator('header').evaluate(element => element.scrollIntoView({ block: 'center' }));
+    await page.screenshot({ path: testInfo.outputPath(`sensory-${width}.png`) });
   }
+  await page.setViewportSize({ width: 390, height: 844 });
+  const compactPanel = page.locator('.wine-detail:visible').first().getByRole('region', { name: 'Impronta sensoriale' });
+  await compactPanel.locator('footer').evaluate(element => element.scrollIntoView({ block: 'center' }));
+  await page.screenshot({ path: testInfo.outputPath('sensory-compact-footer.png') });
+  await compactPanel.locator('header').evaluate(element => element.scrollIntoView({ block: 'center' }));
+  await page.screenshot({ path: testInfo.outputPath('sensory-compact-review.png') });
+  await expect(page).toHaveScreenshot('wine-sensory-signature-compact.png', { animations: 'disabled' });
 });
 
 for (const source of ["ai", "hybrid", "manual"]) {
