@@ -4,7 +4,8 @@ import { api } from "../services/api";
 import LandingHeader from "./landing/LandingHeader";
 import NewsCarousel from "./landing/NewsCarousel";
 import { landingCopy } from "./landing/content";
-import { LandingIcon } from "./landing/LandingVisuals";
+import { HeroPhone, StoryBeyond, StoryEssentials, StoryPillars } from "./landing/LandingStory";
+import { landingStory } from "./landing/story";
 import "./PublicLanding.css";
 
 type PublicLandingProps = {
@@ -16,7 +17,6 @@ type PublicLandingProps = {
   demoLoading?: boolean;
 };
 
-const iconNames = ["search", "window", "insights"] as const;
 const restaurantContactCodePoints = [105, 110, 102, 111, 64, 118, 105, 110, 97, 114, 105, 115, 46, 97, 112, 112];
 const defaultFreeTierLabelLimit = 15;
 
@@ -54,6 +54,7 @@ export default function PublicLanding({
 }: PublicLandingProps) {
   const [freeTierLabelLimit, setFreeTierLabelLimit] = useState(defaultFreeTierLabelLimit);
   const copy = landingCopy[locale];
+  const story = landingStory[locale];
   const labelLimitPattern = /\b15\b/g;
   const dynamicCopy = {
     ...copy,
@@ -126,11 +127,11 @@ export default function PublicLanding({
       />
 
       <main id="top" className="marketing-landing">
-        <section className="marketing-hero" aria-labelledby="marketing-title">
-          <div className="marketing-hero-copy" data-reveal>
-            <p className="marketing-kicker">{copy.hero.eyebrow}</p>
-            <h1 id="marketing-title">{copy.hero.title}</h1>
-            <p className="marketing-hero-lead">{copy.hero.lead}</p>
+        <section className="marketing-hero story-hero" aria-labelledby="marketing-title">
+          <div className="marketing-hero-copy">
+            <p className="marketing-kicker">{story.hero.eyebrow}</p>
+            <h1 id="marketing-title" aria-label={story.hero.title}>{story.hero.titleLines.map((line) => <span key={line}>{line} </span>)}</h1>
+            <p className="marketing-hero-lead">{story.hero.lead}</p>
             <div className="marketing-actions">
               <button type="button" className="marketing-button primary" onClick={onRegister} aria-describedby="hero-free-note">{copy.hero.primary}<span aria-hidden="true"> →</span></button>
               <button type="button" className="marketing-button secondary" onClick={onDemo} disabled={demoLoading} aria-describedby="demo-note">{demoLoading ? openingLabel : copy.hero.demo}</button>
@@ -141,30 +142,16 @@ export default function PublicLanding({
               <span>{dynamicCopy.hero.web}</span>
             </div>
           </div>
-          <figure data-reveal className="marketing-hero-product marketing-real-product">
-            <picture>
-              <source media="(max-width: 600px)" srcSet={`/landing/demo-drink-mobile-${locale}.png`} width={330} height={257} />
-              <img
-                src={`/landing/demo-drink-desktop-${locale}.png`}
-                alt={copy.hero.previewAlt}
-                width={1144}
-                height={locale === "it" ? 733 : 732}
-                fetchPriority="high"
-              />
-            </picture>
-            <figcaption><span>{copy.origin.demoLabel}</span><strong>{copy.hero.previewCaption}</strong></figcaption>
-          </figure>
+          <HeroPhone story={story} />
         </section>
 
-        <section className="marketing-section marketing-benefits" aria-labelledby="benefits-title">
-          <h2 id="benefits-title">{copy.conversion.benefits}</h2>
-          <div className="marketing-benefits-grid">
-            {copy.value.map((item, index) => <article key={item.title}>
-              <span className="marketing-benefit-icon"><LandingIcon name={iconNames[index]} /></span>
-              <h3>{item.title}</h3><p>{item.body}</p>
-            </article>)}
-          </div>
-        </section>
+        <StoryPillars story={story} />
+        <StoryEssentials story={story} onRegister={onRegister} />
+        <StoryBeyond
+          story={story}
+          locale={locale}
+          restaurantExtra={<p className="story-restaurant-contact">{copy.restaurant.availability} <RestaurantContactButton label={copy.restaurant.contact} /></p>}
+        />
 
         <section id="product" className="marketing-section marketing-start" aria-labelledby="start-title">
           <div className="marketing-section-copy"><p className="marketing-kicker">{copy.nav.product}</p><h2 id="start-title">{copy.conversion.stepsTitle}</h2></div>
@@ -191,7 +178,6 @@ export default function PublicLanding({
 
         <section className="marketing-section marketing-trust" aria-labelledby="trust-title">
           <div><h2 id="trust-title">{copy.conversion.trustTitle}</h2><p>{copy.conversion.trustBody}</p></div>
-          <aside><h3>{copy.restaurant.title}</h3><p>{copy.restaurant.availability}</p><RestaurantContactButton label={copy.restaurant.contact} /></aside>
         </section>
 
         <section className="marketing-conversion-close" aria-labelledby="closing-title">

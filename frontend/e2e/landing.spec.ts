@@ -78,13 +78,13 @@ for (const locale of ["it", "en"] as const) {
 
   test(`${locale}: registration-led landing stays clear and compact across viewports`, async ({ page }, testInfo) => {
     await page.goto(`/?lang=${locale}`);
-    const hero = page.getByRole("region", { name: locale === "it" ? "La tua cantina digitale. Ogni bottiglia, al momento giusto." : "Your digital wine cellar. Every bottle, at the right time." });
+    const hero = page.getByRole("region", { name: locale === "it" ? "Sai cosa hai. Sai cosa aprire. Sai quanto vale." : "Know what you have. Know what to open. Know what it’s worth." });
     const register = hero.getByRole("button", { name: locale === "it" ? /Crea il tuo account gratis/ : /Create your free account/ });
     const demo = hero.getByRole("button", { name: locale === "it" ? "Esplora la demo" : "Explore the demo" });
     await expect(register).toBeVisible();
     await expect(register).toHaveClass(/primary/);
     await expect(demo).toHaveClass(/secondary/);
-    await expect(hero.getByText(/23/)).toBeVisible();
+    await expect(hero.locator("#hero-free-note")).toContainText("23");
     await expect(page.locator("#product").getByRole("listitem")).toHaveCount(3);
     const plans = page.locator("#access");
     await expect(plans.getByRole("article").first()).toContainText("23");
@@ -112,8 +112,9 @@ for (const locale of ["it", "en"] as const) {
       expect(cta.height).toBeGreaterThanOrEqual(44);
       expect(cta.x).toBeGreaterThanOrEqual(0);
       expect(cta.x + cta.width).toBeLessThanOrEqual(viewport.width);
-      await expect.poll(() => hero.getByRole("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
-      for (const selector of [".marketing-benefits-grid article", ".marketing-plans-grid article"]) {
+      // The hero shows an illustrated phone with the cellar list, labelled as an image.
+      await expect(hero.getByRole("img")).toBeVisible();
+      for (const selector of [".story-pillar-grid article", ".story-essential-grid li", ".marketing-plans-grid article"]) {
         const boxes = await page.locator(selector).evaluateAll(nodes => nodes.map(n => { const b = n.getBoundingClientRect(); return {x:b.x,y:b.y,width:b.width,height:b.height}; }));
         for (let i = 0; i < boxes.length; i++) {
           const a = boxes[i];
@@ -123,7 +124,8 @@ for (const locale of ["it", "en"] as const) {
         }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThan(viewport.width <= 430 ? 5700 : 4500);
+      // The landing now presents the essentials and the distinctive features; keep it bounded.
+      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThan(viewport.width <= 430 ? 15500 : viewport.width <= 900 ? 12500 : 10500);
       if ([390, 1440].includes(viewport.width)) {
         await page.screenshot({ path: testInfo.outputPath(`landing-${locale}-${viewport.width}.png`) });
         await page.screenshot({ path: testInfo.outputPath(`full-landing-${locale}-${viewport.width}.png`), fullPage: true });
