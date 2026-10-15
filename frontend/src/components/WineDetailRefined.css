@@ -342,3 +342,155 @@
   box-shadow: none;
   font: 600 var(--text-md)/1.2 var(--font-ui);
 }
+
+/* Storage: one row per place with its own Move action; the move form opens
+ * under the row it starts from. */
+
+.wine-storage-section .storage-relocation-form label > span {
+  color: var(--text-muted);
+  font: 500 var(--text-sm)/1.2 var(--font-ui);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wine-storage-section > summary small {
+  float: right;
+  margin-left: 12px;
+  color: var(--text-muted);
+  font: 500 var(--text-sm)/1.2 var(--font-ui);
+}
+
+.wine-storage-section .storage-allocation-list {
+  display: grid;
+  gap: 0;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.wine-storage-section .storage-allocation + .storage-allocation {
+  border-top: 1px solid var(--border);
+}
+
+.wine-storage-section .storage-allocation-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 6px 12px 6px 14px;
+}
+
+.wine-storage-section .storage-allocation-place {
+  overflow: hidden;
+  color: var(--text);
+  font: 600 var(--text-md)/1.3 var(--font-ui);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wine-storage-section .storage-allocation-head > strong {
+  color: var(--text-muted);
+  font: 500 var(--text-sm)/1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+.wine-storage-section .storage-allocation.is-moving {
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+}
+
+.wine-storage-section .storage-relocation-form {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 4px 14px 14px;
+}
+
+.wine-storage-section .storage-move-count {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.wine-storage-section .storage-move-count > span {
+  color: var(--text-muted);
+  font: 500 var(--text-sm)/1.2 var(--font-ui);
+}
+
+.wine-storage-section .storage-move-count > small {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.wine-storage-section .storage-stepper {
+  display: inline-grid;
+  grid-template-columns: 44px 56px 44px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+
+.wine-storage-section .storage-stepper > button {
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.15rem;
+}
+
+.wine-storage-section .storage-stepper > button:disabled {
+  color: var(--text-muted);
+  opacity: 0.45;
+}
+
+.wine-storage-section .storage-stepper > input {
+  min-height: 40px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-inline: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  text-align: center;
+  font: 600 var(--text-md)/1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.wine-storage-section .storage-stepper > input::-webkit-inner-spin-button,
+.wine-storage-section .storage-stepper > input::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.wine-storage-section .storage-move-destination {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wine-storage-section .storage-move-destination > legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--text-muted);
+  font: 500 var(--text-sm)/1.2 var(--font-ui);
+}
+
+.wine-storage-section .storage-relocation-form .form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+}

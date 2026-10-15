@@ -39,12 +39,17 @@ export function CellarHomeStats({ wines, readyCount, monitoringCount, locale, on
   </div>;
 }
 
-export function CellarHomeHero({ wines, locale }: { wines: Wine[]; locale: Locale }) {
+export type CellarHomeHeroStat = { value: string; label: string };
+
+/** Views without their own summary cards pass three figures to show on the photo. */
+export function CellarHomeHero({ wines, locale, stats }: { wines: Wine[]; locale: Locale; stats?: CellarHomeHeroStat[] }) {
   const it = locale === "it";
   const bottles = wines.reduce((sum, wine) => sum + wine.quantity, 0);
   return <section className="cellar-home-hero" aria-label={it ? "La mia cantina" : "My cellar"}>
     <p className="cellar-home-kicker">{it ? "Una collezione, una passione." : "A collection. A passion."}</p>
     <h2>{it ? "La mia cantina" : "My cellar"}</h2>
-    <p className="cellar-home-count">{formatBottleCount(bottles, locale)} {it ? (bottles === 1 ? "bottiglia" : "bottiglie") : (bottles === 1 ? "bottle" : "bottles")} · {wines.length} {it ? (wines.length === 1 ? "vino" : "vini") : (wines.length === 1 ? "wine" : "wines")}</p>
+    {stats?.length ? <dl className="cellar-home-hero-stats">
+      {stats.map((stat) => <div key={stat.label}><dt>{stat.label}</dt><dd>{stat.value}</dd></div>)}
+    </dl> : <p className="cellar-home-count">{formatBottleCount(bottles, locale)} {it ? (bottles === 1 ? "bottiglia" : "bottiglie") : (bottles === 1 ? "bottle" : "bottles")} · {wines.length} {it ? (wines.length === 1 ? "vino" : "vini") : (wines.length === 1 ? "wine" : "wines")}</p>}
   </section>;
 }

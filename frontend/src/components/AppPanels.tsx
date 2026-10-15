@@ -55,7 +55,7 @@ function ProgressiveBottlePhoto({ detailUrl, thumbnailUrl, alt }: { detailUrl: s
   }} />;
 }
 
-export function DrinkWindowMini({ wine }: { wine: Wine }) {
+export function DrinkWindowMini({ wine, locale = "it" }: { wine: Wine; locale?: Locale }) {
   if (!wine.drink_from || !wine.drink_to) return null;
   const drinkStart = wine.drink_from;
   const drinkEnd = wine.drink_to;
@@ -68,9 +68,19 @@ export function DrinkWindowMini({ wine }: { wine: Wine }) {
   const currentYear = new Date().getFullYear();
   const currentYearInWindow = currentYear >= drinkStart && currentYear <= drinkEnd;
   const currentYearLeft = Math.min(Math.max(((currentYear - drinkStart) / span) * 100, 0), 100);
+  const it = locale === "it";
+  // One phrase for compact rows, where the three dates are too small to read.
+  const phaseKey = currentYear < peakStart ? "wait" : currentYear <= peakEnd ? "ideal" : currentYear <= drinkEnd ? "soon" : "past";
+  const phase = currentYear < peakStart
+    ? (it ? `Da attendere fino al ${peakStart}` : `Wait until ${peakStart}`)
+    : currentYear <= peakEnd
+      ? (it ? `Ideale fino al ${peakEnd}` : `Ideal until ${peakEnd}`)
+      : currentYear <= drinkEnd
+        ? (it ? `Da bere entro il ${drinkEnd}` : `Drink by ${drinkEnd}`)
+        : (it ? "Oltre la finestra" : "Past its window");
 
   return (
-    <div className="mini-drink-window" aria-label={`${drinkStart}-${drinkEnd}`}>
+    <div className="mini-drink-window" data-phase={phaseKey} aria-label={`${drinkStart}-${drinkEnd}`}>
       <div className="mini-window-labels">
         <span>{drinkStart}</span>
         <span>{peakStart}-{peakEnd}</span>
@@ -80,6 +90,7 @@ export function DrinkWindowMini({ wine }: { wine: Wine }) {
         <span className="mini-window-peak" style={{ left: `${peakLeft}%`, width: `${Math.min(peakWidth, peakRightBound)}%` }} />
         {currentYearInWindow ? <span className="mini-window-current" style={{ left: `${currentYearLeft}%` }} /> : null}
       </div>
+      <span className="mini-window-phase">{phase}</span>
     </div>
   );
 }

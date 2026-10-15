@@ -237,7 +237,8 @@ for (const width of [1100, 1440, 1920]) {
     const listBox = (await list.boundingBox())!;
     const panelBox = (await panel.boundingBox())!;
     expect(panelBox.width).toBeCloseTo(emptyWidth, 0);
-    expect(panelBox.width).toBeLessThanOrEqual(550);
+    // The calmer cellar rows leave room for a wider detail panel (up to 680 px).
+    expect(panelBox.width).toBeLessThanOrEqual(680);
     expect(listBox.width).toBeGreaterThan(500);
     expect(listBox.x + listBox.width).toBeLessThanOrEqual(panelBox.x);
     expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(width);

@@ -36,6 +36,11 @@ function sessionBackdrop() {
   return memoryChoice;
 }
 
+/** The scene drawn for this session, so inner page mastheads match Home. */
+export function sessionBackdropSrc() {
+  return sessionBackdrop().src;
+}
+
 export function resetHomeBackdropSession() {
   memoryChoice = undefined;
   try { window.sessionStorage.removeItem(HOME_BACKDROP_SESSION_KEY); } catch { /* Storage may be disabled. */ }

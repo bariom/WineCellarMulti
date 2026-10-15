@@ -34,9 +34,9 @@ import { CollectorReadyWines } from "./components/CollectorReadyWines";
 import { CollectorCardGroup } from "./components/CollectorCardGroup";
 import { CollectorAtlas } from "./components/CollectorAtlas";
 import { CollectorDashboard } from "./components/CollectorDashboard";
-import { CellarHomeHero, CellarHomeStats } from "./components/CellarHomeHero";
+import { CellarHomeHero, CellarHomeStats, type CellarHomeHeroStat } from "./components/CellarHomeHero";
 import { appUserActivityStatus, appUserEntitlementStatus, appUserInitials, appUserPlanLabel, appUserRoleLabel, appUserTierStatus } from "./domain/appUsers";
-import { CellarHomeBackdrop, resetHomeBackdropSession } from "./components/CellarHomeBackdrop";
+import { CellarHomeBackdrop, resetHomeBackdropSession, sessionBackdropSrc } from "./components/CellarHomeBackdrop";
 import { RiservaBanner } from "./components/RiservaBanner";
 import { featuredExplanation } from "./components/FeaturedWineDetails";
 import type { PersonalDashboardWidget } from "./types";
@@ -58,6 +58,7 @@ import "./components/WineDetailRefined.css";
 import "./components/HomeRefined.css";
 import "./components/LabelsRefined.css";
 import "./components/ButtonsRefined.css";
+import "./components/CellarRefined.css";
 import { CollectorMaturity } from "./components/CollectorMaturity";
 
 type BreakdownDrilldown = {
@@ -6645,9 +6646,12 @@ export function App() {
     .filter((wine) => !cellarSommelierEligibleWines.some((candidate) => candidate.id === wine.id) && isWineIdealSoon(wine, currentYear))
     .sort((first, second) => (wineIdealWindowStart(first) || 9999) - (wineIdealWindowStart(second) || 9999))
     .slice(0, 2);
+  // Wines ready now come first; wines whose ideal window is about to open only
+  // fill the slots that ready wines leave free, never displacing them.
+  const cellarSommelierReadyPicks = cellarSommelierEligibleWines.slice(0, cellarSommelierSelectionLimit);
   const cellarSommelierSelectedWines = [
-    ...cellarSommelierEligibleWines.slice(0, cellarSommelierSelectionLimit),
-    ...cellarSommelierSoonWines,
+    ...cellarSommelierReadyPicks,
+    ...cellarSommelierSoonWines.slice(0, Math.max(cellarSommelierSelectionLimit - cellarSommelierReadyPicks.length, 0)),
   ];
   const cellarSommelierHighlightedWine = cellarSommelierHighlightedWineId
     ? cellarSommelierSelectedWines.find((wine) => wine.id === cellarSommelierHighlightedWineId)
@@ -6713,6 +6717,16 @@ export function App() {
   const dailyTonightStyleCount = new Set(
     dailyTonightWines.map((wine) => wineTone(wine.type)),
   ).size;
+  // Year beside a sommelier suggestion, phrased like the cellar row's maturity line.
+  const sommelierWindowLabel = (wine: Wine) => {
+    const idealStart = wine.drink_peak_from || wine.drink_from;
+    const idealEnd = wine.drink_peak_to || wine.drink_to;
+    const it = locale === "it";
+    if (idealStart && currentYear < idealStart) return it ? `dal ${idealStart}` : `from ${idealStart}`;
+    if (idealEnd && currentYear <= idealEnd) return it ? `fino al ${idealEnd}` : `until ${idealEnd}`;
+    if (wine.drink_to && currentYear <= wine.drink_to) return it ? `entro il ${wine.drink_to}` : `by ${wine.drink_to}`;
+    return wine.drink_to ? String(wine.drink_to) : "—";
+  };
   const dailyRecommendationReason = (wine: Wine) => {
     const windowEnd = winePriorityDrinkEnd(wine);
     if (windowEnd && windowEnd < currentYear) return t("dailyReasonPastWindow");
@@ -6824,6 +6838,24 @@ export function App() {
   const balancedLeadingTonePct = balancedLeadingTone && balancedCoreBottleCount
     ? Math.round((balancedLeadingTone.bottles / balancedCoreBottleCount) * 100)
     : 0;
+  const cellarHeroBottleCount = cellarWines.reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
+  // Hero figures complement each view's own KPI cards instead of repeating them;
+  // the collector and insight views keep the plain bottle/wine line.
+  const homeHeroStats: CellarHomeHeroStat[] | undefined = dashboardFocus === "balanced" ? [
+      { value: formatBottleCount(cellarWines.length, locale), label: locale === "it" ? "vini" : "wines" },
+      { value: `${balancedCoreStyleCoverage}/4`, label: locale === "it" ? "stili coperti" : "styles covered" },
+      { value: formatPercentage(balancedLeadingTonePct, locale), label: (balancedLeadingTone?.label || (locale === "it" ? "stile prevalente" : "leading style")).toLowerCase() },
+    ]
+    : dashboardFocus === "daily" ? [
+      { value: formatBottleCount(cellarWines.length, locale), label: locale === "it" ? "vini" : "wines" },
+      { value: formatBottleCount(monitoringWines.length, locale), label: locale === "it" ? "da monitorare" : "to review" },
+    ]
+    : dashboardFocus === "personal" ? [
+      { value: formatBottleCount(cellarHeroBottleCount, locale), label: locale === "it" ? "bottiglie" : "bottles" },
+      { value: formatBottleCount(cellarWines.length, locale), label: locale === "it" ? "vini" : "wines" },
+      { value: formatBottleCount(readyInCellarWineCount, locale), label: locale === "it" ? "pronti da bere" : "ready to drink" },
+    ]
+    : undefined;
   const balancedReadyPct = balancedAvailableBottleCount
     ? Math.round((readyInCellarBottleCount / balancedAvailableBottleCount) * 100)
     : 0;
@@ -8981,6 +9013,45 @@ export function App() {
     );
   }
 
+  function renderWineRowChips(wine: Wine) {
+    return (<>
+        {wine.storage_allocations?.length ? <button
+          type="button"
+          className="row-chip wine-storage-chip"
+          onClick={(event) => {
+            event.stopPropagation();
+            openWineStoragePanel(wine);
+          }}
+        >
+          <AppIcon name="location" variant="action" size="0.85rem" />
+          {wine.storage_allocations[0].location_id
+            ? `${wine.storage_allocations[0].location_name}${wine.storage_allocations[0].bin_name ? ` · ${wine.storage_allocations[0].bin_name}` : ""}`
+            : (locale === "it" ? "Da collocare" : "Unassigned")}
+          {wine.storage_allocations.length > 1 ? ` +${wine.storage_allocations.length - 1}` : ""}
+        </button> : null}
+        {activeView === "cellar" && isSommelierSpotlightWine(wine) ? (
+          <button
+            type="button"
+            className="row-chip row-sommelier-notice"
+            title={t("dailySommelierTitle")}
+            onClick={(event) => {
+              event.stopPropagation();
+              openCellarSommelierForWine(wine);
+            }}
+            onPointerUp={(event) => {
+              if (event.pointerType !== "touch") return;
+              event.preventDefault();
+              event.stopPropagation();
+              openCellarSommelierForWine(wine);
+            }}
+          >
+            <AppIcon name="glass-sparkle" variant="ai" tone="accent" size="0.9rem" />
+            {t("dailySommelierAvailable")}
+          </button>
+        ) : null}
+    </>);
+  }
+
   function renderWineDetail(wine: Wine) {
     return (
       <WineDetail
@@ -9036,9 +9107,14 @@ export function App() {
 
   function renderCellarSommelierLayer() {
     if (isRestaurant || !cellarSommelierVisible || !cellarSommelierWines.length || activeView !== "cellar") return null;
-    const countLabel = cellarSommelierWines.length === 1
-      ? t("dailySommelierCandidateOne")
-      : t("dailySommelierCandidates");
+    // The cellar list adds wines whose peak is still ahead: name them as such
+    // instead of calling every suggestion "to open now".
+    const soonCount = cellarSommelierWines.filter((wine) => cellarSommelierSoonWines.some((soon) => soon.id === wine.id)).length;
+    const countLabel = soonCount === 0
+      ? (cellarSommelierWines.length === 1 ? t("dailySommelierCandidateOne") : t("dailySommelierCandidates"))
+      : soonCount === cellarSommelierWines.length
+        ? (cellarSommelierWines.length === 1 ? t("dailySommelierSoonOne") : t("dailySommelierSoonMany"))
+        : t("dailySommelierMixed");
     return createPortal(
       <aside
         aria-label={t("dailySommelierTitle")}
@@ -9106,7 +9182,7 @@ export function App() {
                       <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.name}</strong>
                       <small style={{ color: "var(--text-muted)", lineHeight: 1.3 }}>{dailyRecommendationReason(wine)}</small>
                     </span>
-                    <b>{wine.drink_peak_from || wine.drink_from || wine.drink_to || "—"}</b>
+                    <b style={{ whiteSpace: "nowrap" }}>{sommelierWindowLabel(wine)}</b>
                   </button>
                 ))}
               </div>
@@ -9132,7 +9208,7 @@ export function App() {
     <HelpContext.Provider value={{ openHelp }}>
     <main className={`app-shell${authenticated ? " authenticated-app-shell" : ""}${isCollectionView ? " collection-workspace-shell" : ""}${activeView === "home" && !isRestaurant ? " home-mobile-experience" : ""}${authenticated && activeView === "home" && !isRestaurant ? " cellar-home-edition" : ""}`}>
       {authenticated || shouldPrioritizeAuthAction ? (
-      <header className={`topbar${authenticated && !isRestaurant && activeView !== "home" ? " cellar-compact-header" : ""}`} style={!authenticated && isMobileViewport ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", alignItems: "stretch", gap: "12px" } : undefined}>
+      <header className={`topbar${authenticated && !isRestaurant && activeView !== "home" ? " cellar-compact-header" : ""}`} style={!authenticated && isMobileViewport ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", alignItems: "stretch", gap: "12px" } : authenticated && !isRestaurant && activeView !== "home" ? { "--session-backdrop": `url("${sessionBackdropSrc()}")` } as CSSProperties : undefined}>
         {authenticated && activeView === "home" && !isRestaurant ? <CellarHomeBackdrop /> : null}
         <div className="topbar-brand">
           {authenticated ? (
@@ -9555,7 +9631,7 @@ export function App() {
             <button type="button" onClick={() => { openQuickWineSearch(""); setMobileSearchOpen(false); }} aria-label={locale === "it" ? "Chiudi ricerca" : "Close search"}>×</button>
           </form>
         ) : null}
-        {authenticated && activeView === "home" && !isRestaurant ? <CellarHomeHero wines={cellarWines} locale={locale} /> : null}
+        {authenticated && activeView === "home" && !isRestaurant ? <CellarHomeHero wines={cellarWines} locale={locale} stats={homeHeroStats} /> : null}
       </header>
       ) : null}
 
@@ -10439,7 +10515,7 @@ export function App() {
                                   <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.name}</strong>
                                   <small style={{ overflow: "hidden", color: "var(--text-muted)", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dailyRecommendationReason(wine)}</small>
                                 </span>
-                                <b>{wine.drink_peak_from || wine.drink_from || wine.drink_to || "—"}</b>
+                                <b style={{ whiteSpace: "nowrap" }}>{sommelierWindowLabel(wine)}</b>
                               </button>
                             ))}
                           </div>
@@ -12914,6 +12990,8 @@ export function App() {
               <span>
                 {activeView === "cellar" && maturityFilter
                   ? <>{formatBottleCount(visibleCount, locale)} {t("winesLabel")} · {formatBottleCount(filteredWineBottleCount, locale)} {t("bottles").toLowerCase()}</>
+                  : activeView === "cellar" && visibleCount === activeWineCollection.length
+                    ? <>{formatBottleCount(visibleCount, locale)} {visibleCount === 1 ? (locale === "it" ? "vino" : "wine") : t("winesLabel")} · {formatBottleCount(filteredWineBottleCount, locale)} {t("bottles").toLowerCase()}</>
                   : <>{visibleCount} / {
                   activeView === "history" && historySection === "tastings"
                     ? tastingArchiveTotalCount
@@ -13194,43 +13272,13 @@ export function App() {
                       <span className="wine-producer">{wine.producer || t("noProducer")}</span>
                       <span className="wine-quantity">{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale, isRestaurant)}</span>
                       {activeView === "history" ? null : <WineStatusBadge status={wine.status} locale={locale} compact />}
-                      {wine.storage_allocations?.length ? <button
-                        type="button"
-                        className="row-chip wine-storage-chip"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openWineStoragePanel(wine);
-                        }}
-                      >
-                        <AppIcon name="location" variant="action" size="0.85rem" />
-                        {wine.storage_allocations[0].location_id
-                          ? `${wine.storage_allocations[0].location_name}${wine.storage_allocations[0].bin_name ? ` · ${wine.storage_allocations[0].bin_name}` : ""}`
-                          : (locale === "it" ? "Da collocare" : "Unassigned")}
-                        {wine.storage_allocations.length > 1 ? ` +${wine.storage_allocations.length - 1}` : ""}
-                      </button> : null}
-                      {activeView === "cellar" && isSommelierSpotlightWine(wine) ? (
-                        <button
-                          type="button"
-                          className="row-chip row-sommelier-notice"
-                          title={t("dailySommelierTitle")}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openCellarSommelierForWine(wine);
-                          }}
-                          onPointerUp={(event) => {
-                            if (event.pointerType !== "touch") return;
-                            event.preventDefault();
-                            event.stopPropagation();
-                            openCellarSommelierForWine(wine);
-                          }}
-                        >
-                          <AppIcon name="glass-sparkle" variant="ai" tone="accent" size="0.9rem" />
-                          {t("dailySommelierAvailable")}
-                        </button>
-                      ) : null}
+                      {activeView === "cellar" ? null : renderWineRowChips(wine)}
                     </p>
                     <p className="row-secondary">
-                      {[displayValue(wine.format, locale, "format"), displayValue(wine.type, locale, "type"), wine.region, wine.appellation]
+                      {(activeView === "cellar"
+                        // The glass and dot already show the type; the standard bottle needs no mention.
+                        ? [wine.format && wine.format !== "750ml" ? displayValue(wine.format, locale, "format") : "", wine.region, wine.appellation]
+                        : [displayValue(wine.format, locale, "format"), displayValue(wine.type, locale, "type"), wine.region, wine.appellation])
                         .filter(Boolean)
                         .map((value, index) => <span key={`${value}-${index}`}>{value}</span>)}
                     </p>
@@ -13251,6 +13299,10 @@ export function App() {
                       </div>
                     ) : null}
                     {!wine.rating && !wine.tags.length ? <TasteHearts wineId={wine.id} locale={locale} compact className="row-chip row-taste-chip" /> : null}
+                    {activeView === "cellar" && (wine.storage_allocations?.length || isSommelierSpotlightWine(wine)) ? (
+                      // Interactive chips sit at the end so a tap on the middle of the row opens the wine.
+                      <p className="row-chips">{renderWineRowChips(wine)}</p>
+                    ) : null}
                     {maturityFilter && isWineInExplicitIdealWindow(wine, maturityFilter.year) ? (
                       <div className="row-meta-stack">
                         <div className="row-meta-group row-meta-group-secondary">
@@ -13259,7 +13311,7 @@ export function App() {
                       </div>
                     ) : null}
                   </div>
-                  <DrinkWindowMini wine={wine} />
+                  <DrinkWindowMini wine={wine} locale={locale} />
                   <div className="row-price-block" aria-label={isRestaurant
                     ? `${locale === "it" ? "Prezzo di vendita" : "Sale price"}, ${locale === "it" ? "Valore a listino" : "List value"}`
                     : `${locale === "it" ? "Per bottiglia" : "Per bottle"}, ${locale === "it" ? "Totale" : "Total"}`}>

@@ -17,7 +17,7 @@
 
   /* Keep the cellar detail column steady as a wine is opened or closed. */
   :root .authenticated-app-shell:not(.cellar-home-edition) .cellar-workspace {
-    grid-template-columns: minmax(0, 1fr) minmax(480px, clamp(480px, 35vw, 550px)) !important;
+    grid-template-columns: minmax(0, 1fr) minmax(480px, clamp(480px, 42vw, 680px)) !important;
   }
 
   :root .authenticated-app-shell:not(.cellar-home-edition) .workspace:not(.settings-workspace) > .view-tabs {

@@ -21,9 +21,12 @@ function positionLabel(allocation: StorageAllocation, locale: Locale) {
   return allocation.bin_name ? `${allocation.location_name} · ${allocation.bin_name}` : allocation.location_name;
 }
 
-export function WineLocationPicker({ locale, locationId, binId, disabled, onChange, formId }: {
+export function WineLocationPicker({ locale, locationId, binId, disabled, onChange, formId, autoSelectDefault = true, onSelectionLabel }: {
   locale: Locale; locationId: string; binId: string; disabled?: boolean; formId?: string;
   onChange: (locationId: string, binId: string) => void;
+  /** Off when choosing a destination, where the default may be the current place. */
+  autoSelectDefault?: boolean;
+  onSelectionLabel?: (label: string) => void;
 }) {
   const [locations, setLocations] = useState<CellarLocation[]>([]);
   const [locationText, setLocationText] = useState("");
@@ -35,7 +38,7 @@ export function WineLocationPicker({ locale, locationId, binId, disabled, onChan
   useEffect(() => {
     void api<CellarLocation[]>("/api/v1/storage/locations").then((items) => {
       setLocations(items);
-      if (!locationId) {
+      if (!locationId && autoSelectDefault) {
         const defaultLocation = items.find((item) => item.is_default);
         if (defaultLocation) onChange(defaultLocation.id, "");
       }
@@ -46,6 +49,7 @@ export function WineLocationPicker({ locale, locationId, binId, disabled, onChan
   useEffect(() => { setLocationText(location?.name || ""); }, [location?.name]);
   const bin = bins.find((item) => item.id === binId);
   useEffect(() => { setBinText(bin?.name || ""); }, [bin?.name]);
+  useEffect(() => { onSelectionLabel?.([location?.name, bin?.name].filter(Boolean).join(" · ")); }, [location?.name, bin?.name]);
   const matchingLocation = locations.find((item) => normaliseName(item.name) === normaliseName(locationText));
   const matchingBin = bins.find((item) => normaliseName(item.name) === normaliseName(binText));
   const canCreateLocation = Boolean(locationText.trim() && !matchingLocation && !disabled);
@@ -92,6 +96,8 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged, focusReq
   const [locationId, setLocationId] = useState("");
   const [binId, setBinId] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const [destinationLabel, setDestinationLabel] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const sectionRef = useRef<HTMLDetailsElement>(null);
@@ -108,24 +114,59 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged, focusReq
     return () => window.cancelAnimationFrame(frame);
   }, [focusRequestId]);
   async function relocate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (!sourceId || loading) return; setLoading(true); setError("");
+    event.preventDefault(); if (!sourceId || loading || !hasDestination || sameAsSource) return; setLoading(true); setError("");
     try {
-      const next = await api<StorageAllocation[]>("/api/v1/storage/relocations", { method: "POST", body: JSON.stringify({ wine_id: wine.id, source_allocation_id: sourceId, quantity: Number(quantity), location_id: locationId || null, bin_id: binId || null }) });
-      setAllocations(next); setSourceId(next[0]?.id || ""); setQuantity("1"); await onChanged();
-    } catch (nextError) { setError(nextError instanceof Error ? nextError.message : (locale === "it" ? "Spostamento non riuscito" : "Unable to move bottles")); } finally { setLoading(false); }
+      const next = await api<StorageAllocation[]>("/api/v1/storage/relocations", { method: "POST", body: JSON.stringify({ wine_id: wine.id, source_allocation_id: sourceId, quantity: moveCount, location_id: locationId || null, bin_id: binId || null }) });
+      setAllocations(next); setMovingId(null); setQuantity("1"); setLocationId(""); setBinId(""); await onChanged();
+    } catch (nextError) { setError(nextError instanceof Error ? nextError.message : (it ? "Spostamento non riuscito" : "Unable to move bottles")); } finally { setLoading(false); }
   }
+  const it = locale === "it";
+  const maxCount = selectedSource?.quantity || 1;
+  const moveCount = Math.min(Math.max(Number(quantity) || 1, 1), maxCount);
+  const hasDestination = Boolean(locationId);
+  const sameAsSource = Boolean(selectedSource && selectedSource.location_id === (locationId || null) && (selectedSource.bin_id || null) === (binId || null));
+  const bottleWord = (count: number) => it ? (count === 1 ? "bottiglia" : "bottiglie") : (count === 1 ? "bottle" : "bottles");
+  function startMove(allocation: StorageAllocation) {
+    setSourceId(allocation.id); setMovingId(allocation.id); setQuantity("1"); setLocationId(""); setBinId(""); setError("");
+  }
+  const total = allocations.reduce((sum, item) => sum + item.quantity, 0);
   return <details className="detail-section wine-storage-section" open ref={sectionRef}>
-    <summary><span>{locale === "it" ? "Collocazione" : "Storage"}</span><strong>{allocations.length}</strong></summary>
-    <div className="storage-allocation-list">{allocations.length ? allocations.map((allocation) => <div className="detail-field" key={allocation.id}><span>{positionLabel(allocation, locale)}</span><strong>{allocation.quantity} {locale === "it" ? "bott." : "btl."}</strong></div>) : <p className="empty-state">{locale === "it" ? "Nessuna bottiglia in giacenza." : "No bottles in stock."}</p>}</div>
+    <summary><span>{it ? "Collocazione" : "Storage"}</span><small>{allocations.length === 1 ? (it ? "1 posizione" : "1 location") : `${allocations.length} ${it ? "posizioni" : "locations"}`} · {total} {it ? "bott." : "btl."}</small></summary>
     {error ? <p className="form-error" role="alert">{error}</p> : null}
-    {canWrite && allocations.length ? <form className="consume-form storage-relocation-form" onSubmit={relocate}>
-      <p className="consume-help">{locale === "it" ? "Sposta bottiglie senza modificare la giacenza totale." : "Move bottles without changing total stock."}</p>
-      <div className="detail-grid consume-grid">
-        <label><span>{locale === "it" ? "Da" : "From"}</span><select value={sourceId} onChange={(event) => { setSourceId(event.target.value); setQuantity("1"); }}>{allocations.map((allocation) => <option key={allocation.id} value={allocation.id}>{positionLabel(allocation, locale)} ({allocation.quantity})</option>)}</select></label>
-        <label><span>{locale === "it" ? "Bottiglie" : "Bottles"}</span><input type="number" min="1" max={selectedSource?.quantity || 1} value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label>
-        <WineLocationPicker locale={locale} locationId={locationId} binId={binId} onChange={(nextLocationId, nextBinId) => { setLocationId(nextLocationId); setBinId(nextBinId); }} />
-      </div><div className="form-actions"><button type="submit" disabled={loading}>{loading ? (locale === "it" ? "Sposto…" : "Moving…") : (locale === "it" ? "Sposta" : "Move")}</button></div>
-    </form> : null}
+    <ul className="storage-allocation-list">
+      {allocations.length ? allocations.map((allocation) => {
+        const moving = movingId === allocation.id;
+        return <li key={allocation.id} className={`storage-allocation${moving ? " is-moving" : ""}`}>
+          <div className="storage-allocation-head">
+            <span className="storage-allocation-place">{positionLabel(allocation, locale)}</span>
+            <strong>{allocation.quantity} {it ? "bott." : "btl."}</strong>
+            {canWrite && !moving ? <button type="button" className="secondary compact" onClick={() => startMove(allocation)}>{it ? "Sposta" : "Move"}</button> : null}
+          </div>
+          {moving ? <form className="storage-relocation-form" onSubmit={relocate}>
+            <div className="storage-move-count">
+              <span>{it ? "Quante bottiglie" : "How many bottles"}</span>
+              <div className="storage-stepper" role="group" aria-label={it ? "Bottiglie da spostare" : "Bottles to move"}>
+                <button type="button" className="secondary" aria-label={it ? "Una in meno" : "One fewer"} disabled={moveCount <= 1} onClick={() => setQuantity(String(moveCount - 1))}>−</button>
+                <input type="number" min="1" max={maxCount} value={quantity} aria-label={it ? "Bottiglie da spostare" : "Bottles to move"} onChange={(event) => setQuantity(event.target.value)} required />
+                <button type="button" className="secondary" aria-label={it ? "Una in più" : "One more"} disabled={moveCount >= maxCount} onClick={() => setQuantity(String(moveCount + 1))}>+</button>
+              </div>
+              <small>{it ? `di ${maxCount}` : `of ${maxCount}`}</small>
+            </div>
+            <fieldset className="storage-move-destination">
+              <legend>{it ? "Verso" : "To"}</legend>
+              <WineLocationPicker locale={locale} locationId={locationId} binId={binId} autoSelectDefault={false} onSelectionLabel={setDestinationLabel} onChange={(nextLocationId, nextBinId) => { setLocationId(nextLocationId); setBinId(nextBinId); }} />
+            </fieldset>
+            {sameAsSource ? <p className="consume-help">{it ? "Scegli una posizione diversa da quella attuale." : "Choose a different place from the current one."}</p> : null}
+            <div className="form-actions">
+              <button type="button" className="secondary" disabled={loading} onClick={() => setMovingId(null)}>{it ? "Annulla" : "Cancel"}</button>
+              <button type="submit" disabled={loading || !hasDestination || sameAsSource}>
+                {loading ? (it ? "Sposto…" : "Moving…") : `${it ? "Sposta" : "Move"} ${moveCount} ${bottleWord(moveCount)}${hasDestination && destinationLabel && !sameAsSource ? ` ${it ? "in" : "to"} ${destinationLabel}` : ""}`}
+              </button>
+            </div>
+          </form> : null}
+        </li>;
+      }) : <li className="empty-state">{it ? "Nessuna bottiglia in giacenza." : "No bottles in stock."}</li>}
+    </ul>
   </details>;
 }
 
