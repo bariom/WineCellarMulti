@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Locale } from "../types";
 import { api } from "../services/api";
 import LandingHeader from "./landing/LandingHeader";
-import NewsCarousel from "./landing/NewsCarousel";
+import NewsPanel from "./landing/NewsPanel";
 import { landingCopy } from "./landing/content";
 import { HeroPhone, StoryBeyond, StoryEssentials, StoryPillars } from "./landing/LandingStory";
 import { landingStory } from "./landing/story";
@@ -53,6 +53,12 @@ export default function PublicLanding({
   demoLoading = false,
 }: PublicLandingProps) {
   const [freeTierLabelLimit, setFreeTierLabelLimit] = useState(defaultFreeTierLabelLimit);
+  const [newsOpen, setNewsOpen] = useState(false);
+  const [newsFocusToken, setNewsFocusToken] = useState(0);
+  const openNews = useCallback((open: boolean, userInitiated = false) => {
+    setNewsOpen(open);
+    if (open && userInitiated) setNewsFocusToken((token) => token + 1);
+  }, []);
   const copy = landingCopy[locale];
   const story = landingStory[locale];
   const labelLimitPattern = /\b15\b/g;
@@ -124,6 +130,7 @@ export default function PublicLanding({
         onLocaleChange={onLocaleChange}
         onLogin={onLogin}
         onRegister={onRegister}
+        onOpenNews={() => openNews(true, true)}
       />
 
       <main id="top" className="marketing-landing">
@@ -160,8 +167,6 @@ export default function PublicLanding({
           </ol>
         </section>
 
-        <NewsCarousel copy={dynamicCopy.news} locale={locale} onRegister={onRegister} />
-
         <section id="access" className="marketing-section marketing-plans" aria-labelledby="plans-title">
           <div className="marketing-section-copy"><p className="marketing-kicker">{copy.nav.pricing}</p><h2 id="plans-title">{copy.conversion.planTitle}</h2><p>{copy.conversion.planBody}</p></div>
           <div className="marketing-plans-grid">
@@ -188,6 +193,8 @@ export default function PublicLanding({
           </div>
         </section>
       </main>
+
+      <NewsPanel copy={dynamicCopy.news} locale={locale} open={newsOpen} focusToken={newsFocusToken} onOpenChange={openNews} onRegister={onRegister} />
 
       <footer className="marketing-footer">
         <a className="marketing-brand" href="#top" aria-label="Vinaris"><img src="/icons/icon-192.png" alt="" width="38" height="38" /><span><strong>Vinaris</strong><small>{copy.footer.statement}</small></span></a>

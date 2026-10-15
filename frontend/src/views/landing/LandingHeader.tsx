@@ -8,9 +8,10 @@ type LandingHeaderProps = {
   onLocaleChange: (locale: Locale) => void;
   onLogin: () => void;
   onRegister: () => void;
+  onOpenNews: () => void;
 };
 
-export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, onRegister }: LandingHeaderProps) {
+export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, onRegister, onOpenNews }: LandingHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [showMobileLogin, setShowMobileLogin] = useState(false);
@@ -80,7 +81,11 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
       </button>
       <div id="marketing-navigation" className={`marketing-header-panel${menuOpen ? " is-open" : ""}`}>
         <nav aria-label={copy.nav.product}>
-          {navItems.map(([href, label]) => <a href={href} key={href} onClick={() => setMenuOpen(false)}>{label}</a>)}
+          {navItems.map(([href, label]) => <a href={href} key={href} onClick={(event) => {
+            setMenuOpen(false);
+            // The updates are a panel, not a section: the link opens it instead of scrolling.
+            if (href === "#news") { event.preventDefault(); onOpenNews(); }
+          }}>{label}</a>)}
         </nav>
         <div className="marketing-header-actions">
           <label>

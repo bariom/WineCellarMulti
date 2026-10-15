@@ -1,0 +1,93 @@
+/*
+ * Updates panel: emerges over the page instead of sitting in it. Bottom-left
+ * on wide screens, a bottom sheet on phones, always dismissible.
+ */
+.landing-news-tab {
+  position: fixed;
+  z-index: 150;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  left: max(16px, env(safe-area-inset-left));
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px 0 14px;
+  border: 1px solid var(--mk-line);
+  border-radius: 999px;
+  background: rgba(255, 253, 249, .94);
+  box-shadow: 0 10px 28px -10px rgba(16, 35, 29, .35);
+  color: var(--mk-ink);
+  font: 600 .92rem/1 var(--font-ui);
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+.landing-news-tab i { width: 8px; height: 8px; border-radius: 50%; background: var(--mk-line); }
+.landing-news-tab i.is-new { background: #b8964c; box-shadow: 0 0 0 4px rgba(184, 150, 76, .22); }
+.landing-news-tab:focus-visible, .landing-news :is(button, [tabindex]):focus-visible { outline: 3px solid #b8964c; outline-offset: 2px; }
+
+.landing-news {
+  position: fixed;
+  z-index: 150;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  left: max(16px, env(safe-area-inset-left));
+  display: grid;
+  gap: 12px;
+  width: min(400px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 18px 18px 14px;
+  overflow-y: auto;
+  border: 1px solid var(--mk-line);
+  border-radius: 20px;
+  background: #fffdf9;
+  box-shadow: 0 30px 70px -20px rgba(16, 35, 29, .5);
+  color: var(--mk-ink);
+  overscroll-behavior: contain;
+}
+.landing-news:focus { outline: none; }
+.landing-news > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.landing-news-kicker { margin: 0; color: #b8964c; font: 700 .72rem/1.2 var(--font-ui); letter-spacing: .14em; text-transform: uppercase; }
+.landing-news-close { display: grid; width: 44px; height: 44px; margin: -8px -8px -8px 0; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--mk-ink); font-size: 2rem; line-height: 1; cursor: pointer; }
+.landing-news-close:hover { background: #eee8dc; }
+.landing-news > h2 { margin: 0; font: 500 1.2rem/1.2 var(--font-display); letter-spacing: -.01em; text-wrap: balance; }
+
+.landing-news-selectors { display: flex; gap: 6px; }
+.landing-news-selectors button { min-width: 44px; min-height: 44px; padding: 0 12px; border: 1px solid var(--mk-line); border-radius: 999px; background: transparent; color: var(--mk-ink); font: 600 .8rem/1 var(--font-ui); font-variant-numeric: tabular-nums; cursor: pointer; }
+.landing-news-selectors button[aria-pressed="true"] { border-color: var(--mk-ink); background: var(--mk-ink); color: #fff8e9; }
+
+.landing-news-card { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--mk-line); border-radius: 16px; background: #f7f4ee; }
+.landing-news-card.is-featured { border-color: #183c31; background: linear-gradient(130deg, #183c31, #234d3f); color: #fff8e9; }
+.landing-news-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.landing-news-meta span { color: #7a2232; font: 700 .68rem/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; }
+.landing-news-meta time { color: var(--mk-muted); font-size: .72rem; }
+.landing-news-copy { display: grid; gap: 8px; }
+.landing-news-copy h3 { margin: 0; font: 500 1.35rem/1.15 var(--font-display); letter-spacing: -.01em; }
+.landing-news-copy p { margin: 0; color: var(--mk-muted); font-size: .9rem; line-height: 1.5; }
+.landing-news-card.is-featured :is(.landing-news-meta span) { color: #edcba2; }
+.landing-news-card.is-featured :is(.landing-news-meta time, .landing-news-copy p, .landing-news-action small) { color: #d9e4da; }
+.landing-news-action { display: grid; justify-items: start; gap: 8px; }
+.landing-news-action small { color: var(--mk-muted); font-size: .74rem; line-height: 1.4; }
+.landing-news-action .marketing-button { gap: 8px; min-height: 44px; max-width: 100%; white-space: normal; text-align: center; }
+.landing-news-card.is-featured .marketing-button { background: #f6e6c9; color: #183c31; box-shadow: none; }
+
+.landing-news > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.landing-news > footer p { margin: 0; color: var(--mk-muted); font-size: .74rem; line-height: 1.4; }
+.landing-news-arrows { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.landing-news-arrows button { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--mk-line); border-radius: 50%; background: transparent; color: var(--mk-ink); font-size: 1rem; cursor: pointer; }
+.landing-news-arrows > span { min-width: 40px; text-align: center; font-size: .8rem; font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing-news { animation: landing-news-in .32s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes landing-news-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+}
+
+@media (max-width: 600px) {
+  .landing-news { right: max(12px, env(safe-area-inset-right)); left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); width: auto; max-height: 78dvh; padding: 16px 16px 12px; }
+  /* On phones the sheet stays short: the heading and the free-tier note are read by
+   * screen readers and already sit in the hero. */
+  .landing-news > h2, .landing-news > footer p { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .landing-news > footer { justify-content: center; }
+  .landing-news { gap: 10px; }
+  .landing-news-card { padding: 16px; }
+  .landing-news-copy h3 { font-size: 1.25rem; }
+  .landing-news-arrows { justify-content: center; }
+}

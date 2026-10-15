@@ -4,51 +4,85 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/v1/session", route => route.fulfill({ json: { authenticated: false } }));
   await page.route("**/api/v1/public-config", route => route.fulfill({ json: { free_tier_label_limit: 23 } }));
   await page.addInitScript(() => localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-09-23T00:00:00Z" })));
+  // The updates panel emerges while scrolling; most tests start with it dismissed so the page is stable.
+  await page.addInitScript(() => localStorage.setItem("vinaris.landing-news", JSON.stringify({ dismissedFor: "9999-12" })));
 });
 
 for (const locale of ["it", "en"] as const) {
-  test(`${locale}: news slides support selection, keyboard, touch and registration`, async ({ page }, testInfo) => {
+  test(`${locale}: updates emerge as a dismissible panel and can be reopened`, async ({ page }, testInfo) => {
+    // This test starts with the updates not yet dismissed.
+    await page.addInitScript(() => localStorage.removeItem("vinaris.landing-news"));
     await page.goto(`/?lang=${locale}`);
-    const news = page.getByRole("region", { name: locale === "it" ? "Meno gestione. Più piacere di collezionare." : "Less admin. More joy in collecting." });
+    const title = locale === "it" ? "Meno gestione. Più piacere di collezionare." : "Less admin. More joy in collecting.";
+    const news = page.getByRole("region", { name: title });
+    const tab = page.getByRole("button", { name: locale === "it" ? "Novità" : "What’s new", exact: true });
+    const close = news.getByRole("button", { name: locale === "it" ? "Chiudi le novità" : "Close updates" });
+    // Not part of the page flow: nothing at load but a small tab.
+    await expect(news).toHaveCount(0);
+    await expect(tab).toBeVisible();
+    await expect(page.locator("main #news")).toHaveCount(0);
+    // It emerges once the visitor has started reading.
+    await page.evaluate(() => window.scrollTo(0, window.innerHeight));
+    await expect(news).toBeVisible();
+    await close.click();
+    await expect(news).toHaveCount(0);
+    // A closed panel stays closed after a reload and when scrolling again.
+    await page.reload();
+    await page.evaluate(() => window.scrollTo(0, window.innerHeight * 2));
+    await page.waitForTimeout(500);
+    await expect(news).toHaveCount(0);
+    await expect(tab).toBeVisible();
+    // The tab and the menu link reopen it, and Escape closes it again.
+    await tab.click();
+    await expect(news).toBeVisible();
+    await expect(news).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(news).toHaveCount(0);
+
     const selectors = news.getByRole("group").getByRole("button");
     const article = news.getByRole("article");
     const titles = locale === "it" ? ["Dalla fattura alla cantina. In pochi tocchi.", "Certi vini meritano più di una nota.", "La tua cantina. Le tue priorità."] : ["From invoice to cellar. In a few taps.", "Some wines deserve more than a tasting note.", "Your cellar. Your priorities."];
-    await expect(selectors).toHaveCount(3);
-    await expect(article).toHaveCount(1);
-    await expect(news.locator("#news-signup-note")).toContainText("23");
     for (const width of [360, 390, 430, 1200, 1440]) {
       await page.setViewportSize({ width, height: width >= 1200 ? 1000 : 844 });
       await page.evaluate(() => window.scrollTo(0, 0));
       if (width < 1161) await page.getByRole("button", { name: locale === "it" ? "Apri menu" : "Open menu" }).click();
       await page.getByRole("link", { name: locale === "it" ? "Novità" : "What’s new", exact: true }).click();
-      await expect(page).toHaveURL(/#news$/);
-      for (let index=0; index<3; index++) {
+      await expect(news).toBeVisible();
+      await expect(selectors).toHaveCount(3);
+      await expect(article).toHaveCount(1);
+      await expect(news.locator("#news-signup-note")).toContainText("23");
+      for (let index = 0; index < 3; index++) {
         await selectors.nth(index).click();
         await expect(selectors.nth(index)).toHaveAttribute("aria-pressed", "true");
         await expect(article.getByRole("heading")).toHaveText(titles[index]);
         await expect(article.locator("time")).toBeVisible();
-        expect((await news.boundingBox())!.height).toBeLessThan(width >= 1200 ? 700 : 850);
-        const box = (await article.boundingBox())!;
+        const box = (await news.boundingBox())!;
         const cta = (await article.getByRole("button").boundingBox())!;
-        const detail = (await article.locator(".marketing-news-copy p").boundingBox())!;
+        const detail = (await article.locator(".landing-news-copy p").boundingBox())!;
+        const viewport = page.viewportSize()!;
+        // The panel sits fully inside the viewport and never hides more than a sheet's worth of it.
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width);
+        expect(box.y).toBeGreaterThanOrEqual(0);
+        expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+        expect(box.height).toBeLessThanOrEqual(viewport.height * 0.9);
         expect(cta.y).toBeGreaterThanOrEqual(detail.y + detail.height);
-        for (const element of [box, cta, ...(await Promise.all((await selectors.all()).map(button => button.boundingBox()))).map(b => b!)]) {
-          expect(element.x).toBeGreaterThanOrEqual(0);
-          expect(element.x + element.width).toBeLessThanOrEqual(width);
-        }
         expect(cta.height).toBeGreaterThanOrEqual(44);
+        expect((await close.boundingBox())!.width).toBeGreaterThanOrEqual(44);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-        if (index === 1) await expect.poll(() => article.locator("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
-        if (width === 390 || width === 1440) {
-          await news.evaluate(el => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 90));
-          await news.screenshot({ path: testInfo.outputPath(`news-${locale}-${index}-${width}.png`) });
-        }
+        if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`news-${locale}-${index}-${width}.png`) });
       }
+      await close.click();
+      await expect(news).toHaveCount(0);
     }
+
+    await tab.click();
     await news.getByRole("button", { name: locale === "it" ? "Novità successiva" : "Next update" }).click();
-    await expect(article.getByRole("heading")).toHaveText(titles[0]);
+    await selectors.nth(0).click();
+    await news.getByRole("button", { name: locale === "it" ? "Novità successiva" : "Next update" }).click();
+    await expect(article.getByRole("heading")).toHaveText(titles[1]);
     await news.getByRole("button", { name: locale === "it" ? "Novità precedente" : "Previous update" }).click();
-    await expect(article.getByRole("heading")).toHaveText(titles[2]);
+    await expect(article.getByRole("heading")).toHaveText(titles[0]);
     await selectors.nth(2).focus();
     await page.keyboard.press("ArrowRight");
     await expect(selectors.nth(0)).toBeFocused();
@@ -68,7 +102,7 @@ for (const locale of ["it", "en"] as const) {
     // A vertical gesture must leave the current slide unchanged.
     await swipe(-10, 150);
     await expect(article.getByRole("heading")).toHaveText(titles[1]);
-    for (let index=0; index<3; index++) {
+    for (let index = 0; index < 3; index++) {
       await selectors.nth(index).click();
       await article.getByRole("button").click();
       await expect(page.getByLabel(locale === "it" ? "Conferma password" : "Confirm password", { exact: true })).toBeVisible();
