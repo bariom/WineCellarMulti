@@ -165,8 +165,9 @@ export default function PairingView({
   const [restaurantScan, setRestaurantScan] = useState<RestaurantWineListScanResult | null>(null);
   const [restaurantScanError, setRestaurantScanError] = useState("");
   const [restaurantFlow, setRestaurantFlow] = useState<"choose" | "scan" | "without-list" | "result">("choose");
-  const [pairingLocation, setPairingLocation] = useState<"choose" | "home" | "restaurant">("choose");
+  const [selectedPairingLocation, setPairingLocation] = useState<"choose" | "home" | "restaurant">("choose");
   const restaurantResultRef = useRef<HTMLDivElement>(null);
+  const pairingLocation = pairingTargetWine ? "home" : selectedPairingLocation;
   const restaurantContext = pairingLocation === "restaurant";
   const isWineFirstPairing = Boolean(pairingTargetWine);
   const pairingCopy = locale === "it"

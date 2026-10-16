@@ -52,6 +52,12 @@ is 5173; set `PLAYWRIGHT_PORT` to choose another local server port. An explicit
 
 ## Feature commands
 
+Pairing entry: `npx playwright test e2e/pairing-entry.spec.ts` checks that a
+selected wine from the cellar row or wine detail opens dish pairing directly,
+including after restaurant mode was used. Home/restaurant selection remains
+available when asking for a wine recommendation. Coverage includes request
+context and overflow at 360/390/430 px and desktop.
+
 Operations: `npx playwright test e2e/operations.spec.ts` checks the complete
 administrator screen: overview, catalog approval/search, sensory profiles,
 vineyard tools, Wine Pulse, AI costs/pricing and Monitor devices. The areas keep

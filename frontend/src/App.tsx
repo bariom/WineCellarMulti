@@ -8137,6 +8137,9 @@ export function App() {
   function openDishPairingForWine(wine?: Wine) {
     if (!wine) return;
     setPairingTargetWineId(wine.id);
+    setPairingMarketOnly(false);
+    setPairingPreferLocal(false);
+    setPairingLocalOrigin("");
     setActiveView("pairing");
   }
 
