@@ -373,8 +373,9 @@ def test_preview_does_not_mutate_cellar_and_reuses_document(client):
         ("Bin 389", "750ml", "Bin 389", "750ml"),
         ("1000 Stories", "750ml", "1000 Stories", "750ml"),
         ("Magnum Opus", "750ml", "Magnum Opus", "750ml"),
-        ("Barolo", "", "Barolo", ""),
-        ("", "", "", ""),
+        ("Barolo", "", "Barolo", "750ml"),
+        ("Barolo", "   ", "Barolo", "750ml"),
+        ("", "", "", "750ml"),
     ],
 )
 def test_purchase_names_exclude_explicit_bottle_volumes(
@@ -1197,3 +1198,67 @@ def test_origin_cleanup_preserves_commas_in_name_and_supports_catalog_alias_and_
         extraction.rows[0].warnings[-1]
         == "Origin stated in the document: Chianti, Toscana. It is not part of the wine name."
     )
+
+
+def test_invoice_without_bottle_format_defaults_to_750ml_and_is_saved(client):
+    test, db, context, _, _ = client
+    result = preview(test)
+    data = confirmation()
+    data["rows"][0].update(name="Ornellaia", producer="Test producer", format="")
+    response = test.post(f"/imports/purchases/{result['id']}/confirm", json=data)
+    assert response.status_code == 200, response.text
+    wine = db.scalar(
+        select(Wine).where(
+            Wine.id == UUID(response.json()["wine_ids"][0]),
+            Wine.household_id == context.household.id,
+        )
+    )
+    assert wine.format == "750ml"
+    assert db.scalar(select(WineStockLot).where(WineStockLot.wine_id == wine.id)) is not None
+    assert db.scalar(select(WineCatalogEntry)).format == "750ml"
+
+
+def test_confirmation_without_a_format_field_uses_the_standard_bottle(client):
+    data = confirmation()
+    del data["rows"][0]["format"]
+    assert PurchaseConfirmation.model_validate(data).rows[0].format == "750ml"
+
+
+def test_extracted_blank_format_is_shown_as_750ml_on_new_and_cached_drafts(client, monkeypatch):
+    test, db, _, _, _ = client
+    data = extracted()
+    data["rows"][0].update(name="Sassicaia", format="")
+    monkeypatch.setattr(
+        ai,
+        "create_ai_response",
+        lambda *a, **kw: (
+            OpenAIResponse(text=json.dumps(data), usage=TokenUsage(), model="test"),
+            "user_key",
+        ),
+    )
+    result = preview(test)
+    assert result["extraction"]["rows"][0]["format"] == "750ml"
+    # Drafts analysed before this default existed are normalised without another AI request.
+    record = db.get(PurchaseImport, UUID(result["id"]))
+    record.draft = data
+    db.commit()
+    assert preview(test)["extraction"]["rows"][0]["format"] == "750ml"
+
+
+def test_existing_wine_without_recorded_format_accepts_a_standard_bottle_purchase(client):
+    test, db, _, wine, _ = client
+    wine.format = ""
+    wine.status = "In cellar"
+    db.commit()
+    result = preview(test)
+    data = confirmation()
+    data["rows"][0].update(
+        name=wine.name,
+        producer=wine.producer,
+        vintage=wine.vintage,
+        format="",
+        existing_wine_id=str(wine.id),
+    )
+    response = test.post(f"/imports/purchases/{result['id']}/confirm", json=data)
+    assert response.status_code == 200, response.text
+    assert response.json()["wine_ids"] == [str(wine.id)]

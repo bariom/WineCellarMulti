@@ -28,7 +28,7 @@ async function openPurchase(page: Page, locale: "it" | "en" = "it", empty = fals
         sessionStorage.setItem("receipt-upload", JSON.stringify({ locale: data.get("locale"), file: (data.get("document") as File).name }));
         return Response.json({ id: "purchase-1", status: received || pending ? "received" : "draft", estimated_cost_usd: access === "included" ? "0" : "0.021", extraction: {
           supplier: "Enoteca delle Colline", reference: "INV-42", order_date: "2026-10-09", currency: "CHF", document_total: "126.00", additional_costs: "0",
-          rows: empty ? [] : [{ name: wine.name, producer: wine.producer, vintage: wine.vintage, format: "0.75L", quantity: 3, unit_price: "42.00", line_total: "126.00", warnings: ["Verifica il formato della bottiglia."] }], warnings: empty ? ["Nessun vino leggibile"] : [],
+          rows: empty ? [] : [{ name: wine.name, producer: wine.producer, vintage: wine.vintage, format: sessionStorage.getItem("receipt-blank-format") ? "" : "0.75L", quantity: 3, unit_price: "42.00", line_total: "126.00", warnings: ["Verifica il formato della bottiglia."] }], warnings: empty ? ["Nessun vino leggibile"] : [],
         }, matches: empty ? [] : [[{ id: wine.id, name: wine.name, producer: wine.producer, vintage: wine.vintage, format: wine.format, currency: wine.currency, has_photo: !!sessionStorage.getItem("receipt-existing-photo") }]] });
       }
       if (url.pathname.endsWith("/confirm")) {
@@ -530,4 +530,33 @@ test("purchase PDF preview failure keeps original and review accessible", async 
   await expect(dialog.getByText("Anteprima non disponibile.", { exact: false })).toBeVisible();
   await expect(dialog.getByRole("link", { name: "Apri PDF originale", exact: true })).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "Verifica l’acquisto", exact: true })).toBeVisible();
+});
+
+test("purchase rows default to 750ml when the invoice has no bottle format", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const dialog = await openPurchase(page, "it");
+  await page.evaluate(() => sessionStorage.setItem("receipt-blank-format", "true"));
+  await dialog.locator('input[type="file"]').first().setInputFiles(await receipt(page));
+  await dialog.getByRole("button", { name: "Analizza acquisto", exact: true }).click();
+  const format = dialog.getByLabel("Formato", { exact: true });
+  // A blank format from the document is shown as the standard bottle, and it is not a required field to type.
+  await expect(format).toHaveValue("750ml");
+  await expect(format).not.toHaveAttribute("required", "");
+  // Clearing it still lets the purchase be saved: the server applies the same default.
+  await format.fill("");
+  await dialog.getByLabel("Ho verificato vini, annate, bottiglie, prezzi e stato della consegna.").check();
+  await dialog.getByRole("button", { name: "Conferma acquisto in cantina", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Acquisto aggiunto alla cantina" })).toBeVisible();
+  const calls = await page.evaluate(() => JSON.parse(sessionStorage.getItem("receipt-confirmations") || "[]"));
+  expect(calls).toHaveLength(1);
+  expect(["", "750ml"]).toContain(calls[0].rows[0].format);
+});
+
+test("a manually added purchase row starts with a 750ml bottle", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const dialog = await openPurchase(page, "it", true);
+  await dialog.locator('input[type="file"]').first().setInputFiles(await receipt(page));
+  await dialog.getByRole("button", { name: "Analizza acquisto", exact: true }).click();
+  await dialog.getByRole("button", { name: "Aggiungi riga", exact: true }).click();
+  await expect(dialog.getByLabel("Formato", { exact: true })).toHaveValue("750ml");
 });

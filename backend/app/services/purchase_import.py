@@ -22,7 +22,12 @@ from app.models import (
     WineStockMovement,
     WineStorageAllocation,
 )
-from app.schemas.purchase_import import PurchaseConfirmation, PurchaseExtraction, PurchaseResult
+from app.schemas.purchase_import import (
+    DEFAULT_BOTTLE_FORMAT,
+    PurchaseConfirmation,
+    PurchaseExtraction,
+    PurchaseResult,
+)
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.merchants import get_or_create_merchant
 from app.services.pdf_sources import extract_pdf_document
@@ -278,7 +283,10 @@ def apply_purchase(
                 raise HTTPException(
                     422, "Receive the existing order separately before adding another purchase"
                 )
-            if wine.currency != payload.currency or wine.format != row.format:
+            if (
+                wine.currency != payload.currency
+                or (wine.format.strip() or DEFAULT_BOTTLE_FORMAT) != row.format
+            ):
                 raise HTTPException(
                     422, "Selected wine must have the same currency and bottle format"
                 )

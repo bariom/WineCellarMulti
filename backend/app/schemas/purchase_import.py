@@ -17,6 +17,10 @@ _BOTTLE_VOLUME = re.compile(
 )
 
 
+# Invoices rarely state the bottle size when it is the standard one.
+DEFAULT_BOTTLE_FORMAT = "750ml"
+
+
 def separate_bottle_format(name: str, bottle_format: str) -> tuple[str, str]:
     """Remove explicit volumes, retaining a supplied format over inferred data."""
     volumes = set()
@@ -50,6 +54,7 @@ class ExtractedPurchaseRow(BaseModel):
     @model_validator(mode="after")
     def separate_format_from_name(self) -> Self:
         self.name, self.format = separate_bottle_format(self.name, self.format)
+        self.format = self.format.strip() or DEFAULT_BOTTLE_FORMAT
         return self
 
 
@@ -70,7 +75,7 @@ class PurchaseRow(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     producer: str = Field(default="", max_length=200)
     vintage: str = Field(default="", max_length=16)
-    format: str = Field(min_length=1, max_length=80)
+    format: str = Field(default=DEFAULT_BOTTLE_FORMAT, max_length=80)
     quantity: int = Field(ge=1, le=10000, strict=True)
     unit_price: Money
     existing_wine_id: UUID | None = None
@@ -79,6 +84,7 @@ class PurchaseRow(BaseModel):
     @model_validator(mode="after")
     def separate_format_from_name(self) -> Self:
         self.name, self.format = separate_bottle_format(self.name, self.format)
+        self.format = self.format.strip() or DEFAULT_BOTTLE_FORMAT
         if not self.name:
             raise ValueError("Wine name must contain more than a bottle format")
         return self
