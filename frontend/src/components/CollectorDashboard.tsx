@@ -9,6 +9,7 @@ import { wineTone } from "./panelSupport";
 import { FeaturedWineDetails, type FeaturedWine } from "./FeaturedWineDetails";
 
 export function CollectorDashboard({ children, wines, featured, ready, recent, locale, canShowPhotos, showRiserva, onExploreRiserva, onOpen }: {
+  now?: Date;
   children: ReactNode; wines: Wine[]; featured: FeaturedWine[];
   ready: Wine[]; recent: Wine[]; locale: Locale; canShowPhotos: boolean; onOpen: (wine: Wine) => void;
   showRiserva: boolean; onExploreRiserva: () => void;

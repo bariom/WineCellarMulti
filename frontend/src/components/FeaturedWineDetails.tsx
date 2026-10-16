@@ -31,11 +31,20 @@ export function featuredCaption(item: FeaturedWine, locale: Locale) {
 
 export function featuredExplanation(item: FeaturedWine, locale: Locale) {
   const it = locale === "it";
-  return item.reason === "increase"
-    ? (it ? "È il vino con il maggiore incremento percentuale tra quelli confrontabili della tua cantina." : "This wine has the largest percentage increase among comparable wines in your cellar.")
-    : item.reason === "position"
-      ? (it ? "In evidenza per il valore complessivo delle bottiglie in questa posizione." : "Highlighted for the combined value of the bottles in this position.")
-      : (it ? "In evidenza per il valore delle bottiglie attribuibile alla tua quota di proprietà." : "Highlighted for the bottle value attributable to your ownership share.");
+  switch (item.reason) {
+    case "increase":
+      return it ? "È il vino con il maggiore incremento percentuale tra quelli confrontabili della tua cantina." : "This wine has the largest percentage increase among comparable wines in your cellar.";
+    case "position":
+      return it ? "In evidenza per il valore complessivo delle bottiglie in questa posizione." : "Highlighted for the combined value of the bottles in this position.";
+    case "personal":
+      return it ? "In evidenza come il vino di maggior valore tra quelli di tua esclusiva proprietà." : "Highlighted as the most valuable wine among those you own outright.";
+    case "shared":
+      return it ? "In evidenza come il vino di maggior valore tra quelli in comproprietà." : "Highlighted as the most valuable wine among those you own jointly.";
+    case "value":
+      return it ? "In evidenza tra le posizioni di maggior valore della tua cantina." : "Highlighted among the most valuable positions in your cellar.";
+    default:
+      return it ? "In evidenza per il valore delle bottiglie attribuibile alla tua quota di proprietà." : "Highlighted for the bottle value attributable to your ownership share.";
+  }
 }
 
 export function FeaturedWineDetails({ item, locale, onClose, onOpen }: {

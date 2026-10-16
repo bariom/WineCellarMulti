@@ -34,6 +34,7 @@ import { CollectorReadyWines } from "./components/CollectorReadyWines";
 import { CollectorCardGroup } from "./components/CollectorCardGroup";
 import { CollectorAtlas } from "./components/CollectorAtlas";
 import { CollectorDashboard } from "./components/CollectorDashboard";
+import { CollectorQuadrante } from "./components/CollectorQuadrante";
 import { CellarHomeHero, CellarHomeStats, type CellarHomeHeroStat } from "./components/CellarHomeHero";
 import { appUserActivityStatus, appUserEntitlementStatus, appUserInitials, appUserPlanLabel, appUserRoleLabel, appUserTierStatus } from "./domain/appUsers";
 import { CellarHomeBackdrop, resetHomeBackdropSession, sessionBackdropSrc } from "./components/CellarHomeBackdrop";
@@ -107,6 +108,8 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
     .find(Boolean) || currentModel;
 }
 
+// "Il quadrante" collector home is on trial; add ?classic to the URL for the previous layout.
+const CollectorHome = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("classic") ? CollectorDashboard : CollectorQuadrante;
 const PairingView = lazy(() => import("./views/PairingView"));
 const AdminUsersWorkspace = lazy(() => import("./components/AdminUsersWorkspace"));
 const WishlistOverview = lazy(() => import("./components/WishlistOverview"));
@@ -10821,7 +10824,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "collector" ? (
-              <CollectorDashboard wines={cellarWines} featured={keyPositionCandidates} ready={drinkNowWines} recent={recentCellarWines} locale={locale} canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard}
+              <CollectorHome now={now} wines={cellarWines} featured={keyPositionCandidates} ready={drinkNowWines} recent={recentCellarWines} locale={locale} canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard}
                 showRiserva={!offlineMode && !session?.is_demo && !session?.has_active_entitlement && !session?.is_app_admin}
                 onExploreRiserva={() => { setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile"); }}>
                 <CollectorCardGroup className="collector-wine-stage" locale={locale} label={locale === "it" ? "I vini della tua collezione" : "Wines in your collection"}>
@@ -11015,7 +11018,7 @@ export function App() {
 
                 {renderRegionalGapCard(true)}
 
-              </section></details></CollectorDashboard>
+              </section></details></CollectorHome>
               ) : null}
 
               {dashboardFocus === "value" ? (

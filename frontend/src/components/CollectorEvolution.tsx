@@ -20,7 +20,7 @@ function useHistory<T>(url: string) {
   return { ...(state.url === url ? state : { url }), retry: () => retry(value => value + 1) };
 }
 
-export default function CollectorEvolution({ wines, locale, now, onOpen }: { wines: Wine[]; locale: Locale; now: Date; onOpen: (wine: Wine) => void }) {
+export default function CollectorEvolution({ wines, locale, now, onOpen, hideHorizon = false }: { wines: Wine[]; locale: Locale; now: Date; onOpen: (wine: Wine) => void; hideHorizon?: boolean }) {
   const it = locale === "it";
   const count = (value: number) => formatBottleCount(value || 0, locale);
   const currencies = [...new Set(wines.filter(w => w.quantity > 0).map(w => w.currency))].sort();
@@ -58,22 +58,22 @@ export default function CollectorEvolution({ wines, locale, now, onOpen }: { win
   return <section className="collector-evolution" aria-label={it ? "Come sta cambiando la tua cantina" : "How your cellar is changing"}>
     <h2>{it ? "Come sta cambiando la tua cantina" : "How your cellar is changing"}</h2>
     <div className="collector-evolution-grid">
-      <article><header><h3>{it ? "Valutazioni nel tempo" : "Valuations over time"}</h3><select aria-label={it ? "Valuta dello storico" : "History currency"} value={currency} onChange={e => setCurrency(e.target.value)}>{(currencies.length ? currencies : [currency]).map(c => <option key={c}>{c}</option>)}</select></header>
+      <article data-empty={history.data && points.length < 2 ? "" : undefined}><header><h3>{it ? "Valutazioni nel tempo" : "Valuations over time"}</h3><select aria-label={it ? "Valuta dello storico" : "History currency"} value={currency} onChange={e => setCurrency(e.target.value)}>{(currencies.length ? currencies : [currency]).map(c => <option key={c}>{c}</option>)}</select></header>
         {delta !== null && <strong className="evolution-metric">{delta > 0 ? "+" : ""}{formatMoney(delta, currency, locale)}</strong>}
         <small>{it ? "Ultimi 12 mesi · quantità attuali" : "Last 12 months · current quantities"}</small>
         {!history.data ? status(history) : points.length < 2 ? <p>{it ? "Servono due rilevazioni per mostrare l’andamento." : "Two observations are needed to show a trend."}</p> : <Suspense fallback={<p>…</p>}><TimeSeriesChart compact points={points} locale={locale} currency={currency} ariaLabel={it ? "Andamento delle valutazioni" : "Valuation trend"} height={180} /></Suspense>}
         <small>{it ? "Ricostruzione sulle bottiglie attuali, non rendimento." : "Reconstructed for current holdings, not investment returns."}</small>
       </article>
-      <article><header><h3>{it ? "Entrate e uscite" : "In and out"}</h3><small>{it ? "12 mesi" : "12 months"}</small></header>
+      <article data-empty={movements.data && !inPeriod.length ? "" : undefined}><header><h3>{it ? "Entrate e uscite" : "In and out"}</h3><small>{it ? "12 mesi" : "12 months"}</small></header>
         {!movements.data ? status(movements) : !inPeriod.length ? <p>{it ? "Nessun movimento registrato nel periodo." : "No recorded movements in this period."}</p> : <div className="evolution-movements">{types.map(group => <div key={group.tone}><span>{group.label}</span><strong>{count(group.value)}</strong><div className="evolution-track"><i className={`evolution-tone-${group.tone}`} style={{ width: `${Math.abs(group.value) / maxMovement * 100}%` }} /></div></div>)}</div>}
         <small>{it ? "Bottiglie · movimenti registrati" : "Bottles · recorded movements"}{rows.length === 500 ? (it ? " · ultimi 500: dati parziali" : " · latest 500: partial data") : ""}</small>
         {inPeriod.some(row => ["opening_balance", "adjustment_in"].includes(row.movement_type)) && <small>{it ? "Giacenze iniziali e rettifiche in entrata escluse." : "Opening balances and inbound adjustments excluded."}</small>}
       </article>
-      <article className="evolution-horizon"><header><h3>{it ? "Orizzonte di beva" : "Drinking horizon"}</h3><small>{it ? "Fine finestra · bottiglie" : "Window end · bottles"}</small></header>
+      {!hideHorizon && <article className="evolution-horizon"><header><h3>{it ? "Orizzonte di beva" : "Drinking horizon"}</h3><small>{it ? "Fine finestra · bottiglie" : "Window end · bottles"}</small></header>
         <div className="evolution-columns">{bins.map(bin => <button type="button" key={bin.label} aria-label={`${bin.label}: ${count(bin.value)} ${it ? "bottiglie" : "bottles"}`} aria-pressed={selectedYear === bin.label} disabled={!bin.value} onClick={() => setYear(selectedYear === bin.label ? null : bin.label)}><strong>{count(bin.value)}</strong><span className="evolution-column"><i style={{ height: `${bin.value / maxWindow * 100}%` }} /></span><span>{bin.label}</span></button>)}</div>
         <small>{it ? "L’anno indica l’ultimo anno della finestra di beva stimata; dal successivo è superata. Seleziona una colonna per vedere i vini." : "The year is the last year of the estimated drinking window; it is past from the following year. Select a column to see the wines."}</small>
         {selected && <div className="collector-wine-list">{selected.items.map(w => <button type="button" key={w.id} onClick={() => onOpen(w)}><span>{w.name}<small>{w.producer} · {w.vintage}</small></span><strong>{count(w.quantity)}</strong></button>)}</div>}
-      </article>
+      </article>}
     </div>
   </section>;
 }

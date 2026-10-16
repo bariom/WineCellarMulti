@@ -1,0 +1,239 @@
+/* "Il quadrante": premium collector home. A self-contained "private cellar" stage: dark ink, champagne gold, serif display.
+   Theme variables are redefined here so shared children (atlas, charts, scroll controls) stay legible inside the dark stage. */
+.cq {
+  --cq-panel: var(--surface); --cq-panel-2: var(--surface-muted, var(--surface));
+  --cq-text: var(--text); --cq-strong: var(--text); --cq-muted: var(--text-muted);
+  --cq-gold: color-mix(in srgb, var(--accent) 45%, var(--text));
+  --cq-gold-fill: #d9b865; --cq-track: color-mix(in srgb, var(--text) 9%, transparent);
+  --cq-card-shadow: none;
+  --cq-rule: color-mix(in srgb, var(--text-muted) 28%, transparent);
+  display: grid; gap: 40px; min-width: 0; color: var(--text);
+}
+.cq h2 { margin: 0; font: normal 1.65rem/1.15 var(--font-display); letter-spacing: -.02em; color: var(--cq-strong); }
+.cq > * { min-width: 0; }
+.cq-note { margin: 6px 0 0; color: var(--cq-muted); font-size: .85rem; }
+.cq-empty { margin: 12px 0 0; color: var(--cq-muted); }
+.cq-panel { border: 1px solid var(--cq-rule); border-radius: 12px; background: var(--cq-panel); box-shadow: var(--cq-card-shadow); }
+
+/* Light theme: stronger edges, deeper gold, soft elevation so the panels read as premium surfaces. */
+html[data-theme="light"] .cq {
+  --cq-gold-fill: #b8923a; --cq-track: color-mix(in srgb, var(--text) 14%, transparent);
+  --cq-rule: color-mix(in srgb, var(--text-muted) 40%, transparent);
+  --cq-gold: color-mix(in srgb, var(--accent) 30%, var(--text));
+  --cq-card-shadow: 0 1px 2px rgba(60, 45, 20, .06), 0 14px 28px -18px rgba(60, 45, 20, .28);
+}
+
+/* Layout */
+.cq-side { display: grid; gap: 32px; min-width: 0; align-content: start; }
+.cq-board { display: grid; gap: 40px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 901px) {
+  .cq-board { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 40px; align-items: start; }
+  }
+
+/* Bottle of the day */
+.cq-today > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.cq-today > header span { color: var(--cq-muted); font-size: .8rem; }
+.cq-rail { display: flex; margin-top: 14px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; border-radius: 14px; }
+.cq-rail::-webkit-scrollbar { display: none; }
+.cq-rail:focus-visible { outline: 2px solid var(--cq-gold); outline-offset: 2px; }
+.cq-slide { display: flex; flex: 0 0 100%; min-width: 0; scroll-snap-align: start; scroll-snap-stop: always; }
+.cq-stage { box-shadow: var(--cq-card-shadow); position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent); border-radius: 14px; background: radial-gradient(120% 90% at 20% 30%, color-mix(in srgb, var(--primary) 16%, var(--surface)) 0%, var(--cq-panel) 62%); }
+.cq-year { position: absolute; right: 8px; top: -14px; font: normal 8.5rem/1 var(--font-display); color: color-mix(in srgb, var(--accent) 12%, transparent); pointer-events: none; }
+.cq-stage-top { flex: 1 1 auto; align-content: start; position: relative; display: grid; grid-template-columns: 152px minmax(0, 1fr); gap: 16px; padding: 22px 18px 8px; }
+.cq .cq-bottle { position: relative; align-self: start; }
+.cq-bottle::before { content: ""; position: absolute; inset: auto -10px 0; height: 85%; background: radial-gradient(closest-side, rgba(243, 217, 164, .35), transparent); }
+.cq .cq-bottle .key-position-bottle-visual { position: relative; display: block; width: 100%; height: 230px; min-height: 230px; margin: 0; background: none; border: 0; box-shadow: none; transform: none; filter: drop-shadow(0 12px 14px rgba(0, 0, 0, .55)); }
+.cq .cq-bottle .key-position-bottle-visual img, .cq .cq-bottle .key-position-wine-illustration, .cq .cq-bottle .key-position-wine-illustration svg { display: block; width: 100%; height: 230px; max-height: 230px; object-fit: contain; }
+.cq-stage-copy p { margin: 0; overflow-wrap: anywhere; }
+.cq-kicker { font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; color: var(--cq-gold); }
+.cq-stage-copy h3 { margin: 6px 0 4px; font: normal 1.9rem/1.05 var(--font-display); color: var(--cq-strong); overflow-wrap: anywhere; }
+.cq-producer { color: var(--cq-muted); }
+.cq-why { margin-top: 12px !important; line-height: 1.45; color: var(--cq-text); }
+.cq-meta { margin-top: 10px !important; font-size: .82rem; color: var(--cq-muted); }
+.cq-context { min-height: 300px; margin: auto 18px 0; padding: 12px 0 16px; border-top: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); }
+.cq-context figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--cq-muted); }
+.cq-context figcaption strong { font: normal 1.9rem/1 var(--font-display); letter-spacing: 0; text-transform: none; color: var(--cq-gold); }
+.cq-context p { margin: 8px 0 0; font-size: .75rem; color: var(--cq-muted); }
+.cq-trend svg { display: block; width: 100%; height: 130px; margin-top: 8px; overflow: visible; }
+.cq-trend-line { fill: none; stroke: var(--cq-gold-fill); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.cq-trend-dot { fill: none; stroke: var(--cq-gold-fill); stroke-width: 11; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.cq-trend-dot-core { stroke: var(--cq-panel); stroke-width: 5; }
+.cq-trend-end { stroke-width: 13; }
+.cq-trend-ends { display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.cq-trend-ends span { display: grid; gap: 2px; }
+.cq-trend-ends span:last-child { text-align: right; }
+.cq-trend-ends small { font-size: .7rem; color: var(--cq-muted); }
+.cq-trend-ends b { font: normal 1.15rem var(--font-display); color: var(--cq-strong); }
+.cq-share-body { display: flex; align-items: center; gap: 18px; margin-top: 10px; }
+.cq-share-body svg { flex: 0 0 120px; width: 120px; height: 120px; }
+.cq-share-arc { fill: none; stroke: var(--cq-gold-fill); stroke-width: 14; stroke-linecap: butt; }
+.cq-share-body p { margin: 0; display: grid; gap: 4px; }
+.cq-share-body strong { font: normal 1.5rem/1.1 var(--font-display); color: var(--cq-strong); }
+.cq-share-body p span { font-size: .85rem; color: var(--cq-muted); }
+.cq-share-mine { margin-top: 12px; display: grid; gap: 6px; font-size: .85rem; }
+.cq-share-mine > span:first-child { display: flex; justify-content: space-between; color: var(--cq-muted); }
+.cq-share-mine b { color: var(--cq-gold); font-weight: 600; }
+.cq-today-actions { margin-top: 14px; display: flex; gap: 8px; }
+.cq-today-actions button { min-height: 48px; min-width: 48px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 8px; background: transparent; color: var(--cq-text); font: inherit; font-size: 1.3rem; cursor: pointer; }
+.cq-today-actions button:disabled { opacity: .35; cursor: default; }
+.cq-today-actions .cq-primary { flex: 1; border: 0; background: linear-gradient(180deg, #e8cc8a, #c9ae72); color: #1a1308; font-size: .95rem; font-weight: 700; letter-spacing: .02em; }
+@media (min-width: 901px) {
+  .cq-stage-top { grid-template-columns: 170px minmax(0, 1fr); gap: 26px; padding: 32px 32px 12px; }
+  .cq .cq-bottle .key-position-bottle-visual, .cq .cq-bottle .key-position-bottle-visual img, .cq .cq-bottle .key-position-wine-illustration, .cq .cq-bottle .key-position-wine-illustration svg { height: 320px; max-height: 320px; min-height: 320px; }
+  .cq-stage-copy h3 { font-size: 2.6rem; }
+  .cq-year { font-size: 12rem; top: -26px; right: 14px; }
+  .cq-today-actions .cq-primary { flex: 0 0 auto; padding: 0 32px; }
+}
+
+/* Timeline */
+.cq-lanes { margin-top: 16px; padding: 14px 16px 6px; position: relative; }
+.cq-axis { position: relative; height: 34px; }
+.cq-axis-ticks { display: flex; justify-content: space-between; font-size: .72rem; color: var(--cq-muted); padding-top: 18px; }
+.cq-today-mark { position: absolute; top: 0; bottom: 0; width: 0; }
+.cq-today-mark b { position: absolute; top: 0; left: 0; transform: translateX(-50%); padding: 1px 9px; border-radius: 999px; background: #e8cc8a; color: #1a1308; font-size: .68rem; white-space: nowrap; }
+.cq-lane { border-top: 1px solid color-mix(in srgb, var(--accent) 16%, transparent); }
+.cq-lane > summary { list-style: none; display: grid; gap: 8px; padding: 12px 0; min-height: 44px; cursor: pointer; }
+.cq-lane > summary::-webkit-details-marker { display: none; }
+.cq-lane-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.cq-lane-head strong { color: var(--cq-strong); }
+.cq-lane-head b { font: normal 1.5rem var(--font-display); color: var(--cq-gold); }
+.cq-lane-head small { color: var(--cq-muted); font-size: .78rem; }
+.cq-track { position: relative; display: block; height: 12px; border-radius: 999px; background: var(--cq-track); overflow: hidden; }
+.cq-bar { position: absolute; top: 0; bottom: 0; border-radius: 999px; }
+.cq-bar-ready { background: linear-gradient(90deg, #3e6b54, #6fa088); }
+.cq-bar-waiting { background: linear-gradient(90deg, #4f6d7a, #86a5b3); }
+.cq-bar-closing { background: linear-gradient(90deg, #b7791f, #e3a945); }
+.cq-bar-overdue { background: linear-gradient(90deg, #8c3b2a, #c4604a); }
+.cq-bar-unknown { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--text) 35%, transparent), color-mix(in srgb, var(--text) 35%, transparent) 4px, transparent 4px, transparent 8px); }
+.cq-needle { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--cq-gold); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 70%, transparent); }
+@media (min-width: 901px) {
+  .cq-lanes { padding: 16px 24px 8px 220px; }
+  .cq-lane > summary { position: relative; display: block; padding: 16px 0; }
+  .cq-lane-head { position: absolute; left: -196px; top: 10px; width: 184px; display: grid; gap: 2px; }
+  .cq-track { height: 16px; margin: 8px 0; }
+}
+
+/* Wine rows */
+.cq-wines { display: grid; gap: 6px; padding: 0 0 12px; }
+.cq-wines button { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 48px; padding: 8px 14px; border: 1px solid var(--cq-rule); border-radius: 8px; background: var(--cq-panel-2); color: var(--cq-text); font: inherit; text-align: left; cursor: pointer; }
+.cq-wines button small { display: block; color: var(--cq-muted); }
+.cq-wines button strong { white-space: nowrap; font-size: .85rem; color: var(--cq-gold); }
+
+/* Numbers */
+.cq-board-numbers, .cq-board.cq-board-numbers { grid-template-columns: minmax(0, 1fr); }
+.cq-board-numbers h2 { margin-bottom: 16px; }
+.cq-numbers { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+.cq-styles { display: flex; gap: 20px; align-items: center; padding: 18px; }
+.cq-styles svg { flex: 0 0 132px; width: 132px; height: 132px; }
+.cq-donut-track { fill: none; stroke: var(--cq-track); stroke-width: 14; }
+.cq-donut-num { fill: var(--cq-strong); font: normal 15px var(--font-display); }
+.cq-donut-label { fill: var(--cq-muted); font-size: 5px; letter-spacing: .8px; }
+.cq-styles ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; flex: 1; font-size: .9rem; }
+.cq-styles li { display: flex; justify-content: space-between; gap: 8px; }
+.cq-styles li i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+.cq-origins { padding: 18px; display: grid; gap: 12px; align-content: start; }
+.cq-origins > div:first-child { display: flex; justify-content: space-between; align-items: baseline; }
+.cq-origins > div:first-child span { font-size: .75rem; color: var(--cq-muted); }
+.cq-origin p { margin: 0; display: flex; justify-content: space-between; font-size: .9rem; }
+.cq-origin b { color: var(--cq-gold); font-weight: 600; }
+.cq-origin-bar { display: block; height: 6px; margin-top: 6px; border-radius: 999px; background: var(--cq-track); overflow: hidden; }
+.cq-origin-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--cq-gold-fill), #e8cc8a); }
+@media (min-width: 901px) {
+  .cq-numbers { gap: 20px; }
+  .cq-styles { padding: 24px; }
+  .cq-styles svg { flex-basis: 150px; width: 150px; height: 150px; }
+  .cq-origins { padding: 24px; }
+}
+
+/* Attentions */
+.cq-follow h2 { margin-bottom: 14px; }
+.cq-attention { box-shadow: var(--cq-card-shadow); margin-bottom: 10px; border: 1px solid var(--cq-rule); border-radius: 10px; background: var(--cq-panel); }
+.cq-attention > summary { list-style: none; display: flex; align-items: center; gap: 14px; min-height: 68px; padding: 10px 16px; cursor: pointer; }
+.cq-attention > summary::-webkit-details-marker { display: none; }
+.cq-attention > summary b { min-width: 38px; text-align: center; font: normal 2rem/1 var(--font-display); color: var(--cq-gold); }
+.cq-attention > summary span { flex: 1; min-width: 0; }
+.cq-attention > summary strong { display: block; color: var(--cq-strong); }
+.cq-attention > summary small { color: var(--cq-muted); font-size: .8rem; }
+.cq-attention > summary i { font-style: normal; font-size: 1.3rem; color: var(--cq-gold); }
+.cq-attention[open] > summary i { transform: rotate(90deg); }
+.cq-attention .cq-wines { padding: 0 10px 10px; }
+.cq-attention-closing { border-color: rgba(183, 121, 31, .65); background: linear-gradient(90deg, rgba(183, 121, 31, .22), var(--cq-panel)); }
+.cq-attention-overdue { border-color: rgba(201, 110, 90, .55); background: linear-gradient(90deg, rgba(140, 59, 42, .32), var(--cq-panel)); }
+.cq-attention-overdue > summary b { color: color-mix(in srgb, #c4604a 75%, var(--text)); }
+
+/* Recent arrivals */
+.cq-arrivals > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.cq-arrivals > header > span { color: var(--cq-muted); font-size: .8rem; white-space: nowrap; }
+.cq-arrivals .collector-photo-rail { display: grid; grid-auto-flow: column; grid-auto-columns: 150px; gap: 12px; overflow-x: auto; padding: 2px 2px 12px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.cq-arrivals .collector-photo-rail > div { display: flex; min-width: 0; scroll-snap-align: start; }
+.cq-arrivals .collector-photo-rail button { display: flex; flex-direction: column; gap: 4px; width: 100%; min-width: 0; padding: 0 0 12px; border: 1px solid var(--cq-rule); border-radius: 12px; background: var(--cq-panel); color: var(--cq-text); font: inherit; text-align: left; cursor: pointer; overflow: hidden; }
+.cq-arrivals .collector-photo-rail .key-position-bottle-visual { position: relative; display: block; width: 100%; height: 150px; min-height: 150px; margin: 0 0 8px; background: radial-gradient(closest-side at 50% 62%, rgba(232, 204, 138, .22), var(--cq-panel)); border: 0; transform: none; }
+.cq-arrivals .collector-photo-rail .key-position-bottle-visual img, .cq-arrivals .collector-photo-rail .key-position-wine-illustration, .cq-arrivals .collector-photo-rail .key-position-wine-illustration svg { display: block; width: 100%; height: 150px; max-height: 150px; object-fit: contain; }
+.cq-arrivals .collector-photo-rail strong { padding: 0 12px; font-size: .95rem; line-height: 1.2; color: var(--cq-strong); }
+.cq-arrivals .collector-photo-rail button > span:not(.key-position-bottle-visual) { padding: 0 12px; font-size: .78rem; color: var(--cq-muted); }
+.cq-arrivals .collector-photo-rail small { padding: 0 12px; font-size: .75rem; color: var(--cq-gold); }
+@media (min-width: 901px) {
+  .cq-arrivals .collector-photo-rail { grid-auto-columns: calc((100% - 5 * 16px) / 6); gap: 16px; }
+  .cq-arrivals .collector-photo-rail .key-position-bottle-visual, .cq-arrivals .collector-photo-rail .key-position-bottle-visual img, .cq-arrivals .collector-photo-rail .key-position-wine-illustration, .cq-arrivals .collector-photo-rail .key-position-wine-illustration svg { height: 190px; max-height: 190px; min-height: 190px; }
+}
+
+/* Evolution and atlas */
+.cq-evolution { border-top: 1px solid var(--cq-rule); padding-top: 12px; }
+.cq-evolution > summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; font: normal 1.65rem/1.15 var(--font-display); color: var(--cq-strong); }
+.cq .collector-atlas, .cq .collector-explore { border-top: 1px solid var(--cq-rule); padding-top: 12px; }
+.cq .collector-explore > summary { color: var(--cq-strong); }
+
+/* Ranking of the most valuable positions */
+.cq-rank ol { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.cq-rank li p { margin: 0 0 4px; display: flex; justify-content: space-between; gap: 12px; font-size: .85rem; color: var(--cq-muted); }
+.cq-rank li p span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cq-rank li p b { font-weight: 500; white-space: nowrap; color: var(--cq-text); }
+.cq-rank .cq-origin-bar { margin-top: 0; height: 8px; }
+.cq-rank li:not(.cq-rank-current) .cq-origin-bar i { background: color-mix(in srgb, var(--text-muted) 50%, transparent); }
+.cq-rank .cq-rank-current p { color: var(--cq-strong); font-weight: 600; }
+.cq-rank .cq-rank-current p b { color: var(--cq-gold); }
+
+/* Evolution charts adopt the same surfaces and palette. */
+.cq .collector-evolution { border-top: 0; padding-top: 0; }
+.cq .collector-evolution > h2 { margin-bottom: 16px; }
+.cq .collector-evolution-grid { gap: 16px; }
+.cq .collector-evolution-grid > article { padding: 18px; border: 1px solid var(--cq-rule); border-radius: 12px; background: var(--cq-panel); box-shadow: var(--cq-card-shadow); }
+.cq .collector-evolution-grid h3 { font: normal 1.15rem var(--font-display); color: var(--cq-strong); }
+.cq .evolution-metric { color: var(--cq-gold); }
+.cq .evolution-track { background: var(--cq-track); border-radius: 999px; }
+.cq .evolution-track i { border-radius: 999px; }
+.cq .evolution-tone-in { background: linear-gradient(90deg, #3e6b54, #6fa088); }
+.cq .evolution-tone-drunk { background: linear-gradient(90deg, var(--cq-gold-fill), #e8cc8a); }
+.cq .evolution-tone-out { background: linear-gradient(90deg, #4f6d7a, #86a5b3); }
+.cq .evolution-tone-other { background: linear-gradient(90deg, #8c3b2a, #c4604a); }
+@media (min-width: 901px) { .cq .collector-evolution-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Recent arrivals fill the row. */
+@media (min-width: 901px) {
+  .cq-arrivals .collector-photo-rail { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); grid-auto-columns: unset; overflow-x: visible; }
+}
+
+@media (min-width: 1280px) {
+  .cq-numbers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Evolution panels with nothing to chart shrink to a single quiet line. */
+.cq .collector-evolution-grid > article[data-empty] { align-self: start; padding: 14px 18px; }
+.cq .collector-evolution-grid > article[data-empty] header { margin-bottom: 6px; }
+.cq .collector-evolution-grid > article[data-empty] > small { display: none; }
+.cq .collector-evolution-grid > article[data-empty] > p { margin: 0; color: var(--cq-muted); font-size: .85rem; }
+
+/* Phone: catalogue photos carry transparent margins, so give the bottle a wider column and magnify it. */
+@media (max-width: 900px) {
+  .cq .cq-bottle .key-position-bottle-visual { height: 270px; min-height: 270px; }
+  .cq .cq-bottle .key-position-bottle-visual img, .cq .cq-bottle .key-position-wine-illustration, .cq .cq-bottle .key-position-wine-illustration svg { height: 270px; max-height: 270px; }
+  .cq .cq-bottle .key-position-bottle-visual.has-photo img { transform: scale(1.25); transform-origin: 50% 60%; }
+}
+
+@media (min-width: 901px) { .cq-trend svg { height: 150px; } }
+
+/* Without a photo the wine glass illustration fills the same space a bottle photo would
+   (the classic dashboard pins it to 90 x 140 px, which looks tiny next to photographed bottles). */
+.cq .cq-bottle .key-position-bottle-visual:not(.has-photo) .key-position-wine-illustration,
+.cq .cq-bottle .key-position-bottle-visual:not(.has-photo) .key-position-wine-illustration svg { width: 100%; max-width: 100%; height: 100%; max-height: 100%; }
+.cq .cq-bottle .key-position-bottle-visual:not(.has-photo) { display: flex; align-items: center; justify-content: center; }
