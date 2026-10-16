@@ -39,7 +39,7 @@ html[data-theme="light"] .cq {
 .cq-slide { display: flex; flex: 0 0 100%; min-width: 0; scroll-snap-align: start; scroll-snap-stop: always; }
 .cq-stage { box-shadow: var(--cq-card-shadow); position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent); border-radius: 14px; background: radial-gradient(120% 90% at 20% 30%, color-mix(in srgb, var(--primary) 16%, var(--surface)) 0%, var(--cq-panel) 62%); }
 .cq-year { position: absolute; right: 8px; top: -14px; font: normal 8.5rem/1 var(--font-display); color: color-mix(in srgb, var(--accent) 12%, transparent); pointer-events: none; }
-.cq-stage-top { flex: 1 1 auto; align-content: start; position: relative; display: grid; grid-template-columns: 152px minmax(0, 1fr); gap: 16px; padding: 22px 18px 8px; }
+.cq-stage-top { flex: 1 1 auto; align-content: start; position: relative; display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 16px; padding: 22px 18px 8px; }
 .cq .cq-bottle { position: relative; align-self: start; }
 .cq-bottle::before { content: ""; position: absolute; inset: auto -10px 0; height: 85%; background: radial-gradient(closest-side, rgba(243, 217, 164, .35), transparent); }
 .cq .cq-bottle .key-position-bottle-visual { position: relative; display: block; width: 100%; height: 230px; min-height: 230px; margin: 0; background: none; border: 0; box-shadow: none; transform: none; filter: drop-shadow(0 12px 14px rgba(0, 0, 0, .55)); }
@@ -227,7 +227,7 @@ html[data-theme="light"] .cq {
 @media (max-width: 900px) {
   .cq .cq-bottle .key-position-bottle-visual { height: 270px; min-height: 270px; }
   .cq .cq-bottle .key-position-bottle-visual img, .cq .cq-bottle .key-position-wine-illustration, .cq .cq-bottle .key-position-wine-illustration svg { height: 270px; max-height: 270px; }
-  .cq .cq-bottle .key-position-bottle-visual.has-photo img { transform: scale(1.25); transform-origin: 50% 60%; }
+  .cq .cq-bottle .key-position-bottle-visual.has-photo img { transform: scale(1.18); transform-origin: 50% 60%; }
 }
 
 @media (min-width: 901px) { .cq-trend svg { height: 150px; } }

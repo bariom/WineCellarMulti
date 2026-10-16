@@ -8,7 +8,7 @@ for (const width of [1024, 1280, 1366, 1440, 1600, 1920]) {
     await page.setViewportSize({ width, height: 1000 });
     const stock = Array.from({ length: 5 }, (_, index) => ({ ...wine, id: index ? `desktop-${index}` : wine.id, name: index ? `Riserva della collezione ${index}` : wine.name }));
     await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "collector" });
-    await page.goto("/");
+    await page.goto("/?classic");
     await expect(page.locator(".cellar-home-hero")).toBeVisible();
     await expect(page.getByRole("region", { name: "Riepilogo cantina" })).toContainText("CHF 960");
     const summary = (await page.locator(".cellar-home-stats").boundingBox())!;
@@ -46,7 +46,7 @@ for (const width of [1024, 1280, 1366, 1440, 1600, 1920]) {
 test("desktop cellar Riserva and navigation preserve existing actions", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await mockApi(page, [], false, [...memberships, { ...memberships[0], membership_id: "second", household_id: "second", household_name: "Seconda cantina" }], [wine], { ...session, dashboard_focus: "collector", has_active_entitlement: false, is_free_tier: true });
-  await page.goto("/");
+  await page.goto("/?classic");
   const banner = page.locator(".collector-desktop-riserva");
   await expect(banner).toBeVisible();
   const featured = (await page.locator(".collector-wine-stage > .key-position-card").boundingBox())!;
@@ -74,7 +74,7 @@ for (const theme of ["atelier", "midnight-ledger"]) {
   test(`desktop cellar empty English and theme ${theme}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", theme_preference: theme, locale: "en" });
-    await page.goto("/");
+    await page.goto("/?classic");
     await expect(page.locator(".cellar-home-hero")).toContainText("0 bottles");
     await expect(page.locator(".cellar-home-stats")).not.toContainText("NaN");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -91,7 +91,7 @@ for (const width of [360, 390, 412, 430, 480, 768]) {
     await page.clock.setFixedTime(new Date("2026-09-16T12:00:00Z"));
     await page.setViewportSize({ width, height: width === 360 ? 800 : width === 430 ? 932 : 844 });
     await mockApi(page, [], false, memberships, [wine, { ...wine, id: "second", name: "Una riserva dalla lunga storia", producer: "Un produttore dal nome particolarmente lungo", vintage: "2008", drink_to: 2025, drink_peak_to: 2025 }], { ...session, dashboard_focus: "collector", has_active_entitlement: false, is_free_tier: true });
-    await page.goto("/");
+    await page.goto("/?classic");
     const hero = page.getByRole("region", { name: "La mia cantina", exact: true });
     const stats = page.getByRole("region", { name: "Riepilogo cantina" });
     await expect(hero).toContainText("8 bottiglie · 2 vini");
@@ -139,7 +139,7 @@ test("collector premium summary keeps currencies, unavailable data and entitleme
     { ...wine, id: "euro", currency: "EUR", current_value: "10", price: null },
     { ...wine, id: "unknown", current_value: null, price: null, drink_from: null, drink_to: null, drink_peak_from: null, drink_peak_to: null },
   ], { ...session, dashboard_focus: "collector" });
-  await page.goto("/");
+  await page.goto("/?classic");
   const value = page.getByRole("article", { name: "Valore cantina" });
   await expect(value).toContainText("CHF 192");
   await expect(value).toContainText("EUR 40");
@@ -155,7 +155,7 @@ test("collector premium summary keeps currencies, unavailable data and entitleme
 test("mobile cellar summary cards open their matching dashboard detail", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector" });
-  await page.goto("/");
+  await page.goto("/?classic");
   const stats = page.getByRole("region", { name: "Riepilogo cantina" });
   const value = stats.getByRole("article", { name: "Valore cantina" });
   await value.click();
@@ -170,7 +170,7 @@ test("ready-to-drink totals consistently count wines when labelled as wines", as
     { ...wine, quantity: 4 },
     { ...wine, id: "second-ready", name: "Secondo vino pronto", quantity: 3 },
   ], { ...session, dashboard_focus: "collector" });
-  await page.goto("/");
+  await page.goto("/?classic");
   const summary = page.getByRole("article", { name: "Pronti da bere" });
   await expect(summary.locator("strong")).toHaveText("2");
   await page.getByRole("region", { name: "Focus principale della dashboard", exact: true })
@@ -198,7 +198,7 @@ for (const width of [360, 390, 430, 1440]) {
       { ...wine, id: "reserved", name: "Solo investimento", strategy_purposes: ["investment"] },
       { ...wine, id: "past", name: "Finestra superata", drink_peak_to: 2024, drink_to: 2025 },
     ], { ...session, dashboard_focus: "collector" });
-    await page.goto("/");
+    await page.goto("/?classic");
     const summary = page.getByRole("article", { name: "Pronti da bere", exact: true });
     await expect(summary.locator("strong")).toHaveText("8");
     await summary.click();
@@ -239,7 +239,7 @@ for (const width of [360, 390, 430, 1440]) {
       drink_from: 2020, drink_peak_from: null, drink_peak_to: null, drink_to: index < 4 ? 2025 : 2026,
     }));
     await mockApi(page, [], false, memberships, [...upcoming, ...monitoring], { ...session, dashboard_focus: "collector" });
-    await page.goto("/");
+    await page.goto("/?classic");
     await expect(page.getByRole("article", { name: "Da monitorare", exact: true }).locator("strong")).toHaveText("8");
     await page.getByRole("article", { name: "Pronti da bere", exact: true }).click();
     const carousel = page.locator(".readiness-dashboard-carousel");
@@ -276,7 +276,7 @@ test("style availability indicators open the cellar with matching filters", asyn
     { ...wine, id: "white-ready", name: "Bianco disponibile", type: "White", quantity: 2 },
     { ...wine, id: "red-away", name: "Rosso da ritirare", type: "Red", quantity: 7, status: "to_collect" },
   ], { ...session, dashboard_focus: "collector" });
-  await page.goto("/");
+  await page.goto("/?classic");
   const navigation = page.getByRole("region", { name: "Focus principale della dashboard", exact: true });
   await navigation.getByRole("tab", { name: "Cantina equilibrata", exact: true }).click();
   const styles = page.locator(".balance-tone-grid");
@@ -297,7 +297,7 @@ test("monitoring summary exposes closing and past-window wines in its detail", a
     { ...wine, id: "closing", name: "Finestra in chiusura", drink_from: 2020, drink_to: 2026 },
     { ...wine, id: "past", name: "Finestra superata", drink_from: 2020, drink_to: 2025 },
   ], { ...session, dashboard_focus: "collector" });
-  await page.goto("/");
+  await page.goto("/?classic");
   const stats = page.getByRole("region", { name: "Riepilogo cantina" });
   await expect(stats.getByRole("article", { name: "Da monitorare" }).locator("strong")).toHaveText("2");
   await stats.getByRole("article", { name: "Da monitorare" }).click();
@@ -329,7 +329,7 @@ test("monitoring summary exposes closing and past-window wines in its detail", a
 test("collector premium empty Home supports English without fabricated figures", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
   await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", locale: "en" });
-  await page.goto("/");
+  await page.goto("/?classic");
   await expect(page.getByRole("region", { name: "My cellar", exact: true })).toContainText("0 bottles · 0 wines");
   await expect(page.getByRole("article", { name: "Cellar value" }).locator("strong")).toHaveText("—");
   await expect(page.getByRole("article", { name: "Ready to drink" }).locator("strong")).toHaveText("0");
@@ -340,7 +340,7 @@ test("collector premium empty Home supports English without fabricated figures",
 test("collector premium Home keeps multiple cellars and read-only navigation usable", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 360, height: 800 });
   await mockApi(page, [], false, [...memberships, { ...memberships[0], membership_id: "second-member", household_id: "second-cellar", household_name: "Seconda cantina" }], [wine], { ...session, dashboard_focus: "collector", membership_role: "viewer", active_household_name: "Una cantina dal nome particolarmente lungo" });
-  await page.goto("/");
+  await page.goto("/?classic");
   await expect(page.getByRole("combobox", { name: "Cambia cantina" })).toBeVisible();
   const brand = (await page.locator(".topbar-brand").boundingBox())!;
   const actions = (await page.locator(".session-pill").boundingBox())!;
@@ -367,7 +367,7 @@ for (const width of [360, 390, 430]) {
   test(`collector dashboard choices stay above the content ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: width === 360 ? 800 : 844 });
     await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector" });
-    await page.goto("/");
+    await page.goto("/?classic");
     const navigation = page.getByRole("region", { name: "Focus principale della dashboard", exact: true });
     const summary = page.getByRole("region", { name: "Riepilogo cantina" });
     const featured = page.getByRole("region", { name: "In primo piano", exact: true });
@@ -402,7 +402,7 @@ test("collector scroll cues track navigation and disappear without overflow", as
   const stock = Array.from({ length: 5 }, (_, index) => ({ ...wine, id: index ? `gallery-${index}` : wine.id, name: `Vino ${index + 1}` }));
   await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "collector" });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto("/?classic");
   const gallery = page.getByRole("region", { name: "Ultimi arrivi", exact: true });
   const next = gallery.getByRole("button", { name: "Successivo: Ultimi arrivi" });
   const previous = gallery.getByRole("button", { name: "Precedente: Ultimi arrivi" });
@@ -436,7 +436,7 @@ test("collector scroll cues track navigation and disappear without overflow", as
 test("scroll cues stay hidden for one wine and follow dashboard overflow", async ({ page }, testInfo) => {
   await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector" });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto("/?classic");
   const recent = page.getByRole("region", { name: "Ultimi arrivi", exact: true });
   await expect(recent.getByRole("listitem")).toHaveCount(1);
   await expect(recent.getByRole("group")).toHaveCount(0);
@@ -459,7 +459,7 @@ test("collector scroll cues respond to a native touch swipe", async ({ browser }
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const page = await context.newPage();
   await mockApi(page, [], false, memberships, [wine, { ...wine, id: "second", name: "Secondo vino" }, { ...wine, id: "third", name: "Terzo vino" }], { ...session, dashboard_focus: "collector" });
-  await page.goto("/");
+  await page.goto("/?classic");
   const gallery = page.getByRole("region", { name: "Ultimi arrivi", exact: true });
   await gallery.scrollIntoViewIfNeeded();
   await gallery.evaluate(element => window.scrollBy(0, element.getBoundingClientRect().top - 110));
@@ -490,7 +490,7 @@ test("collector evolution retries failures and labels partial movement history",
       return original(input, init);
     };
   });
-  await page.goto("/");
+  await page.goto("/?classic");
   const evolution = page.getByRole("region", { name: "Come sta cambiando la tua cantina" });
   await expect(evolution.getByRole("alert")).toHaveCount(2);
   await expect(evolution.locator(".evolution-movements")).toHaveCount(0);
@@ -525,7 +525,7 @@ for (const width of [360, 390, 430, 1440]) {
         return original(input, init);
       };
     });
-    await page.goto("/");
+    await page.goto("/?classic");
     if (width < 900) await page.getByRole("tab", { name: "Collezione", exact: true }).click();
     const evolution = page.getByRole("region", { name: "Come sta cambiando la tua cantina" });
     await expect(evolution.locator(".evolution-metric")).toContainText("40");
@@ -580,7 +580,7 @@ for (const theme of ["atelier", "private-cellar", "midnight-ledger", "maison-cha
   test(`collector editorial hierarchy in ${theme}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector", theme_preference: theme });
-    await page.goto("/");
+    await page.goto("/?classic");
     const card = page.locator(".collector-mobile-highlights .collector-photo-rail button").first();
     await expect(card).toBeVisible();
     const label = (await card.locator(".collector-highlight-label").boundingBox())!;
@@ -597,7 +597,7 @@ for (const width of [360, 390, 430, 1440]) {
   test(`collector atlas exposes its visual scenes ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
     await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector" });
-    await page.goto("/");
+    await page.goto("/?classic");
     if (width < 900) await page.getByRole("tab", { name: "Collezione", exact: true }).click();
     const atlas = page.getByRole("region", { name: "Atlante della collezione" });
     await atlas.scrollIntoViewIfNeeded();
@@ -637,7 +637,7 @@ for (const width of [360, 390, 430, 1440]) {
       { ...wine, id: "ordered", quantity: 6, currency: "EUR", status: "ordered" },
     ];
     await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "collector" });
-    await page.goto("/");
+    await page.goto("/?classic");
     if (width < 900) await page.getByRole("tab", { name: "Collezione", exact: true }).click();
     const overview = page.getByRole("region", { name: "Panoramica collezionista" });
     await expect(overview.locator(".collector-glance-details")).toHaveCount(0);
@@ -690,7 +690,7 @@ test("collector overview has consistent counts, currency coverage and actionable
     { ...wine, id: "empty", quantity: 0 },
   ];
   await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "collector" });
-  await page.goto("/");
+  await page.goto("/?classic");
   const overview = page.getByRole("region", { name: "Panoramica collezionista" });
   await expect(overview.locator(".collector-glance-numbers")).toContainText("27");
   await expect(overview.locator(".collector-glance-details")).toHaveCount(0);
@@ -726,7 +726,7 @@ for (const width of [360, 390, 430, 1440]) {
     await page.setViewportSize({ width, height: width === 360 ? 800 : width === 430 ? 932 : width === 1440 ? 1000 : 844 });
     const galleryWines = Array.from({ length: 5 }, (_, index) => ({ ...wine, id: index ? `gallery-${index}` : wine.id, name: index ? `Riserva della collezione ${index}` : wine.name }));
     await mockApi(page, [], false, memberships, galleryWines, { ...session, dashboard_focus: "collector" });
-    await page.goto("/");
+    await page.goto("/?classic");
     if (width < 900) {
       const tabs = page.getByRole("tablist", { name: "Dashboard collezionista" });
       const mobile = page.locator(".collector-mobile-photos");
@@ -916,7 +916,7 @@ for (const width of [1024, 1280, 1920]) {
     ] };
     const waiting = { ...wine, id: "waiting", name: "Riserva da attendere", drink_from: 2027, drink_peak_from: 2027, drink_peak_to: 2030, drink_to: 2034 };
     await mockApi(page, [], false, memberships, [featured, waiting], { ...session, dashboard_focus: "collector" });
-    await page.goto("/");
+    await page.goto("/?classic");
     const hero = page.locator(".key-position-button").first();
     await expect(hero.getByRole("heading", { name: featured.name })).toBeVisible();
     await expect(hero.locator(".key-position-trend")).toContainText("200");
@@ -959,7 +959,7 @@ for (const scenario of [{ dpr: 1, failed: false }, { dpr: 2, failed: false }, { 
         if (detail && scenario.failed) return route.fulfill({ status: 404, body: "" });
         return route.fulfill({ contentType: "image/svg+xml", body: `<svg xmlns="http://www.w3.org/2000/svg" width="${detail ? 480 : 160}" height="${detail ? 720 : 240}" viewBox="0 0 160 240"><rect x="66" y="15" width="28" height="40" rx="4" fill="#64503b"/><rect x="50" y="48" width="60" height="178" rx="16" fill="#38372a"/><rect x="54" y="112" width="52" height="64" fill="#efe9d6"/></svg>` });
       });
-      await page.goto("/");
+      await page.goto("/?classic");
       const expected = scenario.dpr === 2 && !scenario.failed ? "detail.png" : "thumbnail.png";
       const hero = page.locator(".key-position-button img").first();
       // The large editorial hero needs the detail image even on a 1x display.
@@ -997,7 +997,7 @@ for (const failed of [false, true]) {
         return original(input, init);
       };
     }, { detail, failed });
-    await page.goto("/");
+    await page.goto("/?classic");
     const hero = page.locator(".key-position-button").first();
     await expect(hero).toContainText(detail.name);
     await expect.poll(() => page.evaluate(() => sessionStorage.getItem("featured-detail-requests"))).toBe("1");
@@ -1021,7 +1021,7 @@ for (const width of [390, 1440]) {
   test(`collector missing photo stays discreet ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     await mockApi(page, [], false, memberships, [{ ...wine, photo_thumbnail_url: "", photo_detail_url: "" }], { ...session, dashboard_focus: "collector" });
-    await page.goto("/");
+    await page.goto("/?classic");
     const glasses = page.locator(".home-dashboard-editorial .key-position-wine-illustration:visible");
     await expect(glasses.first()).toBeVisible();
     const heroGlass = page.locator(width === 1440
@@ -1045,7 +1045,7 @@ for (const width of [390, 1440]) {
 
 test("collector empty state has no misleading percentages", async ({ page }) => {
   await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", locale: "en" });
-  await page.goto("/");
+  await page.goto("/?classic");
   const overview = page.getByRole("region", { name: "Collector overview" });
   await expect(overview.locator(".collector-glance-numbers")).toContainText("Bottles0");
   await expect(overview).not.toContainText("NaN");
@@ -1061,7 +1061,7 @@ test("collector excludes incomplete windows and keeps dated history changes cons
     { id: "b", value: "48", currency: "CHF", source: "manual", recorded_at: "2026-01-01T12:00:00Z" },
   ] };
   await mockApi(page, [], false, memberships, [item], { ...session, dashboard_focus: "collector" });
-  await page.goto("/");
+  await page.goto("/?classic");
   await expect(page.locator(".collector-data-actions")).toHaveCount(0);
   await expect(page.locator(".evolution-columns button:not([disabled])")).toHaveCount(0);
   const priorities = page.getByRole("region", { name: "Da seguire adesso" });
@@ -1077,7 +1077,7 @@ for (const width of [360, 390, 430]) {
       value_history: [{ id: "mid", value: "45", currency: "CHF", source: "manual", recorded_at: "2025-01-01T12:00:00Z" }] };
     const valuable = { ...wine, id: "valuable", name: "Riserva di grande valore della collezione", price: "200", current_value: "180" };
     await mockApi(page, [], false, memberships, [growth, valuable], { ...session, dashboard_focus: "collector" });
-    await page.goto("/");
+    await page.goto("/?classic");
     const rail = page.getByRole("list", { name: "In primo piano", exact: true });
     const card = rail.getByRole("button", { name: /Nebbiolo di Test/ });
     await expect(card).toContainText("+50%");
@@ -1144,7 +1144,7 @@ test("collector highlight comparison handles gifts, currencies, missing dates an
 test("collector declining values have no growth label and insights support English", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, [], false, memberships, [{ ...wine, price: "100", current_value: "80" }], { ...session, dashboard_focus: "collector", locale: "en" });
-  await page.goto("/");
+  await page.goto("/?classic");
   const card = page.getByRole("list", { name: "Highlights", exact: true }).getByRole("button");
   await expect(card).not.toContainText("Largest price increase");
   await expect(card).toContainText("Value of your share");
