@@ -126,9 +126,14 @@ central wine registry through the same path as manual entry. Existing catalog
 entries are reused; new entries await administrator approval. Prices, supplier
 and document references stay private. Analysis alone does not create catalog
 entries; wines without enough identity data follow the manual-entry skip rule.
-Pending purchases leave physical stock unchanged and appear under **In attesa di
-consegna / Awaiting delivery** in the same dialog. Record full delivery there when
-the bottles arrive. Existing wine prices are preserved; each new lot keeps its own
+Pending purchases leave physical stock unchanged. New wines appear in the cellar
+right away with status **Ordinato / Ordered** and the ordered bottle count, like a
+manual order (they count towards the free-plan label limit), and the purchase is listed
+under **In attesa di consegna / Awaiting delivery** in the same dialog. Record full
+delivery there when the bottles arrive: the wine becomes Delivered and the bottles
+enter stock once, with their own lot. A purchase for a wine already in the cellar
+leaves that wine untouched until delivery. When the invoice gives no bottle format,
+the row defaults to 750ml. Existing wine prices are preserved; each new lot keeps its own
 cost and supplier. Repeated confirmation/delivery requests are idempotent. Exact
 file hashes and matching supplier/reference/date prevent repeat imports within
 the active household; altered documents without a reference still need human review.

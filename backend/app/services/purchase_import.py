@@ -268,6 +268,14 @@ def apply_purchase(
     wine_ids: list[UUID] = []
     selected_photos: list[tuple[Wine, UUID]] = []
     received = receiving or payload.delivery == "received"
+    # Wines this import created as "Ordered" with their ordered quantity; receiving swaps that
+    # placeholder for real stock instead of counting the bottles twice.
+    placeholder_ids = (
+        {UUID(item) for item in record.result.get("ordered_wine_ids", [])}
+        if (receiving and record.result)
+        else set()
+    )
+    ordered_wine_ids: list[UUID] = []
     for index, row in enumerate(payload.rows):
         wine_id = UUID(record.result["wine_ids"][index]) if receiving else row.existing_wine_id
         wine = None
@@ -279,7 +287,7 @@ def apply_purchase(
             )
             if wine is None:
                 raise HTTPException(404, "Selected wine not found in this cellar")
-            if wine.status == "Ordered" and wine.quantity > 0:
+            if wine.status == "Ordered" and wine.quantity > 0 and wine.id not in placeholder_ids:
                 raise HTTPException(
                     422, "Receive the existing order separately before adding another purchase"
                 )
@@ -290,7 +298,7 @@ def apply_purchase(
                 raise HTTPException(
                     422, "Selected wine must have the same currency and bottle format"
                 )
-        if received:
+        if received or wine is None:
             ensure_free_tier_label_capacity(db, context, wine=wine)
         if wine is None:
             wine = Wine(
@@ -302,7 +310,7 @@ def apply_purchase(
                 format=row.format,
                 currency=payload.currency,
                 price=row.unit_price,
-                quantity=0,
+                quantity=0 if received else row.quantity,
                 status="Ordered",
                 merchant=supplier,
                 order_date=payload.order_date,
@@ -310,6 +318,8 @@ def apply_purchase(
             )
             db.add(wine)
             db.flush()
+            if not received:
+                ordered_wine_ids.append(wine.id)
             # Use the manual-entry catalog path with reviewed identity fields only.
             ensure_catalog_entry_for_wine_data(
                 db, {"name": row.name, "producer": row.producer, "format": row.format}
@@ -317,6 +327,8 @@ def apply_purchase(
         if row.photo_library_id and not receiving:
             selected_photos.append((wine, row.photo_library_id))
         if received:
+            if wine.id in placeholder_ids:
+                wine.quantity = 0
             # Preserve historical costs for legacy stock before adding a new lot.
             allocated = sum(
                 db.scalars(
@@ -383,7 +395,10 @@ def apply_purchase(
     )
     record.status = result.status
     record.confirmed = payload.model_dump(mode="json")
-    record.result = result.model_dump(mode="json")
+    record.result = {
+        **result.model_dump(mode="json"),
+        "ordered_wine_ids": [str(wine_id) for wine_id in ordered_wine_ids],
+    }
     link_document_wines(db, record, wine_ids)
     db.flush()
     return result

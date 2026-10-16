@@ -669,7 +669,7 @@ def test_incompatible_existing_currency_cannot_change_previous_purchases(client)
     assert list(db.scalars(select(WineStockLot))) == []
 
 
-def test_pending_purchase_creates_no_physical_stock_then_receives_once(client):
+def test_pending_purchase_lists_wines_as_ordered_without_stock_then_receives_once(client):
     test, db, _, _, _ = client
     record = preview(test)
     response = test.post(
@@ -678,17 +678,25 @@ def test_pending_purchase_creates_no_physical_stock_then_receives_once(client):
     )
     assert response.status_code == 200, response.text
     created = db.scalar(select(Wine).where(Wine.id == UUID(response.json()["wine_ids"][0])))
-    assert created.quantity == 0 and created.status == "Ordered"
+    # The wine is in the cellar as an order (like a manual one) but holds no physical stock yet.
+    assert created.quantity == 3 and created.status == "Ordered"
+    assert str(created.expected_delivery) == "2026-10-20"
     assert list(db.scalars(select(WineStockLot))) == []
+    assert list(db.scalars(select(WineStockMovement))) == []
+    assert list(db.scalars(select(WineStorageAllocation))) == []
     assert test.get("/imports/purchases/pending").json()[0]["expected_delivery"] == "2026-10-20"
     path = f"/imports/purchases/{record['id']}/receive"
     received = test.post(path)
     assert received.status_code == 200, received.text
     assert test.post(path).json() == received.json()
     db.refresh(created)
+    # Receiving replaces the ordered placeholder with real stock: bottles are not counted twice.
     assert created.quantity == 3 and created.status == "Delivered"
     assert test.get("/imports/purchases/pending").json() == []
-    assert len(list(db.scalars(select(WineStockLot)))) == 1
+    lots = list(db.scalars(select(WineStockLot)))
+    assert len(lots) == 1 and lots[0].quantity_received == 3 and lots[0].quantity_remaining == 3
+    assert [m.movement_type for m in db.scalars(select(WineStockMovement))] == ["purchase"]
+    assert sum(a.quantity for a in db.scalars(select(WineStorageAllocation))) == 3
 
 
 def test_tenant_isolation_for_document_matches_confirmation_and_delivery(client):
@@ -1262,3 +1270,45 @@ def test_existing_wine_without_recorded_format_accepts_a_standard_bottle_purchas
     response = test.post(f"/imports/purchases/{result['id']}/confirm", json=data)
     assert response.status_code == 200, response.text
     assert response.json()["wine_ids"] == [str(wine.id)]
+
+
+def test_pending_purchase_for_an_existing_wine_leaves_its_stock_until_received(client):
+    test, db, _, wine, _ = client
+    wine.status = "In cellar"
+    wine.quantity = 2
+    db.commit()
+    record = preview(test)
+    data = confirmation(delivery="pending", expected_delivery="2026-10-20")
+    data["rows"][0].update(
+        name=wine.name,
+        producer=wine.producer,
+        vintage=wine.vintage,
+        format=wine.format,
+        existing_wine_id=str(wine.id),
+    )
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=data)
+    assert response.status_code == 200, response.text
+    db.refresh(wine)
+    assert (wine.quantity, wine.status) == (2, "In cellar")
+    received = test.post(f"/imports/purchases/{record['id']}/receive")
+    assert received.status_code == 200, received.text
+    db.refresh(wine)
+    assert wine.quantity == 2 + data["rows"][0]["quantity"]
+
+
+def test_free_tier_pending_purchase_counts_ordered_wines_against_the_label_limit(
+    client, monkeypatch
+):
+    test, db, context, wine, _ = client
+    context.user.is_app_admin = False
+    context.user.can_use_label_recognition = True
+    monkeypatch.setattr(settings, "free_tier_label_limit", 1)
+    create_ai_credit_transaction(db, context.user, amount_usd=Decimal("2"), source="test_pack")
+    wine.quantity = 0
+    db.commit()
+    record = preview(test)
+    payload = confirmation(delivery="pending", accept_total_difference=True)
+    payload["rows"].append(dict(payload["rows"][0], name="Different wine"))
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=payload)
+    assert response.status_code == 409, response.text
+    assert len(list(db.scalars(select(Wine)))) == 1

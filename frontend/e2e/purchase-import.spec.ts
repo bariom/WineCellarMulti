@@ -343,6 +343,7 @@ test("purchase receipt retry, unknown data, pending delivery and duplicate preve
   await dialog.getByLabel("Ho verificato vini, annate, bottiglie, prezzi e stato della consegna.").check();
   await dialog.getByRole("button", { name: "Registra acquisto in attesa", exact: true }).click();
   await expect(dialog.getByRole("heading", { name: "Acquisto registrato, in attesa di consegna" })).toBeVisible();
+  await expect(dialog.getByRole("status")).toContainText("I vini sono in cantina con stato Ordinato");
   await dialog.getByRole("button", { name: "Registra ricezione completa", exact: true }).click();
   await expect(dialog.getByRole("heading", { name: "Acquisto aggiunto alla cantina" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Registra ricezione completa", exact: true })).toHaveCount(0);
