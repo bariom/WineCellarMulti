@@ -16,7 +16,6 @@ function MemoryWineIdentity({ entry, locale }: { entry: TastingArchiveApiItem; l
   const photo = !photoFailed ? entry.wine_photo_thumbnail_url : "";
   return <div className={`memory-book-identity${photo ? " has-bottle-photo" : ""}`}>
     <div className="memory-book-wine-text">
-      <time dateTime={entry.consumed_at}>{new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${entry.consumed_at.slice(0, 10)}T12:00:00`))}</time>
       <h3>{entry.occasion || entry.wine_name}</h3>
       {entry.occasion ? <p>{entry.wine_name}</p> : null}
       <small>{[entry.wine_producer, entry.wine_vintage].filter(Boolean).join(" · ")}</small>
@@ -123,10 +122,13 @@ export default function MemoryBook({ locale, onClose, initialIndex = 0 }: { loca
       <MemoryAtlas locale={locale} query={searchQuery} month={monthQuery} onSelect={selectedIndex => { setIndex(selectedIndex); setMapOpen(false); dialog.current?.focus(); }} />
     </Suspense> : busy ? <p role="status">{it ? "Preparazione dei ricordi…" : "Preparing your memories…"}</p> : error ? <div role="alert"><p>{it ? "Impossibile caricare i ricordi." : "Unable to load memories."}</p><button type="button" onClick={() => setRetry(value => value + 1)}>{it ? "Riprova" : "Try again"}</button></div> : entry ? <>
       <article className="memory-book-page" key={`${entry.source}-${entry.tasting_id}`}>
-        <button type="button" className="memory-book-photo-open" aria-label={it ? "Apri foto ricordo" : "Open memory photo"} aria-haspopup="dialog" onClick={() => setPhotoOpen(true)}>
-          <img src={entry.memory_photo_url} alt={it ? `Ricordo: ${entry.wine_name}` : `Memory: ${entry.wine_name}`} />
-          <span className="memory-book-photo-hint" aria-hidden="true"><AppIcon name="search" size={16} /></span>
-        </button>
+        <figure className="memory-book-print">
+          <button type="button" className="memory-book-photo-open" aria-label={it ? "Apri foto ricordo" : "Open memory photo"} aria-haspopup="dialog" onClick={() => setPhotoOpen(true)}>
+            <img src={entry.memory_photo_url} alt={it ? `Ricordo: ${entry.wine_name}` : `Memory: ${entry.wine_name}`} />
+            <span className="memory-book-photo-hint" aria-hidden="true"><AppIcon name="search" size={16} /></span>
+          </button>
+          <figcaption><time dateTime={entry.consumed_at}>{new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${entry.consumed_at.slice(0, 10)}T12:00:00`))}</time></figcaption>
+        </figure>
         <div className="memory-book-caption">
           <MemoryWineIdentity entry={entry} locale={locale} />
           {entry.note ? <p className="memory-book-note">{entry.note}</p> : null}
