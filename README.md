@@ -123,7 +123,14 @@ only the document hash, extracted/reviewed data and import result are retained.
 Confirmation saves all rows atomically. Received purchases create stock lots.
 New wines also contribute their reviewed name, producer and bottle format to the
 central wine registry through the same path as manual entry. Existing catalog
-entries are reused; new entries await administrator approval. Prices, supplier
+entries are reused; new entries await administrator approval. On confirmation,
+new and existing wines inherit missing producer, grapes and technical origin data
+from an unambiguous approved catalog name/alias and producer match, without another
+AI request. Reviewed purchase fields and existing wine values are preserved.
+Depleted records of the same wine and vintage in the active cellar can also supply
+missing technical fields when their values agree. Saving wines and catalog recovery
+complete empty central-catalog fields, including approved entries, without replacing
+existing values; only technical metadata is shared. Prices, supplier
 and document references stay private. Analysis alone does not create catalog
 entries; wines without enough identity data follow the manual-entry skip rule.
 Pending purchases leave physical stock unchanged. New wines appear in the cellar

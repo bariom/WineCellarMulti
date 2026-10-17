@@ -140,7 +140,7 @@ def test_admin_recovery_is_global_idempotent_and_keeps_private_data_private(api)
     assert client.post(url).status_code == 403
 
 
-def test_sync_fills_pending_metadata_but_preserves_approved_entries(api):
+def test_sync_fills_missing_metadata_and_preserves_existing_approved_values(api):
     client, db, context, _ = api
     wine = Wine(household_id=context.household.id, name="Sync Testamatta", producer="Bibi Graetz")
     db.add(wine)
@@ -152,14 +152,16 @@ def test_sync_fills_pending_metadata_but_preserves_approved_entries(api):
     assert entry.region == "Toscana"
     assert client.post(f"/wines/catalog/{entry.id}/approve").status_code == 200
     assert (
-        client.patch(f"/wines/{wine.id}", json={"appellation": "Private assertion"}).status_code
+        client.patch(
+            f"/wines/{wine.id}", json={"appellation": "Toscana IGT", "region": "Conflicting region"}
+        ).status_code
         == 200
     )
     db.refresh(entry)
-    assert entry.appellation == "" and entry.is_active
+    assert entry.appellation == "Toscana IGT" and entry.region == "Toscana" and entry.is_active
     assert client.post("/wines/catalog/recover").status_code == 200
     db.refresh(entry)
-    assert entry.appellation == "" and entry.is_active
+    assert entry.appellation == "Toscana IGT" and entry.region == "Toscana" and entry.is_active
 
 
 @pytest.mark.parametrize("kind", ["legacy", "vinaris", "cellartracker"])

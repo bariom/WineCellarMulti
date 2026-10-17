@@ -12,7 +12,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext
-from app.api.routes.catalog import ensure_catalog_entry_for_wine_data, normalize_catalog_text
+from app.api.routes.catalog import normalize_catalog_text
 from app.models import (
     PurchaseImport,
     Wine,
@@ -28,6 +28,7 @@ from app.schemas.purchase_import import (
     PurchaseExtraction,
     PurchaseResult,
 )
+from app.services.catalog_sync import inherit_catalog_metadata, propose_wine_catalog_entry
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.merchants import get_or_create_merchant
 from app.services.pdf_sources import extract_pdf_document
@@ -320,10 +321,9 @@ def apply_purchase(
             db.flush()
             if not received:
                 ordered_wine_ids.append(wine.id)
-            # Use the manual-entry catalog path with reviewed identity fields only.
-            ensure_catalog_entry_for_wine_data(
-                db, {"name": row.name, "producer": row.producer, "format": row.format}
-            )
+        inherit_catalog_metadata(db, wine)
+        inherit_cellar_purchase_metadata(db, context, wine)
+        propose_wine_catalog_entry(db, wine, source="user_saved")
         if row.photo_library_id and not receiving:
             selected_photos.append((wine, row.photo_library_id))
         if received:
@@ -402,3 +402,36 @@ def apply_purchase(
     link_document_wines(db, record, wine_ids)
     db.flush()
     return result
+
+
+def inherit_cellar_purchase_metadata(db: Session, context: CurrentContext, wine: Wine) -> None:
+    """Reuse depleted same-vintage records in this cellar without copying private data."""
+    if not wine.producer.strip():
+        return
+    candidates = list(
+        db.scalars(
+            select(Wine).where(
+                Wine.household_id == context.household.id,
+                Wine.id != wine.id,
+                func.lower(func.trim(Wine.name)) == normalize_catalog_text(wine.name),
+                func.lower(func.trim(Wine.producer)) == normalize_catalog_text(wine.producer),
+                Wine.vintage == wine.vintage,
+            )
+        )
+    )
+    for field in (
+        "region",
+        "wine_zone",
+        "vineyard_locality",
+        "appellation",
+        "type",
+        "vineyard_country",
+        "grapes",
+    ):
+        if getattr(wine, field) or (field == "grapes" and wine.grapes_not_applicable):
+            continue
+        values = [
+            getattr(candidate, field) for candidate in candidates if getattr(candidate, field)
+        ]
+        if values and all(value == values[0] for value in values):
+            setattr(wine, field, values[0])

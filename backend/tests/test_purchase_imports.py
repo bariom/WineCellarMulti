@@ -637,6 +637,149 @@ def test_purchase_with_insufficient_catalog_identity_still_saves_cellar_wine(cli
     assert list(db.scalars(select(WineCatalogEntry))) == []
 
 
+@pytest.mark.parametrize(
+    "existing,delivery", [(False, "received"), (True, "received"), (False, "pending")]
+)
+def test_purchase_inherits_approved_technical_metadata_without_ai(client, existing, delivery):
+    test, db, _, wine, calls = client
+    entry = WineCatalogEntry(
+        name="Barolo",
+        producer="Producer",
+        region="Piemonte",
+        type="Red",
+        appellation="Barolo DOCG",
+        country="Italia",
+        wine_zone="Langhe",
+        locality="Barolo",
+        grapes_text="Nebbiolo",
+        format="1500ml",
+    )
+    db.add(entry)
+    wine.quantity = 0
+    wine.type = ""
+    wine.region = "My region" if existing else ""
+    wine.grapes = []
+    wine.format = "0.75L"
+    wine.price = Decimal("42")
+    db.commit()
+    record = preview(test)
+    payload = confirmation(delivery=delivery)
+    if existing:
+        payload["rows"][0]["existing_wine_id"] = str(wine.id)
+    else:
+        # Confirmation also resolves a missing producer, even from an older draft.
+        payload["rows"][0]["producer"] = ""
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=payload)
+    assert response.status_code == 200, response.text
+    target = db.get(Wine, UUID(response.json()["wine_ids"][0]))
+    assert target.producer == "Producer"
+    assert target.region == ("My region" if existing else "Piemonte")
+    assert target.type == "Red" and target.appellation == "Barolo DOCG"
+    assert target.wine_zone == "Langhe" and target.vineyard_locality == "Barolo"
+    assert target.vineyard_country == "Italia" and target.grapes == [{"name": "Nebbiolo"}]
+    assert not target.grapes_verified_at and not target.grapes_source_url
+    assert target.vintage == "2020" and target.format == "0.75L"
+    assert target.price == Decimal("42" if existing else "30") and target.currency == "CHF"
+    assert len(calls) == 1  # Document extraction only; no enrichment call.
+    assert len(list(db.scalars(select(WineCatalogEntry)))) == 1
+
+
+@pytest.mark.parametrize("case", ["inactive", "ambiguous", "wrong-producer", "alias"])
+def test_purchase_metadata_requires_unique_approved_identity(client, case):
+    test, db, _, _, _ = client
+    entry = WineCatalogEntry(
+        name="Canonical Barolo" if case == "alias" else "Barolo",
+        producer="Other" if case == "wrong-producer" else "Producer",
+        grapes_text="Nebbiolo",
+        is_active=case != "inactive",
+    )
+    db.add(entry)
+    db.flush()
+    if case == "alias":
+        db.add(
+            WineCatalogAlias(catalog_entry_id=entry.id, alias="Barolo", normalized_alias="barolo")
+        )
+    if case == "ambiguous":
+        db.add(WineCatalogEntry(name="Barolo", producer="Producer", grapes_text="Other grape"))
+    db.commit()
+    record = preview(test)
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=confirmation())
+    assert response.status_code == 200, response.text
+    target = db.get(Wine, UUID(response.json()["wine_ids"][0]))
+    assert target.grapes == ([{"name": "Nebbiolo"}] if case == "alias" else [])
+    if case == "ambiguous":
+        assert len(list(db.scalars(select(WineCatalogEntry)))) == 2
+
+
+@pytest.mark.parametrize(
+    "same_household,same_vintage", [(True, True), (False, True), (True, False)]
+)
+def test_repurchase_recovers_depleted_cellar_metadata_and_shares_only_technical_fields(
+    client, same_household, same_vintage
+):
+    test, db, context, wine, _ = client
+    if not same_household:
+        other = Household(name="Other cellar")
+        db.add(other)
+        db.flush()
+        wine.household_id = other.id
+    if not same_vintage:
+        wine.vintage = "2018"
+    wine.quantity = 0
+    wine.region = "Piemonte"
+    wine.grapes = [{"name": "Nebbiolo"}]
+    wine.notes = "PRIVATE NOTE"
+    db.commit()
+    record = preview(test)
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=confirmation())
+    assert response.status_code == 200, response.text
+    target = db.get(Wine, UUID(response.json()["wine_ids"][0]))
+    expected = same_household and same_vintage
+    assert target.household_id == context.household.id
+    assert target.grapes == ([{"name": "Nebbiolo"}] if expected else [])
+    assert target.region == ("Piemonte" if expected else "")
+    assert target.notes == ""
+    entry = db.scalar(select(WineCatalogEntry))
+    assert entry.grapes_text == ("Nebbiolo" if expected else "")
+    assert "PRIVATE" not in entry.search_text
+
+
+def test_repurchase_does_not_guess_conflicting_cellar_metadata(client):
+    test, db, context, wine, _ = client
+    wine.grapes = [{"name": "Nebbiolo"}]
+    wine.region = "Piemonte"
+    db.add(
+        Wine(
+            household_id=context.household.id,
+            name=wine.name,
+            producer=wine.producer,
+            vintage=wine.vintage,
+            grapes=[{"name": "Other grape"}],
+            region="Other region",
+        )
+    )
+    db.commit()
+    record = preview(test)
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=confirmation())
+    assert response.status_code == 200, response.text
+    target = db.get(Wine, UUID(response.json()["wine_ids"][0]))
+    assert target.grapes == [] and target.region == ""
+
+
+def test_purchase_respects_grapes_marked_not_applicable(client):
+    test, db, _, wine, _ = client
+    wine.grapes_not_applicable = True
+    wine.format = "0.75L"
+    db.add(WineCatalogEntry(name=wine.name, producer=wine.producer, grapes_text="Nebbiolo"))
+    db.commit()
+    record = preview(test)
+    payload = confirmation()
+    payload["rows"][0]["existing_wine_id"] = str(wine.id)
+    response = test.post(f"/imports/purchases/{record['id']}/confirm", json=payload)
+    assert response.status_code == 200, response.text
+    assert wine.grapes == [] and wine.grapes_not_applicable
+
+
 def test_another_photo_of_same_supplier_document_is_not_imported_twice(client):
     test, db, context, _, _ = client
     first = preview(test)

@@ -230,33 +230,27 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
         return None
     producer = str(data.get("producer") or "").strip()
     aliases = {name, f"{producer} {name}".strip()}
-    identity_aliases = [f"{producer} {name}".strip()] if producer else [name]
-    for alias in identity_aliases:
-        normalized = normalize_catalog_text(alias)
-        if not normalized:
-            continue
-        existing = db.scalar(
-            select(WineCatalogEntry)
-            .join(WineCatalogAlias, WineCatalogAlias.catalog_entry_id == WineCatalogEntry.id)
-            .where(WineCatalogAlias.normalized_alias == normalized),
-        )
-        if existing is not None:
-            if existing.is_active and source in {
-                "confirmed_recognition", "cellar_sync", "cellar_import", "catalog_recovery"
-            }:
-                return existing
-            changed = False
-            for field in ("producer", "region", "wine_zone", "locality", "appellation", "type", "format", "country", "grapes_text"):
-                next_value = str(data.get(field) or "").strip()
-                if field == "type":
-                    next_value = normalize_wine_type(next_value)
-                if next_value and not getattr(existing, field):
-                    setattr(existing, field, next_value)
-                    changed = True
-            if changed:
-                existing.search_text = build_search_text(existing.name, existing.producer, existing.region, existing.appellation, existing.type, existing.country, existing.grapes_text)
-                existing.updated_at = datetime.now(UTC)
+    from app.services.catalog_sync import matching_catalog_entries
+
+    matches = matching_catalog_entries(db, name, producer, approved_only=False)
+    if len(matches) > 1:
+        return None
+    existing = matches[0] if matches else None
+    if existing is not None:
+        if existing.is_active and (source == "confirmed_recognition" or not producer):
             return existing
+        changed = False
+        for field in ("producer", "region", "wine_zone", "locality", "appellation", "type", "format", "country", "grapes_text"):
+            next_value = str(data.get(field) or "").strip()
+            if field == "type":
+                next_value = normalize_wine_type(next_value)
+            if next_value and not getattr(existing, field):
+                setattr(existing, field, next_value)
+                changed = True
+        if changed:
+            existing.search_text = build_search_text(existing.name, existing.producer, existing.region, existing.appellation, existing.type, existing.country, existing.grapes_text)
+            existing.updated_at = datetime.now(UTC)
+        return existing
 
     entry = WineCatalogEntry(
         name=name,
