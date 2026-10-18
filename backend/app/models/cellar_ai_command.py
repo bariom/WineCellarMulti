@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, Numeric, String, Text, Uuid
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -34,7 +34,7 @@ class CellarAiCommand(Base):
     )
     previous_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     previous_status: Mapped[str] = mapped_column(String(64), default="")
-    previous_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    previous_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
     model: Mapped[str] = mapped_column(String(120), default="")
     reasoning_effort: Mapped[str] = mapped_column(String(16), default="")
     estimated_cost_usd: Mapped[Decimal] = mapped_column(Numeric(12, 6), default=Decimal("0"))

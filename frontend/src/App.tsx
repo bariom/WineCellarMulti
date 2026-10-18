@@ -11826,7 +11826,7 @@ export function App() {
                 </div>
                 <label>
                   <span>{t("rating")}</span>
-                  <RatingInput value={draft.rating} disabled={!canWriteWine} label={t("rating")} onChange={(value) => setDraft({ ...draft, rating: value })} />
+                  <RatingInput value={draft.rating} disabled={!canWriteWine} label={t("rating")} hint={locale === "it" ? "Tieni premuta una stella per il mezzo punto" : "Hold a star for a half point"} onChange={(value) => setDraft({ ...draft, rating: value })} />
                 </label>
                 <div className="drink-window-editor">
                   <div className="drink-window-editor-heading">

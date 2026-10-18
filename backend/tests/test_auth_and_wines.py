@@ -4489,7 +4489,7 @@ def test_consuming_a_bottle_updates_quantity_and_preserves_tasting_history():
     assert consumed_once.status_code == 200
     assert consumed_once.json()["quantity"] == 1
     assert consumed_once.json()["status"] == "Delivered"
-    assert consumed_once.json()["rating"] == 5
+    assert consumed_once.json()["rating"] == 0
     assert len(consumed_once.json()["tasting_history"]) == 1
     assert consumed_once.json()["tasting_history"][0]["note"] == "Opened for dinner"
     assert consumed_once.json()["tasting_history"][0]["rating"] == 5
@@ -4668,6 +4668,7 @@ def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monk
             "vintage": "2015",
             "quantity": 2,
             "status": "Delivered",
+            "rating": 3.5,
         },
     )
     assert wine.status_code == 201
@@ -4729,7 +4730,7 @@ def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monk
     assert updated.status_code == 200
     tasting = updated.json()["tasting_history"][0]
     assert updated.json()["quantity"] == 1
-    assert updated.json()["rating"] == 5
+    assert updated.json()["rating"] == 3.5
     assert tasting["note"] == "Era eccellente"
     assert Decimal(str(tasting["score_value"])) == Decimal("5")
     assert tasting["score_scale"] == 6
@@ -4744,6 +4745,8 @@ def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monk
     assert provider_calls == 1
     assert client.get(f"/api/v1/wines/{wine.json()['id']}").json()["quantity"] == 1
 
+    changed_rating = client.patch(f"/api/v1/wines/{wine.json()['id']}", json={"rating": 4.5})
+    assert changed_rating.status_code == 200
     undone = client.post(f"/api/v1/ai/cellar-commands/{request_id}/undo")
     assert undone.status_code == 200
     assert undone.json()["status"] == "undone"
@@ -4751,6 +4754,7 @@ def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monk
     assert restored["quantity"] == 2
     assert restored["status"] == "Delivered"
     assert restored["tasting_history"] == []
+    assert restored["rating"] == 4.5
 
 
 def test_cellar_ai_command_assigns_intelligence_objective_without_overwriting_and_can_undo(
@@ -6889,6 +6893,7 @@ def test_vinaris_export_roundtrip_uses_selected_blocks():
         "/api/v1/wines",
         json={
             "name": "Roundtrip Wine",
+            "rating": 4.5,
             "producer": "Roundtrip Producer",
             "vintage": "2019",
             "quantity": 3,
@@ -6968,6 +6973,7 @@ def test_vinaris_export_roundtrip_uses_selected_blocks():
     restored_wine = client.get(f"/api/v1/wines/{wines.json()[0]['id']}")
     assert restored_wine.status_code == 200
     assert restored_wine.json()["tasting_history"][0]["note"] == "Saved in backup history"
+    assert restored_wine.json()["rating"] == 4.5
 
     wishlist_lists = client.get("/api/v1/wishlist/lists")
     assert wishlist_lists.status_code == 200
@@ -9116,3 +9122,44 @@ def test_cellartracker_csv_import_decodes_windows_1252_accents():
     assert imported.status_code == 200, imported.text
     wine = client.get("/api/v1/wines").json()[0]
     assert wine["name"] == "Krug Champagne Brut Grande Cuvée Edition 170ème"
+
+
+def test_half_star_personal_rating_survives_tasting_changes():
+    from app.models.taste_profile import UserWineRating
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={"name": "Personal stars", "quantity": 2, "rating": 3.5},
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+    assert created.json()["rating"] == 3.5
+    for invalid in [-0.5, 6.5, 4.25]:
+        assert client.patch(f"/api/v1/wines/{wine_id}", json={"rating": invalid}).status_code == 422
+        assert client.post("/api/v1/wines", json={"name": "Invalid", "rating": invalid}).status_code == 422
+    changed = client.patch(f"/api/v1/wines/{wine_id}", json={"rating": 4.5})
+    assert changed.status_code == 200
+    assert changed.json()["rating"] == 4.5
+    consumed = client.post(
+        f"/api/v1/wines/{wine_id}/consume", json={"tasting_rating": 2}
+    )
+    assert consumed.status_code == 200
+    assert consumed.json()["rating"] == 4.5
+    tasting_id = consumed.json()["tasting_history"][0]["id"]
+    edited = client.patch(
+        f"/api/v1/wines/{wine_id}/tastings/{tasting_id}", json={"consumed_at": "2026-10-18", "tasting_rating": 6}
+    )
+    assert edited.status_code == 200
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["rating"] == 4.5
+    assert client.get("/api/v1/wines").json()[0]["rating"] == 4.5
+    with TestingSessionLocal() as db:
+        personal = db.scalar(select(UserWineRating).where(UserWineRating.wine_id == uuid.UUID(wine_id)))
+        assert personal is not None
+        assert personal.rating == 4.5
+    cleared = client.patch(f"/api/v1/wines/{wine_id}", json={"rating": 0})
+    assert cleared.status_code == 200
+    assert cleared.json()["rating"] == 0
+    with TestingSessionLocal() as db:
+        assert db.scalar(select(UserWineRating).where(UserWineRating.wine_id == uuid.UUID(wine_id))) is None

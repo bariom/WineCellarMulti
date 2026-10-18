@@ -166,7 +166,7 @@ class UserWineRating(Base):
     wine_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="CASCADE"), index=True
     )
-    rating: Mapped[int] = mapped_column(default=0)
+    rating: Mapped[float] = mapped_column(Float, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow

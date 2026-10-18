@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { wine, mockApi, openWineDetail, session, memberships } from "./fixtures/app";
 
 test("wine geography can be edited and remains visible without precise coordinates", async ({ page }, testInfo) => {
@@ -500,5 +500,116 @@ test.describe("Wine Detail compact/mobile", () => {
   test("matches the compact visual baseline", async ({ page }) => {
     await openWineDetail(page);
     await expect(page).toHaveScreenshot("wine-detail-compact.png", { fullPage: true });
+  });
+});
+
+
+async function persistStarEdits(page: Page) {
+  // The app's fixture intercepts fetch; wrap it to persist explicit star edits.
+  await page.evaluate(() => {
+    const original = window.fetch;
+    window.fetch = async (input, init) => {
+      const url = new URL(String(input), location.href);
+      if (url.pathname === "/api/v1/wines/wine-e2e-1" && init?.method === "PATCH") {
+        const data = JSON.parse(String(init.body));
+        sessionStorage.setItem("personal-stars-saved", JSON.stringify(data));
+        const response = await original(input, init);
+        return Response.json({ ...await response.json(), ...data });
+      }
+      return original(input, init);
+    };
+  });
+}
+
+test("personal stars set half points by holding a star and reset across responsive widths", async ({ page }, testInfo) => {
+  await openWineDetail(page);
+  await persistStarEdits(page);
+  const detail = page.locator(".wine-detail:visible").first();
+  const input = detail.locator(".rating-input");
+  const star = (n: number) => input.getByRole("button", { name: `: ${n}/6`, exact: false });
+  // Pointer devices get the hold hint as a tooltip, not as text.
+  await expect(input).toHaveAttribute("title", "Tieni premuta una stella per il mezzo punto");
+  await expect(detail.locator(".rating-input-hint")).toBeHidden();
+  // Holding a star sets the half point below it; the release must not also set the whole point.
+  await star(5).click({ delay: 700 });
+  await expect(input).toHaveAttribute("aria-label", /: 4\.5\/6$/);
+  await expect(input.locator("button.half-filled")).toHaveCount(1);
+  await expect(star(5)).toHaveAttribute("aria-pressed", "mixed");
+  await expect(page.locator('[data-wine-row-id="wine-e2e-1"] .star-rating')).toHaveAttribute("aria-label", /4\.5\/6$/);
+  await expect(page.locator('[data-wine-row-id="wine-e2e-1"] .star-rating .half-filled')).toHaveCount(1);
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("personal-stars-saved") || "null"))).toEqual({ rating: 4.5 });
+  for (const [width, height] of [[360, 800], [390, 844], [430, 932], [1440, 900]]) {
+    await page.setViewportSize({ width, height });
+    await input.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const controls = await input.locator("button:visible").all();
+    let previousRight = 0;
+    for (const control of controls) {
+      const box = (await control.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(previousRight);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      previousRight = box.x + box.width;
+    }
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`half-stars-${width}.png`), fullPage: true });
+    if (width === 390) await expect(page).toHaveScreenshot("wine-detail-half-stars-compact.png", { fullPage: true });
+  }
+  await star(1).click({ delay: 700 });
+  await expect(input).toHaveAttribute("aria-label", /: 0\.5\/6$/);
+  await expect(input.locator("button.half-filled")).toHaveCount(1);
+  await star(6).click();
+  await expect(input).toHaveAttribute("aria-label", /: 6\/6$/);
+  await expect(input.locator("button.half-filled")).toHaveCount(0);
+  // Arrow keys step by half a point for keyboard users.
+  await star(6).press("ArrowLeft");
+  await expect(input).toHaveAttribute("aria-label", /: 5\.5\/6$/);
+  await input.getByRole("button", { name: "0", exact: true }).click();
+  await expect(input).toHaveAttribute("aria-label", /: 0\/6$/);
+  await expect(input.locator("button.filled, button.half-filled")).toHaveCount(0);
+});
+
+test.describe("personal stars on touch screens", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("shows the hold hint under the stars without overlapping the title block", async ({ page }, testInfo) => {
+    await openWineDetail(page);
+    const detail = page.locator(".wine-detail:visible").first();
+    const input = detail.locator(".rating-input");
+    const hint = detail.locator(".rating-input-hint");
+    await expect(hint).toHaveText("Tieni premuta una stella per il mezzo punto");
+    await expect(input).toHaveAttribute("aria-describedby", (await hint.getAttribute("id"))!);
+    for (const [width, height] of [[360, 800], [390, 844], [430, 932]]) {
+      await page.setViewportSize({ width, height });
+      await expect(hint).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const stars = (await input.boundingBox())!;
+      const hintBox = (await hint.boundingBox())!;
+      const meta = (await detail.locator(".detail-wine-meta").boundingBox())!;
+      expect(hintBox.y).toBeGreaterThanOrEqual(stars.y + stars.height);
+      expect(meta.y).toBeGreaterThanOrEqual(hintBox.y + hintBox.height);
+      expect(hintBox.x + hintBox.width).toBeLessThanOrEqual(width);
+      if (width === 390) await page.screenshot({ path: testInfo.outputPath("half-stars-touch-390.png"), fullPage: true });
+    }
+  });
+
+  test("holding a star with a finger sets the half point", async ({ page }) => {
+    await openWineDetail(page);
+    await persistStarEdits(page);
+    const input = page.locator(".wine-detail:visible").first().locator(".rating-input");
+    const star = input.getByRole("button", { name: ": 4/6", exact: false });
+    await star.scrollIntoViewIfNeeded();
+    const box = (await star.boundingBox())!;
+    const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    // Real touch events (not mouse) with the slight drift of a resting finger.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: point.x + 3, y: point.y + 4 }] });
+    await page.waitForTimeout(800);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect(input).toHaveAttribute("aria-label", /: 3\.5\/6$/);
+    await expect(input.locator("button.half-filled")).toHaveCount(1);
+    // A short tap still sets the whole point.
+    await input.getByRole("button", { name: ": 6/6", exact: false }).tap();
+    await expect(input).toHaveAttribute("aria-label", /: 6\/6$/);
+    await expect(input.locator("button.half-filled")).toHaveCount(0);
   });
 });

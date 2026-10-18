@@ -23,7 +23,7 @@ class WineConsumptionResult:
     tasting_id: UUID
     previous_quantity: int
     previous_status: str
-    previous_rating: int
+    previous_rating: float
 
 
 def optional_tasting_score_value(value: object) -> float | None:
@@ -171,8 +171,6 @@ def record_wine_consumption(
         user_id=created_by_user_id,
         storage_allocation_id=storage_allocation_id,
     )
-    if rating > 0:
-        wine.rating = max(0, min(int(rating), 6))
     if wine.quantity == 0:
         wine.status = "Consumed"
     elif wine.status.lower() not in {"delivered", "consegnato", "consumed", "bevuto"}:

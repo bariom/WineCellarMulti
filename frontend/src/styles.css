@@ -6181,6 +6181,46 @@ textarea {
   background: var(--accent);
 }
 
+.rating-input button > span {
+  color: inherit;
+}
+
+/* Holding a star sets its half point: keep the press free of selection/callouts. */
+.rating-input button[aria-pressed] {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Otherwise a resting finger's drift starts a pan and cancels the hold. */
+  touch-action: none;
+}
+
+.rating-input button.is-holding > span {
+  display: inline-block;
+  animation: rating-hold 450ms ease-out forwards;
+}
+
+@keyframes rating-hold {
+  to { transform: scale(0.82); opacity: 0.7; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rating-input button.is-holding > span { animation: none; }
+}
+
+/* Pointer devices get the hint as a tooltip; touch screens see it as text. */
+.rating-input-hint {
+  display: none;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .rating-input-hint {
+    display: block;
+    margin: 0 0 6px;
+    color: var(--text-muted);
+    font: 400 var(--text-xs)/1.35 var(--font-ui);
+  }
+}
+
 .rating-input .clear-rating {
   min-width: 44px;
 }
@@ -28349,3 +28389,12 @@ body,
 .data-import-source label { margin-top: auto; }
 .data-import-source input[type="file"] { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; min-height: 44px; font-size: .8rem; }
 .data-import-preview-help { font-size: .85rem; color: var(--text-muted); }
+
+/* Personal ratings retain their half star in both read and edit views. */
+.star-rating .half-filled,
+.rating-input button.half-filled > span {
+  background: linear-gradient(to right, var(--accent) 50%, var(--text-muted) 50%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}

@@ -3239,8 +3239,6 @@ def undo_cellar_ai_command(
     )
     wine.quantity = command.previous_quantity or wine.quantity + 1
     wine.status = command.previous_status
-    if command.previous_rating is not None:
-        wine.rating = command.previous_rating
     command.status = "undone"
     command.undone_at = datetime.now(UTC)
     db.commit()

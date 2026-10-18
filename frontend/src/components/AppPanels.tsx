@@ -1389,7 +1389,7 @@ export function WineDetail({
               <RatingInput
                 value={String(wine.rating || 0)}
                 disabled={saving}
-                label={t("rating")}
+                label={t("rating")} hint={locale === "it" ? "Tieni premuta una stella per il mezzo punto" : "Hold a star for a half point"}
                 onChange={(rating) => { void onUpdateRating(rating); }}
               />
             ) : wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null : null}

@@ -77,6 +77,7 @@ export type Wine = {
   ai_value_notes: string;
   ai_value_market_country?: string;
   ai_value_estimated_at: string | null;
+  /** Personal stars: 0 means unset; otherwise 0.5 to 6 in half-point steps. */
   rating: number;
   owners: Array<{ name: string; email?: string; share_pct: number }>;
   tags: string[];

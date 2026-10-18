@@ -93,7 +93,7 @@ class Wine(Base):
     ai_value_estimated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    rating: Mapped[int] = mapped_column(default=0)
+    rating: Mapped[float] = mapped_column(Float, default=0)
     owners: Mapped[list[dict]] = mapped_column(JSON, default=list)
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     grapes: Mapped[list[dict]] = mapped_column(JSON, default=list)

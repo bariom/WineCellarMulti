@@ -1945,7 +1945,7 @@ def update_wine(
         setattr(wine, field, value)
     if "rating" in data:
         record_user_wine_rating(
-            db, user_id=context.user.id, wine=wine, rating=int(data["rating"] or 0)
+            db, user_id=context.user.id, wine=wine, rating=float(data["rating"] or 0)
         )
     if context.household.operating_mode == "restaurant" and "quantity" in data:
         reconcile_direct_quantity_change(

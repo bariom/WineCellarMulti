@@ -1,3 +1,4 @@
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { AppIcon } from "./AppIcon";
 import "./AiPackUpgradeNotice.css";
@@ -96,11 +97,11 @@ export function WineStatusBadge({ status, locale, compact = false }: { status: s
 }
 
 export function StarRating({ value, label }: { value: number; label: string }) {
-  const rating = Math.min(Math.max(Math.round(Number(value || 0)), 0), 6);
+  const rating = Math.min(Math.max(Number(value || 0), 0), 6);
   return (
     <span className="star-rating" aria-label={`${label}: ${rating}/6`}>
       {Array.from({ length: 6 }, (_, index) => (
-        <span key={index} className={index < rating ? "filled" : ""} aria-hidden="true">★</span>
+        <span key={index} className={index + 1 <= rating ? "filled" : index < rating ? "half-filled" : ""} aria-hidden="true">★</span>
       ))}
     </span>
   );
@@ -358,35 +359,90 @@ export function RatingInput({
   value,
   disabled,
   label,
+  hint,
   onChange,
 }: {
   value: string;
   disabled: boolean;
   label: string;
+  hint?: string;
   onChange: (value: string) => void;
 }) {
   const rating = Math.min(Math.max(Number(value || 0), 0), 6);
+  // A tap sets a whole point; holding a star sets the half point below it.
+  const holdTimer = useRef<number | undefined>(undefined);
+  const holdOrigin = useRef<{ x: number; y: number } | null>(null);
+  // The click that follows a completed hold must not also set a whole point. Touch
+  // adjustment can retarget it to a neighbouring star, so it is ignored whatever its
+  // target; the next gesture (pointerdown or key) clears the flag.
+  const suppressClick = useRef(false);
+  const [holdingStar, setHoldingStar] = useState<number | null>(null);
+  const hintId = useId();
+  useEffect(() => () => window.clearTimeout(holdTimer.current), []);
+  const select = (score: number) => onChange(String(rating === score ? 0 : score));
+  const cancelHold = () => {
+    window.clearTimeout(holdTimer.current);
+    holdOrigin.current = null;
+    setHoldingStar(null);
+  };
+  const startHold = (star: number, x: number, y: number) => {
+    cancelHold();
+    suppressClick.current = false;
+    holdOrigin.current = { x, y };
+    setHoldingStar(star);
+    holdTimer.current = window.setTimeout(() => {
+      suppressClick.current = true;
+      setHoldingStar(null);
+      select(star - 0.5);
+    }, RATING_HOLD_MS);
+  };
+  const step = (delta: number) => onChange(String(Math.min(Math.max(rating + delta, 0), 6)));
   return (
-    <div className="rating-input" role="radiogroup" aria-label={label}>
+    <>
+    <div className="rating-input" role="group" aria-label={`${label}: ${rating}/6`} aria-describedby={hint && !disabled ? hintId : undefined} title={hint}>
       {[1, 2, 3, 4, 5, 6].map((star) => (
         <button
           type="button"
           key={star}
-          className={star <= rating ? "filled" : ""}
+          className={[star <= rating ? "filled" : star - 0.5 === rating ? "half-filled" : "", holdingStar === star ? "is-holding" : ""].filter(Boolean).join(" ") || undefined}
           disabled={disabled}
-          aria-checked={rating === star}
-          role="radio"
-          onClick={() => onChange(rating === star ? "0" : String(star))}
+          aria-label={`${label}: ${star}/6`}
+          aria-pressed={rating === star || rating === star - 0.5 ? (rating === star ? true : "mixed") : false}
+          onPointerDown={(event) => { if (event.button === 0) startHold(star, event.clientX, event.clientY); }}
+          onPointerMove={(event) => {
+            // A resting finger drifts a few pixels; only a real move abandons the hold.
+            const origin = holdOrigin.current;
+            if (origin && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > RATING_HOLD_SLOP_PX) cancelHold();
+          }}
+          onPointerUp={cancelHold}
+          onPointerLeave={(event) => { if (event.pointerType === "mouse") cancelHold(); }}
+          onPointerCancel={cancelHold}
+          onContextMenu={(event) => event.preventDefault()}
+          onKeyDown={(event) => {
+            suppressClick.current = false;
+            if (event.key === "ArrowRight" || event.key === "ArrowUp") { event.preventDefault(); step(0.5); }
+            if (event.key === "ArrowLeft" || event.key === "ArrowDown") { event.preventDefault(); step(-0.5); }
+          }}
+          onClick={() => {
+            if (suppressClick.current) { suppressClick.current = false; return; }
+            select(star);
+          }}
         >
-          ★
+          <span aria-hidden="true">★</span>
         </button>
       ))}
       <button type="button" className="secondary compact clear-rating" disabled={disabled || rating === 0} onClick={() => onChange("0")}>
         0
       </button>
     </div>
+    {/* Touch screens have no tooltip: show the hold gesture in text there. */}
+    {hint && !disabled ? <small id={hintId} className="rating-input-hint">{hint}</small> : null}
+    </>
   );
 }
+
+const RATING_HOLD_MS = 450;
+const RATING_HOLD_SLOP_PX = 10;
 
 export function TastingEnjoymentInput({
   value,

@@ -767,7 +767,7 @@ def rebuild_user_taste_profile(
     return profiles
 
 
-def record_user_wine_rating(db: Session, *, user_id: UUID, wine: Wine, rating: int) -> None:
+def record_user_wine_rating(db: Session, *, user_id: UUID, wine: Wine, rating: float) -> None:
     """Persist a user's private star signal and refresh only that user's derived profile."""
     personal_rating = db.scalar(
         select(UserWineRating).where(

@@ -1,5 +1,14 @@
 # Frontend E2E checks
 
+Personal wine stars use 0.5-point steps on the existing 0–6 scale (0 clears the
+rating). Tapping a star sets a whole point; holding it (about 450 ms) sets the
+half point below it, and arrow keys step by half a point. Touch screens show the
+hold hint as text under the stars (pointer devices get it as a tooltip); a
+finger-hold test uses real touch events. These stars are assigned explicitly by the user: recording, editing
+or undoing a tasting does not replace them with the tasting score or its average.
+`npm run test:e2e:wine-detail` covers half-point selection, reset, rendering and
+control geometry at 360, 390, 430 and 1440 px.
+
 Wine Detail checks also verify that quick actions appear immediately after wine
 identity, before stock metrics and the drinking window, and are visible without
 scrolling at 360/390/430 px and desktop. Restaurant mode covers sale and glass actions.
