@@ -88,3 +88,7 @@
   .tasting-memory-footer { gap: 4px; }
   .tasting-memory-footer small { flex-basis: 100%; }
 }
+/* Location status of a newly chosen photo, with its manual-place actions. */
+.tasting-memory-place { display: grid; gap: 8px; min-width: 0; }
+.tasting-memory-place > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.tasting-memory-place button { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; }

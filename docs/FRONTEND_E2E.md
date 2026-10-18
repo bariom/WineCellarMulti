@@ -181,9 +181,13 @@ and framed memories in light/private-cellar themes have deterministic visual
 baselines, reviewed before acceptance. Photo GPS is read from EXIF (both byte
 orders, LONG or IFD pointer, 1-2 byte hemisphere refs, unused 0/0 rationals) and,
 failing that, from XMP; `e2e/fixtures/gps/` holds one small file per layout plus
-southern/western, no-GPS and 0,0 controls. Phones may strip GPS from gallery
-picks before the browser receives the file; the message then suggests the
-original file chooser.
+southern/western, no-GPS, 0,0 and Android-redacted controls. Android blanks the
+GPS block (empty refs, 0/0 values) of photos handed to browsers, even through
+the file chooser: the input recognises it, says the phone removed the location
+and offers "Indica il luogo" (address search or a tap on the map). The chosen
+place is written as EXIF GPS into the compressed upload, so the server stores it
+like a photo location. The redacted-photo test covers search, map tap, Enter not
+submitting the form, removal, and geometry at 360/390/430 px and desktop.
 
 `e2e/moments.spec.ts` also checks catalog bottle photos beside the wine identity
 at 360/390/430 px and desktop, missing or unavailable photos, and navigation

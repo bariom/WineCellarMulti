@@ -1,0 +1,27 @@
+.memory-location-picker {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--memory-edge, var(--border));
+  border-radius: 14px;
+  background: var(--surface);
+}
+.memory-location-picker > p { margin: 0; color: var(--text-muted); font-size: .85rem; }
+.memory-location-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.memory-location-search input { min-width: 0; min-height: 44px; }
+.memory-location-search button,
+.memory-location-actions button { min-height: 44px; }
+.memory-location-results { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.memory-location-results button {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.memory-location-map .leaflet-container { width: 100%; height: 240px; border-radius: 12px; cursor: crosshair; }
+.memory-location-coordinates { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.memory-location-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.memory-location-actions button { flex: 1 1 160px; }

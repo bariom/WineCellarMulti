@@ -24,7 +24,13 @@ function validLocation(latitude: number, longitude: number): PhotoLocation | nul
   return { latitude, longitude };
 }
 
-function exifLocation(bytes: Uint8Array, start: number): PhotoLocation | null {
+type ExifGps = { location: PhotoLocation | null; redacted: boolean };
+
+/**
+ * Reads the GPS IFD. `redacted` is true when the GPS block exists but its coordinates were blanked,
+ * which is how Android hands photos to apps (browsers included) that lack media-location access.
+ */
+function exifGps(bytes: Uint8Array, start: number): ExifGps | null {
   const view = new DataView(bytes.buffer, bytes.byteOffset + start);
   const little = bytes[start] === 73;
   const u16 = (offset: number) => view.getUint16(offset, little);
@@ -61,7 +67,18 @@ function exifLocation(bytes: Uint8Array, start: number): PhotoLocation | null {
   };
   const latitude = coordinate(2, 1, "N", "S", 90);
   const longitude = coordinate(4, 3, "E", "W", 180);
-  return latitude === null || longitude === null ? null : validLocation(latitude, longitude);
+  const location = latitude === null || longitude === null ? null : validLocation(latitude, longitude);
+  if (location) return { location, redacted: false };
+  // Blank coordinates: every rational numerator is 0 (or the tag is gone) and no hemisphere is set.
+  const blank = (tag: number, refTag: number) => {
+    const entry = tags.get(tag);
+    const ref = tags.get(refTag);
+    const noHemisphere = ref === undefined || view.getUint8(ref + 8) === 0 || view.getUint8(ref + 8) === 32;
+    if (entry === undefined) return noHemisphere;
+    const offset = u32(entry + 8);
+    return noHemisphere && [0, 1, 2].slice(0, Math.min(u32(entry + 4), 3)).every(i => u32(offset + i * 8) === 0);
+  };
+  return { location: null, redacted: blank(2, 1) && blank(4, 3) };
 }
 
 /** XMP coordinate: "43,46.2N", "43,46,12N", "43.77N" or signed decimal. */
@@ -86,19 +103,28 @@ function xmpLocation(bytes: Uint8Array): PhotoLocation | null {
   return lat === null || lon === null ? null : validLocation(lat, lon);
 }
 
+export type PhotoGps = { location: PhotoLocation | null; redacted: boolean };
+
 // Read GPS from JPEG/PNG/WebP EXIF (or XMP) before canvas discards metadata.
 // Invalid or absent metadata is optional and never blocks the photo.
-export async function photoLocation(file: File): Promise<PhotoLocation | null> {
+export async function photoGps(file: File): Promise<PhotoGps> {
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
+    let redacted = false;
     for (const start of tiffHeaders(bytes)) {
       try {
-        const location = exifLocation(bytes, start);
-        if (location) return location;
+        const gps = exifGps(bytes, start);
+        if (gps?.location) return gps;
+        redacted ||= Boolean(gps?.redacted);
       } catch { /* Not a usable EXIF block: try the next candidate. */ }
     }
-    return xmpLocation(bytes);
-  } catch { return null; }
+    const xmp = xmpLocation(bytes);
+    return { location: xmp, redacted: !xmp && redacted };
+  } catch { return { location: null, redacted: false }; }
+}
+
+export async function photoLocation(file: File): Promise<PhotoLocation | null> {
+  return (await photoGps(file)).location;
 }
 
 // Retain GPS alone in the compressed upload. The server validates coordinates,

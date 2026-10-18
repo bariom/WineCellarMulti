@@ -29,6 +29,7 @@ const GPS_FIXTURES: Array<[string, { latitude: number; longitude: number } | nul
   ["n-south-west.jpg", { latitude: -33.867778, longitude: -151.21 }],
   ["o-no-gps.jpg", null],
   ["p-zero-zero.jpg", null],
+  ["q-android-redacted.jpg", null],
 ];
 const gpsFixture = (name: string) => readFileSync(new URL(`./fixtures/gps/${name}`, import.meta.url));
 
@@ -70,6 +71,81 @@ test("a gallery photo with GPS only in XMP keeps its location in the memory", as
   }, compressed);
   expect(location.latitude).toBeCloseTo(43.77, 6);
   expect(location.longitude).toBeCloseTo(11.25, 6);
+});
+
+test("a photo whose GPS the phone redacted can be placed by hand", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page);
+  // The fixture answers /api/ inside the page; wrap it so the map config carries a geocoding key.
+  await page.addInitScript(() => {
+    const fixtureFetch = window.fetch;
+    window.fetch = async (input, init) => String(input).includes("/api/v1/map-config")
+      ? new Response(JSON.stringify({ satellite_enabled: false, arcgis_api_key: "test-key" }), { headers: { "Content-Type": "application/json" } })
+      : fixtureFetch(input, init);
+  });
+  await page.route("https://geocode-api.arcgis.com/**", route => route.fulfill({ json: { candidates: [{ address: "Cuntrada di Rinaldi 25, 6835 Morbio Superiore", score: 100, location: { x: 9.0236, y: 45.8618 } }] } }));
+  await page.goto("/");
+  await openRecordTasting(page);
+  const dialog = page.getByRole("dialog", { name: "Registra bevuta" });
+  await dialog.getByRole("button", { name: /Un altro vino/ }).click();
+  await dialog.getByLabel("Nome del vino", { exact: true }).fill("Ricordo senza GPS");
+  const memory = dialog.getByRole("region", { name: "Foto ricordo", exact: true });
+  await memory.getByLabel("Scegli foto ricordo", { exact: true }).setInputFiles({ name: "android.jpg", mimeType: "image/jpeg", buffer: gpsFixture("q-android-redacted.jpg") });
+  await expect(memory.getByRole("status")).toContainText("Il telefono ha rimosso la posizione da questa foto");
+  await expect(memory.getByText(/Carica da file \(su iPhone/)).toHaveCount(0);
+  await memory.getByRole("button", { name: "Indica il luogo", exact: true }).click();
+  const picker = memory.getByRole("group", { name: "Indica il luogo della foto" });
+  await expect(picker.getByRole("button", { name: "Usa questo luogo" })).toBeDisabled();
+  const search = picker.getByRole("searchbox", { name: "Cerca indirizzo o località" });
+  await search.fill("Rinaldi 25 Morbio");
+  // Enter searches; it must not submit the tasting form.
+  await search.press("Enter");
+  await expect(dialog).toBeVisible();
+  await picker.getByRole("button", { name: /Morbio Superiore/ }).click();
+  await expect(picker.locator(".memory-location-coordinates")).toHaveText("45.86180, 9.02360");
+  // A tap on the map refines the point.
+  const map = picker.locator(".leaflet-container");
+  await map.scrollIntoViewIfNeeded();
+  const box = (await map.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2 + 40, box.y + box.height / 2);
+  await expect(picker.locator(".memory-location-coordinates")).not.toHaveText("45.86180, 9.02360");
+  const [latitude, longitude] = (await picker.locator(".memory-location-coordinates").textContent())!.split(", ").map(Number);
+  expect(longitude).toBeGreaterThan(9.0236);
+  expect(latitude).toBeCloseTo(45.8618, 3);
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
+    const container = (await memory.boundingBox())!;
+    // The picker's own controls; Leaflet's zoom buttons keep the library size used by every app map.
+    for (const button of await picker.locator(".memory-location-search button, .memory-location-actions button").all()) {
+      const bounds = (await button.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(container.x);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(container.x + container.width + 0.5);
+      expect(bounds.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width === 390) await memory.screenshot({ path: testInfo.outputPath("manual-place-picker-390.png") });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await picker.getByRole("button", { name: "Usa questo luogo" }).click();
+  await expect(picker).toHaveCount(0);
+  await expect(memory.getByText(/Luogo indicato a mano incluso nel ricordo \(45\.86/)).toBeVisible();
+  const compressed = (await memory.getByRole("img", { name: "Foto ricordo della bevuta" }).getAttribute("src"))!;
+  const saved = await page.evaluate(async value => {
+    const path = "/src/domain/photoLocation.ts";
+    const { photoLocation } = await import(path);
+    return photoLocation(new File([await (await fetch(value)).blob()], "compressed.jpg"));
+  }, compressed);
+  expect(saved.latitude).toBeCloseTo(latitude, 5);
+  expect(saved.longitude).toBeCloseTo(longitude, 5);
+  await memory.screenshot({ path: testInfo.outputPath("manual-place-set-390.png") });
+  await memory.getByRole("button", { name: "Rimuovi luogo" }).click();
+  await expect(memory.getByRole("status")).toContainText("Il telefono ha rimosso la posizione");
+  const cleared = (await memory.getByRole("img", { name: "Foto ricordo della bevuta" }).getAttribute("src"))!;
+  expect(await page.evaluate(async value => {
+    const path = "/src/domain/photoLocation.ts";
+    const { photoLocation } = await import(path);
+    return photoLocation(new File([await (await fetch(value)).blob()], "compressed.jpg"));
+  }, cleared)).toBeNull();
 });
 
 for (const origin of ["cellar", "external"] as const) {
