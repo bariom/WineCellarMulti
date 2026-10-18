@@ -124,6 +124,8 @@ export type Wine = {
     sommelier_feedback_at: string | null;
     created_at: string;
   }>;
+  /** Tasting aggregate sent even in the lightweight list; absent in older offline backups. */
+  tasting_summary?: { count: number; best_rating: number; last_consumed_at: string | null };
   value_history: Array<{ id: string; value: string; currency: string; source: string; recorded_at: string }>;
 };
 

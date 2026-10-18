@@ -39,9 +39,10 @@ import { CellarHomeHero, CellarHomeStats, type CellarHomeHeroStat } from "./comp
 import { appUserActivityStatus, appUserEntitlementStatus, appUserInitials, appUserPlanLabel, appUserRoleLabel, appUserTierStatus } from "./domain/appUsers";
 import { CellarHomeBackdrop, resetHomeBackdropSession, sessionBackdropSrc } from "./components/CellarHomeBackdrop";
 import { RiservaBanner } from "./components/RiservaBanner";
-import { featuredExplanation } from "./components/FeaturedWineDetails";
+import { featuredExplanation, featuredHighlight } from "./components/FeaturedWineDetails";
 import type { PersonalDashboardWidget } from "./types";
 import { featuredValue } from "./domain/featuredValue";
+import { selectFeaturedWines } from "./domain/featuredSelection";
 import { CollectorOverview } from "./components/CollectorOverview";
 import { DashboardCountUp } from "./components/DashboardCountUp";
 import { LEGAL_DOCUMENT_VERSION } from "./legal/legalDocuments";
@@ -6875,29 +6876,16 @@ export function App() {
     const priceIncreasePct = (wine: Wine) => {
       return featuredValue(wine).changePct;
     };
-    const ownWines = cellarWines.filter((wine) => currentUserSharePct(wine, session) >= 99.999);
-    const sharedWines = cellarWines.filter((wine) => currentUserSharePct(wine, session) > 0 && currentUserSharePct(wine, session) < 99.999);
-    const orderedByOwnedValue = [...cellarWines].sort((first, second) => ownedValue(second) - ownedValue(first));
-    const orderedByPositionValue = [...cellarWines].sort((first, second) => positionValue(second) - positionValue(first));
-    const orderedOwn = [...ownWines].sort((first, second) => ownedValue(second) - ownedValue(first));
-    const orderedShared = [...sharedWines].sort((first, second) => ownedValue(second) - ownedValue(first));
-    const largestPriceIncrease = cellarWines
-      .map((wine) => ({ wine, increasePct: priceIncreasePct(wine) }))
-      .filter((item): item is { wine: Wine; increasePct: number } => item.increasePct !== null && item.increasePct > 0)
-      .sort((first, second) => second.increasePct - first.increasePct)[0];
-    const selected: Wine[] = [];
-    const add = (wine: Wine | undefined) => {
-      if (wine && !selected.some((item) => item.id === wine.id)) selected.push(wine);
-    };
+    const selected = selectFeaturedWines({
+      wines: cellarWines,
+      today: now,
+      positionValue,
+      ownedValue,
+      sharePct: (wine) => currentUserSharePct(wine, session),
+      increasePct: priceIncreasePct,
+    });
 
-    add(largestPriceIncrease?.wine);
-    add(orderedByOwnedValue[0]);
-    add(orderedByPositionValue[0]);
-    add(orderedOwn[0]);
-    add(orderedShared[0]);
-    orderedByOwnedValue.forEach(add);
-
-    return selected.slice(0, 4).map((wine) => {
+    return selected.map(({ wine, reason }) => {
       const sharePct = currentUserSharePct(wine, session);
       const totalValue = positionValue(wine);
       const purchasePrice = Number(wine.price || 0);
@@ -6948,13 +6936,9 @@ export function App() {
       const hasMaturityWindow = Boolean(drinkStart && drinkEnd);
       return {
         wine,
-        isLargestPriceIncrease: largestPriceIncrease?.wine.id === wine.id,
-        reason: largestPriceIncrease?.wine.id === wine.id ? "increase" as const
-          : orderedByOwnedValue[0]?.id === wine.id ? "owned" as const
-          : orderedByPositionValue[0]?.id === wine.id ? "position" as const
-          : orderedOwn[0]?.id === wine.id ? "personal" as const
-          : orderedShared[0]?.id === wine.id ? "shared" as const : "value" as const,
-        highlight: largestPriceIncrease?.wine.id === wine.id ? t("largestPriceIncrease") : t("keyPosition"),
+        isLargestPriceIncrease: reason === "increase",
+        reason,
+        highlight: reason === "increase" ? t("largestPriceIncrease") : featuredHighlight(reason, locale) || t("keyPosition"),
         sharePct,
         ownedValue: totalValue * (sharePct / 100),
         totalValue,

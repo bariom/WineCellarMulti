@@ -224,6 +224,14 @@ class WineValueHistoryResponse(BaseModel):
     recorded_at: datetime
 
 
+class WineTastingSummary(BaseModel):
+    """Per-wine tasting aggregate, available even in the lightweight list."""
+
+    count: int = 0
+    best_rating: float = 0
+    last_consumed_at: date | None = None
+
+
 class WineResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -299,6 +307,7 @@ class WineResponse(BaseModel):
     photo_detail_url: str = ""
     created_at: datetime
     tasting_history: list[WineTastingEntryResponse] = Field(default_factory=list)
+    tasting_summary: WineTastingSummary = Field(default_factory=WineTastingSummary)
     value_history: list[WineValueHistoryResponse] = Field(default_factory=list)
 
 

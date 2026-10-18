@@ -7,6 +7,7 @@ import { RiservaBanner } from "./RiservaBanner";
 import { ScrollGallery } from "./HorizontalScroll";
 import { formatMoney, wineTone } from "./panelSupport";
 import { featuredValue } from "../domain/featuredValue";
+import { bestTastingRating, isMaturityReason, isTasteReason } from "../domain/featuredSelection";
 import { featuredCaption, featuredExplanation, type FeaturedWine } from "./FeaturedWineDetails";
 import { CollectorAtlas } from "./CollectorAtlas";
 import "./CollectorQuadrante.css";
@@ -24,6 +25,51 @@ const positiveNumber = (value: unknown) => Number.isFinite(Number(value)) && Num
 function FeaturedContext({ item, stock, locale }: { item: FeaturedWine; stock: Wine[]; locale: Locale }) {
   const it = locale === "it";
   const { wine } = item;
+  const year = new Date().getFullYear();
+  if (isMaturityReason(item.reason) && wine.drink_from && wine.drink_to) {
+    const peakFrom = wine.drink_peak_from, peakTo = wine.drink_peak_to;
+    const start = Math.min(wine.drink_from, year) - 1, end = Math.max(wine.drink_to, year) + 1;
+    const pos = (value: number) => (value - start) / (end - start) * 100;
+    const years = year - wine.drink_to;
+    const headline = item.reason === "closing" ? (it ? "Ultimo anno" : "Final year")
+      : item.reason === "peak" ? `${it ? "Dal" : "From"} ${peakFrom || wine.drink_from}`
+      : it ? `+${years} ${years === 1 ? "anno" : "anni"}` : `+${years} ${years === 1 ? "year" : "years"}`;
+    const bar = item.reason === "closing" ? "closing" : item.reason === "peak" ? "ready" : "overdue";
+    return <figure className="cq-context cq-window">
+      <figcaption><span>{it ? "La sua finestra di consumo" : "Its drinking window"}</span><strong>{headline}</strong></figcaption>
+      <span className="cq-track cq-window-track" role="img" aria-label={`${wine.drink_from}–${wine.drink_to}${peakFrom && peakTo ? ` · ${it ? "picco" : "peak"} ${peakFrom}–${peakTo}` : ""} · ${it ? "oggi" : "today"} ${year}`}>
+        <span className={`cq-bar cq-bar-${bar}`} style={{ left: `${pos(wine.drink_from)}%`, width: `${pos(wine.drink_to + 1) - pos(wine.drink_from)}%` }} />
+        {peakFrom && peakTo && peakFrom <= peakTo ? <span className="cq-window-peak" style={{ left: `${pos(peakFrom)}%`, width: `${pos(peakTo + 1) - pos(peakFrom)}%` }} /> : null}
+        <span className="cq-needle" style={{ left: `${pos(year + 0.5)}%` }} />
+      </span>
+      <div className="cq-trend-ends">
+        <span><small>{it ? "Da bere dal" : "Drink from"}</small><b>{wine.drink_from}</b></span>
+        {peakFrom && peakTo ? <span className="cq-window-mid"><small>{it ? "Picco" : "Peak"}</small><b>{peakFrom}–{peakTo}</b></span> : null}
+        <span><small>{it ? "Fino al" : "Until"}</small><b>{wine.drink_to}</b></span>
+      </div>
+      <p>{it ? `Oggi: ${year}. Finestre indicative.` : `Today: ${year}. Indicative windows.`}</p>
+    </figure>;
+  }
+  if (isTasteReason(item.reason)) {
+    const stars = Number(wine.rating || 0), best = bestTastingRating(wine);
+    const summary = wine.tasting_summary;
+    const last = summary?.last_consumed_at ? new Intl.DateTimeFormat(it ? "it-CH" : "en-GB", { month: "short", year: "numeric" }).format(new Date(`${summary.last_consumed_at.slice(0, 10)}T00:00:00`)) : "";
+    const rows = [
+      { key: "stars", label: it ? "Le tue stelle" : "Your stars", value: stars },
+      { key: "best", label: it ? "Miglior degustazione" : "Best tasting", value: best },
+    ].filter(row => row.value > 0);
+    const scoreText = (value: number) => `${new Intl.NumberFormat(it ? "it-CH" : "en-GB", { maximumFractionDigits: 1 }).format(value)}/6`;
+    return <figure className="cq-context cq-taste">
+      <figcaption><span>{it ? "Il tuo giudizio" : "Your verdict"}</span>{rows.length ? <strong>{scoreText(Math.max(stars, best))}</strong> : null}</figcaption>
+      <ol>{rows.map(row => <li key={row.key}>
+        <p><span>{row.label}</span><b>{scoreText(row.value)}</b></p>
+        <span className="cq-origin-bar"><i style={{ width: `${row.value / 6 * 100}%` }} /></span>
+      </li>)}</ol>
+      <p>{summary?.count
+        ? (it ? `${summary.count} ${summary.count === 1 ? "degustazione registrata" : "degustazioni registrate"}${last ? ` · ultima ${last}` : ""}.` : `${summary.count} ${summary.count === 1 ? "tasting" : "tastings"} recorded${last ? ` · last ${last}` : ""}.`)
+        : (it ? "Nessuna degustazione registrata finora." : "No tastings recorded yet.")}</p>
+    </figure>;
+  }
   if (item.reason === "increase") {
     const value = featuredValue(wine);
     if (value.baseline === null || value.current === null) return null;

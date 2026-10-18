@@ -108,9 +108,17 @@ test("quadrante chart follows the reason a bottle is highlighted", async ({ page
     const slide = slides(page).nth(index);
     const ranking = await slide.locator(".cq-rank").count();
     const weight = await slide.locator(".cq-share").count();
-    expect(ranking + weight, `slide ${index + 1} has exactly one non-trend chart`).toBe(1);
-    kinds.add(ranking ? "rank" : "share");
-    if (ranking) {
+    const window = await slide.locator(".cq-window").count();
+    const taste = await slide.locator(".cq-taste").count();
+    expect(ranking + weight + window + taste, `slide ${index + 1} has exactly one non-trend chart`).toBe(1);
+    kinds.add(ranking ? "rank" : weight ? "share" : window ? "window" : "taste");
+    if (window) {
+      // A maturity pick draws its own window, not a value chart.
+      await expect(slide.locator(".cq-window figcaption")).toContainText("La sua finestra di consumo");
+      await expect(slide.locator(".cq-window .cq-needle")).toHaveCount(1);
+    } else if (taste) {
+      await expect(slide.locator(".cq-taste figcaption")).toContainText("Il tuo giudizio");
+    } else if (ranking) {
       // A ranking marks the current wine and never reuses the ownership sentence.
       await expect(slide.locator(".cq-rank-current")).toHaveCount(1);
       await expect(slide.locator(".cq-why")).not.toContainText("quota di proprietà");
@@ -120,6 +128,36 @@ test("quadrante chart follows the reason a bottle is highlighted", async ({ page
     }
   }
   expect(kinds.size).toBeGreaterThan(0);
+});
+
+test("quadrante highlights up to eight bottles for maturity and personal taste too", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const tasted = (count: number, best: number, last: string) => ({ tasting_summary: { count, best_rating: best, last_consumed_at: last } });
+  const wines = [
+    ...stock,
+    make("q-peak", "Barolo", 2, "60", "61", [2024, 2040], [2026, 2034]),
+    make("q-favorite", "Sassicaia", 1, "50", "51", [null, null], [null, null], { rating: 5.5 }),
+    make("q-tasting", "Amarone", 2, "45", "46", [null, null], [null, null], tasted(3, 5, "2026-05-01")),
+    make("q-rediscover", "Taurasi", 2, "20", "21", [null, null], [null, null], { rating: 4, ...tasted(1, 4, "2024-06-01") }),
+    make("q-extra-1", "Dolcetto", 2, "10", "11", [null, null]),
+    make("q-extra-2", "Grignolino", 2, "9", "10", [null, null]),
+  ];
+  await open(page, wines);
+  await expect(slides(page)).toHaveCount(8);
+  await expect(counter(page)).toHaveText("1 / 8");
+  const kicker = (id: string) => page.locator(".cq-slide").filter({ has: page.getByRole("heading", { name: id, exact: true }) }).locator(".cq-kicker");
+  await expect(kicker("Chablis")).toContainText("Da bere quest’anno");
+  await expect(kicker("Barolo")).toContainText("Entra nel picco");
+  await expect(kicker("Sassicaia")).toContainText("Tra i tuoi preferiti");
+  await expect(kicker("Amarone")).toContainText("Degustazione memorabile");
+  await expect(kicker("Taurasi")).toContainText("Da riscoprire");
+  const favorite = page.locator(".cq-slide").filter({ has: page.getByRole("heading", { name: "Sassicaia", exact: true }) });
+  await expect(favorite.locator(".cq-taste")).toContainText("5.5/6");
+  await expect(favorite.locator(".cq-meta")).toContainText("Le tue stelle: 5.5/6");
+  const rediscover = page.locator(".cq-slide").filter({ has: page.getByRole("heading", { name: "Taurasi", exact: true }) });
+  await expect(rediscover.locator(".cq-why")).toContainText("non apri da oltre un anno");
+  await expect(rediscover.locator(".cq-taste")).toContainText("1 degustazione registrata");
+  expect(await noOverflow(page)).toBe(true);
 });
 
 for (const [width, height] of [[390, 844], [1440, 1000]]) {

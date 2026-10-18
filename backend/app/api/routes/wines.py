@@ -62,6 +62,7 @@ from app.schemas.wine import (
     WineShareOfferRecipientResponse,
     WineShareOfferResponse,
     WineTastingEntryUpdate,
+    WineTastingSummary,
     WineUpdate,
 )
 from app.services.bottle_photo_ai import (
@@ -292,6 +293,32 @@ def wine_value_history_by_wine(
     return result
 
 
+def tasting_summaries_by_wine(
+    db: Session, household_id: UUID, wine_ids: list[UUID]
+) -> dict[UUID, WineTastingSummary]:
+    if not wine_ids:
+        return {}
+    rows = db.execute(
+        select(
+            WineTastingEntry.wine_id,
+            func.count(WineTastingEntry.id),
+            func.max(WineTastingEntry.rating),
+            func.max(WineTastingEntry.consumed_at),
+        )
+        .where(
+            WineTastingEntry.household_id == household_id,
+            WineTastingEntry.wine_id.in_(wine_ids),
+        )
+        .group_by(WineTastingEntry.wine_id),
+    ).all()
+    return {
+        wine_id: WineTastingSummary(
+            count=count, best_rating=float(best or 0), last_consumed_at=last_consumed_at
+        )
+        for wine_id, count, best, last_consumed_at in rows
+    }
+
+
 def record_wine_value_history(db: Session, wine: Wine, *, source: str) -> None:
     if wine.current_value is None:
         return
@@ -315,9 +342,10 @@ def wine_response(
     storage_allocations=None,
     strategy_purposes: list[WineStrategyPurpose] | None = None,
     strategy_purpose_quantities: dict[WineStrategyPurpose, int] | None = None,
+    tasting_summary: WineTastingSummary | None = None,
 ) -> WineResponse:
-    # Detail and mutation responses must carry the same strategy data as the
-    # list: the frontend replaces its cached wine with these responses.
+    # Detail and mutation responses must carry the same strategy and tasting
+    # data as the list: the frontend replaces its cached wine with these responses.
     if strategy_purposes is None or strategy_purpose_quantities is None:
         db = object_session(wine)
         if db is not None:
@@ -328,11 +356,18 @@ def wine_response(
                 strategy_purposes = purposes
             if strategy_purpose_quantities is None:
                 strategy_purpose_quantities = quantities
+    if tasting_summary is None:
+        db = object_session(wine)
+        summaries = (
+            tasting_summaries_by_wine(db, wine.household_id, [wine.id]) if db is not None else {}
+        )
+        tasting_summary = summaries.get(wine.id, WineTastingSummary())
     if include_details:
         response = WineResponse.model_validate(wine)
         response = response.model_copy(
             update={
                 "details_loaded": True,
+                "tasting_summary": tasting_summary,
                 "scores": scores_for_display(wine.scores or []),
                 "shared_data_features": [
                     feature
@@ -429,6 +464,7 @@ def wine_response(
         created_at=wine.created_at,
         **photo_urls(wine),
         tasting_history=[],
+        tasting_summary=tasting_summary,
         value_history=[],
     )
 
@@ -720,6 +756,7 @@ def list_wines(
     tags_by_wine = user_tag_names_by_wine(db, context, wine_ids)
     storage_by_wine = allocation_responses_by_wine(db, wine_ids)
     strategy_by_wine = strategy_allocation_data_by_wine(db, context.household.id, wine_ids)
+    tastings_by_wine = tasting_summaries_by_wine(db, context.household.id, wine_ids)
     return [
         wine_response(
             wine,
@@ -728,6 +765,7 @@ def list_wines(
             storage_allocations=storage_by_wine.get(wine.id, []),
             strategy_purposes=strategy_by_wine.get(wine.id, ([], {}))[0],
             strategy_purpose_quantities=strategy_by_wine.get(wine.id, ([], {}))[1],
+            tasting_summary=tastings_by_wine.get(wine.id, WineTastingSummary()),
         )
         for wine in wines
     ]

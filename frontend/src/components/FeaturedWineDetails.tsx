@@ -3,35 +3,82 @@ import { createPortal } from "react-dom";
 import type { Locale, Wine } from "../types";
 import { formatBottleCount, numberLocale } from "../domain/cellar";
 import { featuredValue } from "../domain/featuredValue";
+import { bestTastingRating, isMaturityReason, isTasteReason, type FeaturedReason } from "../domain/featuredSelection";
 import { formatMoney } from "./panelSupport";
 import { KeyPositionTrendKpi } from "./KeyPositionCardParts";
 import "./FeaturedWineDetails.css";
 
 export type FeaturedWine = {
-  wine: Wine; highlight: string; reason: "increase" | "owned" | "position" | "personal" | "shared" | "value";
+  wine: Wine; highlight: string; reason: FeaturedReason;
   totalValue: number; ownedValue: number; sharePct: number;
 };
 
+const score = (value: number, locale: Locale) => `${new Intl.NumberFormat(numberLocale(locale), { maximumFractionDigits: 1 }).format(value)}/6`;
+const monthYear = (value: string | null | undefined, locale: Locale) => {
+  const timestamp = value ? new Date(`${value.slice(0, 10)}T00:00:00`).getTime() : Number.NaN;
+  return Number.isFinite(timestamp) ? new Intl.DateTimeFormat(numberLocale(locale), { month: "short", year: "numeric" }).format(timestamp) : "";
+};
+const drinkWindow = (wine: Wine) => wine.drink_from && wine.drink_to ? `${wine.drink_from}–${wine.drink_to}` : "";
+
+/** Short kicker for maturity and taste reasons; value reasons keep the app's own wording. */
+export function featuredHighlight(reason: FeaturedReason, locale: Locale) {
+  const it = locale === "it";
+  const labels: Partial<Record<FeaturedReason, string>> = {
+    closing: it ? "Da bere quest’anno" : "Drink this year",
+    peak: it ? "Entra nel picco" : "Entering its peak",
+    overdue: it ? "Da verificare" : "To review",
+    favorite: it ? "Tra i tuoi preferiti" : "One of your favourites",
+    best_tasting: it ? "Degustazione memorabile" : "Memorable tasting",
+    rediscover: it ? "Da riscoprire" : "Worth rediscovering",
+  };
+  return labels[reason] || "";
+}
+
 export function featuredCaption(item: FeaturedWine, locale: Locale) {
   const it = locale === "it";
-  const labels = {
+  const { wine } = item;
+  const labels: Record<FeaturedReason, string> = {
     increase: it ? "Maggiore incremento di prezzo" : "Largest price increase",
     owned: it ? "Valore della tua quota" : "Value of your share",
     position: it ? "Valore della posizione" : "Position value",
     personal: it ? "Valore tra i vini personali" : "Value among personal wines",
     shared: it ? "Valore tra i vini condivisi" : "Value among shared wines",
     value: it ? "Tra le posizioni di maggior valore" : "Among your most valuable positions",
+    closing: it ? "Finestra in chiusura" : "Window closing",
+    peak: it ? "Inizio del picco" : "Peak begins",
+    overdue: it ? "Finestra superata" : "Window passed",
+    favorite: it ? "Le tue stelle" : "Your stars",
+    best_tasting: it ? "Miglior degustazione" : "Best tasting",
+    rediscover: it ? "Ultima degustazione" : "Last tasting",
   };
-  const change = featuredValue(item.wine).changePct;
+  const change = featuredValue(wine).changePct;
   const metric = item.reason === "increase" && change !== null
     ? new Intl.NumberFormat(numberLocale(locale), { style: "percent", maximumFractionDigits: 1, signDisplay: "exceptZero" }).format(change / 100)
-    : formatMoney(item.reason === "position" ? item.totalValue : item.ownedValue, item.wine.currency, locale);
+    : item.reason === "closing" || item.reason === "overdue" ? drinkWindow(wine)
+    : item.reason === "peak" ? String(wine.drink_peak_from || wine.drink_from || "")
+    : item.reason === "favorite" ? score(Number(wine.rating || 0), locale)
+    : item.reason === "best_tasting" ? score(bestTastingRating(wine), locale)
+    : item.reason === "rediscover" ? monthYear(wine.tasting_summary?.last_consumed_at, locale)
+    : formatMoney(item.reason === "position" ? item.totalValue : item.ownedValue, wine.currency, locale);
   return { label: labels[item.reason], metric };
 }
 
 export function featuredExplanation(item: FeaturedWine, locale: Locale) {
   const it = locale === "it";
+  const year = new Date().getFullYear();
   switch (item.reason) {
+    case "closing":
+      return it ? `La sua finestra di consumo si chiude nel ${year}: è il momento di stapparlo.` : `Its drinking window closes in ${year}: now is the time to open it.`;
+    case "peak":
+      return it ? `Dal ${year} entra nella fase migliore della sua finestra di consumo.` : `From ${year} it enters the best phase of its drinking window.`;
+    case "overdue":
+      return it ? "La finestra indicata è già superata: vale la pena verificarlo, non indica per forza un deterioramento." : "Its indicated window has passed: worth checking, not necessarily a sign of decline.";
+    case "favorite":
+      return it ? "Gli hai dato tra le stelle più alte della tua cantina, e ne hai ancora in casa." : "You gave it some of the highest stars in your cellar, and you still have some at home.";
+    case "best_tasting":
+      return it ? "Una delle tue degustazioni meglio valutate, con bottiglie ancora disponibili." : "One of your best-rated tastings, with bottles still available.";
+    case "rediscover":
+      return it ? "Un vino che ti è piaciuto molto e che non apri da oltre un anno." : "A wine you loved and have not opened for over a year.";
     case "increase":
       return it ? "È il vino con il maggiore incremento percentuale tra quelli confrontabili della tua cantina." : "This wine has the largest percentage increase among comparable wines in your cellar.";
     case "position":
@@ -104,6 +151,19 @@ export function FeaturedWineDetails({ item, locale, onClose, onOpen }: {
         <p className="featured-wine-method">{evidence.fromPurchase
           ? (it ? "Variazione rispetto al prezzo di acquisto. Il valore attuale è una stima, non un ricavo di vendita." : "Change relative to purchase price. Current value is an estimate, not sale proceeds.")
           : (it ? "Variazione rispetto alla prima valutazione disponibile nella stessa valuta. Prezzi di acquisto inferiori a 1 sono esclusi dal confronto." : "Change relative to the first available valuation in the same currency. Purchase prices below 1 are excluded from the comparison.")}</p>
+      </> : isMaturityReason(item.reason) || isTasteReason(item.reason) ? <>
+        <dl className="featured-wine-facts">
+          <div><dt>{it ? "Bottiglie" : "Bottles"}</dt><dd>{formatBottleCount(wine.quantity, locale)}</dd></div>
+          <div><dt>{it ? "Finestra di consumo" : "Drinking window"}</dt><dd>{drinkWindow(wine) || "—"}</dd></div>
+          {wine.drink_peak_from && wine.drink_peak_to ? <div><dt>{it ? "Picco" : "Peak"}</dt><dd>{wine.drink_peak_from}–{wine.drink_peak_to}</dd></div> : null}
+          <div><dt>{it ? "Le tue stelle" : "Your stars"}</dt><dd>{Number(wine.rating || 0) > 0 ? score(Number(wine.rating), locale) : "—"}</dd></div>
+          <div><dt>{it ? "Degustazioni" : "Tastings"}</dt><dd>{wine.tasting_summary?.count || 0}</dd></div>
+          {bestTastingRating(wine) > 0 ? <div><dt>{it ? "Miglior voto in degustazione" : "Best tasting score"}</dt><dd>{score(bestTastingRating(wine), locale)}</dd></div> : null}
+          {wine.tasting_summary?.last_consumed_at ? <div><dt>{it ? "Ultima degustazione" : "Last tasting"}</dt><dd>{date(new Date(`${wine.tasting_summary.last_consumed_at.slice(0, 10)}T00:00:00`).getTime())}</dd></div> : null}
+        </dl>
+        <p className="featured-wine-method">{isMaturityReason(item.reason)
+          ? (it ? "Le finestre di consumo sono indicative e considerano solo le bottiglie presenti in cantina." : "Drinking windows are indicative and consider only bottles physically in the cellar.")
+          : (it ? "Basato sulle tue stelle personali e sui voti delle tue degustazioni (scala 0–6)." : "Based on your personal stars and your tasting scores (0–6 scale).")}</p>
       </> : <>
         <dl className="featured-wine-facts">
           <div><dt>{it ? "Bottiglie" : "Bottles"}</dt><dd>{formatBottleCount(wine.quantity, locale)}</dd></div>

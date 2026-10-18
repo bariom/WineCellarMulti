@@ -9200,3 +9200,31 @@ def test_tasting_scores_accept_half_points():
         6.0,
         0.0,
     ]
+
+
+def test_wine_list_and_detail_carry_the_same_tasting_summary():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wine_id = client.post("/api/v1/wines", json={"name": "Summary", "quantity": 3}).json()["id"]
+    untasted_id = client.post("/api/v1/wines", json={"name": "Untasted", "quantity": 1}).json()["id"]
+    first = client.post(
+        f"/api/v1/wines/{wine_id}/consume",
+        json={"consumed_at": "2025-03-01", "tasting_rating": 5.5},
+    )
+    assert first.status_code == 200, first.text
+    second = client.post(
+        f"/api/v1/wines/{wine_id}/consume",
+        json={"consumed_at": "2026-01-10", "tasting_rating": 3},
+    )
+    assert second.status_code == 200, second.text
+    expected = {"count": 2, "best_rating": 5.5, "last_consumed_at": "2026-01-10"}
+    assert second.json()["tasting_summary"] == expected
+    listed = {wine["id"]: wine for wine in client.get("/api/v1/wines").json()}
+    assert listed[wine_id]["details_loaded"] is False
+    assert listed[wine_id]["tasting_summary"] == expected
+    assert listed[untasted_id]["tasting_summary"] == {
+        "count": 0,
+        "best_rating": 0,
+        "last_consumed_at": None,
+    }
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["tasting_summary"] == expected

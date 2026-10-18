@@ -439,6 +439,13 @@ verifica le altre viste a 360, 390, 430 e 1440 px, separazione delle etichette e
 valori, ordine dei contenuti, assenza di overflow e personalizzazione dei widget.
 La baseline `balanced-home-compact.png` protegge lo stile condiviso a 390 px.
 
+"La bottiglia del giorno" mostra fino a 8 vini, uno per motivo: valore (incremento,
+quota, posizione), maturità (finestra in chiusura, inizio del picco, finestra
+superata) e gusto personale (stelle ≥ 4/6, miglior degustazione ≥ 4/6, vino amato
+non aperto da oltre un anno, dal `tasting_summary` della lista vini).
+`npx playwright test e2e/collector-quadrante.spec.ts` verifica motivi, limite di 8,
+grafico coerente con il motivo e assenza di overflow.
+
 ## Home desktop editoriale
 
 Il progetto e i breakpoint sono descritti in `DESKTOP_HOME_DESIGN.md`.

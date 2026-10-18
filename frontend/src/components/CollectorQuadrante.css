@@ -183,6 +183,17 @@ html[data-theme="light"] .cq {
 .cq .collector-atlas, .cq .collector-explore { border-top: 1px solid var(--cq-rule); padding-top: 12px; }
 .cq .collector-explore > summary { color: var(--cq-strong); }
 
+/* Drinking window of a maturity pick: window bar, peak band and today's needle. */
+.cq-window-track { height: 16px; margin: 22px 0 10px; }
+.cq-window-peak { position: absolute; top: 3px; bottom: 3px; border-radius: 999px; background: color-mix(in srgb, #fff 45%, transparent); }
+.cq-window .cq-window-mid { text-align: center; }
+
+/* Personal verdict of a taste pick, on the 0–6 scale. */
+.cq-taste ol { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.cq-taste li p { margin: 0 0 4px; display: flex; justify-content: space-between; gap: 12px; font-size: .85rem; color: var(--cq-muted); }
+.cq-taste li p b { font-weight: 500; white-space: nowrap; color: var(--cq-text); }
+.cq-taste .cq-origin-bar { margin-top: 0; height: 8px; }
+
 /* Ranking of the most valuable positions */
 .cq-rank ol { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
 .cq-rank li p { margin: 0 0 4px; display: flex; justify-content: space-between; gap: 12px; font-size: .85rem; color: var(--cq-muted); }
