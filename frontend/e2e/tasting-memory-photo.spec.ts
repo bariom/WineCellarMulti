@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { mockApi, openRecordTasting, wine, tastingArchive, memberships, session } from "./fixtures/app";
 import { gpsPhoto } from "./fixtures/gpsPhoto";
@@ -13,6 +14,63 @@ async function picture(page: Page) {
     return canvas.toDataURL("image/png").split(",")[1];
   });
 }
+
+// Real-world EXIF/XMP layouts (see fixtures/gps): Florence 43.77 N, 11.25 E unless noted.
+const GPS_FIXTURES: Array<[string, { latitude: number; longitude: number } | null]> = [
+  ["b-big-endian.jpg", { latitude: 43.77, longitude: 11.25 }],
+  ["c-pointer-type-ifd.jpg", { latitude: 43.77, longitude: 11.25 }],
+  ["d-ref-count-1.jpg", { latitude: 43.77, longitude: 11.25 }],
+  ["e-zero-seconds-denominator.jpg", { latitude: 43.77, longitude: 11.25 }],
+  ["f-decimal-minutes.jpg", { latitude: 43.77, longitude: 11.25 }],
+  ["i-xmp-only.jpg", { latitude: 43.77, longitude: 11.25 }],
+  ["j-xmp-only-decimal.jpg", { latitude: 43.77, longitude: 11.25 }],
+  ["k-png-exif.png", { latitude: 43.77, longitude: 11.25 }],
+  ["l-webp-pillow.webp", { latitude: 43.77, longitude: 11.25 }],
+  ["n-south-west.jpg", { latitude: -33.867778, longitude: -151.21 }],
+  ["o-no-gps.jpg", null],
+  ["p-zero-zero.jpg", null],
+];
+const gpsFixture = (name: string) => readFileSync(new URL(`./fixtures/gps/${name}`, import.meta.url));
+
+test("photo GPS is read from the EXIF and XMP layouts cameras, phones and editors write", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/");
+  for (const [name, expected] of GPS_FIXTURES) {
+    const location = await page.evaluate(async ({ data, name }) => {
+      const path = "/src/domain/photoLocation.ts";
+      const { photoLocation } = await import(path);
+      return photoLocation(new File([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))], name));
+    }, { data: gpsFixture(name).toString("base64"), name });
+    if (expected === null) expect(location, name).toBeNull();
+    else {
+      expect(location, name).not.toBeNull();
+      expect(location.latitude, name).toBeCloseTo(expected.latitude, 5);
+      expect(location.longitude, name).toBeCloseTo(expected.longitude, 5);
+    }
+  }
+});
+
+test("a gallery photo with GPS only in XMP keeps its location in the memory", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page);
+  await page.goto("/");
+  await openRecordTasting(page);
+  const dialog = page.getByRole("dialog", { name: "Registra bevuta" });
+  await dialog.getByRole("button", { name: /Un altro vino/ }).click();
+  await dialog.getByLabel("Nome del vino", { exact: true }).fill("Ricordo XMP");
+  const memory = dialog.getByRole("region", { name: "Foto ricordo", exact: true });
+  await memory.getByLabel("Scegli foto ricordo", { exact: true }).setInputFiles({ name: "esportata.jpg", mimeType: "image/jpeg", buffer: gpsFixture("i-xmp-only.jpg") });
+  await expect(memory.getByText("Posizione della foto inclusa nel ricordo. Potrai mostrarla sulla mappa.")).toBeVisible();
+  const compressed = (await memory.getByRole("img", { name: "Foto ricordo della bevuta" }).getAttribute("src"))!;
+  // The compressed upload carries the location as EXIF GPS, which the server reads.
+  const location = await page.evaluate(async value => {
+    const path = "/src/domain/photoLocation.ts";
+    const { photoLocation } = await import(path);
+    return photoLocation(new File([await (await fetch(value)).blob()], "compressed.jpg"));
+  }, compressed);
+  expect(location.latitude).toBeCloseTo(43.77, 6);
+  expect(location.longitude).toBeCloseTo(11.25, 6);
+});
 
 for (const origin of ["cellar", "external"] as const) {
   test(`original JPG retains GPS through ${origin} tasting photo compression`, async ({ page }, testInfo) => {

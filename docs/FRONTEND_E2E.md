@@ -178,7 +178,12 @@ compression, invalid image handling, removal, History editing, and geometry at
 360/390/430 px plus desktop. They also check portrait/landscape proportions,
 the photo viewer, keyboard dismissal and restored focus. The compact photo input
 and framed memories in light/private-cellar themes have deterministic visual
-baselines, reviewed before acceptance.
+baselines, reviewed before acceptance. Photo GPS is read from EXIF (both byte
+orders, LONG or IFD pointer, 1-2 byte hemisphere refs, unused 0/0 rationals) and,
+failing that, from XMP; `e2e/fixtures/gps/` holds one small file per layout plus
+southern/western, no-GPS and 0,0 controls. Phones may strip GPS from gallery
+picks before the browser receives the file; the message then suggests the
+original file chooser.
 
 `e2e/moments.spec.ts` also checks catalog bottle photos beside the wine identity
 at 360/390/430 px and desktop, missing or unavailable photos, and navigation
@@ -434,17 +439,17 @@ sono `collector-compact.png` (Riserva attiva) e `collector-riserva-home-compact.
 e l'assenza di overflow. Le catture delle sole sezioni di analisi nascondono
 temporaneamente i controlli globali; i test Home verificano la navigazione reale.
 
-`npx playwright test e2e/home-dashboard.spec.ts e2e/personal-dashboard.spec.ts -g "editorial dashboard|personal dashboard"`
-verifica le altre viste a 360, 390, 430 e 1440 px, separazione delle etichette e dei
-valori, ordine dei contenuti, assenza di overflow e personalizzazione dei widget.
-La baseline `balanced-home-compact.png` protegge lo stile condiviso a 390 px.
-
 "La bottiglia del giorno" mostra fino a 8 vini, uno per motivo: valore (incremento,
 quota, posizione), maturità (finestra in chiusura, inizio del picco, finestra
 superata) e gusto personale (stelle ≥ 4/6, miglior degustazione ≥ 4/6, vino amato
 non aperto da oltre un anno, dal `tasting_summary` della lista vini).
 `npx playwright test e2e/collector-quadrante.spec.ts` verifica motivi, limite di 8,
 grafico coerente con il motivo e assenza di overflow.
+
+`npx playwright test e2e/home-dashboard.spec.ts e2e/personal-dashboard.spec.ts -g "editorial dashboard|personal dashboard"`
+verifica le altre viste a 360, 390, 430 e 1440 px, separazione delle etichette e dei
+valori, ordine dei contenuti, assenza di overflow e personalizzazione dei widget.
+La baseline `balanced-home-compact.png` protegge lo stile condiviso a 390 px.
 
 ## Home desktop editoriale
 

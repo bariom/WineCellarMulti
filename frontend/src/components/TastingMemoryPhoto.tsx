@@ -81,8 +81,8 @@ export function TastingMemoryPhotoInput({ locale, value, existingUrl, disabled, 
     <input ref={original} type="file" hidden aria-label={it ? "Carica file originale della foto ricordo" : "Upload original memory photo file"} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
     {hasLocation && preview ? <small>{it ? "Posizione della foto inclusa nel ricordo. Potrai mostrarla sulla mappa." : "Photo location included in this memory. You can view it on the map."}</small> : null}
     {hasLocation === false && preview ? <small role="status">{it
-      ? "GPS non rilevato nel file ricevuto. Su Android la galleria può escluderlo: prova Carica da file e scegli la foto originale."
-      : "No GPS detected in the received file. Android's gallery may omit it: try Upload from files and choose the original photo."}</small> : null}
+      ? "GPS non rilevato nel file ricevuto. Il telefono può toglierlo dalle foto scelte dalla galleria: prova Carica da file e scegli la foto originale (su iPhone dall’app File)."
+      : "No GPS detected in the received file. Phones may remove it from photos picked in the gallery: try Upload from files and choose the original photo (on iPhone, from the Files app)."}</small> : null}
     {processing ? <small role="status">{it ? "Preparazione foto…" : "Preparing photo…"}</small> : null}
     {error ? <p role="alert">{error}</p> : null}
   </section>;
