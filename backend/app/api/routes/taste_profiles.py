@@ -173,9 +173,9 @@ def taste_profile_evidence(db: Session, context: CurrentContext) -> TasteProfile
         str(shared_identity_id or wine_id) for wine_id, shared_identity_id, _status in direct_rows
     )
     return TasteProfileEvidence(
-        tasting_rating_count=sum(int(row.rating or 0) > 0 for row in tasting_rows),
+        tasting_rating_count=sum(float(row.rating or 0) > 0 for row in tasting_rows),
         enjoyment_only_count=sum(
-            int(row.rating or 0) <= 0 and row.enjoyment in ("positive", "negative")
+            float(row.rating or 0) <= 0 and row.enjoyment in ("positive", "negative")
             for row in tasting_rows
         ),
         direct_rating_count=len(direct_rows),

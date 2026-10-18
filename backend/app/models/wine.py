@@ -169,7 +169,7 @@ class WineTastingEntry(Base):
 
     consumed_at: Mapped[date] = mapped_column(Date, index=True)
     note: Mapped[str] = mapped_column(Text, default="")
-    rating: Mapped[int] = mapped_column(default=0)
+    rating: Mapped[float] = mapped_column(Float, default=0)
     score_value: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
     score_scale: Mapped[int | None] = mapped_column(nullable=True)
     enjoyment: Mapped[str] = mapped_column(String(16), default="")

@@ -119,7 +119,7 @@ class WineTastingEntryResponse(BaseModel):
     id: UUID
     consumed_at: date
     note: str
-    rating: int = Field(default=0, ge=0, le=6)
+    rating: float = Field(default=0, ge=0, le=6, multiple_of=0.5)
     score_value: Decimal | None = Field(default=None, ge=0)
     score_scale: int | None = Field(default=None, ge=1, le=100)
     enjoyment: Literal["", "positive", "negative"] = ""
@@ -151,7 +151,7 @@ class TastingArchiveItemResponse(BaseModel):
     wine_status: str = ""
     consumed_at: date
     note: str = ""
-    rating: int = Field(default=0, ge=0, le=6)
+    rating: float = Field(default=0, ge=0, le=6, multiple_of=0.5)
     score_value: Decimal | None = Field(default=None, ge=0)
     score_scale: int | None = Field(default=None, ge=1, le=100)
     enjoyment: Literal["", "positive", "negative"] = ""
@@ -196,7 +196,7 @@ class WineConsume(BaseModel):
     consumed_at: date | None = None
     storage_allocation_id: UUID | None = None
     note: str = ""
-    tasting_rating: int = Field(default=0, ge=0, le=6)
+    tasting_rating: float = Field(default=0, ge=0, le=6, multiple_of=0.5)
     tasting_enjoyment: Literal["", "positive", "negative"] = ""
     tasting_occasion: str = ""
     tasting_pairing: str = ""
@@ -207,7 +207,7 @@ class WineTastingEntryUpdate(BaseModel):
     memory_photo: str | None = Field(default=None, max_length=2_800_000, repr=False)
     consumed_at: date
     note: str = ""
-    tasting_rating: int = Field(default=0, ge=0, le=6)
+    tasting_rating: float = Field(default=0, ge=0, le=6, multiple_of=0.5)
     tasting_enjoyment: Literal["", "positive", "negative"] = ""
     tasting_occasion: str = ""
     tasting_pairing: str = ""

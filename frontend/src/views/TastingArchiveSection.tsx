@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { TastingMemoryPhoto, TastingMemoryPhotoInput } from "../components/TastingMemoryPhoto";
 import { AppIcon, AppIconName } from "../components/AppIcon";
 import LocalizedDateInput from "../components/LocalizedDateInput";
+import { RATING_HALF_STEPS } from "../components/AppUi";
 import TastingArchiveInsights from "./TastingArchiveInsights";
 
 type TastingEnjoyment = "" | "positive" | "negative";
@@ -231,9 +232,9 @@ function TastingEntryEditor({
             onChange={(event) => setDraft((current) => ({ ...current, tasting_rating: event.target.value }))}
             disabled={saving}
           >
-            {Array.from({ length: 7 }).map((_, index) => (
-              <option key={index} value={String(index)}>
-                {index === 0 ? t("notSpecified") : `${index}/6`}
+            {RATING_HALF_STEPS.map((score) => (
+              <option key={score} value={String(score)}>
+                {score === 0 ? t("notSpecified") : `${score}/6`}
               </option>
             ))}
           </select>

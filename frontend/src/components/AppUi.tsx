@@ -442,6 +442,9 @@ export function RatingInput({
 }
 
 const RATING_HOLD_MS = 450;
+
+/** Scores on the 0-6 scale in half-point steps; 0 means unrated. */
+export const RATING_HALF_STEPS = Array.from({ length: 13 }, (_, index) => index / 2);
 const RATING_HOLD_SLOP_PX = 10;
 
 export function TastingEnjoymentInput({

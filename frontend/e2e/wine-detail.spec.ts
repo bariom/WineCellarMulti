@@ -131,6 +131,54 @@ test("wine quick actions are visible at the start of the detail on phones and de
   await expect(detail.getByLabel("Data in formato giorno, mese, anno", { exact: true })).toBeVisible();
 });
 
+test("tasting score offers half points when recording a bottle", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openWineDetail(page);
+  const detail = page.locator(".wine-detail:visible").first();
+  await detail.getByRole("button", { name: "Registra bevuta", exact: true }).click();
+  // The consume form opens outside the detail column on compact screens.
+  const score = page.getByRole("combobox", { name: "Punteggio vino", exact: true });
+  expect(await score.evaluate((select: HTMLSelectElement) => Array.from(select.options, (option) => [option.value, option.text]))).toEqual([
+    ["0", "Non specificato"],
+    ...Array.from({ length: 12 }, (_, index) => [String((index + 1) / 2), `${(index + 1) / 2}/6`]),
+  ]);
+  await score.selectOption("4.5");
+  await expect(score).toHaveValue("4.5");
+  // The app's fixture intercepts fetch in the page; record the consume body there.
+  await page.evaluate(() => {
+    const original = window.fetch;
+    window.fetch = async (input, init) => {
+      if (init?.method === "POST" && String(input).includes("/consume")) sessionStorage.setItem("consume-body", String(init.body));
+      return original(input, init);
+    };
+  });
+  await page.getByRole("button", { name: "Salva degustazione", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("consume-body") || "{}").tasting_rating)).toBe(4.5);
+});
+
+test("tasting date calendar icon stays centred in the field on hover", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openWineDetail(page);
+  const detail = page.locator(".wine-detail:visible").first();
+  await detail.getByRole("button", { name: "Registra bevuta", exact: true }).click();
+  const field = detail.getByLabel("Data in formato giorno, mese, anno", { exact: true });
+  const calendar = detail.getByRole("button", { name: "Apri calendario", exact: true });
+  await expect(calendar).toBeVisible();
+  await field.scrollIntoViewIfNeeded();
+  const input = (await field.boundingBox())!;
+  const rest = (await calendar.boundingBox())!;
+  await calendar.hover();
+  // Let any hover transition settle before measuring.
+  await page.waitForTimeout(400);
+  const hovered = (await calendar.boundingBox())!;
+  expect(Math.abs(hovered.y - rest.y)).toBeLessThanOrEqual(1);
+  const centre = hovered.y + hovered.height / 2;
+  expect(Math.abs(centre - (input.y + input.height / 2))).toBeLessThanOrEqual(2);
+  expect(hovered.y).toBeGreaterThanOrEqual(input.y);
+  expect(hovered.y + hovered.height).toBeLessThanOrEqual(input.y + input.height);
+  await page.screenshot({ path: testInfo.outputPath("tasting-date-calendar-hover.png"), clip: { x: input.x - 16, y: input.y - 40, width: input.width + 32, height: input.height + 80 } });
+});
+
 test("restaurant quick sale and glass actions are visible at the start of the detail", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, [], false, memberships, [wine], { ...session, active_household_mode: "restaurant", restaurant_mode_available: true });

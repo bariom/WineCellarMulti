@@ -4,7 +4,7 @@ import type { CatalogWine, ConsumeWineDraft, Locale, StandaloneWineTastingCreate
 import { api } from "../services/api";
 import { translate } from "../i18n";
 import { isWinePhysicallyInCellar } from "../domain/cellar";
-import { TastingEnjoymentInput } from "./AppUi";
+import { RATING_HALF_STEPS, TastingEnjoymentInput } from "./AppUi";
 import { emptyConsumeWineDraft } from "./panelSupport";
 import "./RecordTastingDialog.css";
 import { tastingRequest } from "../domain/tasting";
@@ -162,7 +162,7 @@ export default function RecordTastingDialog({ locale, wines, canRecognize, onClo
         {mode === "external" || selected ? <>
           <label><span>{it ? "Data" : "Date"}</span><input type="date" required value={draft.consumed_at} onChange={event => setDraft(current => ({ ...current, consumed_at: event.target.value }))} /></label>
           <label><span>{it ? "Ti è piaciuto?" : "Did you enjoy it?"}</span><TastingEnjoymentInput disabled={busy} value={draft.tasting_enjoyment} t={t} onChange={tasting_enjoyment => setDraft(current => ({ ...current, tasting_enjoyment }))} /></label>
-          <label><span>{it ? "Voto (facoltativo)" : "Score (optional)"}</span><select value={draft.tasting_rating} onChange={event => setDraft(current => ({ ...current, tasting_rating: event.target.value }))}>{Array.from({ length: 7 }, (_, rating) => <option key={rating} value={rating}>{rating ? `${rating}/6` : "—"}</option>)}</select></label>
+          <label><span>{it ? "Voto (facoltativo)" : "Score (optional)"}</span><select value={draft.tasting_rating} onChange={event => setDraft(current => ({ ...current, tasting_rating: event.target.value }))}>{RATING_HALF_STEPS.map((score) => <option key={score} value={String(score)}>{score ? `${score}/6` : "—"}</option>)}</select></label>
           <label><span>{it ? "Un ricordo di questo vino" : "A memory of this wine"}</span><textarea rows={2} maxLength={5000} value={draft.note} onChange={event => setDraft(current => ({ ...current, note: event.target.value }))} /></label>
           <TastingMemoryPhotoInput locale={locale} value={draft.memory_photo} disabled={busy} onChange={memory_photo => setDraft(current => ({ ...current, memory_photo }))} onProcessingChange={memory_photo_processing => setDraft(current => ({ ...current, memory_photo_processing }))} />
           {(selected?.storage_allocations || []).length > 1 ? <label><span>{it ? "Preleva da" : "Take from"}</span><select required value={draft.storage_allocation_id} onChange={event => setDraft(current => ({ ...current, storage_allocation_id: event.target.value }))}><option value="">—</option>{selected?.storage_allocations?.map(allocation => <option key={allocation.id} value={allocation.id}>{allocation.location_name || (it ? "Da collocare" : "Unassigned")}{allocation.bin_name ? ` · ${allocation.bin_name}` : ""} ({allocation.quantity})</option>)}</select></label> : null}

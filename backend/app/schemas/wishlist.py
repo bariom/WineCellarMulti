@@ -80,7 +80,7 @@ class ExternalWineTastingCreate(BaseModel):
     memory_photo: str | None = Field(default=None, max_length=2_800_000, repr=False)
     consumed_at: date | None = None
     note: str = Field(default="", max_length=5000)
-    tasting_rating: int = Field(default=0, ge=0, le=6)
+    tasting_rating: float = Field(default=0, ge=0, le=6, multiple_of=0.5)
     tasting_enjoyment: str = Field(default="", pattern="^(|positive|negative)$")
     tasting_occasion: str = Field(default="", max_length=200)
     tasting_pairing: str = Field(default="", max_length=300)
@@ -119,7 +119,7 @@ class ExternalWineTastingResponse(BaseModel):
     wishlist_item_id: UUID | None = None
     consumed_at: date
     note: str = ""
-    rating: int
+    rating: float
     enjoyment: str
     occasion: str = ""
     pairing: str = ""

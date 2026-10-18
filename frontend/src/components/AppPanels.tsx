@@ -3,7 +3,7 @@ import { ScrollControls, ScrollHint, useHorizontalScroll } from "./HorizontalScr
 import { sourceMatchesMarket, valuationMarketLabel } from "../domain/valuationMarket";
 import type { CSSProperties, Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
 import { AppIcon } from "./AppIcon";
-import { ButtonBusyContent, DetailField, LoadingState, RatingInput, StarRating, TastingEnjoymentBadge, TastingEnjoymentInput, WineStatusBadge } from "./AppUi";
+import { ButtonBusyContent, DetailField, LoadingState, RATING_HALF_STEPS, RatingInput, StarRating, TastingEnjoymentBadge, TastingEnjoymentInput, WineStatusBadge } from "./AppUi";
 import { clipUiText, consumeDraftFromTastingEntry, emptyConsumeWineDraft, formatAiBudget, formatDisplayDate, formatGrape, formatMoney, formatUsd, grapesSvgIcon, readableLegacyAiText, wineTone } from "./panelSupport";
 import { displayValue, reasoningEffortTranslationKey } from "../i18n";
 import type { TranslationKey } from "../i18n";
@@ -729,9 +729,9 @@ export function TastingEntryEditor({
             onChange={(event) => setDraft((current) => ({ ...current, tasting_rating: event.target.value }))}
             disabled={saving}
           >
-            {Array.from({ length: 7 }).map((_, index) => (
-              <option key={index} value={String(index)}>
-                {index === 0 ? t("notSpecified") : `${index}/6`}
+            {RATING_HALF_STEPS.map((score) => (
+              <option key={score} value={String(score)}>
+                {score === 0 ? t("notSpecified") : `${score}/6`}
               </option>
             ))}
           </select>
@@ -1771,9 +1771,9 @@ export function WineDetail({
                   onChange={(event) => setConsumeDraft({ ...consumeDraft, tasting_rating: event.target.value })}
                   disabled={saving}
                 >
-                  {Array.from({ length: 7 }).map((_, index) => (
-                    <option key={index} value={String(index)}>
-                      {index === 0 ? t("notSpecified") : `${index}/6`}
+                  {RATING_HALF_STEPS.map((score) => (
+                    <option key={score} value={String(score)}>
+                      {score === 0 ? t("notSpecified") : `${score}/6`}
                     </option>
                   ))}
                 </select>
@@ -2016,7 +2016,7 @@ export function WishlistDetail({
         }}>
           <div className="detail-grid consume-grid">
             <label><span>{t("tastingDate")}</span><LocalizedDateInput value={externalTastingDraft.consumed_at} onChange={(consumed_at) => setExternalTastingDraft((current) => ({ ...current, consumed_at }))} locale={locale} disabled={saving} /></label>
-            <label><span>{t("tastingRating")}</span><select value={externalTastingDraft.tasting_rating} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_rating: event.target.value }))} disabled={saving}>{Array.from({ length: 7 }).map((_, index) => <option key={index} value={String(index)}>{index === 0 ? t("notSpecified") : `${index}/6`}</option>)}</select></label>
+            <label><span>{t("tastingRating")}</span><select value={externalTastingDraft.tasting_rating} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_rating: event.target.value }))} disabled={saving}>{RATING_HALF_STEPS.map((score) => <option key={score} value={String(score)}>{score === 0 ? t("notSpecified") : `${score}/6`}</option>)}</select></label>
             <label className="tasting-enjoyment-field"><span>{t("tastingEnjoyment")}</span><TastingEnjoymentInput value={externalTastingDraft.tasting_enjoyment} disabled={saving} t={t} onChange={(tasting_enjoyment) => setExternalTastingDraft((current) => ({ ...current, tasting_enjoyment }))} /></label>
             <label><span>{t("tastingOccasion")}</span><input value={externalTastingDraft.tasting_occasion} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_occasion: event.target.value }))} disabled={saving} /></label>
             <label><span>{t("tastingPairing")}</span><input value={externalTastingDraft.tasting_pairing} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_pairing: event.target.value }))} disabled={saving} /></label>

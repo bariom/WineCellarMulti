@@ -35,9 +35,12 @@
   transform: translateY(-50%);
 }
 
+/* Global button hover lifts with its own transform; keep this icon centred. */
 .localized-date-picker-button:hover:not(:disabled) {
   background: var(--surface-soft);
   color: var(--text);
+  box-shadow: none;
+  transform: translateY(-50%);
 }
 
 .localized-date-picker-button svg {

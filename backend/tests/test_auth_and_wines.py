@@ -9163,3 +9163,40 @@ def test_half_star_personal_rating_survives_tasting_changes():
     assert cleared.json()["rating"] == 0
     with TestingSessionLocal() as db:
         assert db.scalar(select(UserWineRating).where(UserWineRating.wine_id == uuid.UUID(wine_id))) is None
+
+
+def test_tasting_scores_accept_half_points():
+    from app.services.wine_consumption import normalized_tasting_rating
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wine_id = client.post("/api/v1/wines", json={"name": "Half tasting", "quantity": 2}).json()["id"]
+    for invalid in [-0.5, 6.5, 4.25]:
+        response = client.post(f"/api/v1/wines/{wine_id}/consume", json={"tasting_rating": invalid})
+        assert response.status_code == 422
+        response = client.post("/api/v1/wishlist/tastings", json={"name": "Wine", "tasting_rating": invalid})
+        assert response.status_code == 422
+    consumed = client.post(f"/api/v1/wines/{wine_id}/consume", json={"tasting_rating": 4.5})
+    assert consumed.status_code == 200, consumed.text
+    entry = consumed.json()["tasting_history"][0]
+    assert entry["rating"] == 4.5
+    # A tasting score never replaces the personal stars.
+    assert consumed.json()["rating"] == 0
+    edited = client.patch(
+        f"/api/v1/wines/{wine_id}/tastings/{entry['id']}",
+        json={"consumed_at": "2026-10-18", "tasting_rating": 0.5},
+    )
+    assert edited.status_code == 200, edited.text
+    archive = client.get("/api/v1/wines/tasting-archive").json()["items"]
+    assert [item["rating"] for item in archive] == [0.5]
+    external = client.post("/api/v1/wishlist/tastings", json={"name": "Friends", "tasting_rating": 5.5})
+    assert external.status_code == 201, external.text
+    assert external.json()["rating"] == 5.5
+    assert [normalized_tasting_rating(value) for value in [None, "x", 4.24, 4.26, 7, -1]] == [
+        0,
+        0,
+        4.0,
+        4.5,
+        6.0,
+        0.0,
+    ]

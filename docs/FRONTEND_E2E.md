@@ -4,7 +4,8 @@ Personal wine stars use 0.5-point steps on the existing 0–6 scale (0 clears th
 rating). Tapping a star sets a whole point; holding it (about 450 ms) sets the
 half point below it, and arrow keys step by half a point. Touch screens show the
 hold hint as text under the stars (pointer devices get it as a tooltip); a
-finger-hold test uses real touch events. These stars are assigned explicitly by the user: recording, editing
+finger-hold test uses real touch events. Tasting scores use the same 0.5 steps;
+their selectors list every half point, and a Wine Detail check records 4.5/6. These stars are assigned explicitly by the user: recording, editing
 or undoing a tasting does not replace them with the tasting score or its average.
 `npm run test:e2e:wine-detail` covers half-point selection, reset, rendering and
 control geometry at 360, 390, 430 and 1440 px.

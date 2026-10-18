@@ -8,9 +8,9 @@ from sqlalchemy import (
     JSON,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Index,
-    Integer,
     LargeBinary,
     Numeric,
     String,
@@ -132,7 +132,7 @@ class ExternalWineTasting(Base):
 
     consumed_at: Mapped[date] = mapped_column(Date, index=True)
     note: Mapped[str] = mapped_column(Text, default="")
-    rating: Mapped[int] = mapped_column(Integer, default=0)
+    rating: Mapped[float] = mapped_column(Float, default=0)
     enjoyment: Mapped[str] = mapped_column(String(16), default="")
     occasion: Mapped[str] = mapped_column(String(200), default="")
     pairing: Mapped[str] = mapped_column(String(300), default="")

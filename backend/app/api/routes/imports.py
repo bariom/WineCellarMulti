@@ -51,6 +51,7 @@ from app.services.storage import (
     normalized_storage_name,
     sync_storage_to_wine_quantity,
 )
+from app.services.wine_consumption import normalized_tasting_rating
 
 router = APIRouter(prefix="/imports")
 
@@ -1099,7 +1100,7 @@ def import_vinaris_json_payload(
                 "created_by_user_id": context.user.id,
                 "consumed_at": consumed_at,
                 "note": as_str(raw_entry.get("note")),
-                "rating": int(raw_entry.get("rating") or 0),
+                "rating": normalized_tasting_rating(raw_entry.get("rating")),
                 "score_value": as_optional_decimal(raw_entry.get("score_value")),
                 "score_scale": as_optional_int(raw_entry.get("score_scale")),
                 "source": as_str(raw_entry.get("source")) or "imported",

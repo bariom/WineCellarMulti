@@ -45,9 +45,10 @@ def optional_tasting_score_scale(value: object) -> int | None:
         return None
 
 
-def normalized_tasting_rating(value: object) -> int:
+def normalized_tasting_rating(value: object) -> float:
+    """Clamp a tasting score to the 0-6 scale in half-point steps."""
     try:
-        return max(0, min(int(value or 0), 6))
+        return max(0.0, min(round(float(value or 0) * 2) / 2, 6.0))
     except (TypeError, ValueError):
         return 0
 
@@ -94,7 +95,7 @@ def record_wine_consumption(
     *,
     consumed_at: date,
     note: str = "",
-    rating: int = 0,
+    rating: float = 0,
     score_value: Decimal | None = None,
     score_scale: int | None = None,
     enjoyment: str = "",
@@ -123,7 +124,7 @@ def record_wine_consumption(
         "memory_photo_location": memory_photo_location,
         "consumed_at": consumed_at.isoformat(),
         "note": note.strip(),
-        "rating": max(0, min(int(rating), 6)),
+        "rating": normalized_tasting_rating(rating),
         "score_value": float(score_value) if score_value is not None else None,
         "score_scale": score_scale,
         "enjoyment": enjoyment if enjoyment in {"positive", "negative"} else "",
