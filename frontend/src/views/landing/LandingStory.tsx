@@ -86,8 +86,70 @@ export function StoryEssentials({ story, onRegister }: { story: LandingStory; on
   </section>;
 }
 
+// A stylised shop shelf as the camera sees it, with the three best buys circled
+// the way the shelf scanner marks them on the user's own photo.
+const SHELF_GLASS = ["#2f3d27", "#4a1f26", "#1f2a23", "#6b5a2c", "#3a2a1d", "#22301f", "#5a2330"];
+const SHELF_LABELS = ["#f3ecdd", "#e6d6b2", "#faf6ee", "#d7c39a", "#2a2320", "#efe3c8"];
+const SHELF_PICKS = [{ row: 0, slot: 3, color: "#d8b366" }, { row: 1, slot: 7, color: "#c9ced4" }, { row: 2, slot: 2, color: "#c4874f" }];
+
+function ShelfIllustration({ label }: { label: string }) {
+  const rows = [74, 151, 228];
+  const bottle = (row: number, slot: number) => ({ x: 14 + slot * 25, bottom: rows[row] - 4 });
+  return <svg className="story-shelf-photo" viewBox="0 0 300 236" role="img" aria-label={label}>
+    <defs>
+      <linearGradient id="story-shelf-wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2a1c16" /><stop offset="1" stopColor="#140d0a" /></linearGradient>
+      <linearGradient id="story-shelf-glass" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity=".18" /><stop offset=".35" stopColor="#fff" stopOpacity="0" /></linearGradient>
+      <filter id="story-shelf-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" /></filter>
+    </defs>
+    <rect width="300" height="236" rx="14" fill="url(#story-shelf-wall)" />
+    {rows.map((rowY, row) => <g key={rowY}>
+      {Array.from({ length: 11 }, (_, slot) => {
+        const { x, bottom } = bottle(row, slot);
+        const glass = SHELF_GLASS[(row * 5 + slot * 3) % SHELF_GLASS.length];
+        const paper = SHELF_LABELS[(row * 2 + slot) % SHELF_LABELS.length];
+        return <g key={slot}>
+          <rect x={x + 7} y={bottom - 63} width="6" height="13" rx="2" fill={glass} />
+          <rect x={x + 6.5} y={bottom - 66} width="7" height="5" rx="1.5" fill={slot % 3 ? "#8a1f2c" : "#c9a54e"} />
+          <path d={`M${x + 7} ${bottom - 52} Q${x} ${bottom - 48} ${x} ${bottom - 40} V${bottom - 2} Q${x} ${bottom} ${x + 2} ${bottom} H${x + 18} Q${x + 20} ${bottom} ${x + 20} ${bottom - 2} V${bottom - 40} Q${x + 20} ${bottom - 48} ${x + 13} ${bottom - 52} Z`} fill={glass} />
+          <rect x={x + 2.5} y={bottom - 32} width="15" height="17" rx="1.5" fill={paper} />
+          <rect x={x + 5} y={bottom - 27} width="10" height="2" rx="1" fill={paper === "#2a2320" ? "#c9a54e" : "#7a5a3a"} opacity=".7" />
+          <rect x={x + 6} y={bottom - 22} width="8" height="1.6" rx=".8" fill={paper === "#2a2320" ? "#efe3c8" : "#9b8a72"} opacity=".6" />
+          <rect x={x + 2} y={bottom - 50} width="5" height="46" rx="2.5" fill="url(#story-shelf-glass)" />
+        </g>;
+      })}
+      <rect x="6" y={rowY - 4} width="288" height="7" rx="2" fill="#5b3d28" />
+      <rect x="6" y={rowY + 3} width="288" height="3" fill="#2b1a11" />
+    </g>)}
+    <g className="story-shelf-viewfinder" fill="none" stroke="#fff" strokeOpacity=".75" strokeWidth="2" strokeLinecap="round">
+      <path d="M16 30V16H30" /><path d="M270 16H284V30" /><path d="M16 206V220H30" /><path d="M270 220H284V206" />
+    </g>
+    {SHELF_PICKS.map(({ row, slot, color }, index) => {
+      const { x, bottom } = bottle(row, slot);
+      const cx = x + 10;
+      const cy = bottom - 28;
+      return <g key={index}>
+        <circle cx={cx} cy={cy} r="21" fill="none" stroke={color} strokeWidth="6" opacity=".55" filter="url(#story-shelf-glow)" />
+        <circle cx={cx} cy={cy} r="20" fill={color} fillOpacity=".12" stroke={color} strokeWidth="2.5" />
+        <circle cx={cx + 15} cy={cy - 17} r="8.5" fill={color} stroke="#140d0a" strokeWidth="1.5" />
+        <text x={cx + 15} y={cy - 13.6} textAnchor="middle" fontSize="10" fontWeight="800" fill="#1b1310">{index + 1}</text>
+      </g>;
+    })}
+  </svg>;
+}
+
 function FeatureVisual({ id, story, locale }: { id: StoryFeatureId; story: LandingStory; locale: Locale }) {
   const v = story.visuals;
+  if (id === "shelf") return <div className="story-visual story-shelf">
+    <ShelfIllustration label={v.shelf.alt} />
+    <div className="story-shelf-ranking" aria-hidden="true">
+      <div className="story-shelf-head"><b>{v.shelf.label}</b><span>{v.shelf.caption}</span></div>
+      {v.shelf.picks.map((pick, index) => <div className={`story-shelf-pick is-${index + 1}`} key={pick.name}>
+        <i>{index + 1}</i>
+        <div><strong>{pick.name}</strong><span>{pick.meta}</span>{pick.note ? <em>{pick.note}</em> : null}</div>
+        <b>{pick.price}</b>
+      </div>)}
+    </div>
+  </div>;
   if (id === "scan") return <div className="story-visual story-scan" aria-hidden="true">
     <div className="story-receipt"><b>{v.scan.shop}</b>{v.scan.lines.map((line) => <span key={line}>{line}</span>)}<hr />{v.scan.total}</div>
     <span className="story-arrow">→</span>

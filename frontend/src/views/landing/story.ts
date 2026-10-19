@@ -4,7 +4,7 @@ import type { Locale } from "../../types";
 // app needs, and the features that set Vinaris apart. Kept apart from
 // content.ts so the existing news, plans and FAQ copy stays untouched.
 
-export type StoryFeatureId = "scan" | "sommelier" | "taste" | "memories" | "ownership" | "restaurant";
+export type StoryFeatureId = "scan" | "sommelier" | "shelf" | "taste" | "memories" | "ownership" | "restaurant";
 
 export type LandingStory = {
   hero: { eyebrow: string; titleLines: [string, string, string]; title: string; lead: string };
@@ -29,6 +29,7 @@ export type LandingStory = {
     taste: { axes: [string, string, string, string, string, string]; title: string; matches: Array<{ name: string; score: string }> };
     memories: Array<{ title: string; meta: string }>;
     ownership: { title: string; owners: string; people: Array<{ initials: string; name: string; bottles: string; share: number; tone: string }> };
+    shelf: { label: string; caption: string; picks: Array<{ name: string; meta: string; price: string; note?: string }>; alt: string };
     restaurantAlt: string;
   };
 };
@@ -97,6 +98,7 @@ export const landingStory: Record<Locale, LandingStory> = {
       features: [
         { id: "scan", tag: "Dalla fattura alla cantina", title: "Fotografi lo scontrino. Le bottiglie entrano da sole.", body: "Scatta una foto a fattura o scontrino, oppure carica un PDF: Vinaris riconosce vini, annate, quantità e prezzi. Tu controlli e confermi.", points: ["Ogni acquisto resta collegato al documento originale", "Lotti e prezzi separati per ogni acquisto", "Riconosce i vini che hai già in cantina"] },
         { id: "sommelier", tag: "Sommelier della tua cantina", title: "Un consiglio che parte dai vini che hai già.", body: "Descrivi il piatto o l’occasione. Il Sommelier sceglie tra le tue bottiglie quelle nel momento giusto, e ti avvisa quando una merita di essere aperta.", points: ["Abbinamenti solo con vini presenti in cantina", "Tiene conto di maturità e preferenze", "Al ristorante, ti aiuta a scegliere dalla carta"] },
+        { id: "shelf", tag: "In enoteca, con Vinaris Riserva", title: "Davanti allo scaffale, una foto basta.", body: "Fotografa la parete di bottiglie: Vinaris legge le etichette e ti dice quale comprare per il tuo gusto, il tuo budget e la tua cantina. Le scelte migliori te le indica direttamente sulla foto.", points: ["Prima, seconda e terza scelta cerchiate sulla foto", "Budget, tipologia e occasione: i limiti li decidi tu", "Evita i vini che hai già, o riempie i buchi della cantina"] },
         { id: "taste", tag: "Il tuo gusto, misurato", title: "Vinaris impara cosa ti piace davvero.", body: "Dalle tue valutazioni nasce un’impronta sensoriale personale: corpo, acidità, tannini, aromi. E ogni vino ti dice quanto è in sintonia con te.", points: ["Profilo che si affina bevuta dopo bevuta", "Le regioni e le uve che ami, in evidenza", "Nuove scoperte coerenti con il tuo palato"] },
         { id: "memories", tag: "Ricordi, non solo note", title: "Il vino finisce. La serata resta.", body: "Aggiungi una foto alla bevuta: persone, luogo, occasione. I tuoi brindisi diventano un album da sfogliare, su un tavolo di polaroid o su una mappa del mondo.", points: ["Ogni ricordo collegato al vino e alla sua scheda", "Cerca per mese o per occasione", "Ritrovi le serate anche su una mappa dei luoghi"] },
         { id: "ownership", tag: "Una cantina, più proprietari", title: "Le bottiglie condivise, finalmente chiare.", body: "Una cassa comprata in tre, una cantina di famiglia, un acquisto tra amici: Vinaris tiene conto delle quote di ognuno e delle bottiglie che spettano a chi.", points: ["Quote in percentuale per ogni vino", "Inviti con accesso completo o in sola lettura", "Valore e bottiglie calcolati sulla tua parte"] },
@@ -146,6 +148,15 @@ export const landingStory: Record<Locale, LandingStory> = {
           { initials: "LM", name: "Luca", bottles: "2 bottiglie", share: 30, tone: "#b8964c" },
           { initials: "SR", name: "Sara", bottles: "1 bottiglia", share: 20, tone: "#d07a8c" },
         ],
+      },
+      shelf: {
+        label: "Quale compro?", caption: "3 scelte su 27 etichette riconosciute",
+        picks: [
+          { name: "Barbera d’Alba 2022", meta: "Piemonte · affinità 5/6", price: "CHF 24" },
+          { name: "Etna Rosso 2021", meta: "Sicilia · affinità 5/6", price: "CHF 29" },
+          { name: "Chianti Classico 2020", meta: "Toscana · affinità 4/6", price: "CHF 22", note: "Nuovo per la tua cantina" },
+        ],
+        alt: "Illustrazione: uno scaffale di enoteca fotografato, con la prima, la seconda e la terza scelta cerchiate in oro, argento e bronzo",
       },
       restaurantAlt: "Schermata reale della modalità ristorante: ricavi, costi, margine e andamento delle vendite",
     },
@@ -207,6 +218,7 @@ export const landingStory: Record<Locale, LandingStory> = {
       features: [
         { id: "scan", tag: "From invoice to cellar", title: "Photograph the receipt. The bottles add themselves.", body: "Take a photo of an invoice or receipt, or upload a PDF: Vinaris recognises wines, vintages, quantities and prices. You check and confirm.", points: ["Every purchase stays linked to its original document", "Separate lots and prices for each purchase", "Recognises the wines already in your cellar"] },
         { id: "sommelier", tag: "Your cellar’s sommelier", title: "Advice that starts from the wines you already own.", body: "Describe the dish or the occasion. The Sommelier picks the bottles in your cellar that are at the right moment, and tells you when one deserves to be opened.", points: ["Pairings only with wines in your cellar", "Takes maturity and preferences into account", "At a restaurant, helps you choose from the list"] },
+        { id: "shelf", tag: "In the wine shop, with Vinaris Riserva", title: "In front of the shelf, one photo is enough.", body: "Photograph the wall of bottles: Vinaris reads the labels and tells you which one to buy for your taste, your budget and your cellar. It marks the best choices right on the photo.", points: ["First, second and third choice circled on the photo", "Budget, type and occasion: you set the limits", "Skips wines you already own, or fills the gaps in your cellar"] },
         { id: "taste", tag: "Your taste, measured", title: "Vinaris learns what you really like.", body: "Your ratings build a personal sensory signature: body, acidity, tannins, aromas. And every wine shows how well it matches you.", points: ["A profile that sharpens with every bottle", "The regions and grapes you love, highlighted", "New discoveries that suit your palate"] },
         { id: "memories", tag: "Memories, not just notes", title: "The wine ends. The evening stays.", body: "Add a photo to a tasting: people, place, occasion. Your toasts become an album to browse, on a table of polaroids or on a world map.", points: ["Every memory linked to the wine and its record", "Search by month or occasion", "Find your evenings on a map of places"] },
         { id: "ownership", tag: "One cellar, several owners", title: "Shared bottles, finally clear.", body: "A case bought by three, a family cellar, a purchase among friends: Vinaris keeps track of everyone’s share and which bottles belong to whom.", points: ["Percentage shares for every wine", "Invitations with full or read-only access", "Value and bottles calculated on your share"] },
@@ -256,6 +268,15 @@ export const landingStory: Record<Locale, LandingStory> = {
           { initials: "LM", name: "Luca", bottles: "2 bottles", share: 30, tone: "#b8964c" },
           { initials: "SR", name: "Sara", bottles: "1 bottle", share: 20, tone: "#d07a8c" },
         ],
+      },
+      shelf: {
+        label: "Which one to buy?", caption: "3 choices from 27 recognized labels",
+        picks: [
+          { name: "Barbera d’Alba 2022", meta: "Piedmont · affinity 5/6", price: "CHF 24" },
+          { name: "Etna Rosso 2021", meta: "Sicily · affinity 5/6", price: "CHF 29" },
+          { name: "Chianti Classico 2020", meta: "Tuscany · affinity 4/6", price: "CHF 22", note: "New for your cellar" },
+        ],
+        alt: "Illustration: a photographed wine-shop shelf with the first, second and third choice circled in gold, silver and bronze",
       },
       restaurantAlt: "Real screenshot of restaurant mode: revenue, costs, margin and sales trend",
     },
