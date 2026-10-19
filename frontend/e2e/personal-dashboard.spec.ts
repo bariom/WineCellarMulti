@@ -726,7 +726,7 @@ test("personal dashboard operational widgets and separate summaries", async ({ p
   await page.getByRole('button', { name: 'Annulla', exact: true }).click();
   await expect(widgets).toHaveCount(ids.length);
   await page.locator('[data-widget-id="data_quality"]').getByRole('button', { name: 'Approfondisci' }).click();
-  await expect(page.locator('.data-dashboard-carousel')).toBeVisible();
+  await expect(page.locator('.data-quality-board')).toBeVisible();
 });
 
 test("wine color widget uses the semantic wine palette", async ({ page }, testInfo) => {

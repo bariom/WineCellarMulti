@@ -195,8 +195,17 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.locator(".dashboard-analysis-switcher > summary").click();
     await page.getByRole("tab", { name: "Qualità dati", exact: true }).click();
 
-    const qualityCard = page.getByRole("heading", { name: "Obiettivo cantina", exact: true }).locator("..").locator("..").locator("..");
-    await expect(qualityCard.getByText("Obiettivo cantina mancante", { exact: true })).toBeVisible();
-    await expect(qualityCard.getByRole("button", { name: "Assegna", exact: true })).toBeVisible();
+    const purpose = page.locator(".dq-check").filter({ hasText: "Obiettivo in cantina" });
+    await expect(purpose).toHaveClass(/is-todo/);
+    await expect(purpose).toContainText("1 da completare");
+    // Cellar purpose is chosen by the user, so it offers no AI batch.
+    await expect(purpose.getByRole("button", { name: /Completa con AI/ })).toHaveCount(0);
+    await purpose.getByText("Vedi i vini (1)", { exact: true }).click();
+    await expect(purpose.getByRole("button", { name: "Assegna", exact: true })).toBeVisible();
+    // Still-incomplete checks come before the complete ones.
+    const checks = page.locator(".dq-check");
+    const states = await checks.evaluateAll((items) => items.map((item) => item.classList.contains("is-todo")));
+    expect(states.indexOf(false) === -1 || states.slice(states.indexOf(false)).every((todo) => !todo)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 });

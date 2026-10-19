@@ -127,6 +127,7 @@ const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView
 const AI_PACK_ENHANCEMENT_DISMISS_KEY = "vinaris.ai-pack-enhancement-dismissed-until";
 const AI_PACK_ENHANCEMENT_REMINDER_MS = 7 * 24 * 60 * 60 * 1000;
 const PublicLanding = lazy(() => import("./views/PublicLanding"));
+const DataQualityBoard = lazy(() => import("./components/DataQualityBoard"));
 const DeliveryTimelineCard = lazy(() => import("./components/DeliveryTimelineCard"));
 const MaturityPanorama = lazy(() => import("./components/MaturityPanorama").then((module) => ({ default: module.MaturityPanorama })));
 const BottlePhotoCapture = lazy(() => import("./components/BottlePhotoCapture"));
@@ -7059,24 +7060,6 @@ export function App() {
   const missingDrinkWindowWines = allMissingDrinkWindowWines.slice(0, 8);
   const missingGrapesWines = allMissingGrapesWines.slice(0, 8);
   const missingScoresWines = allMissingScoresWines.slice(0, 8);
-  const missingCellarPurposeWines = allMissingCellarPurposeWines.slice(0, 8);
-  const dataQualityChartSegments = [
-    { key: "complete", label: locale === "it" ? "Completi" : "Complete", icon: "status-delivered" as AppIconName, count: Math.max(cellarDataCheckCount - cellarMissingDataCount, 0), color: "#46745d" },
-    { key: "window", label: t("missingDrinkWindow"), icon: "calendar" as AppIconName, count: allMissingDrinkWindowWines.length, color: "#a58a58" },
-    { key: "value", label: t("missingValue"), icon: "chart" as AppIconName, count: allMissingValueWines.length, color: "#748073" },
-    { key: "grapes", label: t("missingGrapes"), icon: "grapes" as AppIconName, count: allMissingGrapesWines.length, color: "#ad9561" },
-    { key: "scores", label: t("missingScores"), icon: "star" as AppIconName, count: allMissingScoresWines.length, color: "#875766" },
-    { key: "purpose", label: t("missingCellarPurpose"), icon: "assistant" as AppIconName, count: allMissingCellarPurposeWines.length, color: "#596f8e" },
-  ];
-  let dataQualityChartCursor = 0;
-  const dataQualityChartGradient = dataQualityChartSegments
-    .filter((segment) => segment.count > 0)
-    .map((segment) => {
-      const start = dataQualityChartCursor;
-      dataQualityChartCursor += (segment.count / cellarDataCheckCount) * 100;
-      return `${segment.color} ${start}% ${dataQualityChartCursor}%`;
-    })
-    .join(", ");
   const incompleteWineCount = new Set([
     ...allMissingValueWines,
     ...allMissingDrinkWindowWines,
@@ -8660,38 +8643,6 @@ export function App() {
                     )) : <p className="empty-state">{t("noActionItems")}</p>}
                   </div>
                 </article>);
-  }
-
-  function renderDataQualityWidget(includeRefresh = false) {
-    return (<article className="dashboard-card priority-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("incompleteData")}</span>
-                        <h2>{t("dataQuality")}</h2>
-                      </div>
-                      <strong>{cellarMissingDataCount}</strong>
-                    </div>
-                    {cellarMissingDataCount ? (
-                      <>
-                        <div className="data-quality-overview">
-                          <div className="data-quality-ring" style={{ background: `conic-gradient(${dataQualityChartGradient})` }} aria-label={`${t("dataCompleteness")}: ${cellarDataCompleteness}%`}>
-                            <div><strong>{cellarDataCompleteness}%</strong><span>{t("dataCompleteness")}</span></div>
-                          </div>
-                          <div className="data-quality-overview-copy">
-                            <strong>{locale === "it" ? `${incompleteWineCount} vini da completare` : `${incompleteWineCount} wines to complete`}</strong>
-                            <span>{locale === "it" ? "La mappa mostra la copertura dei dati essenziali." : "The chart maps coverage of essential data."}</span>
-                            <div className="data-quality-legend" aria-hidden="true">
-                              {dataQualityChartSegments.filter((segment) => segment.count > 0).map((segment) => <i key={segment.key} title={segment.label} style={{ background: `color-mix(in srgb, ${segment.color} 14%, var(--surface))`, borderColor: `color-mix(in srgb, ${segment.color} 42%, var(--border))`, color: segment.color }}>{segment.icon === "grapes" ? grapesSvgIcon() : <AppIcon name={segment.icon} size="0.78rem" />}</i>)}
-                            </div>
-                          </div>
-                        </div>
-                        <button type="button" className="secondary compact" onClick={() => openOperationalCellarFilter("missing_data")}>
-                          {t("openFilteredCellar")}
-                        </button>
-                      </>
-                    ) : <p className="dashboard-card-intro">{locale === "it" ? "I dati essenziali della cantina sono completi." : "Your cellar’s essential data is complete."}</p>}
-                    {includeRefresh && <button type="button" className="secondary" onClick={() => setDashboardFocus("data")}>{t("valueToRefresh")}: {allValueRefreshWines.length} · {locale === "it" ? "Apri gestione dati" : "Manage data"}</button>}
-                  </article>);
   }
 
   function renderPersonalWidget(widget: PersonalDashboardWidget, preview = false) {
@@ -11224,137 +11175,32 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "data" ? (
-                <DashboardCarousel locale={locale} label={t("dataFocus")} className="data-dashboard-carousel">
-                  {renderDataQualityWidget()}
-                  <article className="dashboard-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("valueToRefresh")}</span>
-                        <h2><i className="dashboard-section-icon" aria-hidden="true"><AppIcon name="chart" /></i>{t("value")}</h2>
-                      </div>
-                      <strong>{allValueRefreshWines.length}</strong>
-                    </div>
-                    <label className="compact-field">
-                      <span>{t("valueOlderThanDays")}</span>
-                      <input type="number" min="0" value={valueRefreshDays} onChange={(event) => setValueRefreshDays(event.target.value)} />
-                    </label>
-                    <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allValueRefreshWines.length === 0} onClick={() => generateMissingWineAi("value", allValueRefreshWines)}>
-                      {generatingAi === "batch-value" ? t("generating") : t("generateAll")}
-                    </button>
-                    <div className="action-list">
-                      {valueRefreshWines.length ? valueRefreshWines.map((wine) => (
-                        <div className="action-row data-quality-row" key={wine.id}>
-                          <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
-                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
-                          </button>
-                          <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "value")}>
-                            {generatingAi === "value" && selectedWineId === wine.id ? t("generating") : t("value")}
-                          </button>
-                        </div>
-                      )) : <p className="empty-state">{t("noActionItems")}</p>}
-                    </div>
-                  </article>
-                  <article className="dashboard-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("missingDrinkWindow")}</span>
-                        <h2><i className="dashboard-section-icon" aria-hidden="true"><AppIcon name="calendar" /></i>{t("drinkWindow")}</h2>
-                      </div>
-                      <strong>{cellarStats.missingDrinkWindow}</strong>
-                    </div>
-                    <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allMissingDrinkWindowWines.length === 0} onClick={() => generateMissingWineAi("drink-window", allMissingDrinkWindowWines)}>
-                      {generatingAi === "batch-drink-window" ? t("generating") : t("generateAll")}
-                    </button>
-                    <div className="action-list">
-                      {missingDrinkWindowWines.length ? missingDrinkWindowWines.map((wine) => (
-                        <div className="action-row data-quality-row" key={wine.id}>
-                          <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
-                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
-                          </button>
-                          <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "drink-window")}>
-                            {generatingAi === "drink-window" && selectedWineId === wine.id ? t("generating") : t("drinkWindow")}
-                          </button>
-                        </div>
-                      )) : <p className="empty-state">{t("noActionItems")}</p>}
-                    </div>
-                  </article>
-                  <article className="dashboard-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("missingGrapes")}</span>
-                        <h2><i className="dashboard-section-icon" aria-hidden="true">{grapesSvgIcon()}</i>{t("grapes")}</h2>
-                      </div>
-                      <strong>{cellarStats.missingGrapes}</strong>
-                    </div>
-                    <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allMissingGrapesWines.length === 0} onClick={() => generateMissingWineAi("grapes", allMissingGrapesWines)}>
-                      {generatingAi === "batch-grapes" ? t("generating") : t("generateAll")}
-                    </button>
-                    <div className="action-list">
-                      {missingGrapesWines.length ? missingGrapesWines.map((wine) => (
-                        <div className="action-row data-quality-row" key={wine.id}>
-                          <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
-                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
-                          </button>
-                          <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "grapes")}>
-                            {generatingAi === "grapes" && selectedWineId === wine.id ? t("generating") : t("grapes")}
-                          </button>
-                        </div>
-                      )) : <p className="empty-state">{t("noActionItems")}</p>}
-                    </div>
-                  </article>
-                  <article className="dashboard-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("missingScores")}</span>
-                        <h2><i className="dashboard-section-icon" aria-hidden="true"><AppIcon name="star" /></i>{t("scores")}</h2>
-                      </div>
-                      <strong>{cellarStats.missingScores}</strong>
-                    </div>
-                    <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allMissingScoresWines.length === 0} onClick={() => generateMissingWineAi("scores", allMissingScoresWines)}>
-                      {generatingAi === "batch-scores" ? t("generating") : t("generateAll")}
-                    </button>
-                    <div className="action-list scrollable-action-list score-quality-list">
-                      {missingScoresWines.length ? missingScoresWines.map((wine) => (
-                        <div className="action-row data-quality-row score-quality-row" key={wine.id}>
-                          <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
-                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />
-                            <span>{wine.name}</span>
-                          </button>
-                          <div className="row-action-buttons">
-                            <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "scores")}>
-                              {generatingAi === "scores" && selectedWineId === wine.id ? t("generating") : t("scores")}
-                            </button>
-                            <button type="button" className="secondary compact" disabled={!canWriteWine || saving} onClick={() => setWineScoresAiExclusion(wine, true)}>
-                              {t("noScoresNeeded")}
-                            </button>
-                          </div>
-                        </div>
-                      )) : <p className="empty-state">{t("noActionItems")}</p>}
-                    </div>
-                  </article>
-                  <article className="dashboard-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("missingCellarPurpose")}</span>
-                        <h2><i className="dashboard-section-icon" aria-hidden="true"><AppIcon name="assistant" /></i>{locale === "it" ? "Obiettivo cantina" : "Cellar purpose"}</h2>
-                      </div>
-                      <strong>{cellarStats.missingCellarPurpose}</strong>
-                    </div>
-                    <p className="dashboard-card-intro">{locale === "it" ? "Assegna un obiettivo per includere il vino nella lettura strategica della cantina." : "Assign a purpose to include the wine in your cellar’s strategic view."}</p>
-                    <div className="action-list">
-                      {missingCellarPurposeWines.length ? missingCellarPurposeWines.map((wine) => (
-                        <div className="action-row data-quality-row" key={wine.id}>
-                          <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
-                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
-                          </button>
-                          <button type="button" className="secondary compact" onClick={() => openWineFromDashboard(wine)}>
-                            {locale === "it" ? "Assegna" : "Assign"}
-                          </button>
-                        </div>
-                      )) : <p className="empty-state">{t("noActionItems")}</p>}
-                    </div>
-                  </article>
-                </DashboardCarousel>
+                <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+                  <DataQualityBoard
+                    locale={locale}
+                    t={t}
+                    wines={cellarWines}
+                    valueRefreshWines={allValueRefreshWines}
+                    missingValueCount={allMissingValueWines.length}
+                    missingDrinkWindowWines={allMissingDrinkWindowWines}
+                    missingGrapesWines={allMissingGrapesWines}
+                    missingScoresWines={allMissingScoresWines}
+                    missingPurposeWines={allMissingCellarPurposeWines}
+                    incompleteWineCount={incompleteWineCount}
+                    valueRefreshDays={valueRefreshDays}
+                    onValueRefreshDaysChange={setValueRefreshDays}
+                    canGenerateAi={canGenerateAi}
+                    canWriteWine={canWriteWine}
+                    saving={saving}
+                    generatingAi={generatingAi}
+                    selectedWineId={selectedWineId}
+                    onGenerateAll={(feature, items) => void generateMissingWineAi(feature, items)}
+                    onGenerateOne={(wine, feature) => void generateWineAi(wine, feature)}
+                    onExcludeScores={(wine) => void setWineScoresAiExclusion(wine, true)}
+                    onOpenWine={openWineFromDashboard}
+                    onOpenIncomplete={() => openOperationalCellarFilter("missing_data")}
+                  />
+                </Suspense>
               ) : null}
               {dashboardFocus === "taste" ? (
                 <DashboardCarousel locale={locale} label={locale === "it" ? "Il mio gusto" : "My Taste"} className="taste-dashboard-carousel">

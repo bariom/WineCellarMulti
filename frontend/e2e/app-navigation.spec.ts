@@ -407,8 +407,7 @@ test.describe("Wine Detail compact/mobile", () => {
     ]);
     expect(optionBox!.y).toBeGreaterThanOrEqual(summaryBox!.y + summaryBox!.height);
     await insights.getByRole("tab", { name: "Qualità dati", exact: true }).click();
-    const dataGrid = page.locator(".data-dashboard-carousel .dashboard-grid");
-    const firstDataCard = dataGrid.locator("> .dashboard-card").first();
+    const firstDataCard = page.locator(".data-quality-board .dq-summary");
     await expect(firstDataCard).toBeVisible();
     const dataCardBox = (await firstDataCard.boundingBox())!;
     expect(dataCardBox.width).toBeGreaterThan(620);
