@@ -974,6 +974,37 @@ export type RestaurantWineListQuestionPayload = {
   dish: string;
   max_price_chf: string | null;
   ignore_preferences: boolean;
+  setting?: "restaurant" | "shop";
+};
+
+export type WineShelfCellarMode = "ignore" | "avoid_owned" | "fill_gaps";
+
+export type WineShelfBottle = {
+  name: string;
+  producer: string;
+  vintage: string;
+  style: string;
+  region: string;
+  price_text: string;
+  confidence: "high" | "medium" | "low";
+  owned: boolean;
+  image_index: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type WineShelfScanResult = {
+  summary: string;
+  bottles: WineShelfBottle[];
+  recommendations: Array<{ bottle_index: number; rank: number; reason: string; taste_affinity: number }>;
+  photo_count: number;
+  taste_profile_applied: boolean;
+  cellar_mode: WineShelfCellarMode;
+  model: string;
+  reasoning_effort: string;
+  estimated_cost_usd: string;
 };
 
 export type RestaurantWineListQuestionResult = {

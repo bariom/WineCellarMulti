@@ -66,6 +66,7 @@ from app.prompts import (
     restaurant_wine_list_scan_prompt,
     wine_full_enrichment_prompt,
     wine_scores_prompt,
+    wine_shelf_scan_prompt,
     wine_value_prompt,
     wishlist_advice_prompt,
     wishlist_portfolio_strategy_prompt,
@@ -116,6 +117,9 @@ from app.schemas.ai import (
     WineCompareResponse,
     WineLabelEnrichmentRequest,
     WineLabelEnrichmentResponse,
+    WineShelfBottle,
+    WineShelfRecommendation,
+    WineShelfScanResponse,
     WishlistPortfolioStrategyRequest,
     WishlistPortfolioStrategyResponse,
 )
@@ -154,7 +158,7 @@ from app.services.wine_consumption import (
     normalize_tasting_history,
     record_wine_consumption,
 )
-from app.services.wine_image_recognition import optimized_wine_images
+from app.services.wine_image_recognition import optimized_shelf_image, optimized_wine_images
 
 router = APIRouter(prefix="/ai")
 
@@ -184,6 +188,9 @@ ROLLOUT_DEFAULT_ROLE_BY_FIELD = {
 PAIRING_MAX_CANDIDATES = 25
 RESTAURANT_WINE_LIST_MAX_PAGES = 4
 RESTAURANT_WINE_LIST_MAX_WINES = 120
+WINE_SHELF_MAX_PHOTOS = 3
+WINE_SHELF_MAX_BOTTLES = 120
+WINE_SHELF_MAX_OWNED_CONTEXT = 150
 DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS = {
     "gpt-5.4-nano": {
         "input": Decimal("0.20"),
@@ -4477,6 +4484,7 @@ def ask_restaurant_wine_list(
         pairing_preferences=""
         if payload.ignore_preferences
         else (user_settings.pairing_preferences or "").strip(),
+        setting=payload.setting,
     )
     schema = {
         "name": "restaurant_wine_list_question",
@@ -4524,12 +4532,289 @@ def ask_restaurant_wine_list(
         context,
         entity_type="pairing",
         entity_id=context.household.id,
-        feature="restaurant_wine_list_question",
+        feature=(
+            "wine_shelf_question" if payload.setting == "shop" else "restaurant_wine_list_question"
+        ),
         model=result.model,
         reasoning_effort=result.reasoning_effort,
         summary=(
             f"Restaurant wine list question over {len(payload.wines)} wines, "
             f"{len(referenced_indexes)} referenced."
+        ),
+        usage=response.usage,
+        provider_source=provider_source,
+    )
+    db.commit()
+    return result
+
+
+def wine_shelf_cellar_context(
+    db: Session, context: CurrentContext, cellar_mode: str
+) -> dict[str, Any]:
+    """Compact view of the user's own cellar, used to skip duplicates or fill gaps."""
+    if cellar_mode == "ignore":
+        return {}
+    wines = [
+        wine
+        for wine in db.scalars(
+            select(Wine)
+            .where(Wine.household_id == context.household.id)
+            .where(Wine.quantity > 0)
+            .order_by(Wine.producer, Wine.name)
+            .limit(400)
+        )
+        if user_can_see_wine(context, wine)
+    ]
+    cellar: dict[str, Any] = {
+        "owned_wines": [
+            {"producer": wine.producer, "name": wine.name, "vintage": wine.vintage}
+            for wine in wines[:WINE_SHELF_MAX_OWNED_CONTEXT]
+        ]
+    }
+    if cellar_mode == "fill_gaps":
+        regions: dict[str, int] = {}
+        types: dict[str, int] = {}
+        for wine in wines:
+            if wine.region:
+                regions[wine.region] = regions.get(wine.region, 0) + wine.quantity
+            if wine.type:
+                types[wine.type] = types.get(wine.type, 0) + wine.quantity
+        cellar["bottles_by_region"] = dict(
+            sorted(regions.items(), key=lambda item: item[1], reverse=True)[:20]
+        )
+        cellar["bottles_by_type"] = types
+    return cellar
+
+
+def clamp_unit(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
+        return 0.0
+    return min(max(float(value), 0.0), 1.0)
+
+
+@router.post("/wine-shop/shelf-scan", response_model=WineShelfScanResponse)
+async def scan_wine_shelf(
+    images: list[UploadFile] = File(default=[]),
+    occasion: str = Form(default="", max_length=240),
+    max_price_chf: str = Form(default="", max_length=24),
+    wine_type: str = Form(default="", max_length=40),
+    ranking_size: int = Form(default=3, ge=1, le=5),
+    cellar_mode: Literal["ignore", "avoid_owned", "fill_gaps"] = Form(default="ignore"),
+    ignore_preferences: bool = Form(default=False),
+    locale: str = Form(default="it", pattern="^(it|en)$"),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineShelfScanResponse:
+    """Recognize the bottles on wine-shop shelf photos in memory and rank the best buys."""
+    if not images:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image is empty")
+    if len(images) > WINE_SHELF_MAX_PHOTOS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Too many shelf photos"
+        )
+    normalized_images: list[tuple[str, bytes]] = []
+    for image in images:
+        if not (image.content_type or "").lower().startswith("image/"):
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail="Unsupported image format",
+            )
+        content = await image.read(settings.wine_recognition_max_input_bytes + 1)
+        if not content:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image is empty")
+        if len(content) > settings.wine_recognition_max_input_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Image is too large"
+            )
+        normalized_images.append(("image/jpeg", optimized_shelf_image(content)))
+    try:
+        budget = Decimal(max_price_chf.strip()) if max_price_chf.strip() else None
+    except InvalidOperation as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid maximum budget"
+        ) from exc
+    if budget is not None and (budget <= 0 or budget > Decimal("100000")):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid maximum budget"
+        )
+
+    user_settings = get_or_create_user_ai_settings(db, context)
+    # Reading many small labels and ranking them needs the stronger sommelier model,
+    # unlike the single-photo restaurant list transcription.
+    selected_model = user_settings.pairing_model
+    taste_context = (
+        {}
+        if ignore_preferences
+        else compact_taste_context(
+            db,
+            household_id=context.household.id,
+            user_id=context.user.id,
+            category=wine_type.strip() or None,
+        )
+    )
+    prompt = wine_shelf_scan_prompt(
+        locale=locale,
+        photo_count=len(normalized_images),
+        occasion=occasion.strip(),
+        budget_chf=str(budget) if budget is not None else "",
+        wine_type=wine_type.strip(),
+        ranking_size=ranking_size,
+        cellar_mode=cellar_mode,
+        cellar_context=wine_shelf_cellar_context(db, context, cellar_mode),
+        taste_context=taste_context,
+        pairing_preferences=""
+        if ignore_preferences
+        else (user_settings.pairing_preferences or "").strip(),
+    )
+    bottle_schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "name": {"type": "string"},
+            "producer": {"type": "string"},
+            "vintage": {"type": "string"},
+            "style": {"type": "string"},
+            "region": {"type": "string"},
+            "price_text": {"type": "string"},
+            "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+            "owned": {"type": "boolean"},
+            "image_index": {"type": "integer"},
+            "x": {"type": "number"},
+            "y": {"type": "number"},
+            "width": {"type": "number"},
+            "height": {"type": "number"},
+        },
+        "required": [
+            "name",
+            "producer",
+            "vintage",
+            "style",
+            "region",
+            "price_text",
+            "confidence",
+            "owned",
+            "image_index",
+            "x",
+            "y",
+            "width",
+            "height",
+        ],
+    }
+    ranking_schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "bottle_index": {"type": "integer"},
+            "reason": {"type": "string"},
+            "taste_affinity": {"type": "integer", "minimum": 0, "maximum": 6},
+        },
+        "required": ["bottle_index", "reason", "taste_affinity"],
+    }
+    schema = {
+        "name": "wine_shelf_scan",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "summary": {"type": "string"},
+                "bottles": {"type": "array", "items": bottle_schema},
+                "ranking": {"type": "array", "items": ranking_schema},
+            },
+            "required": ["summary", "bottles", "ranking"],
+        },
+    }
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=selected_model,
+        task_type="pairing",
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
+        json_schema=schema,
+        input_images=normalized_images,
+        max_output_tokens=4000 + 4000 * len(normalized_images),
+        timeout_seconds=settings.wine_recognition_timeout_seconds * (1 + len(normalized_images)),
+    )
+    parsed = parse_json_response(response.text)
+    bottles: list[WineShelfBottle] = []
+    for item in parsed.get("bottles", []) if isinstance(parsed.get("bottles"), list) else []:
+        if not isinstance(item, dict) or not str(item.get("name") or "").strip():
+            continue
+        image_index = item.get("image_index")
+        confidence = str(item.get("confidence") or "")
+        x, y = clamp_unit(item.get("x")), clamp_unit(item.get("y"))
+        bottles.append(
+            WineShelfBottle(
+                name=str(item.get("name") or "").strip()[:180],
+                producer=str(item.get("producer") or "").strip()[:180],
+                vintage=str(item.get("vintage") or "").strip()[:12],
+                style=str(item.get("style") or "").strip()[:100],
+                region=str(item.get("region") or "").strip()[:120],
+                price_text=str(item.get("price_text") or "").strip()[:80],
+                confidence=cast(
+                    Literal["high", "medium", "low"],
+                    confidence if confidence in {"high", "medium", "low"} else "low",
+                ),
+                owned=cellar_mode != "ignore" and item.get("owned") is True,
+                image_index=(
+                    image_index
+                    if isinstance(image_index, int) and 0 <= image_index < len(normalized_images)
+                    else 0
+                ),
+                x=x,
+                y=y,
+                width=min(clamp_unit(item.get("width")), 1 - x),
+                height=min(clamp_unit(item.get("height")), 1 - y),
+            )
+        )
+        if len(bottles) == WINE_SHELF_MAX_BOTTLES:
+            break
+    recommendations: list[WineShelfRecommendation] = []
+    seen_indexes: set[int] = set()
+    raw_ranking = parsed.get("ranking")
+    for item in raw_ranking if isinstance(raw_ranking, list) else []:
+        index = item.get("bottle_index") if isinstance(item, dict) else None
+        if not isinstance(index, int) or index in seen_indexes or not 0 <= index < len(bottles):
+            continue
+        seen_indexes.add(index)
+        affinity = item.get("taste_affinity")
+        recommendations.append(
+            WineShelfRecommendation(
+                bottle_index=index,
+                rank=len(recommendations) + 1,
+                reason=str(item.get("reason") or "").strip()[:600],
+                taste_affinity=(
+                    affinity
+                    if taste_context and isinstance(affinity, int) and 0 <= affinity <= 6
+                    else 0
+                ),
+            )
+        )
+        if len(recommendations) == ranking_size:
+            break
+    result = WineShelfScanResponse(
+        summary=str(parsed.get("summary") or "").strip()[:800],
+        bottles=bottles,
+        recommendations=recommendations,
+        photo_count=len(normalized_images),
+        taste_profile_applied=bool(taste_context),
+        cellar_mode=cellar_mode,
+        model=effective_response_model(response, selected_model),
+        reasoning_effort=response.reasoning_effort or "",
+        estimated_cost_usd=response.charged_cost_usd,
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="pairing",
+        entity_id=context.household.id,
+        feature="wine_shelf_scan",
+        model=result.model,
+        reasoning_effort=result.reasoning_effort,
+        summary=(
+            f"Wine shelf scanned: {len(normalized_images)} photos, "
+            f"{len(bottles)} bottles recognized, {len(recommendations)} ranked."
         ),
         usage=response.usage,
         provider_source=provider_source,

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { AppIcon, FeatureIcon } from "../components/AppIcon";
 import { EmptyState } from "../components/AppUi";
+import { WineListChat } from "../components/WineListChat";
 import { reasoningEffortTranslationKey } from "../i18n";
 import type { RestaurantWineListQuestionPayload, RestaurantWineListQuestionResult, RestaurantWineListScanResult } from "../types";
 
@@ -115,8 +116,6 @@ function SommelierAiIllustration() {
 }
 
 const restaurantListMaxPages = 4;
-// Each exchange adds two turns; only the latest eight are sent back as context.
-const restaurantQuestionMaxTurns = 16;
 
 export default function PairingView({
   activePairingBudget,
@@ -169,11 +168,8 @@ export default function PairingView({
   const [restaurantBudget, setRestaurantBudget] = useState("");
   const [restaurantIgnoreTaste, setRestaurantIgnoreTaste] = useState(false);
   const [restaurantScan, setRestaurantScan] = useState<RestaurantWineListScanResult | null>(null);
+  const [restaurantScanKey, setRestaurantScanKey] = useState(0);
   const [restaurantScanError, setRestaurantScanError] = useState("");
-  const [restaurantConversation, setRestaurantConversation] = useState<Array<{ role: "user" | "assistant"; content: string; wines?: number[] }>>([]);
-  const [restaurantQuestion, setRestaurantQuestion] = useState("");
-  const [restaurantPendingQuestion, setRestaurantPendingQuestion] = useState("");
-  const [restaurantQuestionError, setRestaurantQuestionError] = useState("");
   const [restaurantFlow, setRestaurantFlow] = useState<"choose" | "scan" | "without-list" | "result">("choose");
   const [selectedPairingLocation, setPairingLocation] = useState<"choose" | "home" | "restaurant">("choose");
   const restaurantResultRef = useRef<HTMLDivElement>(null);
@@ -280,35 +276,10 @@ export default function PairingView({
     try {
       const result = await onScanRestaurantWineList(formData);
       setRestaurantScan(result);
-      setRestaurantConversation([]);
-      setRestaurantQuestion("");
-      setRestaurantQuestionError("");
+      setRestaurantScanKey((key) => key + 1);
       setRestaurantFlow("result");
     } catch (error) {
       setRestaurantScanError(error instanceof Error ? error.message : (locale === "it" ? "Non è stato possibile analizzare la carta vini." : "The wine list could not be analysed."));
-    }
-  }
-  async function askRestaurantList(question: string) {
-    const trimmed = question.trim();
-    if (!restaurantScan || trimmed.length < 2 || restaurantPendingQuestion) return;
-    setRestaurantQuestionError("");
-    setRestaurantPendingQuestion(trimmed);
-    setRestaurantQuestion("");
-    try {
-      const result = await onAskRestaurantWineList({
-        question: trimmed,
-        wines: restaurantScan.wines,
-        history: restaurantConversation.slice(-8).map(({ role, content }) => ({ role, content: content.slice(0, 1500) })),
-        dish: restaurantDish.trim(),
-        max_price_chf: restaurantBudget.trim() || null,
-        ignore_preferences: restaurantIgnoreTaste,
-      });
-      setRestaurantConversation((current) => [...current, { role: "user", content: trimmed }, { role: "assistant", content: result.answer, wines: result.referenced_indexes }]);
-    } catch (error) {
-      setRestaurantQuestion(trimmed);
-      setRestaurantQuestionError(error instanceof Error ? error.message : (locale === "it" ? "Non è stato possibile rispondere." : "The question could not be answered."));
-    } finally {
-      setRestaurantPendingQuestion("");
     }
   }
   const restaurantQuestionSuggestions = locale === "it"
@@ -372,18 +343,7 @@ export default function PairingView({
             <div className="restaurant-wine-list-recommendation-head"><span className="restaurant-wine-list-rank">{String(index + 1).padStart(2, "0")}</span><div><strong>{wine.name}</strong><span>{[wine.producer, wine.vintage, wine.style].filter(Boolean).join(" · ")}</span>{wine.taste_affinity > 0 ? <span className="restaurant-taste-affinity" aria-label={locale === "it" ? `Affinità AI con il tuo gusto: ${wine.taste_affinity} su 6` : `AI taste affinity: ${wine.taste_affinity} out of 6`}>{Array.from({ length: 6 }, (_, heart) => <i key={heart} className={heart < wine.taste_affinity ? "filled" : ""} aria-hidden="true">♥</i>)}</span> : null}</div>{wine.price_text ? <b>{wine.price_text}</b> : null}</div>
             <p>{wine.reason}</p>{wine.serving_note ? <small><span>{locale === "it" ? "Servizio" : "Service"}</span>{wine.serving_note}</small> : null}
           </article>)}</section> : null}
-          {restaurantScan.wines.length ? <section className="restaurant-wine-list-chat" aria-labelledby="restaurant-wine-list-chat-title">
-            <div className="restaurant-wine-list-chat-heading"><h4 id="restaurant-wine-list-chat-title">{locale === "it" ? "Chiedi al sommelier" : "Ask the sommelier"}</h4><span>{locale === "it" ? `Risponde solo sui ${restaurantScan.wines.length} vini letti nella carta.` : `Answers only about the ${restaurantScan.wines.length} wines read from the list.`}</span></div>
-            {restaurantConversation.length || restaurantPendingQuestion ? <ol className="restaurant-wine-list-chat-log" aria-live="polite">
-              {restaurantConversation.map((turn, index) => <li key={index} className={`is-${turn.role}`}><p>{turn.content}</p>{turn.wines?.length ? <ul>{turn.wines.map((wineIndex) => { const wine = restaurantScan.wines[wineIndex]; return wine ? <li key={wineIndex}>{[wine.name, wine.vintage, wine.price_text].filter(Boolean).join(" · ")}</li> : null; })}</ul> : null}</li>)}
-              {restaurantPendingQuestion ? <><li className="is-user"><p>{restaurantPendingQuestion}</p></li><li className="is-assistant is-pending"><p>{locale === "it" ? "Il sommelier sta leggendo la carta…" : "The sommelier is reading the list…"}</p></li></> : null}
-            </ol> : <div className="restaurant-wine-list-chat-suggestions">{restaurantQuestionSuggestions.map((suggestion) => <button type="button" className="secondary compact" key={suggestion} disabled={!canGenerateAi || Boolean(restaurantPendingQuestion)} onClick={() => void askRestaurantList(suggestion)}>{suggestion}</button>)}</div>}
-            {restaurantConversation.length < restaurantQuestionMaxTurns ? <form className="restaurant-wine-list-chat-form" onSubmit={(event) => { event.preventDefault(); void askRestaurantList(restaurantQuestion); }}>
-              <input value={restaurantQuestion} maxLength={500} onChange={(event) => setRestaurantQuestion(event.target.value)} placeholder={locale === "it" ? "Es. meglio il Barolo o il Brunello con il brasato?" : "E.g. Barolo or Brunello with the braised beef?"} aria-label={locale === "it" ? "Domanda sulla carta" : "Question about the list"} disabled={!canGenerateAi || Boolean(restaurantPendingQuestion)} />
-              <button type="submit" disabled={!canGenerateAi || Boolean(restaurantPendingQuestion) || restaurantQuestion.trim().length < 2}>{locale === "it" ? "Chiedi" : "Ask"}</button>
-            </form> : <small>{locale === "it" ? "Hai raggiunto il limite di domande per questa carta: avvia una nuova analisi per continuare." : "You have reached the question limit for this list: start a new analysis to continue."}</small>}
-            {restaurantQuestionError ? <p className="restaurant-wine-list-error" role="alert">{restaurantQuestionError}</p> : null}
-          </section> : null}
+          {restaurantScan.wines.length ? <WineListChat key={restaurantScanKey} locale={locale} canGenerateAi={canGenerateAi} wines={restaurantScan.wines} dish={restaurantDish} maxPriceChf={restaurantBudget} ignorePreferences={restaurantIgnoreTaste} setting="restaurant" suggestions={restaurantQuestionSuggestions} scope={locale === "it" ? `Risponde solo sui ${restaurantScan.wines.length} vini letti nella carta.` : `Answers only about the ${restaurantScan.wines.length} wines read from the list.`} onAsk={onAskRestaurantWineList} /> : null}
           {restaurantScan.wines.length ? <details><summary>{locale === "it" ? `Testo estratto e ${restaurantScan.wines.length} vini rilevati` : `Extracted text and ${restaurantScan.wines.length} detected wines`}</summary><p>{restaurantScan.extracted_text}</p><ul>{restaurantScan.wines.map((wine, index) => <li key={`${wine.name}-${index}`}>{[wine.name, wine.producer, wine.vintage, wine.price_text].filter(Boolean).join(" · ")}</li>)}</ul></details> : null}
         </div> : null}
       </section> : null}

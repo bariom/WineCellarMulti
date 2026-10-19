@@ -110,6 +110,8 @@ class Settings(BaseSettings):
     openai_web_search_tool_cost_usd: str = "0.01"
     wine_recognition_max_input_bytes: int = 16_000_000
     wine_recognition_max_dimension: int = 1600
+    # Shelf photos hold dozens of small labels, so they keep more pixels than one bottle.
+    wine_shelf_max_dimension: int = 2400
     wine_recognition_jpeg_quality: int = 88
     wine_recognition_timeout_seconds: int = 45
     wine_photo_storage_dir: str = "data/wine-photos"

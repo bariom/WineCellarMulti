@@ -1,5 +1,9 @@
-import { CSSProperties, FormEvent, useEffect, useState } from "react";
+import { CSSProperties, FormEvent, lazy, Suspense, useEffect, useState } from "react";
+import { AppIcon } from "../components/AppIcon";
 import { EmptyState } from "../components/AppUi";
+import type { RestaurantWineListQuestionPayload, RestaurantWineListQuestionResult, WineShelfScanResult } from "../types";
+
+const WineShelfScanner = lazy(() => import("../components/WineShelfScanner"));
 import { reasoningEffortTranslationKey } from "../i18n";
 
 type BuyingAdviceResult = {
@@ -47,6 +51,8 @@ type BuyingAdviceViewProps = {
   formatAiBudget: (value: string | number) => string;
   onGenerateBuyingAdvice: (event: FormEvent<HTMLFormElement>) => void;
   onAddRecommendationToWishlist: (recommendation: BuyingAdviceResult["recommendations"][number]) => Promise<void>;
+  onScanWineShelf: (formData: FormData) => Promise<WineShelfScanResult>;
+  onAskWineShelf: (payload: RestaurantWineListQuestionPayload) => Promise<RestaurantWineListQuestionResult>;
   setBuyingPurpose: (value: "drink_now" | "cellar" | "pairing") => void;
   setBuyingPairingWith: (value: string) => void;
   setBuyingPreferences: (value: string) => void;
@@ -81,6 +87,8 @@ export default function BuyingAdviceView({
   formatAiBudget,
   onGenerateBuyingAdvice,
   onAddRecommendationToWishlist,
+  onScanWineShelf,
+  onAskWineShelf,
   setBuyingPurpose,
   setBuyingPairingWith,
   setBuyingPreferences,
@@ -98,6 +106,7 @@ export default function BuyingAdviceView({
   const [savingRecommendationKey, setSavingRecommendationKey] = useState("");
   const [savedRecommendationKeys, setSavedRecommendationKeys] = useState<Set<string>>(() => new Set());
   const [wishlistError, setWishlistError] = useState("");
+  const [buyingPlace, setBuyingPlace] = useState<"advice" | "shelf">("advice");
   // Keep the handles useful for the normal CHF 20–50 buying range. The
   // explicit "No limit" action still allows searches without a ceiling.
   const priceRangeMax = 200;
@@ -132,7 +141,22 @@ export default function BuyingAdviceView({
 
   return (
     <section className="pairing-card buying-advice-view">
-      <section className="buying-advice-card">
+      <div className="buying-place-switch" role="group" aria-label={locale === "it" ? "Come vuoi scegliere" : "How do you want to choose"}>
+        <button type="button" className={buyingPlace === "advice" ? "active" : "secondary"} aria-pressed={buyingPlace === "advice"} onClick={() => setBuyingPlace("advice")}>
+          <AppIcon name="buying" size="1.25rem" />
+          <span><strong>{locale === "it" ? "Consiglio o ricerca online" : "Advice or online search"}</strong><small>{locale === "it" ? "Cosa comprare e dove trovarlo." : "What to buy and where to find it."}</small></span>
+        </button>
+        <button type="button" className={buyingPlace === "shelf" ? "active" : "secondary"} aria-pressed={buyingPlace === "shelf"} onClick={() => setBuyingPlace("shelf")}>
+          <AppIcon name="camera" size="1.25rem" />
+          <span><strong>{locale === "it" ? "In enoteca: fotografa lo scaffale" : "In the shop: photograph the shelf"}</strong><small>{locale === "it" ? "Quale compro tra le bottiglie che vedo?" : "Which of the bottles in front of me?"}</small></span>
+        </button>
+      </div>
+      {buyingPlace === "shelf" ? <section className="buying-advice-card wine-shelf-card">
+        <Suspense fallback={<div className="loading-state compact" role="status"><span>{locale === "it" ? "Caricamento…" : "Loading…"}</span></div>}>
+          <WineShelfScanner locale={locale} canGenerateAi={canGenerateAi} canWriteWishlist={canWriteWishlist} formatAiBudget={formatAiBudget} onScan={onScanWineShelf} onAsk={onAskWineShelf} onAddToWishlist={onAddRecommendationToWishlist} />
+        </Suspense>
+        {!canGenerateAi ? <EmptyState title={t("noApiKey")} icon="glass-sparkle" compact /> : null}
+      </section> : <section className="buying-advice-card">
         <div className="buying-advice-heading">
           <div>
             <span>{buyingCheckAvailability ? (locale === "it" ? "Ricerca disponibilità" : "Availability search") : (locale === "it" ? "Consiglio personale" : "Personal advice")}</span>
@@ -311,7 +335,7 @@ export default function BuyingAdviceView({
             {!buyingAdviceResult.recommendations.length ? <EmptyState title={buyingAdviceResult.availability_checked ? (locale === "it" ? "Nessuna offerta verificabile trovata per questi criteri." : "No verifiable offer found for these criteria.") : (locale === "it" ? "Nessun consiglio sufficientemente supportato trovato per questi criteri." : "No sufficiently supported recommendation found for these criteria.")} icon="search" /> : null}
           </div>
         ) : null}
-      </section>
+      </section>}
     </section>
   );
 }

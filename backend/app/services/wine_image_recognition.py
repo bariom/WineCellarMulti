@@ -35,7 +35,7 @@ def normalize_vintage(value: object) -> str:
     return ""
 
 
-def optimized_wine_images(content: bytes) -> tuple[bytes, bytes | None]:
+def load_upright_rgb_image(content: bytes) -> Image.Image:
     try:
         with Image.open(BytesIO(content)) as source:
             if (source.format or "").upper() not in ALLOWED_IMAGE_FORMATS:
@@ -44,7 +44,7 @@ def optimized_wine_images(content: bytes) -> tuple[bytes, bytes | None]:
                     detail="Unsupported image format",
                 )
             transposed = ImageOps.exif_transpose(source)
-            image = (transposed or source).convert("RGB")
+            return (transposed or source).convert("RGB")
     except HTTPException:
         raise
     except (UnidentifiedImageError, OSError, ValueError) as exc:
@@ -53,6 +53,24 @@ def optimized_wine_images(content: bytes) -> tuple[bytes, bytes | None]:
             detail="Invalid image",
         ) from exc
 
+
+def optimized_shelf_image(content: bytes) -> bytes:
+    """Return an upright JPEG of a shop shelf, keeping enough pixels for small labels.
+
+    The EXIF orientation is applied, as browsers do when displaying the original
+    photo, so normalized bottle positions line up with the image the user sees.
+    """
+    image = load_upright_rgb_image(content)
+    maximum = max(settings.wine_shelf_max_dimension, 800)
+    quality = min(max(settings.wine_recognition_jpeg_quality, 50), 95)
+    image.thumbnail((maximum, maximum), Image.Resampling.LANCZOS)
+    buffer = BytesIO()
+    image.save(buffer, "JPEG", quality=quality, optimize=True)
+    return buffer.getvalue()
+
+
+def optimized_wine_images(content: bytes) -> tuple[bytes, bytes | None]:
+    image = load_upright_rgb_image(content)
     maximum = max(settings.wine_recognition_max_dimension, 320)
     quality = min(max(settings.wine_recognition_jpeg_quality, 50), 95)
     image.thumbnail((maximum, maximum), Image.Resampling.LANCZOS)

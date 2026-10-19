@@ -354,6 +354,48 @@ class RestaurantWineListQuestionRequest(AiGenerationRequest):
     dish: str = Field(default="", max_length=240)
     max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
     ignore_preferences: bool = False
+    # "shop" answers about bottles recognized on a wine-shop shelf.
+    setting: Literal["restaurant", "shop"] = "restaurant"
+
+
+WineShelfCellarMode = Literal["ignore", "avoid_owned", "fill_gaps"]
+
+
+class WineShelfBottle(BaseModel):
+    """A bottle recognized on a shelf photo; the box is normalized to that photo."""
+
+    name: str = ""
+    producer: str = ""
+    vintage: str = ""
+    style: str = ""
+    region: str = ""
+    price_text: str = ""
+    confidence: Literal["high", "medium", "low"] = "low"
+    owned: bool = False
+    image_index: int = 0
+    x: float = 0
+    y: float = 0
+    width: float = 0
+    height: float = 0
+
+
+class WineShelfRecommendation(BaseModel):
+    bottle_index: int
+    rank: int
+    reason: str = ""
+    taste_affinity: int = Field(default=0, ge=0, le=6)
+
+
+class WineShelfScanResponse(BaseModel):
+    summary: str = ""
+    bottles: list[WineShelfBottle] = Field(default_factory=list)
+    recommendations: list[WineShelfRecommendation] = Field(default_factory=list)
+    photo_count: int = 1
+    taste_profile_applied: bool = False
+    cellar_mode: WineShelfCellarMode = "ignore"
+    model: str
+    reasoning_effort: str = ""
+    estimated_cost_usd: Decimal = Decimal("0")
 
 
 class RestaurantWineListQuestionResponse(BaseModel):

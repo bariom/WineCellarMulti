@@ -107,7 +107,7 @@ test("a multi-page restaurant wine list can be scanned and questioned", async ({
   await expect(chat.getByText("Il Barolo è più strutturato, il Soave più fresco.")).toBeVisible();
   await expect(chat.getByText("Barolo · 2019 · CHF 78", { exact: true })).toBeVisible();
   await expect(chat.getByRole("button", { name: "Cosa abbino al dessert?" })).toHaveCount(0);
-  await chat.getByRole("textbox", { name: "Domanda sulla carta" }).fill("E con il dessert?");
+  await chat.getByRole("textbox", { name: "Domanda per il sommelier" }).fill("E con il dessert?");
   await chat.getByRole("button", { name: "Chiedi", exact: true }).click();
   await expect(chat.getByText("Con il dessert prendi il Moscato.")).toBeVisible();
   const requests = await page.evaluate(() => JSON.parse(sessionStorage.getItem("ask-requests") || "[]"));
