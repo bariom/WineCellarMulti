@@ -8820,6 +8820,9 @@ button.balance-indicator:focus-visible {
 /* These labels are buttons, not field captions: keep the button's own text colour and size. */
 .restaurant-wine-list-form .restaurant-wine-list-camera > span,
 .restaurant-wine-list-form .restaurant-wine-list-upload-button > span { color: inherit; font-size: .95rem; font-weight: 700; letter-spacing: normal; text-transform: none; }
+.restaurant-wine-list-camera .app-icon,
+.restaurant-wine-list-upload-button .app-icon,
+.restaurant-wine-list-pages .app-icon { color: currentColor; }
 .restaurant-wine-list-camera input,
 .restaurant-wine-list-upload-button input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .restaurant-wine-list-camera:has(input:focus-visible),
@@ -8906,6 +8909,9 @@ button.balance-indicator:focus-visible {
   border-radius: var(--radius-card);
   text-align: left;
 }
+
+.buying-place-switch button .app-icon,
+.buying-place-premium .app-icon { color: currentColor; }
 
 .buying-place-switch button > span {
   display: grid;

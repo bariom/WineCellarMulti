@@ -38,6 +38,12 @@
 .wine-shelf-upload { background: var(--surface); color: var(--text); }
 .wine-shelf-camera > span,
 .wine-shelf-upload > span { display: inline-flex; align-items: center; gap: 9px; color: inherit; font-size: .98rem; }
+/* Icons default to a fixed dark colour; on these buttons they follow the label. */
+.wine-shelf-camera .app-icon,
+.wine-shelf-upload .app-icon,
+.wine-shelf-thumbs .app-icon,
+.wine-shelf-photo figcaption .app-icon,
+.wine-shelf-zoom .app-icon { color: currentColor; }
 .wine-shelf-camera input,
 .wine-shelf-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .wine-shelf-camera:has(input:focus-visible),
