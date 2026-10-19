@@ -194,3 +194,20 @@ test("separates archivable notifications from operational reminders", async ({ p
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   }
 });
+
+test("a past-due delivery is a reminder that opens the delivery timeline", async ({ page }) => {
+  const due = new Date();
+  due.setDate(due.getDate() - 6);
+  const expected = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], false, memberships, [{ ...wine, status: "Ordered", expected_delivery: expected }]);
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Notifiche", exact: true }).click();
+  const reminders = page.getByRole("region", { name: "Promemoria operativi" });
+  await expect(reminders.getByText("Consegne mancate", { exact: true })).toBeVisible();
+  await expect(reminders).toContainText("6 g di ritardo");
+  await reminders.getByText("Consegne mancate", { exact: true }).click();
+  await expect(page.getByRole("region", { name: "Consegne mancate", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});

@@ -44,6 +44,22 @@ def is_future_delivery_wine(wine: Wine, today: date) -> bool:
     return not any(value in status for value in DELIVERED_STATUSES)
 
 
+IN_CELLAR_STATUSES = {"delivered", "consegnato", "in_cellar", "in cellar", "in cantina"}
+
+
+def is_missed_delivery_wine(wine: Wine, today: date) -> bool:
+    """Expected before today but neither received, waiting for pickup nor closed.
+
+    Mirrors the timeline's "Consegna mancata": a delivery due today is not late yet.
+    """
+    if wine.expected_delivery is None or wine.expected_delivery >= today:
+        return False
+    status = (wine.status or "").strip().lower()
+    if status in IN_CELLAR_STATUSES or is_to_collect_wine(wine):
+        return False
+    return not any(value in status for value in DELIVERED_STATUSES)
+
+
 def is_to_collect_wine(wine: Wine) -> bool:
     status = (wine.status or "").strip().lower()
     return any(value in status for value in ("collect", "pickup", "ritir"))
@@ -154,6 +170,30 @@ def _notification_copy(locale: str, key: str, **values: object) -> tuple[str, st
             "Upcoming deliveries",
             f"You have {values['count']} future deliveries. "
             f"The next one is expected on {values['next_date']}.",
+        )
+    if key == "missed_deliveries":
+        if values["count"] == 1:
+            if italian:
+                return (
+                    "Consegna mancata",
+                    f"La consegna di {values['wine_summary']} era attesa "
+                    f"per il {values['due_date']} e non risulta ancora consegnata.",
+                )
+            return (
+                "Missed delivery",
+                f"The delivery of {values['wine_summary']} was expected on {values['due_date']} "
+                "and has not been delivered yet.",
+            )
+        if italian:
+            return (
+                "Consegne mancate",
+                f"{values['count']} consegne previste non risultano ancora arrivate "
+                f"in {values['household_name']}: {values['wine_summary']}.",
+            )
+        return (
+            "Missed deliveries",
+            f"{values['count']} expected deliveries have not arrived yet "
+            f"in {values['household_name']}: {values['wine_summary']}.",
         )
     if key == "to_collect":
         if italian:
@@ -292,6 +332,44 @@ def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
                     fingerprint=fingerprint,
                 )
                 created += 0 if before else 1
+
+        missed_deliveries = sorted(
+            [wine for wine in wines if is_missed_delivery_wine(wine, today)],
+            key=lambda wine: wine.expected_delivery or date.min,
+        )
+        if missed_deliveries:
+            latest_due = missed_deliveries[-1].expected_delivery or today
+            wine_summary, _ = to_collect_summary(missed_deliveries)
+            title, message = _notification_copy(
+                locale,
+                "missed_deliveries",
+                count=len(missed_deliveries),
+                household_name=context.household.name,
+                wine_summary=wine_summary,
+                due_date=latest_due.strftime("%d/%m/%Y"),
+            )
+            # A new late order (or a different set of them) notifies again; the
+            # same unchanged backlog does not.
+            fingerprint = (
+                f"smart:{context.household.id}:missed_deliveries:"
+                f"{len(missed_deliveries)}:{latest_due.isoformat()}"
+            )
+            before = db.scalar(
+                select(UserNotification.id).where(
+                    UserNotification.user_id == context.user.id,
+                    UserNotification.fingerprint == fingerprint,
+                )
+            )
+            create_user_notification(
+                db,
+                context.user,
+                kind="smart_missed_deliveries",
+                title=title,
+                message=message,
+                action_url="/home?focus=timeline",
+                fingerprint=fingerprint,
+            )
+            created += 0 if before else 1
 
         to_collect_wines = [wine for wine in wines if is_to_collect_wine(wine)]
         if to_collect_wines:

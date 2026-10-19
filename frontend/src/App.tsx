@@ -987,7 +987,7 @@ function dashboardStatIcon(kind: "mine" | "shared" | "total") {
 function notificationSvgIcon(kind: string) {
   if (kind === "smart_drink_now") return dashboardStatSvgIcon("drink_now");
   if (kind === "smart_past_window") return dashboardStatSvgIcon("past_window");
-  if (kind === "smart_future_deliveries") return dashboardStatSvgIcon("future_deliveries");
+  if (kind === "smart_future_deliveries" || kind === "smart_missed_deliveries") return dashboardStatSvgIcon("future_deliveries");
   if (kind === "smart_to_collect") return dashboardStatSvgIcon("to_collect");
   if (kind === "smart_entitlement_expiring") return dashboardStatSvgIcon("missing_data");
   if (kind === "wine_pulse_edition") {
@@ -3646,6 +3646,9 @@ export function App() {
       setActiveView("settings");
       setSettingsTab("users");
       loadSettingsTabData("users");
+    } else if (notification.action_url?.includes("focus=timeline")) {
+      setActiveView("home");
+      setDashboardFocus("timeline");
     } else if (notification.action_url?.includes("/home")) {
       setActiveView("home");
     } else if (notification.action_url?.includes("/pulse")) {
@@ -7142,6 +7145,19 @@ export function App() {
     loadSettingsTabData("sharing");
   };
   const operationalActionCandidates: OperationalActionItem[] = [
+    missedDeliveryItems.length ? {
+      id: "missed-deliveries",
+      kind: "smart_missed_deliveries",
+      title: t("missedDeliveries"),
+      detail: `${missedDeliveryItems[0].wine.name}${missedDeliveryItems[0].wine.merchant ? ` - ${missedDeliveryItems[0].wine.merchant}` : ""} · ${locale === "it" ? `${missedDeliveryItems[0].daysLate} g di ritardo` : `${missedDeliveryItems[0].daysLate}d late`}`,
+      count: missedDeliveryItems.length,
+      signature: missedDeliveryItems.map(({ wine }) => `${wine.id}:${wine.expected_delivery || ""}`).join("|"),
+      onOpen: () => {
+        setActiveView("home");
+        setDashboardFocus("timeline");
+        setNotificationsOpen(false);
+      },
+    } : null,
     pendingCoOwnershipAgreements.length ? {
       id: "coownership-pending",
       kind: "coownership_agreement",
@@ -7298,6 +7314,7 @@ export function App() {
     "past-window": "smart_past_window",
     "drink-now": "smart_drink_now",
     "future-deliveries": "smart_future_deliveries",
+    "missed-deliveries": "smart_missed_deliveries",
     "to-collect": "smart_to_collect",
   };
   const showLiveOperationalItems = notificationView === "active" && notificationStateFilter === "all";
@@ -7306,8 +7323,8 @@ export function App() {
     return !matchingKind || !centerKinds.has(matchingKind);
   });
   const operationalActionItemsByCategory = {
-    action: supplementalOperationalItems.filter((item) => item.id.startsWith("coownership-") || item.id === "to-collect"),
-    system: supplementalOperationalItems.filter((item) => !item.id.startsWith("coownership-") && item.id !== "to-collect"),
+    action: supplementalOperationalItems.filter((item) => item.id.startsWith("coownership-") || item.id === "to-collect" || item.id === "missed-deliveries"),
+    system: supplementalOperationalItems.filter((item) => !item.id.startsWith("coownership-") && item.id !== "to-collect" && item.id !== "missed-deliveries"),
   };
   const supersededAdminNotificationIds = new Set(
     canAppAdmin && pendingUsers.length

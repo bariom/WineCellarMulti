@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_authenticated_context
@@ -32,6 +32,7 @@ ACTION_NOTIFICATION_KINDS = {
     "new_user_registration",
     "payment_failed",
     "share_revocation",
+    "smart_missed_deliveries",
     "smart_to_collect",
 }
 UPDATE_NOTIFICATION_KINDS = {
@@ -131,7 +132,7 @@ def notification_center(
 
     categorized_kinds = ACTION_NOTIFICATION_KINDS | UPDATE_NOTIFICATION_KINDS
 
-    def category_conditions(value: str | None) -> list[object]:
+    def category_conditions(value: str | None) -> list[ColumnElement[bool]]:
         if value == "action":
             return [UserNotification.kind.in_(ACTION_NOTIFICATION_KINDS)]
         if value == "update":

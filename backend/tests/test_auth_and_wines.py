@@ -2976,6 +2976,79 @@ def test_notifications_generate_smart_reminders_without_duplicates():
         assert db.query(UserNotification).count() == 4
 
 
+def test_notifications_flag_past_due_deliveries_that_never_arrived():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    today = datetime.now(UTC).date()
+
+    def bottle(name: str, status: str, days: int) -> Wine:
+        return Wine(
+            household_id=household.id,
+            created_by_user_id=owner.id,
+            name=name,
+            producer="Producer",
+            vintage="2021",
+            quantity=1,
+            merchant="Enoteca Test",
+            status=status,
+            expected_delivery=today + timedelta(days=days),
+        )
+
+    with TestingSessionLocal() as db:
+        owner = db.query(User).filter(User.email == "owner@example.com").one()
+        household = db.query(Household).filter(Household.name == "Main Cellar").one()
+        db.add_all(
+            [
+                bottle("Missed Bottle", "Ordered", -5),
+                bottle("Received Bottle", "Delivered", -10),
+                bottle("Cellar Bottle", "in_cellar", -12),
+                bottle("Pickup Bottle", "To collect", -3),
+                bottle("Due Today Bottle", "Ordered", 0),
+                bottle("Future Bottle", "Ordered", 10),
+            ]
+        )
+        db.commit()
+
+    center = client.get("/api/v1/notifications/center")
+    assert center.status_code == 200
+    missed = [item for item in center.json()["items"] if item["kind"] == "smart_missed_deliveries"]
+    assert len(missed) == 1
+    assert missed[0]["category"] == "action"
+    assert missed[0]["title"] == "Consegna mancata"
+    assert "Missed Bottle 2021 (Enoteca Test)" in missed[0]["message"]
+    assert (today - timedelta(days=5)).strftime("%d/%m/%Y") in missed[0]["message"]
+    for other in ["Received", "Cellar", "Pickup", "Due Today", "Future"]:
+        assert f"{other} Bottle" not in missed[0]["message"]
+    notifications = client.get("/api/v1/notifications").json()
+    assert next(item for item in notifications if item["kind"] == "smart_missed_deliveries")[
+        "action_url"
+    ] == "/home?focus=timeline"
+
+    # Refreshing does not repeat it; a newly late order produces a new reminder.
+    client.get("/api/v1/notifications")
+    with TestingSessionLocal() as db:
+        owner = db.query(User).filter(User.email == "owner@example.com").one()
+        household = db.query(Household).filter(Household.name == "Main Cellar").one()
+        assert (
+            db.query(UserNotification)
+            .filter(
+                UserNotification.user_id == owner.id,
+                UserNotification.kind == "smart_missed_deliveries",
+            )
+            .count()
+            == 1
+        )
+        db.add(bottle("Second Missed Bottle", "Shipped", -1))
+        db.commit()
+    items = client.get("/api/v1/notifications/center").json()["items"]
+    latest = [item for item in items if item["kind"] == "smart_missed_deliveries"]
+    assert len(latest) == 2
+    assert any(
+        item["title"] == "Consegne mancate" and item["message"].startswith("2 consegne previste")
+        for item in latest
+    )
+
+
 def test_notification_center_history_filters_and_pagination():
     client = TestClient(app)
     assert register(client).status_code == 201
