@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-// A 4×3 PNG, so previews keep a real shelf-like aspect ratio.
-const shelfPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAEElEQVR4nGOI0pCDIwacHACVNweB2AjaMgAAAABJRU5ErkJggg==", "base64");
+// A 400×300 PNG, so previews keep a real size and a shelf-like aspect ratio.
+const shelfPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAZAAAAEsCAIAAABi1XKVAAAC+ElEQVR42u3UMQ0AAAgEsVfCiBT8S0IHpEkV3HCZLoATIgFgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhAYalAmBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBhqUCYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYgGFJABgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFiAYakAGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFjAZwtpY75FvvSG9AAAAABJRU5ErkJggg==", "base64");
 
 test("a shelf photo is ranked, highlighted and questioned", async ({ page }, testInfo) => {
   await page.route("**/wine-shelf-test", route => route.fulfill({
@@ -76,6 +76,23 @@ test("a shelf photo is ranked, highlighted and questioned", async ({ page }, tes
   const question = await page.evaluate(() => (window as any).shelfQuestions[0]);
   expect(question).toMatchObject({ setting: "shop", max_price_chf: "40", history: [] });
   expect(question.wines).toHaveLength(3);
+
+  await page.locator(".wine-shelf-photo").first().getByRole("button", { name: "Ingrandisci", exact: true }).click();
+  const zoomed = page.getByRole("dialog", { name: "Foto dello scaffale ingrandita" });
+  await expect(zoomed).toBeVisible();
+  await expect(zoomed).toContainText("Foto 1 di 2");
+  await zoomed.getByRole("button", { name: "1. Barbera d'Alba 2022" }).click();
+  await expect(zoomed.locator(".wine-shelf-zoom-choice")).toContainText("Barbera d'Alba 2022");
+  await zoomed.getByRole("button", { name: "Ingrandisci di più" }).click();
+  await expect(zoomed).toContainText("2×");
+  expect(await zoomed.locator(".wine-shelf-zoom-stage").evaluate((stage) => stage.scrollWidth > stage.clientWidth)).toBe(true);
+  await zoomed.getByRole("button", { name: "Foto successiva" }).click();
+  await expect(zoomed).toContainText("Foto 2 di 2");
+  await expect(zoomed).toContainText("1×");
+  await expect(zoomed.getByRole("button", { name: "2. Barolo 2019" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("shelf-zoom-390.png") });
+  await page.keyboard.press("Escape");
+  await expect(zoomed).toBeHidden();
 
   for (const [width, height] of [[360, 800], [390, 844], [430, 932], [1440, 900]]) {
     await page.setViewportSize({ width, height });

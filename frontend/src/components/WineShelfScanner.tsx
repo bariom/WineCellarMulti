@@ -59,12 +59,21 @@ export function WineShelfScanner({
   const [showResult, setShowResult] = useState(false);
   const [activeBottle, setActiveBottle] = useState<number | null>(null);
   const [showAllLabels, setShowAllLabels] = useState(false);
+  const [zoomedPhoto, setZoomedPhoto] = useState<number | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const zoomDialogRef = useRef<HTMLDialogElement>(null);
   const [savedBottles, setSavedBottles] = useState<Set<number>>(() => new Set());
   const [savingBottle, setSavingBottle] = useState<number | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   // The photos stay on the device: the result is drawn on the local previews.
   const previews = useMemo(() => photos.map((photo) => URL.createObjectURL(photo)), [photos]);
   useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews]);
+  useEffect(() => {
+    const dialog = zoomDialogRef.current;
+    if (!dialog) return;
+    if (zoomedPhoto !== null && !dialog.open) dialog.showModal();
+    if (zoomedPhoto === null && dialog.open) dialog.close();
+  }, [zoomedPhoto]);
   useEffect(() => {
     if (!showResult) return;
     const frame = window.requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -136,6 +145,36 @@ export function WineShelfScanner({
     ? ["Perché la prima e non la seconda?", "Quale si conserva più a lungo?", "C'è un'alternativa più economica?"]
     : ["Why the first rather than the second?", "Which one will age longer?", "Is there a cheaper alternative?"];
 
+  function openZoom(photoIndex: number) {
+    setZoom(1);
+    setZoomedPhoto(photoIndex);
+  }
+
+  function renderShelfFrame(url: string, photoIndex: number, variant: "inline" | "zoom") {
+    if (!result) return null;
+    return <div className={`wine-shelf-photo-frame is-${variant}`} style={variant === "zoom" && zoom > 1 ? { width: `${zoom * 100}%` } : undefined}>
+      <img src={url} alt={it ? `Scaffale, foto ${photoIndex + 1}` : `Shelf, photo ${photoIndex + 1}`} onClick={variant === "inline" ? () => openZoom(photoIndex) : undefined} />
+      {result.bottles.map((bottle, bottleIndex) => {
+        if (bottle.image_index !== photoIndex) return null;
+        const rank = rankByBottle.get(bottleIndex);
+        if (!rank && !showAllLabels) return null;
+        const style = {
+          left: `${(bottle.x + bottle.width / 2) * 100}%`,
+          top: `${(bottle.y + bottle.height / 2) * 100}%`,
+          "--halo": `${Math.min(Math.max(bottle.width, 0.04), 0.22) * 100}%`,
+        } as CSSProperties;
+        const label = `${rank ? `${rank}. ` : ""}${bottle.name}${bottle.vintage ? ` ${bottle.vintage}` : ""}`;
+        return rank
+          ? <button type="button" key={bottleIndex} className={`wine-shelf-pin rank-${Math.min(rank, 4)}${activeBottle === bottleIndex ? " is-active" : ""}`} style={style} aria-label={label} aria-pressed={activeBottle === bottleIndex} onClick={() => { setActiveBottle(bottleIndex); if (variant === "inline") document.getElementById(`wine-shelf-choice-${bottleIndex}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}><b>{rank}</b></button>
+          : <span key={bottleIndex} className="wine-shelf-dot" style={style} title={label} aria-hidden="true" />;
+      })}
+    </div>;
+  }
+
+  const zoomedChoice = result && activeBottle !== null && result.bottles[activeBottle]?.image_index === zoomedPhoto
+    ? result.recommendations.find((item) => item.bottle_index === activeBottle) || null
+    : null;
+
   if (showResult && result) {
     return <div ref={resultRef} className="wine-shelf-result" tabIndex={-1}>
       <header className="wine-shelf-result-heading">
@@ -155,24 +194,11 @@ export function WineShelfScanner({
       {result.summary ? <p className="wine-shelf-summary">{result.summary}</p> : null}
       {previews.length ? <div className="wine-shelf-photos">
         {previews.map((url, photoIndex) => <figure key={url} className="wine-shelf-photo">
-          <div className="wine-shelf-photo-frame">
-            <img src={url} alt={it ? `Scaffale, foto ${photoIndex + 1}` : `Shelf, photo ${photoIndex + 1}`} />
-            {result.bottles.map((bottle, bottleIndex) => {
-              if (bottle.image_index !== photoIndex) return null;
-              const rank = rankByBottle.get(bottleIndex);
-              if (!rank && !showAllLabels) return null;
-              const style = {
-                left: `${(bottle.x + bottle.width / 2) * 100}%`,
-                top: `${(bottle.y + bottle.height / 2) * 100}%`,
-                "--halo": `${Math.min(Math.max(bottle.width, 0.04), 0.22) * 100}cqw`,
-              } as CSSProperties;
-              const label = `${rank ? `${rank}. ` : ""}${bottle.name}${bottle.vintage ? ` ${bottle.vintage}` : ""}`;
-              return rank
-                ? <button type="button" key={bottleIndex} className={`wine-shelf-pin rank-${Math.min(rank, 4)}${activeBottle === bottleIndex ? " is-active" : ""}`} style={style} aria-label={label} aria-pressed={activeBottle === bottleIndex} onClick={() => { setActiveBottle(bottleIndex); document.getElementById(`wine-shelf-choice-${bottleIndex}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}><b>{rank}</b></button>
-                : <span key={bottleIndex} className="wine-shelf-dot" style={style} title={label} aria-hidden="true" />;
-            })}
-          </div>
-          {previews.length > 1 ? <figcaption>{it ? `Foto ${photoIndex + 1}` : `Photo ${photoIndex + 1}`}</figcaption> : null}
+          {renderShelfFrame(url, photoIndex, "inline")}
+          <figcaption>
+            {previews.length > 1 ? <span>{it ? `Foto ${photoIndex + 1}` : `Photo ${photoIndex + 1}`}</span> : null}
+            <button type="button" className="secondary compact" onClick={() => openZoom(photoIndex)}><AppIcon name="search" size="0.95rem" />{it ? "Ingrandisci" : "Enlarge"}</button>
+          </figcaption>
         </figure>)}
         {result.bottles.length > result.recommendations.length ? <label className="pairing-option wine-shelf-toggle"><input type="checkbox" checked={showAllLabels} onChange={(event) => setShowAllLabels(event.target.checked)} /><span>{it ? "Mostra tutte le etichette riconosciute" : "Show every recognized label"}</span></label> : null}
         <small className="wine-shelf-note">{it ? "Le posizioni sono indicative: controlla l'etichetta sulla bottiglia." : "Positions are approximate: check the label on the bottle."}</small>
@@ -207,6 +233,28 @@ export function WineShelfScanner({
       </ol> : <p className="wine-shelf-empty">{it ? "Nessuna bottiglia rispetta i limiti indicati. Prova ad allargare budget o tipologia, oppure fotografa un altro scaffale." : "No bottle fits the limits you set. Try a wider budget or type, or photograph another shelf."}</p>}
       {error ? <p className="restaurant-wine-list-error" role="alert">{error}</p> : null}
       {result.bottles.length ? <WineListChat key={resultKey} locale={locale} canGenerateAi={canGenerateAi} wines={result.bottles.map(({ name, producer, vintage, price_text, style }) => ({ name, producer, vintage, price_text, style }))} dish={occasion} maxPriceChf={budget} ignorePreferences={ignoreTaste} setting="shop" suggestions={suggestions} scope={it ? `Risponde solo sulle ${result.bottles.length} bottiglie riconosciute.` : `Answers only about the ${result.bottles.length} recognized bottles.`} onAsk={onAsk} /> : null}
+      <dialog ref={zoomDialogRef} className="wine-shelf-zoom" aria-label={it ? "Foto dello scaffale ingrandita" : "Enlarged shelf photo"} onClose={() => setZoomedPhoto(null)}>
+        {zoomedPhoto !== null && previews[zoomedPhoto] ? <>
+          <header className="wine-shelf-zoom-bar">
+            <strong>{previews.length > 1 ? (it ? `Foto ${zoomedPhoto + 1} di ${previews.length}` : `Photo ${zoomedPhoto + 1} of ${previews.length}`) : (it ? "Scaffale" : "Shelf")}</strong>
+            <div className="wine-shelf-zoom-actions">
+              {previews.length > 1 ? <button type="button" className="secondary compact" aria-label={it ? "Foto precedente" : "Previous photo"} disabled={zoomedPhoto === 0} onClick={() => { setZoom(1); setZoomedPhoto(zoomedPhoto - 1); }}><AppIcon name="chevron-left" size="1rem" /></button> : null}
+              {previews.length > 1 ? <button type="button" className="secondary compact" aria-label={it ? "Foto successiva" : "Next photo"} disabled={zoomedPhoto === previews.length - 1} onClick={() => { setZoom(1); setZoomedPhoto(zoomedPhoto + 1); }}><AppIcon name="chevron-right" size="1rem" /></button> : null}
+              <button type="button" className="secondary compact" aria-label={it ? "Riduci" : "Zoom out"} disabled={zoom <= 1} onClick={() => setZoom((value) => Math.max(1, value - 1))}>−</button>
+              <span aria-live="polite">{zoom}×</span>
+              <button type="button" className="secondary compact" aria-label={it ? "Ingrandisci di più" : "Zoom in"} disabled={zoom >= 3} onClick={() => setZoom((value) => Math.min(3, value + 1))}>+</button>
+              <button type="button" className="compact" onClick={() => setZoomedPhoto(null)}>{it ? "Chiudi" : "Close"}</button>
+            </div>
+          </header>
+          <div className={`wine-shelf-zoom-stage${zoom > 1 ? " is-zoomed" : ""}`}>
+            {renderShelfFrame(previews[zoomedPhoto], zoomedPhoto, "zoom")}
+          </div>
+          {zoomedChoice && activeBottle !== null ? <footer className={`wine-shelf-zoom-choice rank-${Math.min(zoomedChoice.rank, 4)}`}>
+            <span className="wine-shelf-medal" aria-hidden="true">{zoomedChoice.rank}</span>
+            <div><strong>{result.bottles[activeBottle].name}{result.bottles[activeBottle].vintage ? ` ${result.bottles[activeBottle].vintage}` : ""}</strong><span>{result.bottles[activeBottle].price_text || (it ? "Prezzo da verificare" : "Check the price")}</span></div>
+          </footer> : null}
+        </> : null}
+      </dialog>
       {result.bottles.length ? <details className="wine-shelf-all"><summary>{it ? `Tutte le etichette riconosciute (${result.bottles.length})` : `Every recognized label (${result.bottles.length})`}</summary><ul>{result.bottles.map((bottle, index) => <li key={index}><span>{[bottle.name, bottle.producer, bottle.vintage].filter(Boolean).join(" · ")}</span>{bottle.price_text ? <b>{bottle.price_text}</b> : null}</li>)}</ul></details> : null}
     </div>;
   }
