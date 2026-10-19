@@ -144,13 +144,20 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     news: {
       eyebrow: "Novità in Vinaris",
       title: "Meno gestione. Più piacere di collezionare.",
-      body: "Tre novità per vivere la tua cantina, a modo tuo.",
+      body: "Quattro novità per vivere la tua cantina, a modo tuo.",
       order: "Le ultime novità, dalla più recente",
       action: "Registrati gratis",
       note: "Inizia gratis con fino a 15 etichette. Scegli poi le funzioni che fanno per te.",
       entries: [
         {
-          id: "purchase-scan", date: "2026-10", dateLabel: "Ottobre 2026", label: "La grande novità · Scansione acquisti", tab: "Scansione acquisti", featured: true,
+          id: "shelf-scan", date: "2026-10-19", dateLabel: "Ottobre 2026", label: "La grande novità · Scaffale AI", tab: "Scaffale AI", featured: true,
+          title: "Davanti allo scaffale. Quale compro?",
+          body: "Fotografa la parete dell'enoteca: Vinaris legge le etichette, le mette in classifica per il tuo gusto, il budget e la tua cantina, e ti indica sulla foto la prima, la seconda e la terza scelta.",
+          availability: "Scaffale AI riservato agli abbonati Vinaris Riserva.",
+          action: "Crea il tuo account gratis",
+        },
+        {
+          id: "purchase-scan", date: "2026-10", dateLabel: "Ottobre 2026", label: "Scansione acquisti", tab: "Scansione acquisti", featured: false,
           title: "Dalla fattura alla cantina. In pochi tocchi.",
           body: "Fotografa una fattura o uno scontrino, oppure carica un PDF: Vinaris prepara vini, annate, quantità e prezzi. Tu verifichi e confermi.",
           availability: "Scansione acquisti con abbonamento o credito AI.",
@@ -327,13 +334,20 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     news: {
       eyebrow: "What’s new in Vinaris",
       title: "Less admin. More joy in collecting.",
-      body: "Three new ways to enjoy your cellar, your way.",
+      body: "Four new ways to enjoy your cellar, your way.",
       order: "Latest additions first",
       action: "Sign up for free",
       note: "Start free with up to 15 labels. Then choose the features that suit you.",
       entries: [
         {
-          id: "purchase-scan", date: "2026-10", dateLabel: "October 2026", label: "Our big new arrival · Purchase scanning", tab: "Purchase scanning", featured: true,
+          id: "shelf-scan", date: "2026-10-19", dateLabel: "October 2026", label: "Our big new arrival · Shelf scanner", tab: "Shelf scanner", featured: true,
+          title: "In front of the shelf. Which one to buy?",
+          body: "Photograph the wall of the wine shop: Vinaris reads the labels, ranks them for your taste, budget and cellar, and marks your first, second and third choice on the photo.",
+          availability: "Shelf scanner reserved for Vinaris Riserva subscribers.",
+          action: "Create your free account",
+        },
+        {
+          id: "purchase-scan", date: "2026-10", dateLabel: "October 2026", label: "Purchase scanning", tab: "Purchase scanning", featured: false,
           title: "From invoice to cellar. In a few taps.",
           body: "Photograph an invoice or receipt, or upload a PDF: Vinaris prepares wines, vintages, quantities and prices. You review and confirm.",
           availability: "Purchase scanning with a subscription or AI credit.",

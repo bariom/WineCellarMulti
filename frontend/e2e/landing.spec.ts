@@ -41,17 +41,17 @@ for (const locale of ["it", "en"] as const) {
 
     const selectors = news.getByRole("group").getByRole("button");
     const article = news.getByRole("article");
-    const titles = locale === "it" ? ["Dalla fattura alla cantina. In pochi tocchi.", "Certi vini meritano più di una nota.", "La tua cantina. Le tue priorità."] : ["From invoice to cellar. In a few taps.", "Some wines deserve more than a tasting note.", "Your cellar. Your priorities."];
+    const titles = locale === "it" ? ["Davanti allo scaffale. Quale compro?", "Dalla fattura alla cantina. In pochi tocchi.", "Certi vini meritano più di una nota.", "La tua cantina. Le tue priorità."] : ["In front of the shelf. Which one to buy?", "From invoice to cellar. In a few taps.", "Some wines deserve more than a tasting note.", "Your cellar. Your priorities."];
     for (const width of [360, 390, 430, 1200, 1440]) {
       await page.setViewportSize({ width, height: width >= 1200 ? 1000 : 844 });
       await page.evaluate(() => window.scrollTo(0, 0));
       if (width < 1161) await page.getByRole("button", { name: locale === "it" ? "Apri menu" : "Open menu" }).click();
       await page.getByRole("link", { name: locale === "it" ? "Novità" : "What’s new", exact: true }).click();
       await expect(news).toBeVisible();
-      await expect(selectors).toHaveCount(3);
+      await expect(selectors).toHaveCount(titles.length);
       await expect(article).toHaveCount(1);
       await expect(news.locator("#news-signup-note")).toContainText("23");
-      for (let index = 0; index < 3; index++) {
+      for (let index = 0; index < titles.length; index++) {
         await selectors.nth(index).click();
         await expect(selectors.nth(index)).toHaveAttribute("aria-pressed", "true");
         await expect(article.getByRole("heading")).toHaveText(titles[index]);
@@ -83,12 +83,12 @@ for (const locale of ["it", "en"] as const) {
     await expect(article.getByRole("heading")).toHaveText(titles[1]);
     await news.getByRole("button", { name: locale === "it" ? "Novità precedente" : "Previous update" }).click();
     await expect(article.getByRole("heading")).toHaveText(titles[0]);
-    await selectors.nth(2).focus();
+    await selectors.nth(titles.length - 1).focus();
     await page.keyboard.press("ArrowRight");
     await expect(selectors.nth(0)).toBeFocused();
     await expect(article.getByRole("heading")).toHaveText(titles[0]);
     await page.keyboard.press("End");
-    await expect(article.getByRole("heading")).toHaveText(titles[2]);
+    await expect(article.getByRole("heading")).toHaveText(titles[titles.length - 1]);
     await page.keyboard.press("Home");
     await expect(article.getByRole("heading")).toHaveText(titles[0]);
     const swipe = async (dx: number, dy: number) => article.evaluate((el, delta) => {
@@ -102,7 +102,7 @@ for (const locale of ["it", "en"] as const) {
     // A vertical gesture must leave the current slide unchanged.
     await swipe(-10, 150);
     await expect(article.getByRole("heading")).toHaveText(titles[1]);
-    for (let index = 0; index < 3; index++) {
+    for (let index = 0; index < titles.length; index++) {
       await selectors.nth(index).click();
       await article.getByRole("button").click();
       await expect(page.getByLabel(locale === "it" ? "Conferma password" : "Confirm password", { exact: true })).toBeVisible();
