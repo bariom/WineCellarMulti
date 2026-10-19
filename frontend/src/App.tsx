@@ -127,6 +127,7 @@ const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView
 const AI_PACK_ENHANCEMENT_DISMISS_KEY = "vinaris.ai-pack-enhancement-dismissed-until";
 const AI_PACK_ENHANCEMENT_REMINDER_MS = 7 * 24 * 60 * 60 * 1000;
 const PublicLanding = lazy(() => import("./views/PublicLanding"));
+const DeliveryTimelineCard = lazy(() => import("./components/DeliveryTimelineCard"));
 const MaturityPanorama = lazy(() => import("./components/MaturityPanorama").then((module) => ({ default: module.MaturityPanorama })));
 const BottlePhotoCapture = lazy(() => import("./components/BottlePhotoCapture"));
 const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
@@ -6570,11 +6571,7 @@ export function App() {
       return { wine, daysLate: Math.round((todayUtcMs - Date.UTC(year, month - 1, day)) / 86400000) };
     })
     .sort((first, second) => second.daysLate - first.daysLate);
-  const deliveryTimelineStart = deliveryTimelineItems[0]?.dateMs || now.getTime();
-  const deliveryTimelineEnd = deliveryTimelineItems[deliveryTimelineItems.length - 1]?.dateMs || deliveryTimelineStart + 365 * 86400000;
-  const deliveryTimelineRange = Math.max(deliveryTimelineEnd - deliveryTimelineStart, 1);
   const firstDeliveryTimelineItem = deliveryTimelineItems[0] || null;
-  const lastDeliveryTimelineItem = deliveryTimelineItems[deliveryTimelineItems.length - 1] || null;
   const deliveryHorizonStats = {
     next30: deliveryTimelineItems.filter((item) => item.days <= 30).length,
     next90: deliveryTimelineItems.filter((item) => item.days <= 90).length,
@@ -11220,69 +11217,9 @@ export function App() {
                 <DashboardCarousel locale={locale} label={t("deliveryTimeline")} className="timeline-dashboard-carousel">
                   {renderDeliveriesWidget()}
 
-                  <article className="dashboard-card wide-card timeline-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("futureDeliveries")}</span>
-                        <h2>{t("timeline")}</h2>
-                      </div>
-                      {firstDeliveryTimelineItem && lastDeliveryTimelineItem ? (
-                        <strong>{formatDisplayDate(firstDeliveryTimelineItem.wine.expected_delivery)} - {formatDisplayDate(lastDeliveryTimelineItem.wine.expected_delivery)}</strong>
-                      ) : null}
-                    </div>
-                    {missedDeliveryItems.length ? (
-                      <section className="delivery-missed" aria-label={t("missedDeliveries")}>
-                        <h3><AppIcon name="status-shipped" />{t("missedDeliveries")} <span>{missedDeliveryItems.length}</span></h3>
-                        <div className="delivery-events">
-                          {missedDeliveryItems.map(({ wine, daysLate }) => (
-                            <button type="button" className="delivery-event is-missed" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
-                              <span className="delivery-date">{formatDisplayDate(wine.expected_delivery)}</span>
-                              <span className="delivery-identity">
-                                <span className="delivery-name"><i className={`wine-dot tone-${wineTone(wine.type)}`} />{[wine.name, wine.vintage].filter(Boolean).join(" · ")}</span>
-                                <span className="delivery-date" style={{ fontSize: "0.76rem" }}>{[wine.producer || t("noProducer"), wine.merchant].filter(Boolean).join(" · ")}</span>
-                              </span>
-                              <span className="delivery-missed-badge">
-                                <b>{t("missedDelivery")}</b>
-                                <small>{locale === "it" ? `${daysLate} g di ritardo` : `${daysLate}d late`}</small>
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </section>
-                    ) : null}
-                    {firstDeliveryTimelineItem && lastDeliveryTimelineItem ? (
-                      <div className="delivery-timeline">
-                        <div className="delivery-axis">
-                          <span>{formatDisplayDate(firstDeliveryTimelineItem.wine.expected_delivery)}</span>
-                          <span>{formatDisplayDate(lastDeliveryTimelineItem.wine.expected_delivery)}</span>
-                        </div>
-                        <div className="delivery-track" aria-hidden="true">
-                          {deliveryTimelineItems.map(({ wine, dateMs }) => (
-                            <span
-                              className={`delivery-marker tone-${wineTone(wine.type)}`}
-                              key={wine.id}
-                              style={{ left: `${Math.min(Math.max(((dateMs - deliveryTimelineStart) / deliveryTimelineRange) * 100, 0), 100)}%` }}
-                            />
-                          ))}
-                        </div>
-                        <div className="delivery-events">
-                          {deliveryTimelineItems.map(({ wine, days, dateMs }) => (
-                            <button type="button" className="delivery-event" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
-                              <span className="delivery-date">{formatDisplayDate(wine.expected_delivery)}</span>
-                              <span className="delivery-identity">
-                                <span className="delivery-name"><i className={`wine-dot tone-${wineTone(wine.type)}`} />{[wine.name, wine.vintage].filter(Boolean).join(" · ")}</span>
-                                <span className="delivery-date" style={{ fontSize: "0.76rem" }}>{wine.producer || t("noProducer")}</span>
-                              </span>
-                              <strong>{days}d</strong>
-                              <span className="delivery-event-position" style={{ left: `${Math.min(Math.max(((dateMs - deliveryTimelineStart) / deliveryTimelineRange) * 100, 0), 100)}%` }} />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ) : missedDeliveryItems.length ? null : (
-                      <p className="empty-state">{t("noActionItems")}</p>
-                    )}
-                  </article>
+                  <Suspense fallback={<article className="dashboard-card wide-card timeline-card"><div className="loading-state compact" role="status"><span>{t("loadingData")}</span></div></article>}>
+                    <DeliveryTimelineCard locale={locale} t={t} timelineItems={deliveryTimelineItems} missedItems={missedDeliveryItems} onOpenWine={openWineFromDashboard} />
+                  </Suspense>
                 </DashboardCarousel>
               ) : null}
 
