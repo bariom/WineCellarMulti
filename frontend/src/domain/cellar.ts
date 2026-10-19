@@ -68,6 +68,17 @@ export function isFutureDeliveryWine(wine: Wine, now: Date) {
   return true;
 }
 
+// The expected date has passed (by calendar day, so a delivery due today is not
+// yet late) and the wine is neither received, waiting for pickup nor closed.
+export function isMissedDeliveryWine(wine: Wine, now: Date) {
+  const due = (wine.expected_delivery || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return false;
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (due >= today || isWinePhysicallyInCellar(wine) || isToCollectWine(wine)) return false;
+  const status = wine.status.trim().toLowerCase();
+  return !["delivered", "consegnato", "bevuto", "consumed", "cancelled", "canceled", "annullato"].some((value) => status.includes(value));
+}
+
 export function isToCollectWine(wine: Wine) {
   const status = wine.status.trim().toLowerCase();
   return ["collect", "pickup", "ritir"].some((value) => status.includes(value));

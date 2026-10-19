@@ -10517,6 +10517,79 @@ button.balance-indicator:focus-visible {
   background: color-mix(in srgb, var(--primary) 45%, transparent);
 }
 
+.delivery-missed {
+  display: grid;
+  gap: 8px;
+}
+
+.delivery-missed h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.delivery-missed h3 > span {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.74rem;
+}
+
+.delivery-event.is-missed {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  border-left: 4px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface-muted));
+}
+
+.delivery-event.is-missed:hover {
+  border-color: var(--danger);
+}
+
+.delivery-event.is-missed > .delivery-date {
+  color: var(--danger);
+}
+
+.delivery-missed-badge {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.delivery-missed-badge b {
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.delivery-missed-badge small {
+  color: var(--danger);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.timeline-kpis .timeline-kpi-missed {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-muted));
+}
+
+.timeline-kpis .timeline-kpi-missed span,
+.timeline-kpis .timeline-kpi-missed strong {
+  color: var(--danger);
+}
+
 .bar-row {
   display: grid;
   gap: 6px;
@@ -14213,6 +14286,13 @@ textarea {
 
   .delivery-event span:nth-child(3) {
     grid-column: 1 / -1;
+  }
+
+  .delivery-missed-badge {
+    grid-auto-flow: column;
+    justify-content: start;
+    align-items: center;
+    gap: 8px;
   }
 
   .pairing-market-grid {

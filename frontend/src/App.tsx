@@ -18,7 +18,7 @@ import type { WineSaleDraft } from "./types";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { initializeTabletLayout, isTabletDevice, saveTabletLayout } from "./domain/tabletLayout";
 import { localizedNotification } from "./domain/notifications";
-import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
+import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isMissedDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
@@ -6544,6 +6544,14 @@ export function App() {
     })
     .filter((item): item is { wine: Wine; days: number; dateMs: number } => Boolean(item))
     .sort((first, second) => first.dateMs - second.dateMs);
+  const todayUtcMs = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const missedDeliveryItems = cellarWines
+    .filter((wine) => isMissedDeliveryWine(wine, now))
+    .map((wine) => {
+      const [year, month, day] = (wine.expected_delivery || "").slice(0, 10).split("-").map(Number);
+      return { wine, daysLate: Math.round((todayUtcMs - Date.UTC(year, month - 1, day)) / 86400000) };
+    })
+    .sort((first, second) => second.daysLate - first.daysLate);
   const deliveryTimelineStart = deliveryTimelineItems[0]?.dateMs || now.getTime();
   const deliveryTimelineEnd = deliveryTimelineItems[deliveryTimelineItems.length - 1]?.dateMs || deliveryTimelineStart + 365 * 86400000;
   const deliveryTimelineRange = Math.max(deliveryTimelineEnd - deliveryTimelineStart, 1);
@@ -8321,6 +8329,7 @@ export function App() {
                       <div><span>{t("next12Months")}</span><strong>{deliveryHorizonStats.next365}</strong></div>
                       <div><span>{t("beyond12Months")}</span><strong>{deliveryHorizonStats.beyond365}</strong></div>
                       <div><span>{t("totalValue")}</span><strong>{deliveryHorizonStats.total}</strong></div>
+                      {missedDeliveryItems.length ? <div className="timeline-kpi-missed"><span>{t("missedDeliveries")}</span><strong>{missedDeliveryItems.length}</strong></div> : null}
                     </div>
                   </article>);
   }
@@ -11189,6 +11198,26 @@ export function App() {
                         <strong>{formatDisplayDate(firstDeliveryTimelineItem.wine.expected_delivery)} - {formatDisplayDate(lastDeliveryTimelineItem.wine.expected_delivery)}</strong>
                       ) : null}
                     </div>
+                    {missedDeliveryItems.length ? (
+                      <section className="delivery-missed" aria-label={t("missedDeliveries")}>
+                        <h3><AppIcon name="status-shipped" />{t("missedDeliveries")} <span>{missedDeliveryItems.length}</span></h3>
+                        <div className="delivery-events">
+                          {missedDeliveryItems.map(({ wine, daysLate }) => (
+                            <button type="button" className="delivery-event is-missed" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                              <span className="delivery-date">{formatDisplayDate(wine.expected_delivery)}</span>
+                              <span className="delivery-identity">
+                                <span className="delivery-name"><i className={`wine-dot tone-${wineTone(wine.type)}`} />{[wine.name, wine.vintage].filter(Boolean).join(" · ")}</span>
+                                <span className="delivery-date" style={{ fontSize: "0.76rem" }}>{[wine.producer || t("noProducer"), wine.merchant].filter(Boolean).join(" · ")}</span>
+                              </span>
+                              <span className="delivery-missed-badge">
+                                <b>{t("missedDelivery")}</b>
+                                <small>{locale === "it" ? `${daysLate} g di ritardo` : `${daysLate}d late`}</small>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    ) : null}
                     {firstDeliveryTimelineItem && lastDeliveryTimelineItem ? (
                       <div className="delivery-timeline">
                         <div className="delivery-axis">
@@ -11218,7 +11247,7 @@ export function App() {
                           ))}
                         </div>
                       </div>
-                    ) : (
+                    ) : missedDeliveryItems.length ? null : (
                       <p className="empty-state">{t("noActionItems")}</p>
                     )}
                   </article>
