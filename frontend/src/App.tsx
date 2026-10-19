@@ -10203,7 +10203,7 @@ export function App() {
               }}>
               <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
                 <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
-                {t("pairing")}
+                {t("pairingMenu")}
               </button>
               <button type="button" className={activeView === "buying" ? "" : "secondary"} onClick={() => { leaveHelpFor("buying"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("buying"); }}>
                 <AppIcon name="buying" variant="ai" detailLevel="rich" />
@@ -10287,7 +10287,7 @@ export function App() {
                 <details className="mobile-navigation-ai-group">
                   <summary><AppIcon name="assistant" variant="ai" detailLevel="rich" />{t("aiTools")}</summary>
                   <div>
-                    <button type="button" onClick={() => { setMobileNavigationOpen(false); setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />{t("pairing")}</button>
+                    <button type="button" onClick={() => { setMobileNavigationOpen(false); setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />{t("pairingMenu")}</button>
                     <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("buying"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("buying"); }}><AppIcon name="buying" variant="ai" detailLevel="rich" />{t("buyingSommelier")}</button>
                     {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}><AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />Intelligence</button> : null}
                     {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="assistant" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
@@ -10302,7 +10302,7 @@ export function App() {
                 <button type="button" className={activeView === "home" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}><AppIcon name="dashboard" variant="navigation" detailLevel="rich" /><span>{t("home")}</span></button>
                 <button type="button" className={activeView === "cellar" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("cellar"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("cellar"); }}><AppIcon name="cellar" variant="navigation" detailLevel="rich" /><span>{t("cellar")}</span></button>
                 {canWriteWine ? <button type="button" className="mobile-bottom-navigation-add" aria-label={locale === "it" ? "Aggiungi un vino" : "Add a wine"} onClick={() => { setMobileNavigationOpen(false); startAddWineFromAnywhere(); }}><span>+</span></button> : <span aria-hidden="true" />}
-                <button type="button" className={activeView === "pairing" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{t("pairing")}</span></button>
+                <button type="button" aria-label={t("pairingMenu")} className={activeView === "pairing" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{t("pairingMenuShort")}</span></button>
                 <button ref={mobileMenuButtonRef} type="button" className={mobileNavigationOpen ? "active" : ""} aria-expanded={mobileNavigationOpen} onClick={() => setMobileNavigationOpen((open) => !open)}><AppIcon name="settings" variant="action" detailLevel="rich" /><span>{locale === "it" ? "Menu" : "Menu"}</span></button>
               </nav>
             </>

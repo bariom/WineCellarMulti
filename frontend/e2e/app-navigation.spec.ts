@@ -11,7 +11,7 @@ for (const locale of ["it", "en"] as const) {
     const menu = page.locator(".view-tabs-ai-group");
     const summary = menu.locator("summary");
     const destinations = [
-      [it ? "Abbinamento" : "Pairing", it ? "Trova abbinamento" : "Find pairing"],
+      [it ? "Sommelier AI (Abbinamenti)" : "AI Sommelier (Pairings)", it ? "Trova abbinamento" : "Find pairing"],
       [it ? "Sommelier acquisti" : "Buying sommelier", it ? "Sommelier acquisti" : "AI buying sommelier"],
       ["Intelligence", it ? "Piano cantina" : "Cellar plan"],
       [it ? "Assistente AI" : "AI Assistant", it ? "Assistente Cantina AI" : "AI Cellar Assistant"],

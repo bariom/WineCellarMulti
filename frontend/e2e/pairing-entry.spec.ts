@@ -21,7 +21,7 @@ for (const entry of ["cellar row", "wine detail"] as const) {
     });
     await page.goto("/");
     await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
-    await page.getByRole("button", { name: "Abbinamento", exact: true }).first().click();
+    await page.getByRole("button", { name: "Sommelier AI (Abbinamenti)", exact: true }).first().click();
     await expect(page.getByRole("heading", { name: "Dove sei?", exact: true })).toBeVisible();
     await page.getByRole("button", { name: /^Al ristorante/ }).click();
     await expect(page.getByRole("heading", { name: "Come vuoi scegliere il vino?" })).toBeVisible();
@@ -89,7 +89,7 @@ test("a multi-page restaurant wine list can be scanned and questioned", async ({
   });
   await page.goto("/");
   await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
-  await page.getByRole("button", { name: "Abbinamento", exact: true }).first().click();
+  await page.getByRole("button", { name: "Sommelier AI (Abbinamenti)", exact: true }).first().click();
   await page.getByRole("button", { name: /^Al ristorante/ }).click();
   await page.getByRole("button", { name: /^Analizza una carta vini/ }).click();
   const photo = { mimeType: "image/jpeg", buffer: Buffer.from("jpeg") };
