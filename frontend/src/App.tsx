@@ -11520,6 +11520,8 @@ export function App() {
                   onAddRecommendationToWishlist={addBuyingAdviceRecommendationToWishlist}
                   onScanWineShelf={scanWineShelf}
                   onAskWineShelf={askRestaurantWineList}
+                  shelfScanAvailable={Boolean(session?.wine_shelf_scan_available)}
+                  onExploreRiserva={() => { setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile"); }}
                   setBuyingPurpose={setBuyingPurpose}
                   setBuyingPairingWith={setBuyingPairingWith}
                   setBuyingPreferences={setBuyingPreferences}

@@ -53,6 +53,8 @@ type BuyingAdviceViewProps = {
   onAddRecommendationToWishlist: (recommendation: BuyingAdviceResult["recommendations"][number]) => Promise<void>;
   onScanWineShelf: (formData: FormData) => Promise<WineShelfScanResult>;
   onAskWineShelf: (payload: RestaurantWineListQuestionPayload) => Promise<RestaurantWineListQuestionResult>;
+  shelfScanAvailable: boolean;
+  onExploreRiserva: () => void;
   setBuyingPurpose: (value: "drink_now" | "cellar" | "pairing") => void;
   setBuyingPairingWith: (value: string) => void;
   setBuyingPreferences: (value: string) => void;
@@ -89,6 +91,8 @@ export default function BuyingAdviceView({
   onAddRecommendationToWishlist,
   onScanWineShelf,
   onAskWineShelf,
+  shelfScanAvailable,
+  onExploreRiserva,
   setBuyingPurpose,
   setBuyingPairingWith,
   setBuyingPreferences,
@@ -148,10 +152,18 @@ export default function BuyingAdviceView({
         </button>
         <button type="button" className={buyingPlace === "shelf" ? "active" : "secondary"} aria-pressed={buyingPlace === "shelf"} onClick={() => setBuyingPlace("shelf")}>
           <AppIcon name="camera" size="1.25rem" />
-          <span><strong>{locale === "it" ? "In enoteca: fotografa lo scaffale" : "In the shop: photograph the shelf"}</strong><small>{locale === "it" ? "Quale compro tra le bottiglie che vedo?" : "Which of the bottles in front of me?"}</small></span>
+          <span><strong>{locale === "it" ? "In enoteca: fotografa lo scaffale" : "In the shop: photograph the shelf"}{!shelfScanAvailable ? <em className="buying-place-premium">Riserva</em> : null}</strong><small>{locale === "it" ? "Quale compro tra le bottiglie che vedo?" : "Which of the bottles in front of me?"}</small></span>
         </button>
       </div>
-      {buyingPlace === "shelf" ? <section className="buying-advice-card wine-shelf-card">
+      {buyingPlace === "shelf" && !shelfScanAvailable ? <section className="buying-advice-card wine-shelf-locked" aria-labelledby="wine-shelf-locked-title">
+        <span className="buying-place-premium"><AppIcon name="star" size="0.9rem" /> Vinaris Riserva</span>
+        <h3 id="wine-shelf-locked-title">{locale === "it" ? "Quale compro? Te lo dice lo scaffale." : "Which one to buy? Ask the shelf."}</h3>
+        <p>{locale === "it"
+          ? "Fotografa la parete dell'enoteca: Vinaris riconosce le etichette, le mette in classifica per il tuo gusto, il budget e la tua cantina, e ti indica sulla foto la prima, la seconda e la terza scelta."
+          : "Photograph the wall of the wine shop: Vinaris reads the labels, ranks them for your taste, budget and cellar, and marks your first, second and third choice on the photo."}</p>
+        <p>{locale === "it" ? "La funzione è riservata agli abbonati Vinaris Riserva." : "This feature is reserved for Vinaris Riserva subscribers."}</p>
+        <button type="button" onClick={onExploreRiserva}>{locale === "it" ? "Scopri Riserva" : "Explore Reserve"} <span aria-hidden="true">→</span></button>
+      </section> : buyingPlace === "shelf" ? <section className="buying-advice-card wine-shelf-card">
         <Suspense fallback={<div className="loading-state compact" role="status"><span>{locale === "it" ? "Caricamento…" : "Loading…"}</span></div>}>
           <WineShelfScanner locale={locale} canGenerateAi={canGenerateAi} canWriteWishlist={canWriteWishlist} formatAiBudget={formatAiBudget} onScan={onScanWineShelf} onAsk={onAskWineShelf} onAddToWishlist={onAddRecommendationToWishlist} />
         </Suspense>

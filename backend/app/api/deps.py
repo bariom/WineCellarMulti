@@ -82,6 +82,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "can_use_label_recognition": False,
             "can_manage_wine_photos": False,
             "cellar_ai_assistant_available": False,
+            "wine_shelf_scan_available": False,
             "is_free_tier": False,
             "free_tier_label_limit": settings.free_tier_label_limit,
             "can_use_personal_openai_key": False,
@@ -129,6 +130,11 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         else None,
         "cellar_ai_assistant_available": settings.cellar_ai_assistant_enabled
         or context.user.is_app_admin
+        or is_ambassador(context.user),
+        # Premium AI tools: subscribers, demo cellars, app admins and ambassadors.
+        "wine_shelf_scan_available": context.household.is_demo
+        or context.user.is_app_admin
+        or context.has_active_entitlement
         or is_ambassador(context.user),
         "is_free_tier": not context.household.is_demo
         and not context.user.is_app_admin

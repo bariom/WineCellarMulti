@@ -4471,6 +4471,8 @@ def ask_restaurant_wine_list(
     context: CurrentContext = Depends(require_write_context),
 ) -> RestaurantWineListQuestionResponse:
     """Answer a follow-up question about wines already transcribed from a restaurant list."""
+    if payload.setting == "shop":
+        ensure_wine_shelf_scan_available(context)
     user_settings = get_or_create_user_ai_settings(db, context)
     selected_model = request_model(payload, user_settings.pairing_model)
     taste_context = (
@@ -4553,6 +4555,16 @@ def ask_restaurant_wine_list(
     return result
 
 
+def ensure_wine_shelf_scan_available(context: CurrentContext) -> None:
+    """The shelf scanner is a Vinaris Riserva feature, not offered on the free tier."""
+    if not is_free_tier(context) or is_ambassador(context.user):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+        detail="An active subscription is required for the wine-shelf scanner",
+    )
+
+
 def wine_shelf_cellar_context(
     db: Session, context: CurrentContext, cellar_mode: str
 ) -> dict[str, Any]:
@@ -4611,6 +4623,7 @@ async def scan_wine_shelf(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineShelfScanResponse:
     """Recognize the bottles on wine-shop shelf photos in memory and rank the best buys."""
+    ensure_wine_shelf_scan_available(context)
     if not images:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image is empty")
     if len(images) > WINE_SHELF_MAX_PHOTOS:

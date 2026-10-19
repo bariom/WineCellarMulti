@@ -8632,6 +8632,48 @@ def test_wine_shelf_scan_ranks_recognized_bottles_with_clamped_positions(monkeyp
     assert client.post("/api/v1/ai/wine-shop/shelf-scan", data={"locale": "it"}).status_code == 400
 
 
+def test_wine_shelf_scanner_is_reserved_for_subscribers(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    admin_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+    assert admin_client.get("/api/v1/session").json()["wine_shelf_scan_available"] is True
+
+    user_client = TestClient(app)
+    assert register(user_client, email="free@example.com", password="strong-password-2").status_code == 201
+    pending_user = next(
+        user
+        for user in admin_client.get("/api/v1/auth/pending-users").json()
+        if user["email"] == "free@example.com"
+    )
+    assert (
+        admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code
+        == 200
+    )
+    login = user_client.post(
+        "/api/v1/auth/login", json={"email": "free@example.com", "password": "strong-password-2"}
+    )
+    assert login.status_code == 200
+    session_payload = user_client.get("/api/v1/session").json()
+    assert session_payload["is_free_tier"] is True
+    assert session_payload["wine_shelf_scan_available"] is False
+
+    def unexpected_ai_call(*args, **kwargs):
+        raise AssertionError("A free-tier shelf request must not reach the AI provider")
+
+    monkeypatch.setattr(ai_routes, "create_response", unexpected_ai_call)
+    scan = user_client.post(
+        "/api/v1/ai/wine-shop/shelf-scan",
+        files=[("images", ("shelf.jpg", b"one", "image/jpeg"))],
+    )
+    assert scan.status_code == 402
+    question = user_client.post(
+        "/api/v1/ai/restaurant-wine-list/ask",
+        json={"question": "Quale compro?", "wines": [{"name": "Barolo"}], "setting": "shop"},
+    )
+    assert question.status_code == 402
+
+
 def test_wine_shelf_scan_ignores_ownership_when_the_cellar_is_not_used(monkeypatch):
     from app.api.routes import ai as ai_routes
 
