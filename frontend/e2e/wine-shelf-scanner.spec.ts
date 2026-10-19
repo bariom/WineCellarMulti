@@ -60,7 +60,7 @@ test("a shelf photo is ranked, highlighted and questioned", async ({ page }, tes
   await expect(page.locator("#wine-shelf-choice-1")).toHaveClass(/is-active/);
   const ranking = page.getByRole("list", { name: "Classifica" });
   await expect(ranking.getByRole("listitem").first()).toContainText("CHF 24.50");
-  await expect(ranking.getByRole("listitem").nth(1)).toContainText("Prezzo da verificare");
+  await expect(ranking.getByRole("listitem").nth(1)).toContainText("Prezzo non leggibile · budget non verificato");
   await expect(ranking.getByRole("listitem").nth(1)).toContainText("Già in cantina");
   await expect(page.locator(".wine-shelf-dot")).toHaveCount(0);
   await page.getByText("Mostra tutte le etichette riconosciute", { exact: true }).click();

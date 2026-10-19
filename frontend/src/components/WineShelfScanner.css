@@ -53,6 +53,7 @@
 .wine-shelf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .wine-shelf-fields label { display: grid; gap: 5px; min-width: 0; }
 .wine-shelf-fields label > span { color: var(--text-muted); font-size: .78rem; }
+.wine-shelf-fields label > small { color: var(--text-muted); font-size: .74rem; line-height: 1.4; }
 .wine-shelf-fields .is-wide { grid-column: 1 / -1; }
 .wine-shelf-submit { min-height: 50px; font-size: 1rem; }
 .wine-shelf-progress { margin: 0; color: var(--text-muted); font-size: .84rem; }
@@ -174,7 +175,7 @@
 .wine-shelf-choice-head .restaurant-taste-affinity i { font-style: normal; }
 .wine-shelf-choice-head .restaurant-taste-affinity i.filled { color: var(--accent); }
 .wine-shelf-choice-head > b { padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line)); border-radius: var(--radius-control); color: var(--accent); font-size: .84rem; white-space: nowrap; }
-.wine-shelf-choice-head > b.is-missing { border-style: dashed; color: var(--text-muted); font-size: .74rem; font-weight: 650; }
+.wine-shelf-choice-head > b.is-missing { max-width: 150px; border-style: dashed; color: var(--text-muted); font-size: .74rem; font-weight: 650; white-space: normal; text-align: center; }
 .wine-shelf-choice p { margin: 0; color: var(--text); line-height: 1.5; }
 .wine-shelf-choice-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .wine-shelf-choice-badges > span { padding: 4px 9px; border-radius: var(--radius-pill); font-size: .74rem; font-weight: 700; }

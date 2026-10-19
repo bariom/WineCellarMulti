@@ -348,7 +348,7 @@ def wine_shelf_scan_prompt(
     }.get(cellar_mode, "Ignore the user's cellar; set owned=false for every bottle.")
     return Prompt(
         id="wine_shop.shelf_scan",
-        version="1",
+        version="2",
         system=(
             "You are a careful sommelier helping the user choose a bottle in a wine shop from "
             "photos of the shelves. First list every bottle whose label you can actually read, "
@@ -360,9 +360,12 @@ def wine_shelf_scan_prompt(
             "0 to 1 relative to that photo with the origin at the top-left corner; center the "
             "box on the label. Set confidence to high, medium or low for the identification. "
             "Then rank the best buys for the user, best first, using the bottles' zero-based "
-            "indexes. Respect the hard limits: skip bottles above the budget when their price is "
-            "visible, and skip other wine types when a type is required. Bottles without a "
-            "visible price may be ranked but say that the price must be checked. Personal taste "
+            "indexes. Respect the hard limits: skip other wine types when a type is required, "
+            "and skip a bottle for the budget only when its own price is legible on the shelf and "
+            "above the budget. When a bottle's price is missing or not legible, the budget does "
+            "not apply to it: never exclude or demote it for the budget, and never estimate its "
+            "price from your own knowledge to do so; it may be ranked like any other bottle, and "
+            "its reason must say that the price has to be checked in the shop. Personal taste "
             "is a strong ranking signal; quality for money and the occasion also count. For each "
             "ranked bottle assign a taste affinity from 1 to 6 only when a structured personal "
             "taste profile is supplied; otherwise use 0. This is a recommendation signal, not a "

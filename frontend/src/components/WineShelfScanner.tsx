@@ -190,7 +190,9 @@ export function WineShelfScanner({
                 {identity(bottle) ? <span>{identity(bottle)}</span> : null}
                 {item.taste_affinity > 0 ? <span className="restaurant-taste-affinity" aria-label={it ? `Affinità AI con il tuo gusto: ${item.taste_affinity} su 6` : `AI taste affinity: ${item.taste_affinity} out of 6`}>{Array.from({ length: 6 }, (_, heart) => <i key={heart} className={heart < item.taste_affinity ? "filled" : ""} aria-hidden="true">♥</i>)}</span> : null}
               </div>
-              <b className={bottle.price_text ? "" : "is-missing"}>{bottle.price_text || (it ? "Prezzo da verificare" : "Check the price")}</b>
+              <b className={bottle.price_text ? "" : "is-missing"}>{bottle.price_text || (budget.trim()
+                ? (it ? "Prezzo non leggibile · budget non verificato" : "Price not legible · budget not checked")
+                : (it ? "Prezzo da verificare" : "Check the price"))}</b>
             </div>
             <p>{item.reason}</p>
             <div className="wine-shelf-choice-badges">
@@ -222,7 +224,7 @@ export function WineShelfScanner({
       <small>{it ? `Fino a ${maxPhotos} foto, una per tratto di parete. Avvicinati quanto basta per leggere le etichette. Le foto non vengono archiviate.` : `Up to ${maxPhotos} photos, one per stretch of wall. Get close enough to read the labels. Photos are not stored.`}</small>
     </div>
     <div className="wine-shelf-fields">
-      <label><span>{it ? "Budget massimo (CHF)" : "Maximum budget (CHF)"}</span><input type="number" min="1" inputMode="decimal" value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="40" disabled={scanning} /></label>
+      <label><span>{it ? "Budget massimo (CHF)" : "Maximum budget (CHF)"}</span><input type="number" min="1" inputMode="decimal" value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="40" disabled={scanning} /><small>{it ? "Si applica solo alle bottiglie con prezzo leggibile: le altre restano in classifica." : "Applies only to bottles with a legible price: the others stay in the ranking."}</small></label>
       <label><span>{it ? "Tipologia" : "Wine type"}</span><select value={wineType} onChange={(event) => setWineType(event.target.value)} disabled={scanning}>
         <option value="">{it ? "Qualsiasi" : "Any"}</option>
         <option value="Red">{it ? "Rosso" : "Red"}</option>

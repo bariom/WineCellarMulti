@@ -67,7 +67,9 @@ def test_wine_shelf_scan_prompt_reads_only_legible_labels_and_uses_the_cellar():
         pairing_preferences="",
     )
 
-    assert (prompt.id, prompt.version) == ("wine_shop.shelf_scan", "1")
+    assert (prompt.id, prompt.version) == ("wine_shop.shelf_scan", "2")
+    assert "the budget does not apply to it" in prompt.system
+    assert "never estimate its price" in prompt.system
     assert "Never invent a producer" in prompt.system
     assert "normalized from 0 to 1" in prompt.system
     assert "set owned=true" in prompt.system
