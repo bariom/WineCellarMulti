@@ -189,6 +189,8 @@ PAIRING_MAX_CANDIDATES = 25
 RESTAURANT_WINE_LIST_MAX_PAGES = 4
 RESTAURANT_WINE_LIST_MAX_WINES = 120
 WINE_SHELF_MAX_PHOTOS = 3
+# nginx waits 180s for photo scans; give up first so the user gets a clear error.
+PHOTO_SCAN_MAX_TIMEOUT_SECONDS = 170
 WINE_SHELF_MAX_BOTTLES = 120
 WINE_SHELF_MAX_OWNED_CONTEXT = 150
 DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS = {
@@ -4380,7 +4382,10 @@ async def scan_restaurant_wine_list(
         json_schema=schema,
         input_images=normalized_images,
         max_output_tokens=3000 + 3000 * len(normalized_images),
-        timeout_seconds=settings.wine_recognition_timeout_seconds * len(normalized_images),
+        timeout_seconds=min(
+            settings.wine_recognition_timeout_seconds * len(normalized_images),
+            PHOTO_SCAN_MAX_TIMEOUT_SECONDS,
+        ),
     )
     parsed = parse_json_response(response.text)
     wines = [
@@ -4734,7 +4739,10 @@ async def scan_wine_shelf(
         json_schema=schema,
         input_images=normalized_images,
         max_output_tokens=4000 + 4000 * len(normalized_images),
-        timeout_seconds=settings.wine_recognition_timeout_seconds * (1 + len(normalized_images)),
+        timeout_seconds=min(
+            settings.wine_recognition_timeout_seconds * (1 + len(normalized_images)),
+            PHOTO_SCAN_MAX_TIMEOUT_SECONDS,
+        ),
     )
     parsed = parse_json_response(response.text)
     bottles: list[WineShelfBottle] = []
