@@ -10117,10 +10117,19 @@ button.balance-indicator:focus-visible {
   justify-content: space-between;
   width: 100%;
   min-height: 36px;
-  padding: 7px 0;
+  padding: 7px 8px;
   border: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   color: var(--text);
+}
+
+.regional-history-row:hover,
+.regional-history-row:focus-visible {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  transform: none;
 }
 
 .regional-history-row small {
