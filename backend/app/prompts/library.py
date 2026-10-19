@@ -130,7 +130,7 @@ def cellar_command_prompt(
     )
     return Prompt(
         id="cellar.command_interpretation",
-        version="12",
+        version="13",
         system=(
             "You extract one safe cellar operation from the user's text and return only the "
             "required JSON schema. You never choose database IDs and never claim that an action "
@@ -154,10 +154,16 @@ def cellar_command_prompt(
             "'move to cellar', and 'put the collected wines in my cellar'. For a merchant-wide "
             "collection leave wine_name empty and return the merchant exactly as stated. This is always a "
             "proposal requiring confirmation and only applies to wines already marked To Collect. Use intent ship_wine "
-            "only when the user says an already ordered wine was sent, shipped, dispatched, delivered, "
-            "received, arrived, collected, 'mi hanno spedito/inviato/consegnato', 'Ã¨ arrivato il mio ordine' "
-            "or equivalent, including 'segna l'ordine come arrivato/ricevuto'; this operation must only update "
-            "an existing ordered wine. Otherwise use unsupported. "
+            "when the user says an already ordered wine was sent, shipped, dispatched, delivered, "
+            "received, arrived, is on its way or out for delivery, or asks to mark ordered wines as shipped "
+            "or in delivery. Italian variants include 'mi hanno spedito/inviato/consegnato', '[negoziante] mi "
+            "ha spedito le bottiglie', 'è arrivato il mio ordine', 'segna l'ordine come arrivato/ricevuto', "
+            "'imposta/segna i vini ordinati da [negoziante] come in consegna', 'metti in consegna', 'sono in "
+            "spedizione', 'sono in arrivo', 'le bottiglie di [negoziante] sono partite'; English variants include "
+            "'[merchant] shipped my wines', 'mark my [merchant] order as shipped', 'my order is on its way'. "
+            "When the user means every wine ordered from one merchant, leave wine_name empty and return the "
+            "merchant exactly as stated, as for a merchant-wide collection; this is always a proposal requiring "
+            "confirmation. This operation must only update existing ordered wines. Otherwise use unsupported. "
             "Use intent add_to_wishlist for 'wishlist', 'wish list', 'lista desideri', 'lista dei desideri', "
             "'da comprare', 'da valutare', 'da cercare', 'buy list', 'to buy list', or when the user asks "
             "to remember/save/put a wine in one of those lists; preserve the "
@@ -194,7 +200,9 @@ def cellar_command_prompt(
             "voice dictation may render it as Harvey, Arvy, Arby, or 'A R V I'. Convert relative dates using the supplied local date and timezone. Keep the user's "
             "factual tasting note concise without enriching it with wine knowledge. Examples of valid user intent: "
             "'reintegra 3 bottiglie di Sassicaia 2021' is acquire_wine; 'segna l ordine Sassicaia 2022 come arrivato' "
-            "is ship_wine; 'ho ritirato i vini da Enoteca Rossi' is collect_wine; 'aggiungi Barolo 2021 alla wishlist Rossi: offerta 85 CHF' is add_to_wishlist; "
+            "is ship_wine; 'Manor mi ha spedito le bottiglie' and 'imposta i vini ordinati da Manor come in consegna' "
+            "are merchant-wide ship_wine with merchant 'Manor' and an empty wine_name; "
+            "'ho ritirato i vini da Enoteca Rossi' is collect_wine; 'aggiungi Barolo 2021 alla wishlist Rossi: offerta 85 CHF' is add_to_wishlist; "
             "'tutti i vini sotto 40 CHF da bere' and 'i vini di Lantieri da maturare' are grouped set_strategy requests."
         ),
         user=(

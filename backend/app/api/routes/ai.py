@@ -1270,7 +1270,10 @@ def matching_cellar_command_producer_wines(
 
 
 def matching_cellar_command_collection_merchant_wines(
-    db: Session, context: CurrentContext, requested_merchant: str
+    db: Session,
+    context: CurrentContext,
+    requested_merchant: str,
+    required_status: str = "To Collect",
 ) -> list[Wine]:
     requested = normalize_cellar_command_identity(requested_merchant)
     if not requested:
@@ -1280,7 +1283,7 @@ def matching_cellar_command_collection_merchant_wines(
             select(Wine).where(
                 Wine.household_id == context.household.id,
                 Wine.quantity > 0,
-                Wine.status == "To Collect",
+                Wine.status == required_status,
             )
         )
     )
@@ -1544,9 +1547,12 @@ def cellar_command_intent_hint(raw_text: str) -> str | None:
     ):
         return "add_to_wishlist"
     if re.search(
-        r"\b(?:mi\s+hanno\s+(?:spedito|inviato|consegnato)|(?:ordine|bottiglie?).{0,120}\b(?:spedito|inviato|"
+        r"\b(?:mi\s+(?:hanno|ha)\s+(?:spedito|inviato|consegnato|mandato)|(?:ordine|bottiglie?).{0,120}\b(?:spedito|inviato|"
         r"consegnato|arrivato|ricevuto)|(?:segna|imposta|aggiorna).{0,80}\b(?:ordine|bottiglie?).{0,40}"
-        r"\b(?:arrivato|ricevuto|consegnato)|spedite|spediti|inviate|inviati|shipped|dispatched)\b",
+        r"\b(?:arrivato|ricevuto|consegnato)|(?:spedit\w*|inviat\w*|mandat\w*)\s+(?:le|i|gli)\s+(?:bottiglie|vini|ordini?)|"
+        r"(?:ordinat\w*|ordini?|ordine).{0,120}\b(?:in\s+consegna|in\s+spedizione|spedit\w*)|"
+        r"(?:segna|imposta|metti|sposta|aggiorna).{0,120}\b(?:in\s+consegna|in\s+spedizione|come\s+spedit\w*)|"
+        r"spedite|spediti|inviate|inviati|shipped|dispatched|on\s+(?:the|its|their)\s+way|out\s+for\s+delivery)\b",
         normalized,
     ):
         return "ship_wine"
@@ -2193,7 +2199,11 @@ def execute_cellar_ai_command(
             db,
             context,
             command,
-            message=f"Done. {wine.name} {wine.vintage} is now shipped.",
+            message=(
+                f"Fatto. {wine.name} {wine.vintage} è ora spedito."
+                if (command.parsed_payload or {}).get("_locale") == "it"
+                else f"Done. {wine.name} {wine.vintage} is now shipped."
+            ),
         )
     if command.intent == "collect_wine":
         if wine.status != "To Collect":
@@ -2856,6 +2866,41 @@ def create_cellar_ai_command(
             ),
         )
     if command.intent == "ship_wine":
+        merchant = str(parsed.get("merchant") or "").strip()
+        wine_name = str(parsed.get("wine_name") or "").strip()
+        if merchant and not wine_name:
+            shipped_wines = matching_cellar_command_collection_merchant_wines(
+                db, context, merchant, required_status="Ordered"
+            )
+            if not shipped_wines:
+                command.status = "not_found"
+                db.commit()
+                return cellar_command_response(
+                    db,
+                    context,
+                    command,
+                    message=(
+                        f"Non trovo vini ordinati da {merchant}."
+                        if payload.locale == "it"
+                        else f"I found no wines ordered from {merchant}."
+                    ),
+                )
+            parsed["_collection_wine_ids"] = [str(wine.id) for wine in shipped_wines]
+            command.parsed_payload = parsed
+            command.status = "needs_confirmation"
+            db.commit()
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message=(
+                    f"Ho trovato {len(shipped_wines)} vini ordinati da {merchant}. "
+                    "Controlla l’elenco e conferma: passeranno a Spedito."
+                    if payload.locale == "it"
+                    else f"I found {len(shipped_wines)} wines ordered from {merchant}. "
+                    "Review the list and confirm to mark them as shipped."
+                ),
+            )
         ranked = matching_cellar_command_wines(db, context, parsed, required_status="Ordered")
         if not ranked:
             command.status = "not_found"
@@ -2864,7 +2909,11 @@ def create_cellar_ai_command(
                 db,
                 context,
                 command,
-                message="Non trovo bottiglie ordinate corrispondenti. Puoi aggiungerle come nuovo ordine.",
+                message=(
+                    "Non trovo bottiglie ordinate corrispondenti. Puoi aggiungerle come nuovo ordine."
+                    if payload.locale == "it"
+                    else "I cannot find a matching ordered wine. You can add it as a new order."
+                ),
             )
         best_wine, best_score = ranked[0]
         clear_lead = len(ranked) == 1 or best_score - ranked[1][1] >= 20
@@ -2878,7 +2927,11 @@ def create_cellar_ai_command(
             db,
             context,
             command,
-            message="Ho trovato piÃ¹ bottiglie ordinate possibili. Scegli quella spedita.",
+            message=(
+                "Ho trovato più bottiglie ordinate possibili. Scegli quella spedita."
+                if payload.locale == "it"
+                else "I found several possible ordered wines. Choose the one that was shipped."
+            ),
         )
     if command.intent != "consume_wine":
         command.status = "unsupported"
@@ -2945,6 +2998,7 @@ def confirm_cellar_ai_command(
         return execute_bulk_cellar_strategy_command(db, context, command)
     if payload.confirm_all and (command.parsed_payload or {}).get("_collection_wine_ids"):
         parsed = dict(command.parsed_payload or {})
+        shipping = command.intent == "ship_wine"
         wine_ids = [UUID(value) for value in parsed["_collection_wine_ids"]]
         wines = list(
             db.scalars(
@@ -2953,31 +3007,40 @@ def confirm_cellar_ai_command(
                 .with_for_update()
             )
         )
+        expected_status = "Ordered" if shipping else "To Collect"
         if len(wines) != len(wine_ids) or any(
-            wine.status != "To Collect" or not user_can_see_wine(context, wine) for wine in wines
+            wine.status != expected_status or not user_can_see_wine(context, wine) for wine in wines
         ):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="One or more wines are no longer available for collection",
+                detail=(
+                    "One or more wines are no longer ordered"
+                    if shipping
+                    else "One or more wines are no longer available for collection"
+                ),
             )
         parsed["_collection_previous_statuses"] = {str(wine.id): wine.status for wine in wines}
         for wine in wines:
-            wine.status = "Delivered"
+            wine.status = "Shipped" if shipping else "Delivered"
         command.parsed_payload = parsed
         command.status = "executed"
         command.executed_at = datetime.now(UTC)
         db.commit()
         db.refresh(command)
-        return cellar_command_response(
-            db,
-            context,
-            command,
-            message=(
+        italian = parsed.get("_locale") == "it"
+        if shipping:
+            message = (
+                f"Fatto. {len(wines)} vini sono ora spediti."
+                if italian
+                else f"Done. {len(wines)} wines are now shipped."
+            )
+        else:
+            message = (
                 f"Fatto. {len(wines)} vini sono ora in cantina."
-                if parsed.get("_locale") == "it"
+                if italian
                 else f"Done. {len(wines)} wines are now in the cellar."
-            ),
-        )
+            )
+        return cellar_command_response(db, context, command, message=message)
     if payload.wine_id is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -3098,6 +3161,36 @@ def undo_cellar_ai_command(
             ),
         )
     collection_snapshots = parsed.get("_collection_previous_statuses")
+    if command.intent == "ship_wine" and isinstance(collection_snapshots, dict):
+        wine_ids = [UUID(value) for value in collection_snapshots]
+        wines = list(
+            db.scalars(
+                select(Wine)
+                .where(Wine.household_id == context.household.id, Wine.id.in_(wine_ids))
+                .with_for_update()
+            )
+        )
+        if len(wines) != len(wine_ids) or any(wine.status != "Shipped" for wine in wines):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="One or more shipped wines changed after this command",
+            )
+        for wine in wines:
+            wine.status = str(collection_snapshots[str(wine.id)])
+        command.status = "undone"
+        command.undone_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=(
+                f"Annullato. {len(wines)} vini sono di nuovo ordinati."
+                if parsed.get("_locale") == "it"
+                else f"Undone. {len(wines)} wines are ordered again."
+            ),
+        )
     if command.intent == "collect_wine" and isinstance(collection_snapshots, dict):
         wine_ids = [UUID(value) for value in collection_snapshots]
         wines = list(
@@ -3203,7 +3296,11 @@ def undo_cellar_ai_command(
             db,
             context,
             command,
-            message=f"Undone. {wine.name} {wine.vintage} is ordered again.",
+            message=(
+                f"Annullato. {wine.name} {wine.vintage} è di nuovo ordinato."
+                if parsed.get("_locale") == "it"
+                else f"Undone. {wine.name} {wine.vintage} is ordered again."
+            ),
         )
     if command.intent == "collect_wine":
         if wine.status != "Delivered":

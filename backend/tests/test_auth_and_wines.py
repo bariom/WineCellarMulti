@@ -5455,6 +5455,13 @@ def test_cellar_ai_falls_back_to_common_action_variants_when_ai_is_uncertain():
         "Mi hanno inviato le bottiglie di Sassicaia 2022.": "ship_wine",
         "Il mio ordine di Sassicaia 2022 Ã¨ arrivato.": "ship_wine",
         "Segna l'ordine di Sassicaia 2022 come ricevuto.": "ship_wine",
+        "Imposta i vini ordinati da Manor come in consegna.": "ship_wine",
+        "Manor mi ha spedito le bottiglie.": "ship_wine",
+        "Segna l'ordine Manor come spedito.": "ship_wine",
+        "Metti in consegna i vini di Manor.": "ship_wine",
+        "Manor shipped my wines.": "ship_wine",
+        "My Manor order is on its way.": "ship_wine",
+        "Ho ordinato 6 bottiglie di Sassicaia 2022, in arrivo a maggio.": "acquire_wine",
         "Ho ritirato Sassicaia 2022.": "collect_wine",
         "Ho ritirato i vini da Enoteca Rossi.": "collect_wine",
         "Sono passato a ritirare le bottiglie da Arvi.": "collect_wine",
@@ -5553,6 +5560,125 @@ def test_cellar_ai_shipment_updates_only_matching_ordered_wine(monkeypatch):
     assert missing.status_code == 200
     assert missing.json()["status"] == "not_found"
     assert missing.json()["purchase_draft"]["status"] == "Ordered"
+
+
+def test_cellar_ai_marks_every_wine_ordered_from_a_merchant_as_shipped(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    def add(name: str, merchant: str, status: str) -> str:
+        created = client.post(
+            "/api/v1/wines",
+            json={
+                "name": name,
+                "producer": "Producer",
+                "vintage": "2019",
+                "quantity": 6,
+                "merchant": merchant,
+                "status": status,
+            },
+        )
+        assert created.status_code == 201, created.text
+        return created.json()["id"]
+
+    verso = add("Verso", "Manor", "Ordered")
+    second = add("Barolo", "Manor", "Ordered")
+    delivered = add("Chianti", "Manor", "Delivered")
+    elsewhere = add("Soave", "Enoteca Rossi", "Ordered")
+
+    def fake_create_ai_response(*args, **kwargs):
+        return (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "intent": "ship_wine",
+                        "explicit_action": True,
+                        "wine_name": "",
+                        "producer": "",
+                        "vintage": "",
+                        "format": "",
+                        "quantity": 1,
+                        "consumed_at": "",
+                        "purchase_date": "",
+                        "purchase_price_present": False,
+                        "purchase_price": 0,
+                        "currency": "",
+                        "merchant": "Manor",
+                        "note": "",
+                        "score_present": False,
+                        "score_value": 0,
+                        "score_scale": 0,
+                        "enjoyment": "",
+                        "occasion": "",
+                        "pairing": "",
+                        "companions": "",
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=240, output_tokens=60, total_tokens=300),
+            ),
+            "credits",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_ai_response", fake_create_ai_response)
+    command = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Imposta i vini ordinati da Manor come in consegna.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+    assert command.status_code == 200, command.text
+    body = command.json()
+    assert body["status"] == "needs_confirmation"
+    assert body["collection_bulk"] is True
+    assert {candidate["wine_id"] for candidate in body["candidates"]} == {verso, second}
+    assert "2 vini ordinati da Manor" in body["message"]
+    # Nothing changes before the user confirms.
+    assert client.get(f"/api/v1/wines/{verso}").json()["status"] == "Ordered"
+
+    confirmed = client.post(
+        f"/api/v1/ai/cellar-commands/{body['command_id']}/execute", json={"confirm_all": True}
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["status"] == "executed"
+    assert confirmed.json()["message"] == "Fatto. 2 vini sono ora spediti."
+    statuses = {wine_id: client.get(f"/api/v1/wines/{wine_id}").json()["status"] for wine_id in [verso, second, delivered, elsewhere]}
+    assert statuses == {verso: "Shipped", second: "Shipped", delivered: "Delivered", elsewhere: "Ordered"}
+
+    undone = client.post(f"/api/v1/ai/cellar-commands/{body['command_id']}/undo")
+    assert undone.status_code == 200, undone.text
+    assert undone.json()["message"] == "Annullato. 2 vini sono di nuovo ordinati."
+    assert client.get(f"/api/v1/wines/{verso}").json()["status"] == "Ordered"
+    assert client.get(f"/api/v1/wines/{second}").json()["status"] == "Ordered"
+
+    nothing = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Manor mi ha spedito le bottiglie.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+    assert nothing.json()["status"] == "needs_confirmation"
+    client.post(f"/api/v1/ai/cellar-commands/{nothing.json()['command_id']}/execute", json={"confirm_all": True})
+    empty = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Manor mi ha spedito le bottiglie.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+    assert empty.json()["status"] == "not_found"
+    assert empty.json()["message"] == "Non trovo vini ordinati da Manor."
 
 
 def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):

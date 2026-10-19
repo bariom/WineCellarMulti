@@ -605,7 +605,9 @@ export default function CellarAssistantView({
                 </button>
               ))}
               {result.strategy_bulk ? <button type="button" onClick={() => void executeBulkStrategy()} disabled={busy}>{isItalian ? `Conferma tutti come ${strategyPurposeLabel(result.strategy_purpose || "")}` : `Confirm all ${strategyPurposeLabel(result.strategy_purpose || "")}`}</button> : null}
-              {result.collection_bulk ? <button type="button" onClick={() => void executeBulkStrategy()} disabled={busy}>{isItalian ? "Conferma ritiro e sposta in cantina" : "Confirm collection and move to cellar"}</button> : null}
+              {result.collection_bulk ? <button type="button" onClick={() => void executeBulkStrategy()} disabled={busy}>{result.intent === "ship_wine"
+                ? (isItalian ? (result.candidates.length === 1 ? "Conferma: segna il vino come spedito" : `Conferma: segna i ${result.candidates.length} vini come spediti`) : `Confirm: mark ${result.candidates.length === 1 ? "the wine" : `all ${result.candidates.length} wines`} as shipped`)
+                : (isItalian ? "Conferma ritiro e sposta in cantina" : "Confirm collection and move to cellar")}</button> : null}
             </div>
           ) : null}
           {result.catalog_candidates.length ? (
