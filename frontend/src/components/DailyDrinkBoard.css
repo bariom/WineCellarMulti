@@ -1,0 +1,89 @@
+.daily-board { display: grid; gap: 22px; min-width: 0; }
+.daily-board .app-icon { color: currentColor; }
+
+.daily-board-pick {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+  align-items: center;
+  gap: 28px;
+  padding: 26px 30px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 12% 30%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 55%),
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft, var(--surface)) 45%, var(--surface)), var(--surface));
+  box-shadow: 0 18px 40px -24px color-mix(in srgb, var(--text) 40%, transparent);
+}
+.daily-board-pick-visual { display: grid; place-items: center; min-height: 220px; }
+.daily-board-pick-visual .key-position-bottle-visual { width: 100%; max-width: 180px; height: 240px; }
+.daily-board-pick-copy { display: grid; gap: 10px; min-width: 0; }
+.daily-board-eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--accent); font-size: .76rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+.daily-board-pick h2 { margin: 0; font-size: clamp(1.6rem, 3vw, 2.3rem); line-height: 1.1; overflow-wrap: anywhere; }
+.daily-board-identity { margin: 0; color: var(--text-muted); font-size: 1rem; }
+.daily-board-reason { margin: 0; font-size: 1.02rem; line-height: 1.5; }
+.daily-board-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.daily-board-chips > span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); border-radius: var(--radius-pill); background: var(--surface); font-size: .82rem; font-weight: 650; }
+.daily-board-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px; }
+.daily-board-actions button { display: inline-flex; align-items: center; gap: 8px; }
+.daily-board-link { border-color: transparent; background: transparent; box-shadow: none; color: var(--accent); }
+
+.daily-board-empty { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 20px 22px; border: 1px dashed var(--border); border-radius: var(--radius-card); color: var(--text-muted); }
+.daily-board-empty > .app-icon { font-size: 1.8rem; }
+.daily-board-empty h2 { margin: 0; color: var(--text); font-size: 1.15rem; }
+.daily-board-empty p { margin: 4px 0 0; }
+
+.daily-board-section { display: grid; gap: 14px; }
+.daily-board-section > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.daily-board-section h3 { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 1.15rem; }
+.daily-board-section > header p { margin: 0; color: var(--text-muted); font-size: .88rem; }
+.daily-board-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.daily-board-filters button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface); box-shadow: none; color: var(--text); font-size: .84rem; font-weight: 650; }
+.daily-board-filters button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary); color: var(--primary-contrast); }
+.daily-board-filters small { opacity: .7; font-size: .76rem; }
+
+.daily-board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.daily-board-card {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--text);
+  text-align: left;
+  transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.daily-board-card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); box-shadow: 0 10px 22px -16px color-mix(in srgb, var(--text) 45%, transparent); transform: translateY(-1px); }
+.daily-board-card-visual .key-position-bottle-visual { width: 64px; height: 96px; }
+.daily-board-card-copy { display: grid; gap: 3px; min-width: 0; }
+.daily-board-card-copy strong { font-size: 1rem; overflow-wrap: anywhere; }
+.daily-board-card-copy > span { color: var(--text-muted); font-size: .8rem; }
+.daily-board-card-copy em { color: var(--text); font-size: .8rem; font-style: normal; line-height: 1.35; }
+.daily-board-card-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; color: var(--text-muted); font-size: .78rem; }
+.daily-board-card-meta > span { display: inline-flex; align-items: center; gap: 5px; }
+.daily-board-card-meta b { color: var(--accent); font-size: .8rem; }
+.daily-board-note { margin: 0; color: var(--text-muted); }
+
+.daily-board-premium { padding: 18px; border: 1px solid color-mix(in srgb, #d8b366 40%, var(--border)); border-radius: 18px; background: linear-gradient(140deg, color-mix(in srgb, #d8b366 10%, var(--surface)), var(--surface)); }
+.daily-board-premium h3 .app-icon { color: #b8964c; }
+.daily-board-grid.is-premium .daily-board-card { border-color: color-mix(in srgb, #d8b366 30%, var(--border)); }
+
+.daily-board-lower { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+
+@media (prefers-reduced-motion: reduce) { .daily-board-card { transition: none; } .daily-board-card:hover { transform: none; } }
+
+@media (max-width: 700px) {
+  .daily-board-pick { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 18px; }
+  .daily-board-pick-visual { min-height: 0; }
+  .daily-board-pick-visual .key-position-bottle-visual { max-width: 120px; height: 160px; }
+  .daily-board-actions button { flex: 1 1 auto; justify-content: center; }
+  .daily-board-link { flex-basis: 100% !important; }
+  .daily-board-empty { grid-template-columns: auto minmax(0, 1fr); }
+  .daily-board-empty > button { grid-column: 1 / -1; justify-self: start; }
+  .daily-board-grid { grid-template-columns: minmax(0, 1fr); }
+}

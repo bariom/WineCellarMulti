@@ -56,10 +56,10 @@ for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "dat
           expect(titleBounds.x + titleBounds.width).toBeLessThanOrEqual(bounds.x + bounds.width);
         }
       }
-      if (focus === "daily" && width < 900) {
-        for (const empty of await dashboard.locator(".daily-tone-empty").all()) {
-          expect((await empty.boundingBox())!.height).toBeLessThanOrEqual(120);
-        }
+      if (focus === "daily") {
+        await expect(dashboard.locator(".daily-board-pick")).toBeVisible();
+        // Nothing on this view moves by itself any more.
+        await expect(dashboard.locator(".dashboard-bottle-slideshow")).toHaveCount(0);
       }
       if (focus === "value" && width === 1440) {
         const tile = dashboard.locator(".top-value-showcase-item").first();
@@ -93,7 +93,8 @@ test("editorial surfaces respect every user theme", async ({ page }, testInfo) =
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "daily" });
   await page.goto("/");
-  await expect(page.locator(".daily-picks-card")).toBeVisible();
+  const surfaceCard = page.locator(".daily-board-lower .dashboard-card").first();
+  await expect(surfaceCard).toBeVisible();
   for (const theme of ["light", "dark", "private-cellar", "sepia", "white-wine", "red-wine", "rose-wine", "champagne", "bordeaux", "burgundy", "tuscany", "piedmont", "ticino", "atelier", "midnight-ledger", "maison-champagne", "pietra-vigna", "cave-privee"]) {
     await page.evaluate((selected) => document.documentElement.setAttribute("data-theme", selected), theme);
     await expect(page.locator(".authenticated-app-shell")).toHaveCSS("background-image", "none");
@@ -105,7 +106,7 @@ test("editorial surfaces respect every user theme", async ({ page }, testInfo) =
       document.body.append(probe);
       const surface = getComputedStyle(probe).backgroundColor;
       probe.remove();
-      return surface === getComputedStyle(document.querySelector(".daily-picks-card")!).backgroundColor;
+      return surface === getComputedStyle(document.querySelector(".daily-board-lower .dashboard-card")!).backgroundColor;
     })).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     if (["light", "atelier", "private-cellar", "midnight-ledger"].includes(theme)) {

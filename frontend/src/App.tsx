@@ -127,6 +127,7 @@ const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView
 const AI_PACK_ENHANCEMENT_DISMISS_KEY = "vinaris.ai-pack-enhancement-dismissed-until";
 const AI_PACK_ENHANCEMENT_REMINDER_MS = 7 * 24 * 60 * 60 * 1000;
 const PublicLanding = lazy(() => import("./views/PublicLanding"));
+const DailyDrinkBoard = lazy(() => import("./components/DailyDrinkBoard"));
 const DataQualityBoard = lazy(() => import("./components/DataQualityBoard"));
 const DeliveryTimelineCard = lazy(() => import("./components/DeliveryTimelineCard"));
 const MaturityPanorama = lazy(() => import("./components/MaturityPanorama").then((module) => ({ default: module.MaturityPanorama })));
@@ -6655,14 +6656,6 @@ export function App() {
         .filter((wine) => wineUnitValue(wine) > dailyWineBudgetChf)
         .slice(0, 8)
     : [];
-  const dailyLightGroups = dailyTonightGroups.filter(({ tone }) => ["sparkling", "white", "rose"].includes(tone));
-  const dailyStructuredGroups = dailyTonightGroups.filter(
-    ({ tone, wines: groupWines }) => tone === "red" || (["sweet", "other"].includes(tone) && groupWines.length > 0),
-  );
-  const dailyTonightWines = [
-    ...dailyTonightGroups.flatMap(({ wines: groupWines }) => groupWines),
-    ...dailyPremiumWines,
-  ];
   // This is deliberately deterministic: it reuses the cellar data already in
   // memory and never turns a dashboard visit into an AI request.
   const dailySommelierWines = rankedDailyTonightWines.slice(0, 3);
@@ -6756,9 +6749,6 @@ export function App() {
     rows.forEach((row) => observer.observe(row));
     return () => observer.disconnect();
   }, [activeView, filteredWines, isRestaurant]);
-  const dailyTonightStyleCount = new Set(
-    dailyTonightWines.map((wine) => wineTone(wine.type)),
-  ).size;
   // Year beside a sommelier suggestion, phrased like the cellar row's maturity line.
   const sommelierWindowLabel = (wine: Wine) => {
     const idealStart = wine.drink_peak_from || wine.drink_from;
@@ -6781,70 +6771,6 @@ export function App() {
       && wine.drink_peak_to >= currentYear
     ) return t("dailyReasonAtPeak");
     return t("dailyReasonRotation");
-  };
-  const renderDailyToneGroup = (
-    { tone, label, wines: groupWines }: (typeof dailyTonightGroups)[number],
-    groupIndex: number,
-  ) => {
-    const premiumForTone = dailyPremiumWines.filter((wine) => wineTone(wine.type) === tone).length;
-    return (
-      <section className={`daily-tone-group${groupWines.length ? "" : " is-empty"}`} key={tone}>
-      <div className="daily-tone-heading">
-        <span>
-          <i className={`wine-dot tone-${tone}`} />
-          {label}
-        </span>
-        <small>{groupWines.length} {t("wines").toLowerCase()}</small>
-      </div>
-      {groupWines.length ? (
-        <DashboardBottleSlideshow
-          variant="daily"
-          autoAdvanceMs={5200 + groupIndex * 600}
-          wines={groupWines}
-          canShowPhotos={canAccessWinePhotos}
-          onOpen={openWineFromDashboard}
-          meta={dailyRecommendationReason}
-          budgetMeta={hasDailyWineBudget ? (wine) => ({
-            overBudget: false,
-            label: `${t("dailyWithinBudget")} · ${formatMoney(wineUnitValue(wine), "CHF", locale)}`,
-          }) : undefined}
-          label={`${t("whatToDrinkTonight")}: ${label}`}
-          previousLabel={locale === "it" ? `${label}: vino precedente` : `${label}: previous wine`}
-          nextLabel={locale === "it" ? `${label}: vino successivo` : `${label}: next wine`}
-          pauseLabel={locale === "it" ? `Pausa slideshow ${label}` : `Pause ${label} slideshow`}
-          playLabel={locale === "it" ? `Avvia slideshow ${label}` : `Play ${label} slideshow`}
-        />
-      ) : (
-        <div className="daily-tone-empty">
-          <AppIcon
-            name={tone === "sparkling" ? "glass-sparkle" : "bottle"}
-            variant="feature"
-            tone="muted"
-            size="1.55rem"
-          />
-          <strong>{t(hasDailyWineBudget ? "dailyNoWithinBudget" : "dailyNoReadyForStyle")}</strong>
-          <span>
-            {premiumForTone
-              ? `${premiumForTone} ${t(premiumForTone === 1 ? "dailyPremiumAvailableOne" : "dailyPremiumAvailableMany")}`
-              : t("dailyNoPremiumForStyle")}
-          </span>
-          {premiumForTone ? (
-            <button
-              type="button"
-              className="secondary compact"
-              onClick={() => {
-                const panel = document.getElementById("daily-premium-alternatives");
-                panel?.scrollIntoView({ behavior: "smooth", block: "center" });
-                panel?.focus({ preventScroll: true });
-              }}
-            >
-              {t("dailyViewPremium")}
-            </button>
-          ) : null}
-        </div>
-      )}
-    </section>
-    );
   };
   const balancedAvailableWines = cellarWines.filter(
     (wine) => isWinePhysicallyInCellar(wine) && ownedBottleCount(wine, session) > 0,
@@ -8437,86 +8363,6 @@ export function App() {
                       ))}
                     </div>
                   {!valueByProducer.length && <p className="empty-state">{t("noActionItems")}</p>}
-                  </article>);
-  }
-
-  function renderTonightWidget() {
-    return (<article className="dashboard-card wide-card daily-picks-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("dailyTonightEyebrow")}</span>
-                        <h2>{t("whatToDrinkTonight")}</h2>
-                      </div>
-                      <strong>{dailyTonightWines.length}</strong>
-                    </div>
-                    <p className="dashboard-card-intro">{t("dailyTonightHelp")}</p>
-                    {dailyTonightWines.length ? (
-                      <div className="daily-pick-layout">
-                        {dailyLightGroups.length ? (
-                          <section className="daily-style-collection">
-                            <div className="daily-style-heading">
-                              <span>{t("dailyLightStyles")}</span>
-                              <small>{t("dailyLightStylesHelp")}</small>
-                            </div>
-                            <div className="daily-pick-grid daily-light-grid">
-                              {dailyLightGroups.map((group, index) => renderDailyToneGroup(group, index))}
-                            </div>
-                          </section>
-                        ) : null}
-
-                        <div className="daily-lower-layout">
-                          {dailyStructuredGroups.length ? (
-                            <section className="daily-style-collection daily-structured-collection">
-                              <div className="daily-style-heading">
-                                <span>{t("dailyStructuredStyles")}</span>
-                                <small>{t("dailyStructuredStylesHelp")}</small>
-                              </div>
-                              <div className="daily-pick-grid daily-structured-grid">
-                                {dailyStructuredGroups.map((group, index) => renderDailyToneGroup(group, index + 3))}
-                              </div>
-                            </section>
-                          ) : null}
-
-                          {dailyPremiumWines.length ? (
-                            <aside
-                              className="daily-premium-panel"
-                              id="daily-premium-alternatives"
-                              tabIndex={-1}
-                            >
-                              <div className="daily-premium-heading">
-                                <div>
-                                  <span>
-                                    <AppIcon name="glass-sparkle" variant="premium" tone="accent" size="1rem" />
-                                    {t("dailyPremiumTitle")}
-                                  </span>
-                                  <small>{t("dailyPremiumHelp")}</small>
-                                </div>
-                                <strong>{dailyPremiumWines.length}</strong>
-                              </div>
-                              <DashboardBottleSlideshow
-                                variant="daily"
-                                autoAdvanceMs={7600}
-                                wines={dailyPremiumWines}
-                                canShowPhotos={canAccessWinePhotos}
-                                onOpen={openWineFromDashboard}
-                                meta={dailyRecommendationReason}
-                                budgetMeta={(wine) => ({
-                                  overBudget: true,
-                                  label: `${t("dailyPremiumProposal")} · ${wineToneLabel(wineTone(wine.type), locale)} · ${formatMoney(wineUnitValue(wine), "CHF", locale)}`,
-                                })}
-                                label={t("dailyPremiumTitle")}
-                                previousLabel={locale === "it" ? "Alternativa premium precedente" : "Previous premium alternative"}
-                                nextLabel={locale === "it" ? "Alternativa premium successiva" : "Next premium alternative"}
-                                pauseLabel={locale === "it" ? "Pausa alternative premium" : "Pause premium alternatives"}
-                                playLabel={locale === "it" ? "Avvia alternative premium" : "Play premium alternatives"}
-                              />
-                            </aside>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="empty-state">{t("dailyNoReadyWine")}</p>
-                    )}
                   </article>);
   }
 
@@ -10685,60 +10531,30 @@ export function App() {
                 renderWidget={renderPersonalWidget}
               /></Suspense> : null}
               {dashboardFocus === "daily" ? (
-                <DashboardCarousel locale={locale} label={t("dailyFocus")} className="daily-dashboard-carousel">
-                  {renderTonightWidget()}
-
-                  <article className="dashboard-card daily-summary-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("dailyRotation")}</span>
-                        <h2>{t("readyToDrink")}</h2>
-                      </div>
-                      <strong>{readyInCellarWineCount}</strong>
-                    </div>
-                    <div className="daily-summary-kpis">
-                      <div>
-                        <span>{t("dailySuggestedStyles")}</span>
-                        <strong>{dailyTonightStyleCount}</strong>
-                      </div>
-                      <div>
-                        <span>{t("dailySuggestedWines")}</span>
-                        <strong>{dailyTonightWines.length}</strong>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => openOperationalCellarFilter("drink_now")}
-                    >
-                      {t("openFilteredCellar")}
-                    </button>
-                  </article>
-
-                  <article className="dashboard-card daily-pairing-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("pairing")}</span>
-                        <h2>{t("dailyPairingTitle")}</h2>
-                      </div>
-                    </div>
-                    <p>{t("dailyPairingHelp")}</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveView("pairing");
-                        setWineFormOpen(false);
-                        setWishlistFormOpen(false);
-                      }}
-                    >
-                      {t("openPairing")}
-                    </button>
-                  </article>
-
-                  {renderPastWindowWidget()}
-
-                  {renderMaturityHeatmapCard()}
-                </DashboardCarousel>
+                <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+                  <DailyDrinkBoard
+                    locale={locale}
+                    t={t}
+                    groups={dailyTonightGroups}
+                    ranking={rankedDailyTonightWines}
+                    premiumWines={dailyPremiumWines}
+                    budgetChf={hasDailyWineBudget ? dailyWineBudgetChf : null}
+                    canShowPhotos={canAccessWinePhotos}
+                    reason={dailyRecommendationReason}
+                    windowLabel={sommelierWindowLabel}
+                    price={(wine) => wineUnitValue(wine) > 0 ? formatMoney(wineUnitValue(wine), "CHF", locale) : ""}
+                    onOpenWine={openWineFromDashboard}
+                    onPairWine={(wine) => openDishPairingForWine(wine)}
+                    onOpenPairing={() => {
+                      setActiveView("pairing");
+                      setWineFormOpen(false);
+                      setWishlistFormOpen(false);
+                    }}
+                  >
+                    {renderPastWindowWidget()}
+                    {renderMaturityHeatmapCard()}
+                  </DailyDrinkBoard>
+                </Suspense>
               ) : null}
 
               {dashboardFocus === "balanced" ? (

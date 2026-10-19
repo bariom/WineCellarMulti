@@ -178,7 +178,8 @@ test("ready-to-drink totals consistently count wines when labelled as wines", as
   const readyKpi = page.locator(".hero-kpi").filter({ hasText: "Pronti da bere" });
   await expect(readyKpi.locator("strong")).toHaveText("2");
   await expect(readyKpi).toContainText("Vini");
-  await expect(page.locator(".daily-summary-card .card-heading > strong")).toHaveText("2");
+  // Tonight's pick plus the other ready idea: the same two wines.
+  await expect(page.locator(".daily-board-pick, .daily-board-card")).toHaveCount(2);
 });
 
 for (const width of [360, 390, 430, 1440]) {
@@ -441,8 +442,8 @@ test("scroll cues stay hidden for one wine and follow dashboard overflow", async
   await expect(recent.getByRole("listitem")).toHaveCount(1);
   await expect(recent.getByRole("group")).toHaveCount(0);
   await expect(recent.getByText("Scorri per esplorare →")).toHaveCount(0);
-  await page.getByRole("tab", { name: "Bere bene oggi", exact: true }).click();
-  const shell = page.locator(".daily-dashboard-carousel");
+  await page.getByRole("tab", { name: "Cantina equilibrata", exact: true }).click();
+  const shell = page.locator(".balanced-dashboard-carousel");
   await expect(shell).toBeVisible();
   const overflows = await shell.locator(".dashboard-grid").evaluate(el => el.scrollWidth > el.clientWidth + 2);
   if (overflows) {
