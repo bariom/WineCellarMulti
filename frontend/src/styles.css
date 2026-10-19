@@ -8852,6 +8852,30 @@ button.balance-indicator:focus-visible {
 .restaurant-wine-list-result details p { white-space: pre-wrap; }
 .restaurant-wine-list-result ul { margin: 7px 0 0; padding-left: 18px; }
 .restaurant-wine-list-error { margin: 0; color: var(--danger); }
+.restaurant-wine-list-pages { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.restaurant-wine-list-pages li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 6px 6px 12px; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line)); border-radius: var(--radius-control); background: color-mix(in srgb, var(--accent-soft) 30%, var(--surface)); }
+.restaurant-wine-list-pages li > span { color: var(--accent); font-size: .7rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; white-space: nowrap; }
+.restaurant-wine-list-pages li > b { overflow: hidden; font-size: .84rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.restaurant-wine-list-pages li > button { display: grid; place-items: center; min-width: 34px; min-height: 34px; padding: 0; }
+.restaurant-wine-list-chat { display: grid; gap: 10px; padding: 14px 15px; border-radius: var(--radius-card); border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line)); background: color-mix(in srgb, var(--surface) 88%, var(--accent-soft)); }
+.restaurant-wine-list-chat-heading { display: grid; gap: 3px; }
+.restaurant-wine-list-chat-heading h4 { margin: 0; font-size: .98rem; }
+.restaurant-wine-list-chat-heading span { color: var(--text-muted); font-size: .8rem; }
+.restaurant-wine-list-chat-suggestions { display: flex; flex-wrap: wrap; gap: 6px; }
+.restaurant-wine-list-chat-suggestions button { max-width: 100%; white-space: normal; text-align: left; }
+.restaurant-wine-list-chat-log { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.restaurant-wine-list-chat-log > li { max-width: min(88%, 680px); padding: 10px 13px; border-radius: 14px; overflow-wrap: anywhere; }
+.restaurant-wine-list-chat-log > li p { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+.restaurant-wine-list-chat-log > li.is-user { justify-self: end; border-bottom-right-radius: 4px; background: var(--primary); color: var(--primary-contrast); }
+.restaurant-wine-list-chat-log > li.is-user p { color: inherit; }
+.restaurant-wine-list-chat-log > li.is-assistant { justify-self: start; border-bottom-left-radius: 4px; border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line)); background: var(--surface); }
+.restaurant-wine-list-chat-log > li.is-assistant p { color: var(--text); }
+.restaurant-wine-list-chat-log > li.is-pending p { color: var(--text-muted); font-style: italic; }
+.restaurant-wine-list-chat-log > li ul { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; padding: 0; list-style: none; }
+.restaurant-wine-list-chat-log > li ul li { padding: 3px 9px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); font-size: .76rem; font-weight: 650; }
+.restaurant-wine-list-chat-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.restaurant-wine-list-chat-form input { min-width: 0; }
+.restaurant-wine-list-chat > small { color: var(--text-muted); font-size: .8rem; }
 
 @media (max-width: 700px) {
   .restaurant-wine-list-card, .restaurant-wine-list-form { grid-template-columns: 1fr; }

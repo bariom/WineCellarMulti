@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { AppIcon, FeatureIcon } from "../components/AppIcon";
 import { EmptyState } from "../components/AppUi";
 import { reasoningEffortTranslationKey } from "../i18n";
-import type { RestaurantWineListScanResult } from "../types";
+import type { RestaurantWineListQuestionPayload, RestaurantWineListQuestionResult, RestaurantWineListScanResult } from "../types";
 
 type WineLike = {
   id: string;
@@ -64,6 +64,7 @@ type PairingViewProps = {
   onGeneratePairing: (event: FormEvent<HTMLFormElement>, context?: [string | null, string, string]) => void;
   onOpenWine: (wine: any) => void;
   onScanRestaurantWineList: (formData: FormData) => Promise<RestaurantWineListScanResult>;
+  onAskRestaurantWineList: (payload: RestaurantWineListQuestionPayload) => Promise<RestaurantWineListQuestionResult>;
   onSavePairingPreferences: () => void;
   setAiSettingsDraft: (value: any) => void;
   setPairingDish: (value: string) => void;
@@ -113,6 +114,10 @@ function SommelierAiIllustration() {
   return <img src="/images/sommelier_ai.png" alt="Sommelier AI" loading="lazy" />;
 }
 
+const restaurantListMaxPages = 4;
+// Each exchange adds two turns; only the latest eight are sent back as context.
+const restaurantQuestionMaxTurns = 16;
+
 export default function PairingView({
   activePairingBudget,
   aiSettingsDraft,
@@ -126,6 +131,7 @@ export default function PairingView({
   onGeneratePairing,
   onOpenWine,
   onScanRestaurantWineList,
+  onAskRestaurantWineList,
   onSavePairingPreferences,
   pairingBudgetPresets,
   pairingBudgetSliderMax,
@@ -158,12 +164,16 @@ export default function PairingView({
   const [pairingDietaryPreferences, setPairingDietaryPreferences] = useState("");
   const [pairingAllergies, setPairingAllergies] = useState("");
   const [pairingSetupOpen, setPairingSetupOpen] = useState(true);
-  const [restaurantListImage, setRestaurantListImage] = useState<File | null>(null);
+  const [restaurantListImages, setRestaurantListImages] = useState<File[]>([]);
   const [restaurantDish, setRestaurantDish] = useState("");
   const [restaurantBudget, setRestaurantBudget] = useState("");
   const [restaurantIgnoreTaste, setRestaurantIgnoreTaste] = useState(false);
   const [restaurantScan, setRestaurantScan] = useState<RestaurantWineListScanResult | null>(null);
   const [restaurantScanError, setRestaurantScanError] = useState("");
+  const [restaurantConversation, setRestaurantConversation] = useState<Array<{ role: "user" | "assistant"; content: string; wines?: number[] }>>([]);
+  const [restaurantQuestion, setRestaurantQuestion] = useState("");
+  const [restaurantPendingQuestion, setRestaurantPendingQuestion] = useState("");
+  const [restaurantQuestionError, setRestaurantQuestionError] = useState("");
   const [restaurantFlow, setRestaurantFlow] = useState<"choose" | "scan" | "without-list" | "result">("choose");
   const [selectedPairingLocation, setPairingLocation] = useState<"choose" | "home" | "restaurant">("choose");
   const restaurantResultRef = useRef<HTMLDivElement>(null);
@@ -244,26 +254,66 @@ export default function PairingView({
     }
   }
 
+  function addRestaurantListPages(input: HTMLInputElement) {
+    const files = Array.from(input.files || []);
+    input.value = "";
+    if (!files.length) return;
+    const next = [...restaurantListImages, ...files];
+    setRestaurantScanError(next.length > restaurantListMaxPages
+      ? (locale === "it" ? `Puoi analizzare al massimo ${restaurantListMaxPages} pagine per volta.` : `You can analyse up to ${restaurantListMaxPages} pages at a time.`)
+      : "");
+    setRestaurantListImages(next.slice(0, restaurantListMaxPages));
+  }
+
   async function scanRestaurantList(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!restaurantListImage) {
+    if (!restaurantListImages.length) {
       setRestaurantScanError(locale === "it" ? "Scegli una foto della carta vini." : "Choose a wine-list photo.");
       return;
     }
     setRestaurantScanError("");
     const formData = new FormData();
-    formData.set("image", restaurantListImage);
+    restaurantListImages.forEach((file) => formData.append("images", file));
     formData.set("dish", restaurantDish.trim());
     formData.set("max_price_chf", restaurantBudget.trim());
     formData.set("ignore_preferences", String(restaurantIgnoreTaste));
     try {
       const result = await onScanRestaurantWineList(formData);
       setRestaurantScan(result);
+      setRestaurantConversation([]);
+      setRestaurantQuestion("");
+      setRestaurantQuestionError("");
       setRestaurantFlow("result");
     } catch (error) {
       setRestaurantScanError(error instanceof Error ? error.message : (locale === "it" ? "Non è stato possibile analizzare la carta vini." : "The wine list could not be analysed."));
     }
   }
+  async function askRestaurantList(question: string) {
+    const trimmed = question.trim();
+    if (!restaurantScan || trimmed.length < 2 || restaurantPendingQuestion) return;
+    setRestaurantQuestionError("");
+    setRestaurantPendingQuestion(trimmed);
+    setRestaurantQuestion("");
+    try {
+      const result = await onAskRestaurantWineList({
+        question: trimmed,
+        wines: restaurantScan.wines,
+        history: restaurantConversation.slice(-8).map(({ role, content }) => ({ role, content: content.slice(0, 1500) })),
+        dish: restaurantDish.trim(),
+        max_price_chf: restaurantBudget.trim() || null,
+        ignore_preferences: restaurantIgnoreTaste,
+      });
+      setRestaurantConversation((current) => [...current, { role: "user", content: trimmed }, { role: "assistant", content: result.answer, wines: result.referenced_indexes }]);
+    } catch (error) {
+      setRestaurantQuestion(trimmed);
+      setRestaurantQuestionError(error instanceof Error ? error.message : (locale === "it" ? "Non è stato possibile rispondere." : "The question could not be answered."));
+    } finally {
+      setRestaurantPendingQuestion("");
+    }
+  }
+  const restaurantQuestionSuggestions = locale === "it"
+    ? [restaurantScan && restaurantScan.recommendations.length > 1 ? "Confronta le prime due scelte" : "Qual è il vino più versatile della carta?", "Cosa abbino al dessert?", "C'è un'alternativa più economica?"]
+    : [restaurantScan && restaurantScan.recommendations.length > 1 ? "Compare the first two choices" : "Which is the most versatile wine on the list?", "What goes with dessert?", "Is there a cheaper alternative?"];
   const pairingDishSummary = pairingResult?.dish_recommendations.length
     ? pairingResult.dish_recommendations.map((dish) => dish.name).join(" · ")
     : "";
@@ -301,9 +351,10 @@ export default function PairingView({
         </div> : restaurantFlow === "scan" ? <form className="restaurant-wine-list-form" onSubmit={(event) => void scanRestaurantList(event)}>
           <div className="restaurant-wine-list-form-heading"><strong>{locale === "it" ? "Analizza carta vini" : "Analyse wine list"}</strong><button type="button" className="secondary compact" onClick={() => setRestaurantFlow("choose")}>{locale === "it" ? "Cambia percorso" : "Change path"}</button></div>
           <div className="restaurant-wine-list-upload">
-            <label className="restaurant-wine-list-camera" title={locale === "it" ? "Scatta una foto della carta vini" : "Take a wine-list photo"}><span><AppIcon name="camera" size="1.2rem" /><b>{locale === "it" ? "Scatta una foto" : "Take a photo"}</b></span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => setRestaurantListImage(event.target.files?.[0] || null)} disabled={!canGenerateAi || generatingAi === "restaurant-wine-list"} /></label>
-            <label className="restaurant-wine-list-upload-button"><span><AppIcon name="import" size="1.05rem" /><b>{locale === "it" ? "Carica una foto" : "Upload a photo"}</b></span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setRestaurantListImage(event.target.files?.[0] || null)} disabled={!canGenerateAi || generatingAi === "restaurant-wine-list"} /></label>
-            <small>{restaurantListImage ? restaurantListImage.name : (locale === "it" ? "JPG, PNG o WebP; la foto viene elaborata senza essere archiviata." : "JPG, PNG, or WebP; the photo is processed without being stored.")}</small>
+            <label className="restaurant-wine-list-camera" title={locale === "it" ? "Scatta una foto della carta vini" : "Take a wine-list photo"}><span><AppIcon name="camera" size="1.2rem" /><b>{restaurantListImages.length ? (locale === "it" ? "Scatta un'altra pagina" : "Photograph another page") : (locale === "it" ? "Scatta una foto" : "Take a photo")}</b></span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => addRestaurantListPages(event.currentTarget)} disabled={!canGenerateAi || generatingAi === "restaurant-wine-list" || restaurantListImages.length >= restaurantListMaxPages} /></label>
+            <label className="restaurant-wine-list-upload-button"><span><AppIcon name="import" size="1.05rem" /><b>{locale === "it" ? "Carica foto" : "Upload photos"}</b></span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => addRestaurantListPages(event.currentTarget)} disabled={!canGenerateAi || generatingAi === "restaurant-wine-list" || restaurantListImages.length >= restaurantListMaxPages} /></label>
+            {restaurantListImages.length ? <ol className="restaurant-wine-list-pages" aria-label={locale === "it" ? "Pagine della carta" : "Wine-list pages"}>{restaurantListImages.map((file, index) => <li key={`${file.name}-${index}`}><span>{locale === "it" ? `Pagina ${index + 1}` : `Page ${index + 1}`}</span><b>{file.name}</b><button type="button" className="secondary compact" aria-label={locale === "it" ? `Rimuovi pagina ${index + 1}` : `Remove page ${index + 1}`} onClick={() => setRestaurantListImages((current) => current.filter((_, position) => position !== index))}><AppIcon name="delete" size="0.95rem" /></button></li>)}</ol> : null}
+            <small>{locale === "it" ? `Fino a ${restaurantListMaxPages} pagine della stessa carta · JPG, PNG o WebP; le foto vengono elaborate senza essere archiviate.` : `Up to ${restaurantListMaxPages} pages of the same list · JPG, PNG, or WebP; photos are processed without being stored.`}</small>
           </div>
           <label><span>{locale === "it" ? "Piatto (facoltativo)" : "Dish (optional)"}</span><input value={restaurantDish} maxLength={240} onChange={(event) => setRestaurantDish(event.target.value)} placeholder={locale === "it" ? "Es. risotto ai funghi" : "E.g. mushroom risotto"} /></label>
           <label><span>{locale === "it" ? "Budget massimo (CHF)" : "Maximum budget (CHF)"}</span><input type="number" min="1" inputMode="decimal" value={restaurantBudget} onChange={(event) => setRestaurantBudget(event.target.value)} placeholder="60" /></label>
@@ -321,6 +372,18 @@ export default function PairingView({
             <div className="restaurant-wine-list-recommendation-head"><span className="restaurant-wine-list-rank">{String(index + 1).padStart(2, "0")}</span><div><strong>{wine.name}</strong><span>{[wine.producer, wine.vintage, wine.style].filter(Boolean).join(" · ")}</span>{wine.taste_affinity > 0 ? <span className="restaurant-taste-affinity" aria-label={locale === "it" ? `Affinità AI con il tuo gusto: ${wine.taste_affinity} su 6` : `AI taste affinity: ${wine.taste_affinity} out of 6`}>{Array.from({ length: 6 }, (_, heart) => <i key={heart} className={heart < wine.taste_affinity ? "filled" : ""} aria-hidden="true">♥</i>)}</span> : null}</div>{wine.price_text ? <b>{wine.price_text}</b> : null}</div>
             <p>{wine.reason}</p>{wine.serving_note ? <small><span>{locale === "it" ? "Servizio" : "Service"}</span>{wine.serving_note}</small> : null}
           </article>)}</section> : null}
+          {restaurantScan.wines.length ? <section className="restaurant-wine-list-chat" aria-labelledby="restaurant-wine-list-chat-title">
+            <div className="restaurant-wine-list-chat-heading"><h4 id="restaurant-wine-list-chat-title">{locale === "it" ? "Chiedi al sommelier" : "Ask the sommelier"}</h4><span>{locale === "it" ? `Risponde solo sui ${restaurantScan.wines.length} vini letti nella carta.` : `Answers only about the ${restaurantScan.wines.length} wines read from the list.`}</span></div>
+            {restaurantConversation.length || restaurantPendingQuestion ? <ol className="restaurant-wine-list-chat-log" aria-live="polite">
+              {restaurantConversation.map((turn, index) => <li key={index} className={`is-${turn.role}`}><p>{turn.content}</p>{turn.wines?.length ? <ul>{turn.wines.map((wineIndex) => { const wine = restaurantScan.wines[wineIndex]; return wine ? <li key={wineIndex}>{[wine.name, wine.vintage, wine.price_text].filter(Boolean).join(" · ")}</li> : null; })}</ul> : null}</li>)}
+              {restaurantPendingQuestion ? <><li className="is-user"><p>{restaurantPendingQuestion}</p></li><li className="is-assistant is-pending"><p>{locale === "it" ? "Il sommelier sta leggendo la carta…" : "The sommelier is reading the list…"}</p></li></> : null}
+            </ol> : <div className="restaurant-wine-list-chat-suggestions">{restaurantQuestionSuggestions.map((suggestion) => <button type="button" className="secondary compact" key={suggestion} disabled={!canGenerateAi || Boolean(restaurantPendingQuestion)} onClick={() => void askRestaurantList(suggestion)}>{suggestion}</button>)}</div>}
+            {restaurantConversation.length < restaurantQuestionMaxTurns ? <form className="restaurant-wine-list-chat-form" onSubmit={(event) => { event.preventDefault(); void askRestaurantList(restaurantQuestion); }}>
+              <input value={restaurantQuestion} maxLength={500} onChange={(event) => setRestaurantQuestion(event.target.value)} placeholder={locale === "it" ? "Es. meglio il Barolo o il Brunello con il brasato?" : "E.g. Barolo or Brunello with the braised beef?"} aria-label={locale === "it" ? "Domanda sulla carta" : "Question about the list"} disabled={!canGenerateAi || Boolean(restaurantPendingQuestion)} />
+              <button type="submit" disabled={!canGenerateAi || Boolean(restaurantPendingQuestion) || restaurantQuestion.trim().length < 2}>{locale === "it" ? "Chiedi" : "Ask"}</button>
+            </form> : <small>{locale === "it" ? "Hai raggiunto il limite di domande per questa carta: avvia una nuova analisi per continuare." : "You have reached the question limit for this list: start a new analysis to continue."}</small>}
+            {restaurantQuestionError ? <p className="restaurant-wine-list-error" role="alert">{restaurantQuestionError}</p> : null}
+          </section> : null}
           {restaurantScan.wines.length ? <details><summary>{locale === "it" ? `Testo estratto e ${restaurantScan.wines.length} vini rilevati` : `Extracted text and ${restaurantScan.wines.length} detected wines`}</summary><p>{restaurantScan.extracted_text}</p><ul>{restaurantScan.wines.map((wine, index) => <li key={`${wine.name}-${index}`}>{[wine.name, wine.producer, wine.vintage, wine.price_text].filter(Boolean).join(" · ")}</li>)}</ul></details> : null}
         </div> : null}
       </section> : null}

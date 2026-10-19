@@ -8473,6 +8473,92 @@ def test_restaurant_wine_list_scan_extracts_and_ranks_only_visible_entries(monke
     assert audit.json()[0]["feature"] == "restaurant_wine_list_scan"
 
 
+def test_restaurant_wine_list_scan_reads_several_pages_in_one_request(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    monkeypatch.setattr(ai_routes, "optimized_wine_images", lambda content: (b"jpeg-" + content, None))
+
+    def fake_create_response(*args, **kwargs):
+        assert kwargs["input_images"] == [("image/jpeg", b"jpeg-one"), ("image/jpeg", b"jpeg-two")]
+        assert "Pages supplied: 2" in args[2]
+        return OpenAIResponse(
+            text=(
+                '{"summary":"","extracted_text":"","wines":[{"name":"Barolo","producer":"",'
+                '"vintage":"","price_text":"","style":""},{"name":"Soave","producer":"",'
+                '"vintage":"","price_text":"","style":""}],"recommendation_indexes":[1],'
+                '"recommendation_reasons":["Fresco."],"serving_notes":[""],'
+                '"recommendation_affinities":[0]}'
+            ),
+            usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+            model="gpt-5.5",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    response = client.post(
+        "/api/v1/ai/restaurant-wine-list/scan",
+        data={"locale": "it"},
+        files=[
+            ("images", ("page-1.jpg", b"one", "image/jpeg")),
+            ("images", ("page-2.jpg", b"two", "image/jpeg")),
+        ],
+    )
+    assert response.status_code == 200, response.text
+    assert [wine["name"] for wine in response.json()["wines"]] == ["Barolo", "Soave"]
+    assert response.json()["recommendations"][0]["name"] == "Soave"
+
+    too_many = client.post(
+        "/api/v1/ai/restaurant-wine-list/scan",
+        files=[("images", (f"page-{index}.jpg", b"x", "image/jpeg")) for index in range(5)],
+    )
+    assert too_many.status_code == 422
+    assert client.post("/api/v1/ai/restaurant-wine-list/scan", data={"locale": "it"}).status_code == 400
+
+
+def test_restaurant_wine_list_question_answers_only_about_listed_wines(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+
+    def fake_create_response(*args, **kwargs):
+        assert "input_images" not in kwargs or not kwargs["input_images"]
+        assert "Question: E con il dolce?" in args[2]
+        assert '"1": {"name": "Moscato d\'Asti"' in args[2]
+        assert "Consiglio il Barolo." in args[2]
+        return OpenAIResponse(
+            text='{"answer":"Con il dolce scegli il Moscato.","referenced_indexes":[1,1,7,-1]}',
+            usage=TokenUsage(input_tokens=80, output_tokens=20, total_tokens=100),
+            model="gpt-5.5",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    payload = {
+        "locale": "it",
+        "question": "E con il dolce?",
+        "wines": [{"name": "Barolo", "price_text": "CHF 58"}, {"name": "Moscato d'Asti"}],
+        "history": [
+            {"role": "user", "content": "Cosa con il brasato?"},
+            {"role": "assistant", "content": "Consiglio il Barolo."},
+        ],
+        "dish": "Brasato",
+        "max_price_chf": "80",
+    }
+    response = client.post("/api/v1/ai/restaurant-wine-list/ask", json=payload)
+    assert response.status_code == 200, response.text
+    assert response.json()["answer"] == "Con il dolce scegli il Moscato."
+    assert response.json()["referenced_indexes"] == [1]
+    audit = client.get("/api/v1/ai/audit")
+    assert audit.json()[0]["feature"] == "restaurant_wine_list_question"
+
+    assert client.post("/api/v1/ai/restaurant-wine-list/ask", json={**payload, "wines": []}).status_code == 422
+    too_long_history = [{"role": "user", "content": "x"}] * 9
+    assert client.post("/api/v1/ai/restaurant-wine-list/ask", json={**payload, "history": too_long_history}).status_code == 422
+
+
 def test_pairing_ai_suggests_dishes_for_a_selected_wine(monkeypatch):
     from app.api.routes import ai as ai_routes
 

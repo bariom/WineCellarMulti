@@ -332,6 +332,39 @@ class RestaurantWineListScanResponse(BaseModel):
     estimated_cost_usd: Decimal = Decimal("0")
 
 
+class RestaurantWineListQuestionWine(BaseModel):
+    """A wine returned by an earlier scan, sent back by the client as untrusted context."""
+
+    name: str = Field(min_length=1, max_length=180)
+    producer: str = Field(default="", max_length=180)
+    vintage: str = Field(default="", max_length=12)
+    price_text: str = Field(default="", max_length=80)
+    style: str = Field(default="", max_length=100)
+
+
+class RestaurantWineListQuestionTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=1500)
+
+
+class RestaurantWineListQuestionRequest(AiGenerationRequest):
+    question: str = Field(min_length=2, max_length=500)
+    wines: list[RestaurantWineListQuestionWine] = Field(min_length=1, max_length=120)
+    history: list[RestaurantWineListQuestionTurn] = Field(default_factory=list, max_length=8)
+    dish: str = Field(default="", max_length=240)
+    max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
+    ignore_preferences: bool = False
+
+
+class RestaurantWineListQuestionResponse(BaseModel):
+    answer: str = ""
+    referenced_indexes: list[int] = Field(default_factory=list)
+    taste_profile_applied: bool = False
+    model: str
+    reasoning_effort: str = ""
+    estimated_cost_usd: Decimal = Decimal("0")
+
+
 class TastingReflectionRequest(AiGenerationRequest):
     wine_id: UUID
     tasting_id: UUID

@@ -965,6 +965,26 @@ export type RestaurantWineListScanResult = {
   estimated_cost_usd: string;
 };
 
+export type RestaurantWineListQuestionTurn = { role: "user" | "assistant"; content: string };
+
+export type RestaurantWineListQuestionPayload = {
+  question: string;
+  wines: RestaurantWineListScanResult["wines"];
+  history: RestaurantWineListQuestionTurn[];
+  dish: string;
+  max_price_chf: string | null;
+  ignore_preferences: boolean;
+};
+
+export type RestaurantWineListQuestionResult = {
+  answer: string;
+  referenced_indexes: number[];
+  taste_profile_applied: boolean;
+  model: string;
+  reasoning_effort: string;
+  estimated_cost_usd: string;
+};
+
 export type RegionalGapProfile = "investment" | "readiness" | "daily" | "balanced";
 
 export type RegionalGapAiSuggestion = {

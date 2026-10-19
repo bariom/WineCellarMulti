@@ -5,6 +5,7 @@ from app.prompts import (
     cellar_intelligence_plan_prompt,
     grape_composition_prompt,
     pairing_prompt,
+    restaurant_wine_list_question_prompt,
     restaurant_wine_list_scan_prompt,
     wine_full_enrichment_prompt,
     wine_sensory_metadata_prompt,
@@ -24,11 +25,31 @@ def test_restaurant_wine_list_scan_prompt_is_bounded_and_preserves_constraints()
         pairing_preferences="poco legno",
     )
 
-    assert (prompt.id, prompt.version) == ("restaurant.wine_list_scan", "1")
+    assert (prompt.id, prompt.version) == ("restaurant.wine_list_scan", "2")
     assert "Read only text visibly present" in prompt.system
     assert "zero-based extracted-list index" in prompt.system
     assert "Risotto ai funghi" in prompt.user
     assert '"acidity": 72' in prompt.user
+
+
+def test_restaurant_wine_list_question_prompt_restricts_answers_to_listed_wines():
+    prompt = restaurant_wine_list_question_prompt(
+        locale="it",
+        question="Meglio il Barolo o il Brunello col brasato?",
+        wines=[{"name": "Barolo", "price_text": "CHF 58"}, {"name": "Brunello"}],
+        history=[{"role": "assistant", "content": "Consiglio il Barolo."}],
+        dish="Brasato",
+        budget_chf="80",
+        taste_context={},
+        pairing_preferences="",
+    )
+
+    assert (prompt.id, prompt.version) == ("restaurant.wine_list_question", "1")
+    assert "never recommend or invent wines" in prompt.system
+    assert "untrusted reference material" in prompt.system
+    assert '"0": {"name": "Barolo"' in prompt.user
+    assert "Consiglio il Barolo." in prompt.user
+    assert prompt.user.endswith("Question: Meglio il Barolo o il Brunello col brasato?")
 
 
 def test_pairing_prompt_requests_affinity_only_for_a_structured_taste_profile():
