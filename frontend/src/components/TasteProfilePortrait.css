@@ -34,6 +34,8 @@
 .taste-signature-wheel { position: relative; z-index: 1; min-width: 0; margin: 0; text-align: center; }
 .taste-signature-wheel svg { display: block; width: 100%; max-width: 330px; margin: auto; overflow: visible; }
 .taste-signature-wheel text { fill: #f3ded3; font-size: 14px; font-family: inherit; }
+.taste-signature-wheel .taste-wheel-value { fill: #edc583; font-size: 12px; font-weight: 600; }
+.taste-signature-wheel .taste-wheel-scale { fill: #ddc1b8; font-size: 9px; opacity: .75; }
 .taste-wheel-grid { fill: none; stroke: #edc58330; stroke-width: 1; }
 .taste-wheel-axis { stroke: #edc58324; stroke-width: 1; }
 .taste-wheel-shape { stroke: #edc583; stroke-width: 2; stroke-linejoin: round; }
@@ -79,6 +81,8 @@
   :root .home-dashboard.home-dashboard-secondary .taste-profile-panel--insight .taste-profile-hero-copy h3 { font-size: clamp(1.75rem, 7vw, 2.25rem); }
   .taste-signature-wheel svg { max-width: 270px; }
   .taste-signature-wheel text { font-size: 16px; }
+  .taste-signature-wheel .taste-wheel-value { font-size: 14px; }
+  .taste-signature-wheel .taste-wheel-scale { font-size: 11px; }
   :root .home-dashboard.home-dashboard-secondary .taste-profile-panel--insight .taste-profile-hero-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   :root .home-dashboard.home-dashboard-secondary .taste-profile-panel--insight .taste-profile-hero-metrics article:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
