@@ -27676,9 +27676,38 @@ body,
   grid-template-columns: minmax(82px, 0.9fr) minmax(68px, 1.35fr) auto;
 }
 
-.taste-profile-geography {
+.taste-profile-geography,
+.taste-profile-preferences {
   padding-top: clamp(28px, 4vw, 48px);
   border-top: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+}
+
+.taste-profile-preferences {
+  display: grid;
+  gap: clamp(18px, 2.5vw, 28px);
+}
+
+.taste-preferences-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+
+.taste-preferences-grid article {
+  min-width: 0;
+  padding: 20px 22px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.taste-profile-preferences .taste-profile-world-map .wine-geography-leaflet {
+  height: 320px;
+}
+
+@media (max-width: 600px) {
+  .taste-preferences-grid article { padding: 16px; }
+  .taste-profile-preferences .taste-profile-world-map .wine-geography-leaflet { height: 240px; }
 }
 
 .taste-profile-geography-layout {

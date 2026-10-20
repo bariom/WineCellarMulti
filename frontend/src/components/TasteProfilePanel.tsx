@@ -429,34 +429,34 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
         </div>
       </section>
 
-      <section className="taste-profile-grapes" aria-label={italian ? "Le tue uve preferite" : "Your preferred grapes"}>
-        <PreferenceRankingChart values={overall.attributes.preferred_grapes || []} title={label("preferred_grapes")} locale={locale} scale={favouriteScale} />
-        <p>{favouriteScale === "stars"
-          ? (italian ? "Le uve che ti piacciono di più, secondo la media delle tue valutazioni. Con poche bevute il punteggio resta vicino alla tua media generale, così una sola bottiglia non basta a scavalcare quelle che conosci bene. Nei blend il giudizio riguarda il vino nel suo insieme." : "The grapes you enjoy most, by the average of your ratings. With few bottles the score stays close to your overall average, so a single bottle cannot overtake the ones you know well. For blends, the rating concerns the whole wine.")
-          : (italian ? "Le uve che emergono dai tuoi giudizi positivi, rispetto alla prima classificata. Contano anche quante volte le hai valutate: non è una media dei voti né una percentuale di gradimento. Nei blend il giudizio riguarda il vino nel suo insieme." : "Grapes emerging from your positive ratings, relative to the top ranked. How often you rated them also matters: this is not an average rating or an enjoyment percentage. For blends, the rating concerns the whole wine.")}</p>
-      </section>
+      {(overall.attributes.preferred_grapes?.length || attributeEntries.length || preferredOrigins.length) ? <section className="taste-profile-preferences" aria-labelledby="taste-preferences-heading">
+        <div className="taste-profile-section-heading">
+          <span>{italian ? "Le tue preferenze" : "Your preferences"}</span>
+          <h3 id="taste-preferences-heading">{italian ? "Cosa ti piace di più" : "What you enjoy most"}</h3>
+          <p>{favouriteScale === "stars"
+            ? (italian ? "Uve, origini e produttori secondo la media delle tue valutazioni, su 6. Con poche bevute il punteggio resta vicino alla tua media generale, così una sola bottiglia non basta a scavalcare quelle che conosci bene. Nei blend il giudizio riguarda il vino nel suo insieme." : "Grapes, origins and producers by the average of your ratings, out of 6. With few bottles the score stays close to your overall average, so a single bottle cannot overtake the ones you know well. For blends, the rating concerns the whole wine.")
+            : (italian ? "Caratteristiche che emergono dai tuoi giudizi positivi, rispetto alla prima classificata. Contano anche quante volte le hai valutate: non è una media dei voti. Nei blend il giudizio riguarda il vino nel suo insieme." : "Characteristics emerging from your positive ratings, relative to the top ranked. How often you rated them also matters: this is not an average rating. For blends, the rating concerns the whole wine.")}</p>
+        </div>
+        <div className="taste-preferences-grid">
+          <article>
+            <PreferenceRankingChart values={overall.attributes.preferred_grapes || []} title={label("preferred_grapes")} locale={locale} scale={favouriteScale} />
+          </article>
+          {attributeEntries.map(([kind, values]) => <article key={kind}>
+            <PreferenceRankingChart values={values.map(([name, value, drunk, stars]): TastePreferenceEntry => [label(name), value, drunk, stars])} title={label(kind)} locale={locale} scale={favouriteScale} />
+          </article>)}
+        </div>
+        {preferredOrigins.length ? <div className="taste-profile-world-map">
+          <Suspense fallback={<p className="empty-state">{italian ? "Caricamento mappa…" : "Loading map…"}</p>}><WineGeographyMap wines={[]} preferredOrigins={preferredOrigins} preferredOriginKinds={preferredOriginKinds} t={(key) => translate(locale, key)} onSelectRegion={() => undefined} locale={locale} /></Suspense>
+        </div> : null}
+      </section> : null}
 
-      {(attributeEntries.length || preferredOrigins.length) ? <section className="taste-profile-geography" aria-labelledby="taste-geography-heading">
+      {preferredOrigins.length ? <section className="taste-profile-geography" aria-labelledby="taste-geography-heading">
         <div className="taste-profile-section-heading">
           <span>{italian ? "Geografia personale" : "Personal geography"}</span>
           <h3 id="taste-geography-heading">{italian ? "Dove vale la pena esplorare" : "Where to explore next"}</h3>
           <p>{italian ? "Parti dai tuoi giudizi e scegli la prossima bottiglia da conoscere." : "Start with your ratings and choose the next bottle to get to know."}</p>
         </div>
         <TasteOrigins profile={overall} wines={wines} locale={locale} onOpenWine={onOpenWine} />
-        <details className="taste-origin-preferences">
-          <summary>{italian ? "Tutte le tue preferenze" : "All your preferences"}</summary>
-          <p>{italian ? "Caratteristiche associate ai tuoi giudizi positivi, in ordine di peso. Non rappresentano percentuali di acquisto o medie dei voti." : "Characteristics associated with your positive ratings, ordered by evidence weight. They are not purchase percentages or average ratings."}</p>
-        <div className="taste-profile-geography-layout">
-          <div className="taste-profile-landmark-grid">
-            {attributeEntries.map(([kind, values]) => <article key={kind}>
-              <PreferenceRankingChart values={values.map(([name, value, drunk, stars]): TastePreferenceEntry => [label(name), value, drunk, stars])} title={label(kind)} locale={locale} scale={favouriteScale} />
-            </article>)}
-          </div>
-          <div className="taste-profile-world-map">
-            {preferredOrigins.length ? <Suspense fallback={<p className="empty-state">{italian ? "Caricamento mappa…" : "Loading map…"}</p>}><WineGeographyMap wines={[]} preferredOrigins={preferredOrigins} preferredOriginKinds={preferredOriginKinds} t={(key) => translate(locale, key)} onSelectRegion={() => undefined} locale={locale} /></Suspense> : <p className="empty-state">{italian ? "Le origini preferite appariranno qui con dati sufficienti." : "Preferred origins will appear here with enough data."}</p>}
-          </div>
-        </div>
-        </details>
       </section> : null}
 
       <details className="taste-profile-method">

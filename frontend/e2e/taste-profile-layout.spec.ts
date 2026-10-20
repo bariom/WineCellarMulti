@@ -134,12 +134,12 @@ test.describe("Wine Detail compact/mobile", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 
-  test("shows preferred grapes as ranked bars before opening preference details", async ({ page }, testInfo) => {
+  test("shows every preference as ranked bars in one open section", async ({ page }, testInfo) => {
     await mockApi(page);
     await page.goto("/");
     await page.locator(".dashboard-analysis-switcher > summary").click();
     await page.getByRole("tab", { name: "Il mio gusto", exact: true }).click();
-    const section = page.getByRole("region", { name: "Le tue uve preferite", exact: true });
+    const section = page.getByRole("region", { name: "Cosa ti piace di più", exact: true });
     const chart = section.getByRole("figure", { name: "Grafico: Uve preferite", exact: true });
     await expect(chart).toBeVisible();
     await expect(chart.getByRole("listitem")).toHaveCount(5);
@@ -152,11 +152,10 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(first).toHaveAttribute("style", "width: 100%;");
     await expect(second).toHaveAttribute("style", "width: 50%;");
     await expect(section).toContainText("Nei blend il giudizio riguarda il vino nel suo insieme");
-    const details = page.locator(".taste-origin-preferences");
-    await expect(details).not.toHaveAttribute("open", "");
-    await details.locator("summary").click();
-    await expect(details.getByRole("figure", { name: "Grafico: Regioni preferite" })).toBeVisible();
-    await expect(details.getByRole("figure", { name: "Grafico: Denominazioni preferite" })).toBeVisible();
+    // Grapes, origins and producers sit together and are visible without opening anything.
+    await expect(page.locator(".taste-origin-preferences")).toHaveCount(0);
+    await expect(section.getByRole("figure", { name: "Grafico: Regioni preferite" })).toBeVisible();
+    await expect(section.getByRole("figure", { name: "Grafico: Denominazioni preferite" })).toBeVisible();
     for (const width of [360, 390, 430, 1440]) {
       await page.setViewportSize({ width, height: 844 });
       await section.scrollIntoViewIfNeeded();
@@ -174,13 +173,12 @@ test.describe("Wine Detail compact/mobile", () => {
         expect(label.x + label.width).toBeLessThanOrEqual(value.x);
       }
       if (width === 390 || width === 1440) {
-        await section.screenshot({ path: testInfo.outputPath(`grapes-${width}.png`) });
-        await details.screenshot({ path: testInfo.outputPath(`preferences-${width}.png`) });
+        await section.screenshot({ path: testInfo.outputPath(`preferences-${width}.png`) });
       }
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await snapshotChrome(page, false);
-    await expect(section).toHaveScreenshot("preferred-grapes-compact.png");
+    await expect(chart).toHaveScreenshot("preferred-grapes-compact.png");
     await snapshotChrome(page, true);
   });
 
@@ -191,7 +189,6 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.getByRole("tab", { name: "Il mio gusto", exact: true }).click();
     await expect(page.locator(".taste-profile-panel").getByRole("heading", { name: "Il mio gusto", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Le tue origini più apprezzate" })).toBeVisible();
-    await page.getByText("Tutte le tue preferenze", { exact: true }).click();
     await expect(page.getByText("Regioni preferite", { exact: true })).toBeVisible();
     await expect(page.locator(".taste-profile-panel").getByText("vini distinti", { exact: false })).toBeVisible();
     await page.getByText("Come Vinaris ha costruito questo profilo", { exact: true }).click();
@@ -216,7 +213,6 @@ test.describe("Wine Detail compact/mobile", () => {
     const geography = profile.getByRole("region", { name: "Dove vale la pena esplorare" });
     await expect(geography.locator(".taste-origin-card")).toHaveCount(3);
     await expect(geography.locator(".taste-origin-card").nth(2)).toContainText("4 bottiglie in cantina · 1 etichetta");
-    await expect(geography.locator(".taste-origin-preferences")).not.toHaveAttribute("open", "");
     await expect(profile.getByRole("heading", { name: "Come cambia il tuo gusto" })).toBeVisible();
     const redSignature = profile.locator(".taste-profile-category").filter({ hasText: /^Rossi/ });
     const whiteSignature = profile.locator(".taste-profile-category").filter({ hasText: /^Bianchi/ });
