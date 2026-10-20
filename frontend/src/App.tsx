@@ -7126,7 +7126,7 @@ export function App() {
       id: "value-refresh",
       kind: "smart_to_collect",
       title: t("valueToRefresh"),
-      detail: valueRefreshWines[0] ? valueRefreshWines[0].name : t("openFilteredCellar"),
+      detail: valueRefreshWines[0] ? [valueRefreshWines[0].name, valueRefreshWines[0].vintage, valueRefreshWines[0].producer].filter(Boolean).join(" · ") : t("openFilteredCellar"),
       count: allValueRefreshWines.length,
       signature: `${allValueRefreshWines.length}:${valueRefreshWines[0]?.id || valueRefreshWines[0]?.name || ""}:${valueRefreshWines[0]?.ai_value_estimated_at || ""}`,
       onOpen: () => {
@@ -7139,7 +7139,7 @@ export function App() {
       id: "missing-value",
       kind: "smart_entitlement_expiring",
       title: t("missingValue"),
-      detail: missingValueWines[0] ? missingValueWines[0].name : t("openFilteredCellar"),
+      detail: missingValueWines[0] ? [missingValueWines[0].name, missingValueWines[0].vintage, missingValueWines[0].producer].filter(Boolean).join(" · ") : t("openFilteredCellar"),
       count: cellarStats.missingValue,
       signature: `${cellarStats.missingValue}:${missingValueWines[0]?.id || missingValueWines[0]?.name || ""}`,
       onOpen: () => openOperationalCellarFilter("missing_data"),

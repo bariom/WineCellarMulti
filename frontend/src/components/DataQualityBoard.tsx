@@ -114,7 +114,11 @@ export default function DataQualityBoard({
                 {check.wines.slice(0, previewLimit).map((wine) => <li key={wine.id}>
                   <button type="button" className="dq-wine-open" onClick={() => onOpenWine(wine)}>
                     <i className={`wine-dot tone-${wineTone(wine.type)}`} />
-                    <span>{[wine.name, wine.vintage].filter(Boolean).join(" · ")}</span>
+                    <span className="dq-wine-identity">
+                      <strong>{[wine.name, wine.vintage].filter(Boolean).join(" · ")}</strong>
+                      {/* Same-named wines are common: the producer tells them apart. */}
+                      <small>{wine.producer || (it ? "Produttore non indicato" : "No producer")}</small>
+                    </span>
                   </button>
                   <div className="dq-wine-actions">
                     {check.feature ? <button type="button" className="secondary compact" disabled={!canGenerateAi || busy} onClick={() => onGenerateOne(wine, check.feature!)}>

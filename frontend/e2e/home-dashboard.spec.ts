@@ -202,6 +202,9 @@ test.describe("Wine Detail compact/mobile", () => {
     // Cellar purpose is chosen by the user, so it offers no AI batch.
     await expect(purpose.getByRole("button", { name: /Completa con AI/ })).toHaveCount(0);
     await purpose.getByText("Vedi i vini (1)", { exact: true }).click();
+    // Same-named wines are told apart by their producer.
+    await expect(purpose.locator(".dq-wine-identity")).toContainText("Nebbiolo di Test · 2019");
+    await expect(purpose.locator(".dq-wine-identity small")).toHaveText("Cantina Vinaris");
     await expect(purpose.getByRole("button", { name: "Assegna", exact: true })).toBeVisible();
     // Still-incomplete checks come before the complete ones.
     const checks = page.locator(".dq-check");

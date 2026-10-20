@@ -77,7 +77,11 @@
 .dq-wines { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
 .dq-wines li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface) 92%, var(--accent-soft, transparent)); }
 .dq-wine-open { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; color: var(--text); text-align: left; }
-.dq-wine-open span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dq-wine-identity { display: grid; gap: 1px; min-width: 0; }
+.dq-wine-identity strong,
+.dq-wine-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dq-wine-identity strong { font-size: .92rem; font-weight: 650; }
+.dq-wine-identity small { color: var(--text-muted); font-size: .8rem; }
 .dq-wine-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .dq-more { margin-top: 8px; }
 
