@@ -55,7 +55,15 @@ FAVOURITE_PRIOR_EXPERIENCES = 3.0
 # Stored in a profile's attributes so readers can tell this ranking from the
 # earlier "sum of experiences" one, and stale profiles can be rebuilt.
 # Version 2: grapes in a blend take their share of the rating.
-FAVOURITE_SCORING_MARKER = [["average_stars", 2]]
+# Version 3: entries rated below neutral are kept as "avoided_*" for the sommelier.
+FAVOURITE_SCORING_MARKER = [["average_stars", 3]]
+# What the sommelier is told about likes and dislikes, by attribute.
+SOMMELIER_FAVOURITE_KINDS = {
+    "grapes": "grapes",
+    "producers": "producers",
+    "regions": "regions",
+    "appellations": "appellations",
+}
 
 
 def star_equivalent(weight: float) -> float:
@@ -877,6 +885,23 @@ def rebuild_user_taste_profile(
             ][:5]
             for key, values in attribute_scores[category].items()
         }
+        # Rated below neutral, and by at least two experiences: a single
+        # disappointing bottle says more about that wine than about the grape.
+        for key, values in attribute_scores[category].items():
+            if not key.startswith("preferred_"):
+                continue
+            avoided = sorted(
+                (
+                    (value, favourite_score(scores, user_average))
+                    for value, scores in values.items()
+                ),
+                key=lambda item: item[1],
+            )
+            attributes[key.replace("preferred_", "avoided_", 1)] = [
+                attribute_entry(category, key, value, score)
+                for value, score in avoided
+                if score < NEUTRAL_RATING and len(values[value]) >= 2
+            ][:5]
         attributes["scoring"] = FAVOURITE_SCORING_MARKER
         confidence = round(
             (sum(confidence_values) / len(confidence_values)) if confidence_values else 0.0, 4
@@ -1302,8 +1327,31 @@ def compact_taste_context(
         for key, value in (profile.dimensions or {}).items()
         if isinstance(value, dict) and value.get("confidence", 0) >= 0.2
     }
-    return {
+    context: dict = {
         "category": profile.category,
         "confidence": round(profile.confidence, 2),
         "dimensions": dimensions,
     }
+    # Likes and dislikes from the user's own ratings, so recommendations stop
+    # proposing what the user drinks often but does not really enjoy.
+    attributes = profile.attributes if has_current_favourite_scoring(profile.attributes) else {}
+    liked = {
+        label: [str(entry[0]) for entry in attributes.get(f"preferred_{kind}", [])[:3]]
+        for kind, label in SOMMELIER_FAVOURITE_KINDS.items()
+    }
+    disliked = {
+        label: [str(entry[0]) for entry in attributes.get(f"avoided_{kind}", [])[:3]]
+        for kind, label in SOMMELIER_FAVOURITE_KINDS.items()
+    }
+    liked = {label: names for label, names in liked.items() if names}
+    disliked = {label: names for label, names in disliked.items() if names}
+    if liked:
+        context["liked"] = liked
+    if disliked:
+        context["disliked"] = disliked
+    if liked or disliked:
+        context["how_to_use"] = (
+            "liked and disliked come from the user's own ratings: favour liked grapes, "
+            "producers and origins, and avoid disliked ones unless the user asks for them."
+        )
+    return context

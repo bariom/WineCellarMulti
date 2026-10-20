@@ -1707,7 +1707,7 @@ def test_favourites_carry_bottles_drunk_and_average_stars() -> None:
     # four experiences averaging 5.0 sit just below it, one bottle at 6 above it.
     assert score == 5.09
     assert producers["Chateau Citran"][1] == 5.4
-    assert overall.attributes["scoring"] == [["average_stars", 2]]
+    assert overall.attributes["scoring"] == [["average_stars", 3]]
 
 
 def test_grape_names_drop_notes_the_ai_put_in_brackets() -> None:
@@ -1791,6 +1791,46 @@ def test_a_minor_blend_grape_takes_only_its_share_of_the_rating() -> None:
     assert grapes["Cabernet Franc"][2] == 2  # still two bottles drunk
 
 
+def test_sommelier_context_lists_what_the_user_likes_and_avoids() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="sommelier@example.test", display_name="Sommelier", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+
+    def wine_with(name: str, grape: str):
+        wine = make_wine(db, household, name=name)
+        wine.grapes = [{"name": grape, "percentage_from": 100, "percentage_to": 100}]
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions={"body": 0.7, "acidity": 0.6, "fruit": 0.6},
+                confidence=0.8,
+                generation_status="available",
+            )
+        )
+        return wine
+
+    nebbiolo = wine_with("Barolo", "Nebbiolo")
+    merlot = wine_with("Merlot del Ticino", "Merlot")
+    syrah = wine_with("Hermitage", "Syrah")
+    for rating in (6, 6, 5, 6):
+        add_tasting(db, user, household, nebbiolo, rating)
+    for rating in (1, 2, 1, 2):  # disappointing again and again
+        add_tasting(db, user, household, merlot, rating)
+    add_tasting(db, user, household, syrah, 1)  # one bad bottle only
+    db.commit()
+    rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+    db.commit()
+
+    context = compact_taste_context(db, household_id=household.id, user_id=user.id)
+
+    assert context["liked"]["grapes"][0] == "Nebbiolo"
+    assert context["disliked"]["grapes"] == ["Merlot"]
+    assert "Syrah" not in context["disliked"]["grapes"]
+    assert "avoid disliked" in context["how_to_use"]
+
+
 def test_favourites_follow_how_much_they_were_liked_not_how_often() -> None:
     db = Session()
     household = Household(name="Home")
@@ -1841,7 +1881,7 @@ def test_profiles_saved_with_the_earlier_favourite_ranking_are_rebuilt_on_read()
     response = taste_profile_routes.get_my_taste_profile(db, context)
 
     overall = next(profile for profile in response.profiles if profile.category == "global")
-    assert overall.attributes["scoring"] == [["average_stars", 2]]
+    assert overall.attributes["scoring"] == [["average_stars", 3]]
     assert overall.attributes["preferred_producers"][0][:3] == ["Producer", overall.attributes["preferred_producers"][0][1], 1]
 
 
