@@ -32,12 +32,18 @@ export function formatDisplayDate(value: string | null) {
   return new Intl.DateTimeFormat("it-CH").format(date);
 }
 
+/** A grape name without notes the AI sometimes put in brackets, e.g. "Pinot Nero ()". */
+export function cleanGrapeName(name: string) {
+  return name.replace(/\s*[([][^)\]]*[)\]]/g, "").replace(/\s+/g, " ").trim().replace(/^[\s\-–,;:]+|[\s\-–,;:]+$/g, "");
+}
+
 export function formatGrape(grape: Wine["grapes"][number]) {
+  const name = cleanGrapeName(grape.name) || grape.name;
   const from = grape.percentage_from;
   const to = grape.percentage_to;
-  if (from && to && from !== to) return `${grape.name} ${from}-${to}%`;
-  if (from || to) return `${grape.name} ${from || to}%`;
-  return grape.name;
+  if (from && to && from !== to) return `${name} ${from}-${to}%`;
+  if (from || to) return `${name} ${from || to}%`;
+  return name;
 }
 
 export function formatUsd(value: string | number) {

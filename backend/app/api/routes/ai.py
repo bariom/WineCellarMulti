@@ -139,6 +139,7 @@ from app.services.critic_scores import (
     supported_ai_scores,
 )
 from app.services.free_tier import ensure_free_tier_label_capacity, is_free_tier
+from app.services.grape_names import clean_grape_entries
 from app.services.merchants import get_or_create_merchant
 from app.services.openai_client import TokenUsage, create_response, parse_json_response
 from app.services.score_sources import public_page_text
@@ -5529,6 +5530,8 @@ def generate_all_wine_ai(
         current_value = local_value
 
     grapes = grape_result.get("grapes", [])
+    if isinstance(grapes, list):
+        grapes = clean_grape_entries(grapes)
     if not isinstance(grapes, list):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid grapes"
@@ -6129,6 +6132,7 @@ def generate_grapes(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid grapes"
         )
+    grapes = clean_grape_entries(grapes)
     verified_source = response.web_sources[0] if response.web_sources else {}
     saved_verified_grapes = bool(grapes and verified_source.get("url"))
     if saved_verified_grapes:

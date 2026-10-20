@@ -1710,6 +1710,43 @@ def test_favourites_carry_bottles_drunk_and_average_stars() -> None:
     assert overall.attributes["scoring"] == [["average_stars", 1]]
 
 
+def test_grape_names_drop_notes_the_ai_put_in_brackets() -> None:
+    from app.services.grape_names import clean_grape_entries, clean_grape_name
+
+    assert (
+        clean_grape_name("Cabernet Franc (percentuali non disponibili dalla fonte consultata)")
+        == "Cabernet Franc"
+    )
+    assert clean_grape_name("Pinot Nero ()") == "Pinot Nero"
+    assert clean_grape_name("  Merlot  [stima] ") == "Merlot"
+    assert clean_grape_name("(sconosciuto)") == ""
+    assert clean_grape_entries(
+        [{"name": "Syrah ()", "percentage_from": 80}, {"name": "()"}, "Merlot"]
+    ) == [{"name": "Syrah", "percentage_from": 80}]
+
+
+def test_favourite_grapes_merge_names_that_differ_only_by_notes() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="grapes@example.test", display_name="Grapes", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    first = make_wine(db, household, name="Bourgogne")
+    first.grapes = [{"name": "Pinot Nero ()", "percentage_from": 100, "percentage_to": 100}]
+    second = make_wine(db, household, name="Alto Adige")
+    second.grapes = [{"name": "Pinot Nero", "percentage_from": 100, "percentage_to": 100}]
+    add_tasting(db, user, household, first, 5)
+    add_tasting(db, user, household, second, 5)
+    db.commit()
+
+    profiles = rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+    overall = next(profile for profile in profiles if profile.category == "global")
+    grapes = overall.attributes["preferred_grapes"]
+
+    assert [entry[0] for entry in grapes] == ["Pinot Nero"]
+    assert grapes[0][2] == 2
+
+
 def test_favourites_follow_how_much_they_were_liked_not_how_often() -> None:
     db = Session()
     household = Household(name="Home")

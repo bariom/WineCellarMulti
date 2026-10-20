@@ -26,6 +26,7 @@ from app.models import (
     WineTastingEntry,
     WishlistItem,
 )
+from app.services.grape_names import clean_grape_name
 from app.services.shared_wine_data import (
     identity_key,
     identity_parts,
@@ -366,7 +367,7 @@ def _attribute_values(wine: Wine | ExternalWineTasting) -> dict[str, list[str]]:
         "preferred_appellations": [wine.appellation],
         "preferred_producers": [wine.producer],
         "preferred_grapes": [
-            item.get("name", "")
+            clean_grape_name(item.get("name", ""))
             for item in (getattr(wine, "grapes", []) or [])
             if isinstance(item, dict)
         ],
