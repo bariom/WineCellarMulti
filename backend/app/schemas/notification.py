@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -50,3 +50,14 @@ class NotificationCenterResponse(BaseModel):
     offset: int = 0
     next_offset: int | None = None
     has_more: bool = False
+
+
+class TastingToRateResponse(BaseModel):
+    """A bottle the user drank recently without giving it stars."""
+
+    tasting_id: UUID
+    wine_id: UUID
+    wine_name: str
+    vintage: str = ""
+    producer: str = ""
+    consumed_at: date

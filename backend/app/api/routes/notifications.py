@@ -22,8 +22,13 @@ from app.schemas.notification import (
     NotificationCenterItem,
     NotificationCenterResponse,
     NotificationResponse,
+    TastingToRateResponse,
 )
-from app.services.notifications import ensure_smart_notifications
+from app.services.notifications import (
+    ensure_smart_notifications,
+    now_utc,
+    recent_unrated_tastings,
+)
 
 router = APIRouter(prefix="/notifications")
 
@@ -33,6 +38,7 @@ ACTION_NOTIFICATION_KINDS = {
     "payment_failed",
     "share_revocation",
     "smart_missed_deliveries",
+    "smart_rate_tastings",
     "smart_to_collect",
 }
 UPDATE_NOTIFICATION_KINDS = {
@@ -420,3 +426,22 @@ def delete_notification(
     permanently_delete_notification(db, notification)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/tastings-to-rate", response_model=list[TastingToRateResponse])
+def list_tastings_to_rate(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_authenticated_context),
+) -> list[TastingToRateResponse]:
+    """Recent bottles without stars, so the reminder can be answered in one tap."""
+    return [
+        TastingToRateResponse(
+            tasting_id=tasting.id,
+            wine_id=wine.id,
+            wine_name=wine.name,
+            vintage=wine.vintage,
+            producer=wine.producer,
+            consumed_at=tasting.consumed_at,
+        )
+        for tasting, wine in recent_unrated_tastings(db, context, now_utc().date())
+    ]

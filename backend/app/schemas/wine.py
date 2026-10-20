@@ -203,6 +203,12 @@ class WineConsume(BaseModel):
     tasting_companions: str = ""
 
 
+class WineTastingRatingUpdate(BaseModel):
+    """Stars only, for a quick rating that leaves the rest of the tasting untouched."""
+
+    rating: float = Field(ge=0.5, le=6, multiple_of=0.5)
+
+
 class WineTastingEntryUpdate(BaseModel):
     memory_photo: str | None = Field(default=None, max_length=2_800_000, repr=False)
     consumed_at: date

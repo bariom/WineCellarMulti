@@ -1,0 +1,33 @@
+.quick-rating { display: grid; gap: 8px; margin: 8px 0 2px; padding: 0; list-style: none; }
+.quick-rating > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); }
+.quick-rating > li > div:first-child { display: grid; gap: 1px; min-width: 0; }
+.quick-rating strong { overflow: hidden; font-size: .88rem; text-overflow: ellipsis; white-space: nowrap; }
+.quick-rating small { color: var(--text-muted); font-size: .76rem; }
+.quick-rating-stars { display: flex; gap: 2px; }
+/* Hovering or focusing a star lights it and every star before it. */
+.quick-rating-stars button {
+  display: grid;
+  width: 32px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.quick-rating-stars:hover button,
+.quick-rating-stars:focus-within button { color: var(--accent); }
+.quick-rating-stars button:hover ~ button,
+.quick-rating-stars button:focus-visible ~ button { color: color-mix(in srgb, var(--accent) 30%, var(--border)); }
+.quick-rating-stars button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 6px; }
+.quick-rating-thanks { color: var(--success); font-size: .8rem; font-weight: 700; white-space: nowrap; }
+.quick-rating-done { margin: 6px 0 0; color: var(--text-muted); font-size: .82rem; }
+.quick-rating-error { grid-template-columns: 1fr !important; color: var(--danger); font-size: .8rem; }
+
+@media (max-width: 420px) {
+  .quick-rating > li { grid-template-columns: minmax(0, 1fr); }
+  .quick-rating-stars button { width: 36px; height: 40px; }
+}

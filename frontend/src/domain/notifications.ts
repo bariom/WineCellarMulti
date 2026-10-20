@@ -44,6 +44,12 @@ export function localizedNotification(notification: UserNotification, locale: Lo
       return { title: "Past peak window", message: count ? `${count} wines are past their ideal drinking window.` : "Some wines are past their ideal drinking window." };
     case "smart_future_deliveries":
       return { title: "Upcoming deliveries", message: count ? `${count} future deliveries are being tracked in your cellar.` : "Future deliveries are being tracked in your cellar." };
+    case "smart_rate_tastings":
+      // Already written in English: keep the wine and date it names.
+      if (notification.title === "How was it?" || notification.title === "Bottles to rate") return notification;
+      return notification.title === "Com'era?"
+        ? { title: "How was it?", message: "Rate the bottle you drank recently: even a lukewarm rating makes recommendations more precise." }
+        : { title: "Bottles to rate", message: count ? `${count} bottles you drank recently have no rating yet.` : "Some bottles you drank recently have no rating yet." };
     case "smart_missed_deliveries":
       // Already written in English: keep the wine, merchant and date it names.
       if (notification.title.startsWith("Missed")) return notification;

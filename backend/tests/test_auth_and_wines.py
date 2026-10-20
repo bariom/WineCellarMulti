@@ -41,6 +41,7 @@ from app.models import (
     UserEntitlement,
     UserNotification,
     Wine,
+    WineTastingEntry,
     WineCatalogEntry,
     WinePhotoLibraryEntry,
     WineRecognitionLog,
@@ -3047,6 +3048,78 @@ def test_notifications_flag_past_due_deliveries_that_never_arrived():
         item["title"] == "Consegne mancate" and item["message"].startswith("2 consegne previste")
         for item in latest
     )
+
+
+def test_notifications_ask_to_rate_recent_bottles_drunk_without_stars():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    today = datetime.now(UTC).date()
+
+    with TestingSessionLocal() as db:
+        owner = db.query(User).filter(User.email == "owner@example.com").one()
+        household = db.query(Household).filter(Household.name == "Main Cellar").one()
+        wine = Wine(
+            household_id=household.id,
+            created_by_user_id=owner.id,
+            name="Barolo",
+            producer="Producer",
+            vintage="2019",
+            quantity=3,
+        )
+        db.add(wine)
+        db.flush()
+
+        def tasting(days_ago: int, rating: int) -> WineTastingEntry:
+            return WineTastingEntry(
+                wine_id=wine.id,
+                household_id=household.id,
+                created_by_user_id=owner.id,
+                consumed_at=today - timedelta(days=days_ago),
+                rating=rating,
+            )
+
+        yesterday = tasting(1, 0)
+        someone_else = tasting(1, 0)
+        someone_else.created_by_user_id = None
+        db.add_all([yesterday, tasting(2, 5), tasting(10, 0), tasting(0, 0), someone_else])
+        db.flush()
+        wine.tasting_history = [
+            {
+                "id": str(entry.id),
+                "consumed_at": entry.consumed_at.isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
+                "rating": 0,
+                "note": "",
+            }
+            for entry in (yesterday, someone_else)
+        ]
+        db.commit()
+        wine_id, yesterday_id, someone_else_id = str(wine.id), str(yesterday.id), str(someone_else.id)
+
+    center = client.get("/api/v1/notifications/center").json()["items"]
+    reminders = [item for item in center if item["kind"] == "smart_rate_tastings"]
+    assert len(reminders) == 1
+    assert reminders[0]["category"] == "action"
+    assert reminders[0]["title"] == "Com'era?"
+    # Only yesterday's unrated bottle: rated, too old and still-tonight ones are left out.
+    assert "Barolo 2019" in reminders[0]["message"]
+    assert (today - timedelta(days=1)).strftime("%d/%m/%Y") in reminders[0]["message"]
+    notifications = client.get("/api/v1/notifications").json()
+    reminder = next(item for item in notifications if item["kind"] == "smart_rate_tastings")
+    assert reminder["action_url"] == "/history?section=tastings"
+
+    # The reminder can be answered in one tap from the notification panel.
+    to_rate = client.get("/api/v1/notifications/tastings-to-rate").json()
+    assert [item["tasting_id"] for item in to_rate] == [yesterday_id]
+    assert to_rate[0]["wine_name"] == "Barolo"
+    assert client.post(f"/api/v1/wines/{wine_id}/tastings/{yesterday_id}/rating", json={"rating": 7}).status_code == 422
+    rated = client.post(f"/api/v1/wines/{wine_id}/tastings/{yesterday_id}/rating", json={"rating": 2.5})
+    assert rated.status_code == 200, rated.text
+    entry = next(item for item in rated.json()["tasting_history"] if item["id"] == yesterday_id)
+    assert entry["rating"] == 2.5
+    assert client.get("/api/v1/notifications/tastings-to-rate").json() == []
+    # Another member's tasting shapes their profile, not this user's.
+    assert client.post(f"/api/v1/wines/{wine_id}/tastings/{someone_else_id}/rating", json={"rating": 5}).status_code == 403
 
 
 def test_notification_center_history_filters_and_pagination():

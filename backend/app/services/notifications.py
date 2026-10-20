@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import math
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext
-from app.models import User, UserNotification, UserNotificationDismissal, Wine
+from app.models import User, UserNotification, UserNotificationDismissal, Wine, WineTastingEntry
+
+# Bottles drunk in this window without stars get a gentle "how was it?" reminder:
+# from yesterday, so the evening is over, back to a week, while it is still fresh.
+RATING_REMINDER_DAYS = 7
 
 DELIVERED_STATUSES = {
     "delivered",
@@ -96,6 +100,28 @@ def to_collect_summary(wines: list[Wine]) -> tuple[str, str]:
     return ", ".join(summary_parts), ";".join(fingerprint_parts)
 
 
+def recent_unrated_tastings(
+    db: Session, context: CurrentContext, today: date
+) -> list[tuple[WineTastingEntry, Wine]]:
+    """The user's own bottles drunk from yesterday back to a week, still without stars."""
+    return [
+        (tasting, wine)
+        for tasting, wine in db.execute(
+            select(WineTastingEntry, Wine)
+            .join(Wine, Wine.id == WineTastingEntry.wine_id)
+            .where(
+                WineTastingEntry.household_id == context.household.id,
+                Wine.household_id == context.household.id,
+                WineTastingEntry.created_by_user_id == context.user.id,
+                WineTastingEntry.rating <= 0,
+                WineTastingEntry.consumed_at <= today - timedelta(days=1),
+                WineTastingEntry.consumed_at >= today - timedelta(days=RATING_REMINDER_DAYS),
+            )
+            .order_by(WineTastingEntry.consumed_at.desc(), WineTastingEntry.id)
+        )
+    ]
+
+
 def create_user_notification(
     db: Session,
     user: User,
@@ -170,6 +196,30 @@ def _notification_copy(locale: str, key: str, **values: object) -> tuple[str, st
             "Upcoming deliveries",
             f"You have {values['count']} future deliveries. "
             f"The next one is expected on {values['next_date']}.",
+        )
+    if key == "rate_tastings":
+        if values["count"] == 1:
+            if italian:
+                return (
+                    "Com'era?",
+                    f"Dai un voto a {values['wine_summary']}, bevuto il {values['date']}. "
+                    "Anche un voto tiepido rende più precisi i consigli.",
+                )
+            return (
+                "How was it?",
+                f"Rate {values['wine_summary']}, drunk on {values['date']}. "
+                "Even a lukewarm rating makes recommendations more precise.",
+            )
+        if italian:
+            return (
+                "Bevute da valutare",
+                f"Hai {values['count']} bevute senza voto: {values['wine_summary']}. "
+                "Anche un voto tiepido rende più precisi i consigli.",
+            )
+        return (
+            "Bottles to rate",
+            f"You have {values['count']} bottles without a rating: {values['wine_summary']}. "
+            "Even a lukewarm rating makes recommendations more precise.",
         )
     if key == "missed_deliveries":
         if values["count"] == 1:
@@ -401,6 +451,41 @@ def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
                 fingerprint=fingerprint,
             )
             created += 0 if before else 1
+
+    unrated = recent_unrated_tastings(db, context, today)
+    if unrated:
+        latest_tasting, _ = unrated[0]
+        wine_summary = ", ".join(
+            " ".join(part for part in [wine.name.strip(), wine.vintage.strip()] if part) or "Wine"
+            for _, wine in unrated[:2]
+        ) + (f" +{len(unrated) - 2}" if len(unrated) > 2 else "")
+        title, message = _notification_copy(
+            locale,
+            "rate_tastings",
+            count=len(unrated),
+            wine_summary=wine_summary,
+            date=latest_tasting.consumed_at.strftime("%d/%m/%Y"),
+        )
+        # A new unrated bottle produces a new reminder; the same backlog does not.
+        fingerprint = (
+            f"smart:{context.household.id}:rate_tastings:{len(unrated)}:{latest_tasting.id}"
+        )
+        before = db.scalar(
+            select(UserNotification.id).where(
+                UserNotification.user_id == context.user.id,
+                UserNotification.fingerprint == fingerprint,
+            )
+        )
+        create_user_notification(
+            db,
+            context.user,
+            kind="smart_rate_tastings",
+            title=title,
+            message=message,
+            action_url="/history?section=tastings",
+            fingerprint=fingerprint,
+        )
+        created += 0 if before else 1
 
     if not context.user.is_app_admin and context.entitlement_valid_until is not None:
         valid_until = as_aware_utc(context.entitlement_valid_until)

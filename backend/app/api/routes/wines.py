@@ -62,6 +62,7 @@ from app.schemas.wine import (
     WineShareOfferRecipientResponse,
     WineShareOfferResponse,
     WineTastingEntryUpdate,
+    WineTastingRatingUpdate,
     WineTastingSummary,
     WineUpdate,
 )
@@ -153,8 +154,12 @@ def validate_drink_window(
     years = (drink_from, drink_peak_from, drink_peak_to, drink_to)
     if all(year is None for year in years):
         return
-    if any(year is None for year in years) or not (
-        drink_from <= drink_peak_from <= drink_peak_to <= drink_to
+    if (
+        drink_from is None
+        or drink_peak_from is None
+        or drink_peak_to is None
+        or drink_to is None
+        or not (drink_from <= drink_peak_from <= drink_peak_to <= drink_to)
     ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -413,7 +418,9 @@ def wine_response(
         pour_size_ml=wine.pour_size_ml,
         reorder_threshold=wine.reorder_threshold,
         reorder_enabled=wine.reorder_enabled,
-        commercial_status=wine.commercial_status,
+        commercial_status=cast(
+            Literal["active", "clearing_out", "suspended", "off_list"], wine.commercial_status
+        ),
         open_bottle_ml=wine.open_bottle_ml,
         current_value=wine.current_value,
         value_not_found=wine.value_not_found,
@@ -2148,6 +2155,50 @@ def update_wine_tasting_entry(
                 user_id=tasting.created_by_user_id,
             )
 
+    db.commit()
+    db.refresh(wine)
+    return wine_response(
+        wine,
+        user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
+        wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+    )
+
+
+@router.post("/{wine_id}/tastings/{tasting_id}/rating", response_model=WineResponse)
+def rate_wine_tasting_entry(
+    wine_id: UUID,
+    tasting_id: UUID,
+    payload: WineTastingRatingUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineResponse:
+    """Give stars to one of the user's own tastings, keeping every other field."""
+    wine = get_household_wine(db, context, wine_id)
+    tasting = db.scalar(
+        select(WineTastingEntry).where(
+            WineTastingEntry.id == tasting_id,
+            WineTastingEntry.wine_id == wine.id,
+            WineTastingEntry.household_id == context.household.id,
+        )
+    )
+    if tasting is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tasting not found")
+    # Another member's rating shapes their taste profile, not this user's.
+    if tasting.created_by_user_id != context.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Only your own tastings can be rated"
+        )
+    # The tasting row feeds the taste profile; the copy in the wine's history is
+    # updated too when present, but its absence must not lose the rating.
+    entries = normalize_tasting_history([dict(entry) for entry in (wine.tasting_history or [])])
+    for index, entry in enumerate(entries):
+        if entry.get("id") == str(tasting_id):
+            entries[index] = {**entry, "rating": payload.rating}
+            wine.tasting_history = normalize_tasting_history(entries)
+            break
+    tasting.rating = payload.rating
+    mark_wine_for_sensory_enrichment(db, wine)
+    rebuild_user_taste_profile(db, household_id=context.household.id, user_id=context.user.id)
     db.commit()
     db.refresh(wine)
     return wine_response(

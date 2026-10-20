@@ -211,3 +211,31 @@ test("a past-due delivery is a reminder that opens the delivery timeline", async
   await expect(page.getByRole("region", { name: "Consegne mancate", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
+
+test("a bottle drunk without stars can be rated from the reminder in one tap", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const center = {
+    items: [{ id: "rate-reminder", source: "notification", kind: "smart_rate_tastings", category: "action", state: "unread",
+      title: "Com'era?", message: "Dai un voto a Nebbiolo di Test 2019, bevuto il 19/10/2026.", action_url: "/history?section=tastings",
+      action_kind: "open", resource_id: null, actor_label: null, metadata: {}, created_at: "2026-10-20T08:00:00Z", read_at: null, archived_at: null }],
+    counts: { total: 1, unread: 1, actionable: 1, attention: 1, actions: 1, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false,
+  };
+  await mockApi(page, [], false, memberships, [wine], session, [], center);
+  const ratings: unknown[] = [];
+  await page.route("**/api/v1/notifications/tastings-to-rate", route => route.fulfill({ json: [
+    { tasting_id: "tasting-e2e", wine_id: wine.id, wine_name: wine.name, vintage: wine.vintage, producer: wine.producer, consumed_at: "2026-10-19" },
+  ] }));
+  await page.route(`**/api/v1/wines/${wine.id}/tastings/tasting-e2e/rating`, async route => {
+    ratings.push(route.request().postDataJSON());
+    await route.fulfill({ json: wine });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Notifiche", exact: true }).click();
+  const quick = page.getByRole("list", { name: "Valuta le bevute" });
+  await expect(quick).toContainText("Nebbiolo di Test 2019");
+  await expect(quick).toContainText("Cantina Vinaris");
+  await quick.getByRole("button", { name: "4 su 6", exact: true }).click();
+  await expect(quick).toContainText("4 su 6, grazie");
+  expect(ratings).toEqual([{ rating: 4 }]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});

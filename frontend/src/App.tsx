@@ -127,6 +127,7 @@ const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView
 const AI_PACK_ENHANCEMENT_DISMISS_KEY = "vinaris.ai-pack-enhancement-dismissed-until";
 const AI_PACK_ENHANCEMENT_REMINDER_MS = 7 * 24 * 60 * 60 * 1000;
 const PublicLanding = lazy(() => import("./views/PublicLanding"));
+const QuickTastingRating = lazy(() => import("./components/QuickTastingRating"));
 const DailyDrinkBoard = lazy(() => import("./components/DailyDrinkBoard"));
 const DataQualityBoard = lazy(() => import("./components/DataQualityBoard"));
 const DeliveryTimelineCard = lazy(() => import("./components/DeliveryTimelineCard"));
@@ -988,7 +989,7 @@ function dashboardStatIcon(kind: "mine" | "shared" | "total") {
 }
 
 function notificationSvgIcon(kind: string) {
-  if (kind === "smart_drink_now") return dashboardStatSvgIcon("drink_now");
+  if (kind === "smart_drink_now" || kind === "smart_rate_tastings") return dashboardStatSvgIcon("drink_now");
   if (kind === "smart_past_window") return dashboardStatSvgIcon("past_window");
   if (kind === "smart_future_deliveries" || kind === "smart_missed_deliveries") return dashboardStatSvgIcon("future_deliveries");
   if (kind === "smart_to_collect") return dashboardStatSvgIcon("to_collect");
@@ -3669,6 +3670,7 @@ export function App() {
     } else if (notification.action_url?.includes("/wishlist")) {
       setActiveView("wishlist");
     } else if (notification.action_url?.includes("/history")) {
+      if (notification.action_url.includes("section=tastings")) setHistorySection("tastings");
       setActiveView("history");
     }
     setNotificationsOpen(false);
@@ -9267,6 +9269,15 @@ export function App() {
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>{notificationCopy.title}</strong>
                         <span style={item.kind === "admin_announcement" ? { whiteSpace: "pre-wrap", overflowWrap: "anywhere" } : undefined}>{notificationCopy.message}</span>
                         {item.metadata.message ? <span className="share-offer-message">{String(item.metadata.message)}</span> : null}
+                        {item.kind === "smart_rate_tastings" && notificationView !== "archived" && !offlineMode ? (
+                          <Suspense fallback={null}>
+                            <QuickTastingRating
+                              locale={locale}
+                              onRated={(updated) => setWines((current) => current.map((wine) => (wine.id === updated.id ? updated : wine)))}
+                              onAllRated={() => void markNotificationRead(item)}
+                            />
+                          </Suspense>
+                        ) : null}
                         {notificationView === "archived" ? (
                           <div className="member-actions">
                             {item.action_url ? <button type="button" className="compact" disabled={saving} onClick={() => openNotification(item)}>{t("open")}</button> : null}
