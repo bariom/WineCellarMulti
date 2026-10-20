@@ -1702,8 +1702,66 @@ def test_favourites_carry_bottles_drunk_and_average_stars() -> None:
 
     name, score, drunk, average = producers["La Tunella"]
     assert (name, drunk, average) == ("La Tunella", 3, 5.0)
-    assert score > producers["Chateau Citran"][1]
     assert producers["Chateau Citran"][2:] == [1, 6.0]
+    # Ranked by average stars shrunk toward the user's own average (5.2 here):
+    # four experiences averaging 5.0 sit just below it, one bottle at 6 above it.
+    assert score == 5.09
+    assert producers["Chateau Citran"][1] == 5.4
+    assert overall.attributes["scoring"] == [["average_stars", 1]]
+
+
+def test_favourites_follow_how_much_they_were_liked_not_how_often() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="often@example.test", display_name="Often", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    often = make_wine(db, household, name="Merlot del Ticino")
+    often.appellation = "Ticino DOC"
+    rarely = make_wine(db, household, name="Haut-Medoc")
+    rarely.appellation = "Haut-Medoc"
+    for rating in (4, 3, 4, 3):  # drunk often, liked only a little
+        add_tasting(db, user, household, often, rating)
+    for rating in (5, 5):  # drunk twice, liked a lot
+        add_tasting(db, user, household, rarely, rating)
+    db.commit()
+
+    profiles = rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+    overall = next(profile for profile in profiles if profile.category == "global")
+    ranking = [entry[0] for entry in overall.attributes["preferred_appellations"]]
+
+    assert ranking[0] == "Haut-Medoc"
+    assert "Ticino DOC" in ranking
+
+
+def test_profiles_saved_with_the_earlier_favourite_ranking_are_rebuilt_on_read() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="stale@example.test", display_name="Stale", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wine = make_wine(db, household, name="Barolo")
+    add_tasting(db, user, household, wine, 6)
+    db.add(
+        UserTasteProfile(
+            user_id=user.id,
+            household_id=household.id,
+            category="global",
+            dimensions={},
+            attributes={"preferred_producers": [["Producer", 2.4]]},
+            confidence=0.5,
+            sample_count=1,
+            calculation_version=2,
+        )
+    )
+    db.commit()
+    context = SimpleNamespace(user=user, household=household)
+
+    response = taste_profile_routes.get_my_taste_profile(db, context)
+
+    overall = next(profile for profile in response.profiles if profile.category == "global")
+    assert overall.attributes["scoring"] == [["average_stars", 1]]
+    assert overall.attributes["preferred_producers"][0][:3] == ["Producer", overall.attributes["preferred_producers"][0][1], 1]
 
 
 def test_ai_context_falls_back_to_the_scoped_global_profile() -> None:

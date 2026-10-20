@@ -84,6 +84,7 @@ from app.services.taste_profiles import (
     claim_unassigned_tastings,
     confidence_level,
     generate_wine_sensory_profile,
+    has_current_favourite_scoring,
     infer_sensory_profile,
     mark_wine_for_sensory_enrichment,
     rebuild_user_taste_profile,
@@ -263,7 +264,11 @@ def get_my_taste_profile(
             .order_by(UserTasteProfile.category)
         )
     )
-    if not profiles:
+    # Profiles saved with the earlier favourite ranking are rebuilt once, so the
+    # page never mixes the two scales.
+    if not profiles or not all(
+        has_current_favourite_scoring(profile.attributes) for profile in profiles
+    ):
         profiles = rebuild_user_taste_profile(
             db, household_id=context.household.id, user_id=context.user.id
         )

@@ -109,7 +109,8 @@ test.describe("Wine Detail compact/mobile", () => {
       await import('/src/styles.css');
       ReactDOM.createRoot(document.getElementById('root')).render(React.createElement('main', {},
         React.createElement(PreferenceRankingChart, {values:[['Cabernet Sauvignon', 2], ['Merlot', 8, 3, 5.33], ['Chardonnay', 8, 0, 6], ['Neutral', 0], ['Negative', -1]], title:'Preferred grapes', locale:'en'}),
-        React.createElement(PreferenceRankingChart, {values:[], title:'Empty grapes', locale:'en'})));
+        React.createElement(PreferenceRankingChart, {values:[], title:'Empty grapes', locale:'en'}),
+        React.createElement(PreferenceRankingChart, {values:[['Ticino DOC', 3.71, 4, 3.4], ['Haut-Medoc', 4.4, 2, 4.7]], title:'Preferred appellations', locale:'en', scale:'stars'})));
       </script></body></html>` }));
     await page.goto("/preference-chart-test");
     const chart = page.getByRole("figure", { name: "Chart: Preferred grapes", exact: true });
@@ -124,6 +125,12 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(chart.getByRole("listitem").nth(2).locator(".taste-preference-evidence")).toHaveCount(0);
     await expect(page.getByRole("figure", { name: "Chart: Empty grapes" })).toContainText("not enough evidence");
     await expect(page.getByRole("figure", { name: "Chart: Empty grapes" }).getByRole("listitem")).toHaveCount(0);
+    // Average-stars favourites: liked more beats drunk more, and the value reads out of 6.
+    const appellations = page.getByRole("figure", { name: "Chart: Preferred appellations", exact: true });
+    await expect(appellations).toContainText("Enjoyment out of 6");
+    await expect(appellations.getByRole("listitem").first()).toContainText("Haut-Medoc");
+    await expect(appellations.getByLabel("Enjoyment: 4.4 of 6")).toBeVisible();
+    await expect(appellations.getByRole("listitem").first()).toContainText("2 bottles drunk · plain average 4.7");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 

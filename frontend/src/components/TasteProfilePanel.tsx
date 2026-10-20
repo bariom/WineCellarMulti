@@ -218,6 +218,8 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
   const visibleStarRatingCount = wines
     ? evidence?.direct_rating_count ?? wines.filter((wine) => Number(wine.rating) > 0).length
     : overall?.star_rating_count ?? 0;
+  // Profiles rebuilt since favourites became average stars carry this marker.
+  const favouriteScale: "stars" | "relative" = overall?.attributes.scoring?.[0]?.[0] === "average_stars" ? "stars" : "relative";
   const attributeOrder = ["preferred_regions", "preferred_appellations", "preferred_producers", "preferred_countries"];
   const attributeEntries = overall
     ? attributeOrder.flatMap((key) => overall.attributes[key]?.length
@@ -428,8 +430,10 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
       </section>
 
       <section className="taste-profile-grapes" aria-label={italian ? "Le tue uve preferite" : "Your preferred grapes"}>
-        <PreferenceRankingChart values={overall.attributes.preferred_grapes || []} title={label("preferred_grapes")} locale={locale} />
-        <p>{italian ? "Le uve che emergono dai tuoi giudizi positivi, rispetto alla prima classificata. Contano anche quante volte le hai valutate: non è una media dei voti né una percentuale di gradimento. Nei blend il giudizio riguarda il vino nel suo insieme." : "Grapes emerging from your positive ratings, relative to the top ranked. How often you rated them also matters: this is not an average rating or an enjoyment percentage. For blends, the rating concerns the whole wine."}</p>
+        <PreferenceRankingChart values={overall.attributes.preferred_grapes || []} title={label("preferred_grapes")} locale={locale} scale={favouriteScale} />
+        <p>{favouriteScale === "stars"
+          ? (italian ? "Le uve che ti piacciono di più, secondo la media delle tue valutazioni. Con poche bevute il punteggio resta vicino alla tua media generale, così una sola bottiglia non basta a scavalcare quelle che conosci bene. Nei blend il giudizio riguarda il vino nel suo insieme." : "The grapes you enjoy most, by the average of your ratings. With few bottles the score stays close to your overall average, so a single bottle cannot overtake the ones you know well. For blends, the rating concerns the whole wine.")
+          : (italian ? "Le uve che emergono dai tuoi giudizi positivi, rispetto alla prima classificata. Contano anche quante volte le hai valutate: non è una media dei voti né una percentuale di gradimento. Nei blend il giudizio riguarda il vino nel suo insieme." : "Grapes emerging from your positive ratings, relative to the top ranked. How often you rated them also matters: this is not an average rating or an enjoyment percentage. For blends, the rating concerns the whole wine.")}</p>
       </section>
 
       {(attributeEntries.length || preferredOrigins.length) ? <section className="taste-profile-geography" aria-labelledby="taste-geography-heading">
@@ -445,7 +449,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
         <div className="taste-profile-geography-layout">
           <div className="taste-profile-landmark-grid">
             {attributeEntries.map(([kind, values]) => <article key={kind}>
-              <PreferenceRankingChart values={values.map(([name, value, drunk, stars]): TastePreferenceEntry => [label(name), value, drunk, stars])} title={label(kind)} locale={locale} />
+              <PreferenceRankingChart values={values.map(([name, value, drunk, stars]): TastePreferenceEntry => [label(name), value, drunk, stars])} title={label(kind)} locale={locale} scale={favouriteScale} />
             </article>)}
           </div>
           <div className="taste-profile-world-map">

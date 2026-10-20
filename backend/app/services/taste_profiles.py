@@ -48,6 +48,21 @@ TASTE_CATEGORIES = {"Red", "White", "Rose", "Sparkling", "Sweet", "Fortified"}
 NEUTRAL_RATING = 3.0  # Vinaris tastings are 1..6 stars; zero means not rated.
 TASTE_PROFILE_CALCULATION_VERSION = 2
 TASTE_PROFILE_SHADOW_VERSION = 3
+# Favourites (producers, regions, grapes…) are ranked by average stars, shrunk
+# toward the user's overall average as if each had this many extra experiences.
+FAVOURITE_PRIOR_EXPERIENCES = 3.0
+# Stored in a profile's attributes so readers can tell this ranking from the
+# earlier "sum of experiences" one, and stale profiles can be rebuilt.
+FAVOURITE_SCORING_MARKER = [["average_stars", 1]]
+
+
+def star_equivalent(weight: float) -> float:
+    """Map a preference weight (-1..1) back onto the 1..6 star scale (3 = neutral)."""
+    return NEUTRAL_RATING + weight * (6 - NEUTRAL_RATING if weight >= 0 else NEUTRAL_RATING - 1)
+
+
+def has_current_favourite_scoring(attributes: dict | None) -> bool:
+    return isinstance(attributes, dict) and attributes.get("scoring") == FAVOURITE_SCORING_MARKER
 
 # These are deliberately small, explainable zero-cost defaults. Appellation/grape baselines in the
 # database override/augment them and are maintained by app administrators.
@@ -647,9 +662,12 @@ def rebuild_user_taste_profile(
     accumulators: dict[str, dict[str, list[tuple[float, float, float]]]] = defaultdict(
         lambda: defaultdict(list)
     )
-    attribute_scores: dict[str, dict[str, dict[str, float]]] = defaultdict(
-        lambda: defaultdict(lambda: defaultdict(float))
+    # Star-equivalent of every experience per favourite, used for the ranking; the
+    # category totals give the user's own average, the starting point of each one.
+    attribute_scores: dict[str, dict[str, dict[str, list[float]]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(list))
     )
+    category_scores: dict[str, list[float]] = defaultdict(list)
     # Shown beside each favourite so its score can be read: how many times it was
     # drunk and how it was rated on average (stars, 1..6).
     attribute_drinks: dict[str, dict[str, dict[str, int]]] = defaultdict(
@@ -662,14 +680,15 @@ def rebuild_user_taste_profile(
     def record_attribute(
         category: str,
         source: Wine | ExternalWineTasting,
-        weight: float,
+        score: float,
         *,
         drink: bool,
         stars: float,
     ) -> None:
+        category_scores[category].append(score)
         for key, label_values in _attribute_values(source).items():
             for value in label_values:
-                attribute_scores[category][key][value] += weight
+                attribute_scores[category][key][value].append(score)
                 if drink:
                     attribute_drinks[category][key][value] += 1
                 if stars > 0:
@@ -680,7 +699,9 @@ def rebuild_user_taste_profile(
         weight = tasting_preference_weight(float(tasting.rating), tasting.enjoyment)
         for category in categories:
             samples[category] += 1
-            record_attribute(category, wine, weight, drink=True, stars=float(tasting.rating))
+            record_attribute(
+                category, wine, star_equivalent(weight), drink=True, stars=float(tasting.rating)
+            )
             if not profile or profile.generation_status != "available":
                 continue
             profile_dimensions = reliable_sensory_dimensions(profile)
@@ -704,8 +725,13 @@ def rebuild_user_taste_profile(
         categories = ["global"] + ([] if _category(wine) == "global" else [_category(wine)])
         for category in categories:
             samples[category] += 1
+            # The stars themselves: the halved weight only tempers the sensory profile.
             record_attribute(
-                category, wine, weight, drink=False, stars=float(star_rating.rating)
+                category,
+                wine,
+                float(star_rating.rating),
+                drink=False,
+                stars=float(star_rating.rating),
             )
             if not profile or profile.generation_status != "available":
                 continue
@@ -733,7 +759,9 @@ def rebuild_user_taste_profile(
         weight = tasting_preference_weight(float(tasting.rating), tasting.enjoyment)
         for category in categories:
             samples[category] += 1
-            record_attribute(category, tasting, weight, drink=True, stars=float(tasting.rating))
+            record_attribute(
+                category, tasting, star_equivalent(weight), drink=True, stars=float(tasting.rating)
+            )
             if not profile or profile.generation_status != "available":
                 continue
             for dimension, value in reliable_sensory_dimensions(profile).items():
@@ -770,25 +798,43 @@ def rebuild_user_taste_profile(
                 shadow_value, shadow_confidence = shadow
                 shadow_dimensions[dimension] = shadow_value
                 shadow_confidence_values.append(shadow_confidence)
+        experiences = category_scores[category]
+        user_average = sum(experiences) / len(experiences) if experiences else NEUTRAL_RATING
+
+        def favourite_score(scores: list[float], prior: float) -> float:
+            # A few excellent bottles can lead, but one bottle cannot outweigh many.
+            return (FAVOURITE_PRIOR_EXPERIENCES * prior + sum(scores)) / (
+                FAVOURITE_PRIOR_EXPERIENCES + len(scores)
+            )
+
         def attribute_entry(category: str, key: str, value: str, score: float) -> list[object]:
             stars = attribute_ratings[category][key][value]
-            # [name, score, bottles drunk, average stars or None]; readers that
-            # only need the first two items keep working unchanged.
+            # [name, adjusted stars, bottles drunk, plain average stars or None];
+            # readers that only need the first two items keep working unchanged.
             return [
                 value,
-                round(score, 4),
+                round(score, 2),
                 attribute_drinks[category][key][value],
                 round(sum(stars) / len(stars), 2) if stars else None,
             ]
 
-        attributes = {
+        attributes: dict[str, list[list[object]]] = {
             key: [
                 attribute_entry(category, key, value, score)
-                for value, score in sorted(values.items(), key=lambda item: item[1], reverse=True)
-                if score > 0
+                for value, score in sorted(
+                    (
+                        (value, favourite_score(scores, user_average))
+                        for value, scores in values.items()
+                    ),
+                    key=lambda item: (item[1], len(values[item[0]])),
+                    reverse=True,
+                )
+                # Only what was liked: above the neutral three stars.
+                if score > NEUTRAL_RATING
             ][:5]
             for key, values in attribute_scores[category].items()
         }
+        attributes["scoring"] = FAVOURITE_SCORING_MARKER
         confidence = round(
             (sum(confidence_values) / len(confidence_values)) if confidence_values else 0.0, 4
         )

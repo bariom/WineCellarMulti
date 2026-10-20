@@ -36,7 +36,7 @@ export function TasteOrigins({ profile, wines, locale, onOpenWine }: {
   const it = locale === "it";
   const regions = profile.attributes.preferred_regions || [];
   const regional = regions.length > 0;
-  // Attribute scores are accumulated evidence weights, not ratings or percentages.
+  // Higher score = more liked (average stars, or older profiles' accumulated weights); only the order is used.
   const origins = (regional ? regions : profile.attributes.preferred_countries || [])
     .filter(([name, score]) => name.trim() && Number.isFinite(score) && score > 0)
     .slice().sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -53,8 +53,8 @@ export function TasteOrigins({ profile, wines, locale, onOpenWine }: {
   return <div className="taste-origins">
     <h4>{it ? "Le tue origini più apprezzate" : "Your most appreciated origins"}</h4>
     <p className="taste-origins-source">{it
-      ? "Ordinate dai segnali positivi delle tue degustazioni e stelline personali. La quantità in cantina indica disponibilità, non gradimento."
-      : "Ranked by positive signals from your tastings and personal star ratings. Cellar quantity indicates availability, not enjoyment."}</p>
+      ? "Ordinate da quanto ti sono piaciute, secondo le tue degustazioni e stelline personali. La quantità in cantina indica disponibilità, non gradimento."
+      : "Ranked by how much you enjoyed them, from your tastings and personal star ratings. Cellar quantity indicates availability, not enjoyment."}</p>
     {profile.confidence_level === "emerging" ? <p>{it ? "Il profilo è ancora in scoperta: questa classifica può cambiare con nuovi giudizi." : "Your profile is still developing: this ranking may change with new ratings."}</p> : null}
     <div className="taste-origin-cards">
       {origins.map(([name], index) => {
