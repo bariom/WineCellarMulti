@@ -15,6 +15,10 @@ for (const locale of ["it", "en"] as const) {
     await expect(hero).toHaveCSS("background-image", /linear-gradient/);
     await expect(wheel.locator(".taste-wheel-point")).toHaveCount(9);
     await expect(wheel.locator(".taste-wheel-shape")).toHaveCount(1);
+    // The badge counts clear dimensions instead of claiming a blanket coverage.
+    const badge = hero.locator(".taste-profile-evidence-summary small");
+    await expect(badge).toContainText(it ? "dimensioni chiare" : "dimensions clear");
+    if (await wheel.locator(".taste-wheel-point.is-weak").count()) await expect(badge).not.toContainText(it ? "firma consolidata" : "established signature");
     for (const viewport of [{ width: 1440, height: 1000 }, { width: 820, height: 1180 }, { width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }]) {
       await page.setViewportSize(viewport);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

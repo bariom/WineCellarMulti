@@ -7,6 +7,7 @@ import { TasteOrigins } from "./TasteOrigins";
 import { PreferenceRankingChart } from "./PreferenceRankingChart";
 import TasteSignatureWheel from "./TasteSignatureWheel";
 import "./TasteProfilePortrait.css";
+import { dimensionStrength, TASTE_DIMENSIONS } from "../domain/tasteStrength";
 
 const WineGeographyMap = lazy(() => import("../views/WineGeographyMap"));
 
@@ -187,8 +188,14 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
   const preferenceExplanation = italian
     ? "Indice individuale su scala 0–100: 50 è il punto neutro. I valori non sono percentuali da sommare."
     : "Individual index on a 0–100 scale: 50 is neutral. Values are not percentages to add together.";
-  const confidenceLabel = overall?.confidence_level === "established"
+  // A signature is only "established" when every measured dimension says something clear.
+  const measuredDimensions = overall ? TASTE_DIMENSIONS.filter((key) => typeof overall.dimensions[key]?.preference === "number") : [];
+  const weakDimensions = overall ? measuredDimensions.filter((key) => dimensionStrength(overall.dimensions[key].preference, Number(overall.dimensions[key].confidence) || 0) === "weak") : [];
+  const clearDimensionCount = measuredDimensions.length - weakDimensions.length;
+  const confidenceLabel = overall?.confidence_level === "established" && !weakDimensions.length
     ? (italian ? "firma consolidata" : "established signature")
+    : overall?.confidence_level === "established"
+      ? (italian ? "firma in consolidamento" : "signature still settling")
     : overall?.confidence_level === "probable"
       ? (italian ? "profilo delineato" : "defined profile")
       : (italian ? "profilo in scoperta" : "profile in discovery");
@@ -353,7 +360,11 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
           <div className="taste-profile-evidence-summary">
             <div><strong>{evidence?.unique_wine_count ?? overall.tasting_count ?? overall.sample_count}</strong><span>{italian ? "vini distinti" : "unique wines"}</span></div>
             <div><strong>{visibleStarRatingCount}</strong><span>{italian ? "stelline personali" : "personal star ratings"}</span></div>
-            <small>{confidenceLabel}{totalSensorySignals ? ` · ${italian ? "copertura" : "coverage"} ${sensoryCoverage}%` : ""}</small>
+            <small title={weakDimensions.length ? `${italian ? "Da chiarire" : "Still unclear"}: ${weakDimensions.map(label).join(", ")}` : undefined}>
+              {confidenceLabel}
+              {measuredDimensions.length ? ` · ${italian ? `${clearDimensionCount} di ${measuredDimensions.length} dimensioni chiare` : `${clearDimensionCount} of ${measuredDimensions.length} dimensions clear`}` : ""}
+              {totalSensorySignals && sensoryCoverage < 100 ? ` · ${italian ? "dati sensoriali" : "sensory data"} ${sensoryCoverage}%` : ""}
+            </small>
           </div>
         </div>
       </section>

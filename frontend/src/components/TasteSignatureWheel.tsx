@@ -1,20 +1,9 @@
 import { useId } from "react";
+import { dimensionStrength, TASTE_DIMENSIONS, type TasteDimensionStrength } from "../domain/tasteStrength";
 import type { Locale, TasteProfile } from "../types";
 
-const axes = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
-
-type Strength = "strong" | "medium" | "weak";
-
-/**
- * How much a dimension really says about the user's taste: a clear preference
- * (far from the neutral 50) backed by reliable evidence. A value near 50 or
- * resting on few, uncertain experiences is weak, whatever its number.
- */
-function dimensionStrength(preference: number, confidence: number): Strength {
-  const clarity = Math.min(1, Math.abs(preference - 0.5) * 2);
-  const strength = clarity * Math.max(0, Math.min(1, confidence));
-  return strength >= 0.35 ? "strong" : strength >= 0.18 ? "medium" : "weak";
-}
+const axes = TASTE_DIMENSIONS;
+type Strength = TasteDimensionStrength;
 
 export default function TasteSignatureWheel({ dimensions, labels, locale }: {
   dimensions: TasteProfile["dimensions"]; labels: Record<string, string>; locale: Locale;
