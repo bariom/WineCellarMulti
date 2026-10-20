@@ -650,15 +650,37 @@ def rebuild_user_taste_profile(
     attribute_scores: dict[str, dict[str, dict[str, float]]] = defaultdict(
         lambda: defaultdict(lambda: defaultdict(float))
     )
+    # Shown beside each favourite so its score can be read: how many times it was
+    # drunk and how it was rated on average (stars, 1..6).
+    attribute_drinks: dict[str, dict[str, dict[str, int]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(int))
+    )
+    attribute_ratings: dict[str, dict[str, dict[str, list[float]]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(list))
+    )
+
+    def record_attribute(
+        category: str,
+        source: Wine | ExternalWineTasting,
+        weight: float,
+        *,
+        drink: bool,
+        stars: float,
+    ) -> None:
+        for key, label_values in _attribute_values(source).items():
+            for value in label_values:
+                attribute_scores[category][key][value] += weight
+                if drink:
+                    attribute_drinks[category][key][value] += 1
+                if stars > 0:
+                    attribute_ratings[category][key][value].append(stars)
     samples: dict[str, int] = defaultdict(int)
     for tasting, wine, profile in rows:
         categories = ["global"] + ([] if _category(wine) == "global" else [_category(wine)])
         weight = tasting_preference_weight(float(tasting.rating), tasting.enjoyment)
         for category in categories:
             samples[category] += 1
-            for key, label_values in _attribute_values(wine).items():
-                for value in label_values:
-                    attribute_scores[category][key][value] += weight
+            record_attribute(category, wine, weight, drink=True, stars=float(tasting.rating))
             if not profile or profile.generation_status != "available":
                 continue
             profile_dimensions = reliable_sensory_dimensions(profile)
@@ -682,9 +704,9 @@ def rebuild_user_taste_profile(
         categories = ["global"] + ([] if _category(wine) == "global" else [_category(wine)])
         for category in categories:
             samples[category] += 1
-            for key, label_values in _attribute_values(wine).items():
-                for value in label_values:
-                    attribute_scores[category][key][value] += weight
+            record_attribute(
+                category, wine, weight, drink=False, stars=float(star_rating.rating)
+            )
             if not profile or profile.generation_status != "available":
                 continue
             for dimension, value in reliable_sensory_dimensions(profile).items():
@@ -711,9 +733,7 @@ def rebuild_user_taste_profile(
         weight = tasting_preference_weight(float(tasting.rating), tasting.enjoyment)
         for category in categories:
             samples[category] += 1
-            for key, label_values in _attribute_values(tasting).items():
-                for value in label_values:
-                    attribute_scores[category][key][value] += weight
+            record_attribute(category, tasting, weight, drink=True, stars=float(tasting.rating))
             if not profile or profile.generation_status != "available":
                 continue
             for dimension, value in reliable_sensory_dimensions(profile).items():
@@ -750,9 +770,20 @@ def rebuild_user_taste_profile(
                 shadow_value, shadow_confidence = shadow
                 shadow_dimensions[dimension] = shadow_value
                 shadow_confidence_values.append(shadow_confidence)
+        def attribute_entry(category: str, key: str, value: str, score: float) -> list[object]:
+            stars = attribute_ratings[category][key][value]
+            # [name, score, bottles drunk, average stars or None]; readers that
+            # only need the first two items keep working unchanged.
+            return [
+                value,
+                round(score, 4),
+                attribute_drinks[category][key][value],
+                round(sum(stars) / len(stars), 2) if stars else None,
+            ]
+
         attributes = {
             key: [
-                [value, round(score, 4)]
+                attribute_entry(category, key, value, score)
                 for value, score in sorted(values.items(), key=lambda item: item[1], reverse=True)
                 if score > 0
             ][:5]

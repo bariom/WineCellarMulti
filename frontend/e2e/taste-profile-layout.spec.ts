@@ -108,7 +108,7 @@ test.describe("Wine Detail compact/mobile", () => {
       const {PreferenceRankingChart} = await import('/src/components/PreferenceRankingChart.tsx');
       await import('/src/styles.css');
       ReactDOM.createRoot(document.getElementById('root')).render(React.createElement('main', {},
-        React.createElement(PreferenceRankingChart, {values:[['Cabernet Sauvignon', 2], ['Merlot', 8], ['Chardonnay', 8], ['Neutral', 0], ['Negative', -1]], title:'Preferred grapes', locale:'en'}),
+        React.createElement(PreferenceRankingChart, {values:[['Cabernet Sauvignon', 2], ['Merlot', 8, 3, 5.33], ['Chardonnay', 8, 0, 6], ['Neutral', 0], ['Negative', -1]], title:'Preferred grapes', locale:'en'}),
         React.createElement(PreferenceRankingChart, {values:[], title:'Empty grapes', locale:'en'})));
       </script></body></html>` }));
     await page.goto("/preference-chart-test");
@@ -118,6 +118,10 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(chart.getByRole("listitem").nth(1)).toContainText("Chardonnay");
     await expect(chart.getByLabel("Relative support: 100/100")).toHaveCount(2);
     await expect(chart.getByLabel("Relative support: 25/100")).toBeVisible();
+    // Each favourite says why it ranks there; entries saved before this detail show none.
+    await expect(chart.getByRole("listitem").first()).toContainText("3 bottles drunk · average 5.3 of 6");
+    await expect(chart.getByRole("listitem").nth(1).locator(".taste-preference-evidence")).toHaveText("average 6.0 of 6");
+    await expect(chart.getByRole("listitem").nth(2).locator(".taste-preference-evidence")).toHaveCount(0);
     await expect(page.getByRole("figure", { name: "Chart: Empty grapes" })).toContainText("not enough evidence");
     await expect(page.getByRole("figure", { name: "Chart: Empty grapes" }).getByRole("listitem")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

@@ -1679,6 +1679,33 @@ def test_evidence_counts_only_personal_signals_in_the_active_household() -> None
     assert evidence.sensory_missing_count == 0
 
 
+def test_favourites_carry_bottles_drunk_and_average_stars() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="favourites@example.test", display_name="Fav", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    tunella = make_wine(db, household, name="Friulano")
+    tunella.producer = "La Tunella"
+    citran = make_wine(db, household, name="Citran")
+    citran.producer = "Chateau Citran"
+    for rating in (6, 5, 4):
+        add_tasting(db, user, household, tunella, rating)
+    add_tasting(db, user, household, citran, 6)
+    # A personal star rating is an opinion, not a bottle drunk.
+    db.add(UserWineRating(user_id=user.id, household_id=household.id, wine_id=tunella.id, rating=5))
+    db.commit()
+
+    profiles = rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+    overall = next(profile for profile in profiles if profile.category == "global")
+    producers = {entry[0]: entry for entry in overall.attributes["preferred_producers"]}
+
+    name, score, drunk, average = producers["La Tunella"]
+    assert (name, drunk, average) == ("La Tunella", 3, 5.0)
+    assert score > producers["Chateau Citran"][1]
+    assert producers["Chateau Citran"][2:] == [1, 6.0]
+
+
 def test_ai_context_falls_back_to_the_scoped_global_profile() -> None:
     db = Session()
     household = Household(name="Home")

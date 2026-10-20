@@ -1589,10 +1589,13 @@ export type TasteDimensionPreference = {
   samples: number;
 };
 
+/** [name, score, bottles drunk, average stars 1..6]; older profiles carry only the first two. */
+export type TastePreferenceEntry = [string, number, number?, (number | null)?];
+
 export type TasteProfile = {
   category: string;
   dimensions: Record<string, TasteDimensionPreference>;
-  attributes: Record<string, Array<[string, number]>>;
+  attributes: Record<string, TastePreferenceEntry[]>;
   confidence: number;
   sample_count: number;
   tasting_count?: number;

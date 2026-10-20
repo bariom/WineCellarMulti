@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { translate } from "../i18n";
-import type { LegacyTastingClaimResult, LegacyTastingClaimStatus, Locale, TasteProfile, TasteProfileAlgorithmDiagnostics, TasteProfileCollection, TasteProfileEvidence, Wine } from "../types";
+import type { LegacyTastingClaimResult, LegacyTastingClaimStatus, Locale, TastePreferenceEntry, TasteProfile, TasteProfileAlgorithmDiagnostics, TasteProfileCollection, TasteProfileEvidence, Wine } from "../types";
 import { api } from "../services/api";
 import { TasteOrigins } from "./TasteOrigins";
 import { PreferenceRankingChart } from "./PreferenceRankingChart";
@@ -221,7 +221,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
   const attributeOrder = ["preferred_regions", "preferred_appellations", "preferred_producers", "preferred_countries"];
   const attributeEntries = overall
     ? attributeOrder.flatMap((key) => overall.attributes[key]?.length
-      ? [[key, overall.attributes[key]] as [string, Array<[string, number]>]]
+      ? [[key, overall.attributes[key]] as [string, TastePreferenceEntry[]]]
       : [])
     : [];
   const totalSensorySignals = (evidence?.sensory_covered_count ?? 0) + (evidence?.sensory_missing_count ?? 0);
@@ -445,7 +445,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
         <div className="taste-profile-geography-layout">
           <div className="taste-profile-landmark-grid">
             {attributeEntries.map(([kind, values]) => <article key={kind}>
-              <PreferenceRankingChart values={values.map(([name, value]) => [label(name), value])} title={label(kind)} locale={locale} />
+              <PreferenceRankingChart values={values.map(([name, value, drunk, stars]): TastePreferenceEntry => [label(name), value, drunk, stars])} title={label(kind)} locale={locale} />
             </article>)}
           </div>
           <div className="taste-profile-world-map">
