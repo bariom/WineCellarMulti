@@ -85,6 +85,9 @@ class TasteProfileAlgorithmValidation(BaseModel):
     negative_experiences: int = 0
     v2_mean_absolute_error: float | None = None
     v3_mean_absolute_error: float | None = None
+    # Probability that a liked experience ranks above a disliked one (0.5 = chance).
+    v2_ranking_auc: float | None = None
+    v3_ranking_auc: float | None = None
     winner: Literal["v2", "v3", "tie", "insufficient"] = "insufficient"
 
 

@@ -51,6 +51,7 @@ from app.services.taste_profiles import (
     record_user_wine_rating,
     tasting_preference_weight,
     unassigned_tasting_count,
+    ranking_auc,
     validate_taste_profile_algorithms,
 )
 
@@ -1743,7 +1744,21 @@ def test_algorithm_validation_uses_held_out_positive_and_negative_experiences() 
     assert validation["negative_experiences"] == 4
     assert validation["v2_mean_absolute_error"] is not None
     assert validation["v3_mean_absolute_error"] is not None
-    assert validation["winner"] in {"v2", "v3", "tie"}
+    # Liked wines share high levels and disliked ones low levels, so both
+    # profiles should rank every liked experience above every disliked one.
+    assert validation["v2_ranking_auc"] == 1.0
+    assert validation["v3_ranking_auc"] == 1.0
+    assert validation["winner"] == "tie"
+
+
+def test_ranking_auc_ignores_how_high_the_predictions_are() -> None:
+    signals = [1.0, 0.8, -0.6, -1.0]
+    assert ranking_auc([0.9, 0.85, 0.82, 0.8], signals) == 1.0
+    # Shifting every prediction up changes the mean error but not the ranking.
+    assert ranking_auc([0.4, 0.35, 0.32, 0.3], signals) == 1.0
+    assert ranking_auc([0.2, 0.3, 0.8, 0.9], signals) == 0.0
+    assert ranking_auc([0.5, 0.5, 0.5, 0.5], signals) == 0.5
+    assert ranking_auc([0.9, 0.8], [1.0, 0.5]) is None
 
 
 def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
@@ -1833,6 +1848,8 @@ def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
             "negative_experiences": 0,
             "v2_mean_absolute_error": None,
             "v3_mean_absolute_error": None,
+            "v2_ranking_auc": None,
+            "v3_ranking_auc": None,
             "winner": "insufficient",
         }
         with Session() as db:

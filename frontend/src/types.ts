@@ -1648,6 +1648,8 @@ export type TasteProfileAlgorithmDiagnostics = {
     negative_experiences: number;
     v2_mean_absolute_error: number | null;
     v3_mean_absolute_error: number | null;
+    v2_ranking_auc?: number | null;
+    v3_ranking_auc?: number | null;
     winner: "v2" | "v3" | "tie" | "insufficient";
   };
 };

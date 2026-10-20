@@ -427,6 +427,24 @@ def _active_dimension(
     )
 
 
+def ranking_auc(scores: list[float], signals: list[float]) -> float | None:
+    """Probability that a liked experience scores above a disliked one (ties count half).
+
+    Unlike the mean error, it does not reward a model for predicting high values
+    when most experiences are positive: it only asks whether liked wines rank first.
+    """
+    positives = [score for score, signal in zip(scores, signals, strict=True) if signal > 0]
+    negatives = [score for score, signal in zip(scores, signals, strict=True) if signal < 0]
+    if not positives or not negatives:
+        return None
+    wins = sum(
+        1.0 if positive > negative else 0.5 if positive == negative else 0.0
+        for positive in positives
+        for negative in negatives
+    )
+    return wins / (len(positives) * len(negatives))
+
+
 def validate_taste_profile_algorithms(
     db: Session, *, household_id: UUID, user_id: UUID
 ) -> dict[str, object]:
@@ -502,6 +520,8 @@ def validate_taste_profile_algorithms(
 
     v2_errors: list[float] = []
     v3_errors: list[float] = []
+    v2_scores: list[float] = []
+    v3_scores: list[float] = []
     tested_signals: list[float] = []
     for held_out_index, (held_out_signal, held_out_dimensions, _) in enumerate(observations):
         training: dict[str, list[tuple[float, float, float]]] = defaultdict(list)
@@ -539,6 +559,8 @@ def validate_taste_profile_algorithms(
         actual = 0.5 + held_out_signal / 2
         v2_errors.append(abs(v2_prediction - actual))
         v3_errors.append(abs(v3_prediction - actual))
+        v2_scores.append(v2_prediction)
+        v3_scores.append(v3_prediction)
         tested_signals.append(held_out_signal)
 
     positive_count = sum(signal > 0 for signal in tested_signals)
@@ -552,12 +574,21 @@ def validate_taste_profile_algorithms(
             "negative_experiences": negative_count,
             "v2_mean_absolute_error": None,
             "v3_mean_absolute_error": None,
+            "v2_ranking_auc": None,
+            "v3_ranking_auc": None,
             "winner": "insufficient",
         }
     v2_mae = sum(v2_errors) / len(v2_errors)
     v3_mae = sum(v3_errors) / len(v3_errors)
-    difference = v2_mae - v3_mae
-    winner = "v3" if difference >= 0.02 else "v2" if difference <= -0.02 else "tie"
+    # The sufficiency check guarantees both classes; 0.5 (chance) is only a guard.
+    v2_ranking = ranking_auc(v2_scores, tested_signals)
+    v3_ranking = ranking_auc(v3_scores, tested_signals)
+    v2_auc = 0.5 if v2_ranking is None else v2_ranking
+    v3_auc = 0.5 if v3_ranking is None else v3_ranking
+    # The verdict follows the ranking: telling liked wines from disliked ones is
+    # what recommendations need. The mean error is kept as a calibration hint.
+    difference = v3_auc - v2_auc
+    winner = "v3" if difference >= 0.03 else "v2" if difference <= -0.03 else "tie"
     return {
         "status": "ready",
         "tested_experiences": len(tested_signals),
@@ -565,6 +596,8 @@ def validate_taste_profile_algorithms(
         "negative_experiences": negative_count,
         "v2_mean_absolute_error": round(v2_mae, 4),
         "v3_mean_absolute_error": round(v3_mae, 4),
+        "v2_ranking_auc": round(v2_auc, 4),
+        "v3_ranking_auc": round(v3_auc, 4),
         "winner": winner,
     }
 
