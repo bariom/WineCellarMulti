@@ -58,6 +58,35 @@ test("Taste signature distinguishes a zero preference from missing dimensions", 
   await expect(page.locator(".taste-wheel-shape")).toHaveCount(0);
 });
 
+test("Taste signature tells strong preferences from weak, near-neutral ones", async ({ page }) => {
+  await page.route("**/taste-wheel-strength-test", route => route.fulfill({ contentType: "text/html", body: `
+    <html><body style="background:#3a1c22"><div id="root"></div><script type="module">
+    import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window);
+    window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => (type) => type;
+    window.__vite_plugin_react_preamble_installed__ = true;
+    const {default: React} = await import('/node_modules/.vite/deps/react.js');
+    const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
+    const {default: Wheel} = await import('/src/components/TasteSignatureWheel.tsx');
+    await import('/src/components/TasteProfilePortrait.css');
+    const levels = {acidity: .76, aromatic_intensity: .75, body: .72, fruit: .74, minerality: .67, spice: .64, sweetness: .53, tannin: .66, wood: .63};
+    const dimensions = Object.fromEntries(Object.entries(levels).map(([key, preference]) => [key, {preference, confidence: .83, samples: 80}]));
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Wheel, {locale:'it', labels:{body:'Corpo', acidity:'Acidità', tannin:'Tannini', sweetness:'Dolcezza', fruit:'Frutto', wood:'Legno', spice:'Spezie', minerality:'Mineralità'}, dimensions}));
+    </script></body></html>` }));
+  await page.goto("/taste-wheel-strength-test");
+  // Acidity 76 is a clear, well-supported preference; sweetness 53 says almost nothing.
+  await expect(page.locator(".taste-wheel-label.is-strong").filter({ hasText: "Acidità" })).toHaveCount(1);
+  await expect(page.locator(".taste-wheel-label.is-medium").filter({ hasText: "Tannini" })).toHaveCount(1);
+  const sweetness = page.locator(".taste-wheel-label.is-weak").filter({ hasText: "Dolcezza" });
+  await expect(sweetness).toHaveCount(1);
+  await expect(sweetness).toContainText("53 · debole");
+  await expect(page.locator(".taste-wheel-point.is-weak")).toHaveCount(1);
+  // Both sides touching the weak dimension are dashed, the others solid.
+  await expect(page.locator(".taste-wheel-edge.is-weak")).toHaveCount(2);
+  await expect(page.locator(".taste-wheel-edge:not(.is-weak)")).toHaveCount(7);
+  await expect(page.locator("svg desc")).toContainText("Dolcezza: 53/100, influenza debole");
+  await expect(page.locator(".taste-wheel-legend")).toContainText("Influenza forte");
+});
+
 // Retain the original suite title and viewport for stable test identity.
 test.describe("Wine Detail compact/mobile", () => {
   test.use({ viewport: { width: 390, height: 844 } });

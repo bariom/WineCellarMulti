@@ -38,9 +38,24 @@
 .taste-signature-wheel .taste-wheel-scale { fill: #ddc1b8; font-size: 9px; opacity: .75; }
 .taste-wheel-grid { fill: none; stroke: #edc58330; stroke-width: 1; }
 .taste-wheel-axis { stroke: #edc58324; stroke-width: 1; }
-.taste-wheel-shape { stroke: #edc583; stroke-width: 2; stroke-linejoin: round; }
+.taste-wheel-shape { stroke: none; }
+/* Sides between telling dimensions are solid; a side touching a weak one is dashed. */
+.taste-wheel-edge { stroke: #edc583; stroke-width: 2; stroke-linecap: round; }
+.taste-wheel-edge.is-weak { stroke: #edc583a6; stroke-width: 1.6; stroke-dasharray: 4 4; }
 .taste-wheel-ray { stroke: #edc58345; stroke-width: 1; }
 .taste-wheel-point { fill: #fff2cc; stroke: #d6aa68; stroke-width: 2; }
+.taste-wheel-point.is-strong { fill: #edc583; stroke: #fff2cc; }
+.taste-wheel-point.is-medium { fill: #edc58373; stroke: #edc583; }
+.taste-wheel-point.is-weak { fill: #3a1c22; stroke: #edc583a6; stroke-dasharray: 2 2; }
+.taste-signature-wheel .taste-wheel-label.is-strong { font-weight: 700; }
+.taste-signature-wheel .taste-wheel-label.is-weak { fill: #f3ded3a6; }
+.taste-signature-wheel .taste-wheel-label.is-weak .taste-wheel-value { fill: #edc58399; font-weight: 500; }
+.taste-wheel-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: 4px 0 10px; padding: 0; list-style: none; color: #ddc1b8; font-size: .66rem; }
+.taste-wheel-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.taste-wheel-legend i { width: 9px; height: 9px; border: 2px solid #edc583; border-radius: 50%; }
+.taste-wheel-legend i.is-strong { background: #edc583; }
+.taste-wheel-legend i.is-medium { background: #edc58373; }
+.taste-wheel-legend i.is-weak { border-style: dashed; border-color: #edc583a6; background: transparent; }
 .taste-signature-wheel figcaption { color: #edc583; font-size: .75rem; letter-spacing: .06em; }
 .taste-signature-wheel figcaption small { display: block; margin-top: 5px; color: #ddc1b8; font-size: .65rem; letter-spacing: 0; }
 :root .home-dashboard.home-dashboard-secondary .taste-profile-panel--insight .taste-profile-hero-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
