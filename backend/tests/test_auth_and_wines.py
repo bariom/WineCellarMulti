@@ -5681,6 +5681,27 @@ def test_cellar_ai_marks_every_wine_ordered_from_a_merchant_as_shipped(monkeypat
     assert empty.json()["message"] == "Non trovo vini ordinati da Manor."
 
 
+def test_monitor_activity_lists_more_than_a_hundred_actions_in_a_stable_order():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    moment = datetime.now(UTC) + timedelta(minutes=5)
+    with TestingSessionLocal() as db:
+        user = db.query(User).filter(User.email == "owner@example.com").one()
+        db.add_all(
+            [UserActivityLog(user_id=user.id, action="wine_updated", created_at=moment) for _ in range(120)]
+        )
+        db.commit()
+
+    first = client.get("/api/v1/admin/operations/activity", params={"limit": 500})
+    assert first.status_code == 200, first.text
+    assert len(first.json()) >= 120
+    second = client.get("/api/v1/admin/operations/activity", params={"limit": 500})
+    # Actions recorded in the same instant keep the same order between refreshes.
+    assert [item["id"] for item in first.json()] == [item["id"] for item in second.json()]
+    assert len(client.get("/api/v1/admin/operations/activity", params={"limit": 110}).json()) == 110
+    assert client.get("/api/v1/admin/operations/activity", params={"limit": 501}).status_code == 422
+
+
 def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
     from app.api.routes import ai as ai_routes
 

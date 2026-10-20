@@ -574,14 +574,15 @@ def revoke_monitor_device_token(
 
 @router.get("/activity")
 def recent_user_activity(
-    limit: int = Query(default=40, ge=1, le=100),
+    limit: int = Query(default=40, ge=1, le=500),
     db: Session = Depends(get_db),
     _: User = Depends(require_operations_read_access),
 ) -> list[dict[str, str]]:
     entries = db.execute(
         select(UserActivityLog, User)
         .join(User, User.id == UserActivityLog.user_id)
-        .order_by(UserActivityLog.created_at.desc())
+        # The id keeps the order stable for actions recorded in the same instant.
+        .order_by(UserActivityLog.created_at.desc(), UserActivityLog.id.desc())
         .limit(limit)
     ).all()
     return [

@@ -574,6 +574,16 @@ body:has(.monitor-shell) {
   color: #9ed0a2;
 }
 
+.monitor-activity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.monitor-activity-actions .monitor-text-button:disabled { opacity: .6; cursor: progress; }
+
 .monitor-activity article {
   display: flex;
   align-items: center;

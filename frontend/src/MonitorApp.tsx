@@ -225,6 +225,8 @@ function MonitorChart({
   );
 }
 
+const ACTIVITY_LIMITS = [16, 50, 100, 250, 500];
+
 export function MonitorApp() {
   const [token, setToken] = useState(() => window.localStorage.getItem(TOKEN_STORAGE_KEY) || "");
   const [draftToken, setDraftToken] = useState("");
@@ -237,6 +239,10 @@ export function MonitorApp() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [activityExpanded, setActivityExpanded] = useState(false);
+  const [activityLimit, setActivityLimit] = useState(ACTIVITY_LIMITS[0]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  // The minute refresh runs from an older render: read the chosen size from a ref.
+  const activityLimitRef = useRef(ACTIVITY_LIMITS[0]);
   const [shareFeedback, setShareFeedback] = useState("");
   const [winePulseDetails, setWinePulseDetails] = useState<WinePulseDetails | null>(null);
   const [applicationErrors, setApplicationErrors] = useState<ApplicationErrors | null>(null);
@@ -270,7 +276,7 @@ export function MonitorApp() {
       const [nextOverview, nextHistory, nextActivity, nextActiveUsers, nextDemoActivity, nextWinePulseDetails, nextApplicationErrors] = await Promise.all([
         monitorApi<OperationalMetricsOverview>("/api/v1/admin/operations/overview", activeToken),
         monitorApi<OperationalMetricsHistory>(`/api/v1/admin/operations/history?hours=${activeHours}`, activeToken),
-        monitorApi<UserActivityLogEntry[]>("/api/v1/admin/operations/activity?limit=16", activeToken),
+        monitorApi<UserActivityLogEntry[]>(`/api/v1/admin/operations/activity?limit=${activityLimitRef.current}`, activeToken),
         monitorApi<ActiveUsersEstimate>("/api/v1/admin/operations/active-users", activeToken),
         monitorApi<DemoActivitySummary>("/api/v1/admin/operations/demo-activity", activeToken),
         monitorApi<WinePulseDetails>("/api/v1/admin/operations/wine-pulse", activeToken),
@@ -319,6 +325,9 @@ export function MonitorApp() {
     setOverview(null);
     setHistory(null);
     setActivity([]);
+    setActivityLimit(ACTIVITY_LIMITS[0]);
+    activityLimitRef.current = ACTIVITY_LIMITS[0];
+    setActivityExpanded(false);
     setActiveUsers(null);
     setWinePulseDetails(null);
     setApplicationErrors(null);
@@ -413,6 +422,25 @@ export function MonitorApp() {
     ? Math.round(((business.ai_successes_30d || 0) / business.ai_requests_30d) * 100)
     : null;
   const visibleActivity = activityExpanded ? activity : activity.slice(0, 6);
+  const nextActivityLimit = ACTIVITY_LIMITS.find((limit) => limit > activityLimit);
+  // A full page means older actions are probably still available.
+  const moreActivityAvailable = Boolean(nextActivityLimit) && activity.length >= activityLimit;
+
+  async function loadMoreActivity() {
+    if (!token || !nextActivityLimit || activityLoading) return;
+    setActivityLoading(true);
+    try {
+      const nextActivity = await monitorApi<UserActivityLogEntry[]>(`/api/v1/admin/operations/activity?limit=${nextActivityLimit}`, token);
+      activityLimitRef.current = nextActivityLimit;
+      setActivityLimit(nextActivityLimit);
+      setActivity(nextActivity);
+      setActivityExpanded(true);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Impossibile caricare altre attività.");
+    } finally {
+      setActivityLoading(false);
+    }
+  }
   const recentUsersCount = activeUsers?.count ?? null;
   const interactiveLatencyDiagnostic = overview && app ? latencyDiagnostic(app, overview.collected_at) : "";
   async function copyLatencyDiagnostic() {
@@ -682,11 +710,18 @@ export function MonitorApp() {
             <time>{dateTime(item.created_at)}</time>
           </article>
         )) : <p className="monitor-empty">Nessuna attività recente</p>}
-        {activity.length > 6 ? (
-          <button type="button" className="monitor-text-button" onClick={() => setActivityExpanded((current) => !current)}>
-            {activityExpanded ? "Mostra meno" : `Mostra altre ${activity.length - 6}`}
-          </button>
-        ) : null}
+        {activity.length > 6 || moreActivityAvailable ? <div className="monitor-activity-actions">
+          {activity.length > 6 ? (
+            <button type="button" className="monitor-text-button" onClick={() => setActivityExpanded((current) => !current)}>
+              {activityExpanded ? "Mostra meno" : `Mostra altre ${activity.length - 6}`}
+            </button>
+          ) : null}
+          {(activityExpanded || activity.length <= 6) && moreActivityAvailable ? (
+            <button type="button" className="monitor-text-button" disabled={activityLoading} onClick={() => void loadMoreActivity()}>
+              {activityLoading ? "Caricamento…" : `Carica altre azioni (fino a ${nextActivityLimit})`}
+            </button>
+          ) : null}
+        </div> : null}
       </section>
 
       <button type="button" className="monitor-disconnect" onClick={disconnect}>Disconnetti questo dispositivo</button>
