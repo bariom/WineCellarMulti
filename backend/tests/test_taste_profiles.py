@@ -1707,7 +1707,7 @@ def test_favourites_carry_bottles_drunk_and_average_stars() -> None:
     # four experiences averaging 5.0 sit just below it, one bottle at 6 above it.
     assert score == 5.09
     assert producers["Chateau Citran"][1] == 5.4
-    assert overall.attributes["scoring"] == [["average_stars", 1]]
+    assert overall.attributes["scoring"] == [["average_stars", 2]]
 
 
 def test_grape_names_drop_notes_the_ai_put_in_brackets() -> None:
@@ -1745,6 +1745,50 @@ def test_favourite_grapes_merge_names_that_differ_only_by_notes() -> None:
 
     assert [entry[0] for entry in grapes] == ["Pinot Nero"]
     assert grapes[0][2] == 2
+
+
+def test_grape_shares_split_a_blend_by_known_percentages() -> None:
+    from app.services.taste_profiles import grape_shares
+
+    def wine(grapes):
+        return SimpleNamespace(grapes=grapes)
+
+    assert grape_shares(wine([{"name": "Nebbiolo", "percentage_from": 100, "percentage_to": 100}])) == {"Nebbiolo": 1.0}
+    blend = grape_shares(wine([
+        {"name": "Merlot", "percentage_from": 85, "percentage_to": 95},
+        {"name": "Cabernet Franc (percentuali non disponibili)", "percentage_from": 0, "percentage_to": 0},
+    ]))
+    assert blend == {"Merlot": 0.9, "Cabernet Franc": pytest.approx(0.1)}
+    # Without any percentage, grapes split the wine equally.
+    assert grape_shares(wine([{"name": "Cabernet Franc"}, {"name": "Merlot ()"}])) == {"Cabernet Franc": 0.5, "Merlot": 0.5}
+    assert grape_shares(wine([])) == {}
+
+
+def test_a_minor_blend_grape_takes_only_its_share_of_the_rating() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="blend@example.test", display_name="Blend", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    bordeaux = make_wine(db, household, name="Pomerol")
+    bordeaux.grapes = [
+        {"name": "Merlot", "percentage_from": 90, "percentage_to": 90},
+        {"name": "Cabernet Franc", "percentage_from": 10, "percentage_to": 10},
+    ]
+    loire = make_wine(db, household, name="Chinon")
+    loire.grapes = [{"name": "Cabernet Franc", "percentage_from": 100, "percentage_to": 100}]
+    add_tasting(db, user, household, bordeaux, 6)
+    add_tasting(db, user, household, loire, 4)
+    db.commit()
+
+    profiles = rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+    overall = next(profile for profile in profiles if profile.category == "global")
+    grapes = {entry[0]: entry for entry in overall.attributes["preferred_grapes"]}
+
+    # The excellent Pomerol is mostly Merlot: Cabernet Franc's 10% barely
+    # lifts it, so its own 4-star Chinon decides where it stands.
+    assert grapes["Merlot"][1] > grapes["Cabernet Franc"][1]
+    assert grapes["Cabernet Franc"][2] == 2  # still two bottles drunk
 
 
 def test_favourites_follow_how_much_they_were_liked_not_how_often() -> None:
@@ -1797,7 +1841,7 @@ def test_profiles_saved_with_the_earlier_favourite_ranking_are_rebuilt_on_read()
     response = taste_profile_routes.get_my_taste_profile(db, context)
 
     overall = next(profile for profile in response.profiles if profile.category == "global")
-    assert overall.attributes["scoring"] == [["average_stars", 1]]
+    assert overall.attributes["scoring"] == [["average_stars", 2]]
     assert overall.attributes["preferred_producers"][0][:3] == ["Producer", overall.attributes["preferred_producers"][0][1], 1]
 
 

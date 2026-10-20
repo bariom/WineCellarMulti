@@ -54,7 +54,8 @@ TASTE_PROFILE_SHADOW_VERSION = 3
 FAVOURITE_PRIOR_EXPERIENCES = 3.0
 # Stored in a profile's attributes so readers can tell this ranking from the
 # earlier "sum of experiences" one, and stale profiles can be rebuilt.
-FAVOURITE_SCORING_MARKER = [["average_stars", 1]]
+# Version 2: grapes in a blend take their share of the rating.
+FAVOURITE_SCORING_MARKER = [["average_stars", 2]]
 
 
 def star_equivalent(weight: float) -> float:
@@ -384,6 +385,43 @@ def _attribute_values(wine: Wine | ExternalWineTasting) -> dict[str, list[str]]:
     }
 
 
+def grape_shares(wine: Wine | ExternalWineTasting) -> dict[str, float]:
+    """Each grape's share of the wine (summing to 1), to split a rating across a blend.
+
+    Known percentages are used (the middle of a range); grapes without one share
+    what the known ones leave, or split the wine equally when none is known.
+    """
+    known: dict[str, float] = {}
+    unknown: list[str] = []
+    for item in getattr(wine, "grapes", []) or []:
+        if not isinstance(item, dict):
+            continue
+        name = clean_grape_name(item.get("name", ""))
+        if not name or name in known or name in unknown:
+            continue
+        values = [
+            float(value)
+            for value in (item.get("percentage_from"), item.get("percentage_to"))
+            if isinstance(value, int | float) and not isinstance(value, bool) and value > 0
+        ]
+        if values:
+            known[name] = sum(values) / len(values)
+        else:
+            unknown.append(name)
+    if not known and not unknown:
+        return {}
+    shares = {name: percent / 100 for name, percent in known.items()}
+    remaining = max(0.0, 1 - sum(shares.values()))
+    if unknown:
+        # With no percentage at all the grapes split the wine equally.
+        each = (remaining if known else 1.0) / len(unknown)
+        shares.update({name: each for name in unknown})
+    total = sum(shares.values())
+    if total <= 0:
+        return {name: 1 / len(shares) for name in shares}
+    return {name: share / total for name, share in shares.items()}
+
+
 def _shadow_dimension(
     contributions: list[tuple[float, float, float]],
 ) -> tuple[dict[str, float | int], float] | None:
@@ -663,9 +701,10 @@ def rebuild_user_taste_profile(
     accumulators: dict[str, dict[str, list[tuple[float, float, float]]]] = defaultdict(
         lambda: defaultdict(list)
     )
-    # Star-equivalent of every experience per favourite, used for the ranking; the
-    # category totals give the user's own average, the starting point of each one.
-    attribute_scores: dict[str, dict[str, dict[str, list[float]]]] = defaultdict(
+    # Star-equivalent of every experience per favourite with its weight (a grape's
+    # share of a blend, otherwise 1), used for the ranking; the category totals
+    # give the user's own average, the starting point of each one.
+    attribute_scores: dict[str, dict[str, dict[str, list[tuple[float, float]]]]] = defaultdict(
         lambda: defaultdict(lambda: defaultdict(list))
     )
     category_scores: dict[str, list[float]] = defaultdict(list)
@@ -687,9 +726,12 @@ def rebuild_user_taste_profile(
         stars: float,
     ) -> None:
         category_scores[category].append(score)
+        shares = grape_shares(source)
         for key, label_values in _attribute_values(source).items():
             for value in label_values:
-                attribute_scores[category][key][value].append(score)
+                # In a blend each grape takes only its share of the rating.
+                weight = shares.get(value, 1.0) if key == "preferred_grapes" else 1.0
+                attribute_scores[category][key][value].append((score, weight))
                 if drink:
                     attribute_drinks[category][key][value] += 1
                 if stars > 0:
@@ -802,11 +844,11 @@ def rebuild_user_taste_profile(
         experiences = category_scores[category]
         user_average = sum(experiences) / len(experiences) if experiences else NEUTRAL_RATING
 
-        def favourite_score(scores: list[float], prior: float) -> float:
+        def favourite_score(scores: list[tuple[float, float]], prior: float) -> float:
             # A few excellent bottles can lead, but one bottle cannot outweigh many.
-            return (FAVOURITE_PRIOR_EXPERIENCES * prior + sum(scores)) / (
-                FAVOURITE_PRIOR_EXPERIENCES + len(scores)
-            )
+            return (
+                FAVOURITE_PRIOR_EXPERIENCES * prior + sum(score * weight for score, weight in scores)
+            ) / (FAVOURITE_PRIOR_EXPERIENCES + sum(weight for _, weight in scores))
 
         def attribute_entry(category: str, key: str, value: str, score: float) -> list[object]:
             stars = attribute_ratings[category][key][value]
