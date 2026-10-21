@@ -36,13 +36,24 @@
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag() { dataLayer.push(arguments); }
+      // Consent mode: nothing is stored until the cookie banner grants it.
       gtag('consent', 'default', {
         ad_storage: 'denied',
         ad_user_data: 'denied',
         ad_personalization: 'denied',
-        analytics_storage: 'denied'
+        analytics_storage: 'denied',
+        wait_for_update: 500
       });
+      gtag('set', 'ads_data_redaction', true);
     </script>
+    <!-- google-tag:start (kept only in the production web build, see vite.config.ts) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-814958967"></script>
+    <script>
+      gtag('js', new Date());
+      gtag('config', 'AW-814958967');
+      gtag('config', 'G-MY7R9EMSGX');
+    </script>
+    <!-- google-tag:end -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",

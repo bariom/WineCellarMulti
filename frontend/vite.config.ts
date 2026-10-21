@@ -36,6 +36,24 @@ function pwaPrecachePlugin(): Plugin {
   };
 }
 
+/**
+ * The Google tag in index.html runs in consent mode on the public web app only:
+ * the Monitor device build and the local dev server (used by E2E tests) drop it,
+ * so neither sends measurements to Google.
+ */
+function googleTagPlugin(): Plugin {
+  let keep = false;
+  return {
+    name: "vinaris-google-tag",
+    configResolved(config) {
+      keep = config.command === "build" && config.mode !== "monitor";
+    },
+    transformIndexHtml(html) {
+      return keep ? html : html.replace(/\s*<!-- google-tag:start[\s\S]*?<!-- google-tag:end -->/, "");
+    },
+  };
+}
+
 function seoGuideDevRoutesPlugin(): Plugin {
   return {
     name: "vinaris-seo-guide-dev-routes",
@@ -62,7 +80,7 @@ function seoGuideDevRoutesPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), seoGuideDevRoutesPlugin(), pwaPrecachePlugin()],
+  plugins: [react(), googleTagPlugin(), seoGuideDevRoutesPlugin(), pwaPrecachePlugin()],
   build: {
     rolldownOptions: {
       output: {
