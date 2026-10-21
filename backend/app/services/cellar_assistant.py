@@ -165,8 +165,10 @@ def assistant_tools() -> list[dict[str, Any]]:
         ),
         _tool(
             "purchases",
-            "Bottles bought over a period from the recorded purchase lots (or the order "
-            "date of wines without lots): quantity, cost, supplier.",
+            "What the user bought over a period: lists each purchase (date, wine, producer, "
+            "vintage, region, bottles, unit cost, supplier) and totals. Use it for questions "
+            "such as which bottles were bought, how much was spent or from whom. Built from the "
+            "purchase lots, or the order date of wines without lots.",
             {
                 "date_from": date_field,
                 "date_to": date_field,
@@ -314,6 +316,7 @@ class CellarAssistantTools:
             "currency": wine.currency,
             "personal_rating": wine.rating or None,
             "merchant": wine.merchant,
+            "order_date": wine.order_date.isoformat() if wine.order_date else None,
             "notes": (wine.notes or "")[:300],
         }
         if wine.owner_share_pct is not None and Decimal(wine.owner_share_pct) < 100:

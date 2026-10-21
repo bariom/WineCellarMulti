@@ -60,6 +60,11 @@ test("the cellar assistant answers questions and keeps the conversation", async 
     { role: "assistant", content: "Hai **4 bottiglie** di Nebbiolo di Test 2019:\n- 2 in cantina\n- 2 nel frigo vini\n\nAl picco fino al 2028." },
   ]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  // On a phone the new exchange is brought into view, not left above the composer.
+  await expect(conversation.getByText("Mostrami anche quello del 2016", { exact: true })).toBeInViewport();
+  await expect(conversation.getByText("Il 2016 non è in cantina.", { exact: true })).toBeInViewport();
+  await expect(page.getByLabel("Esempi di domande", { exact: true })).toBeHidden();
+  await page.screenshot({ path: testInfo.outputPath("assistant-latest-exchange-390.png") });
   await page.screenshot({ path: testInfo.outputPath("assistant-conversation-390.png"), fullPage: true });
 
   await conversation.getByRole("button", { name: "Nuova conversazione", exact: true }).click();

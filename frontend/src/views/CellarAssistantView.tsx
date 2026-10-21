@@ -83,6 +83,7 @@ export default function CellarAssistantView({
   const finalTranscriptRef = useRef("");
   const resultRef = useRef<HTMLElement | null>(null);
   const errorRef = useRef<HTMLParagraphElement | null>(null);
+  const latestQuestionRef = useRef<HTMLLIElement | null>(null);
   const voiceSupported = Boolean(browserVoiceRecognition());
   const isItalian = locale === "it";
   const consumptionExample = isItalian
@@ -175,6 +176,19 @@ export default function CellarAssistantView({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [error, result]);
+
+  // On a phone the composer sits below the conversation: bring each new exchange,
+  // from the question down to the answer, into view instead of staying on the composer.
+  useEffect(() => {
+    if (!conversation.length || !window.matchMedia("(max-width: 820px)").matches) return;
+    const target = latestQuestionRef.current;
+    if (!target) return;
+    const frame = window.requestAnimationFrame(() => {
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [conversation.length]);
 
   function voiceErrorMessage(code: string) {
     if (code === "not-allowed" || code === "service-not-allowed") {
@@ -544,7 +558,7 @@ export default function CellarAssistantView({
           <button type="button" className="secondary compact" onClick={() => setConversation([])} disabled={busy}>{isItalian ? "Nuova conversazione" : "New conversation"}</button>
         </header>
         <ol aria-live="polite">
-          {conversation.map((turn, index) => <li key={index} className={`is-${turn.role}`}>
+          {conversation.map((turn, index) => <li key={index} className={`is-${turn.role}`} ref={turn.role === "user" && index === conversation.length - 2 ? latestQuestionRef : undefined}>
             {turn.role === "assistant" ? <AssistantAnswer text={turn.content} /> : <p>{turn.content}</p>}
             {turn.meta ? <small>{turn.meta}</small> : null}
           </li>)}
@@ -552,7 +566,7 @@ export default function CellarAssistantView({
         <small className="cellar-assistant-conversation-note">{isItalian ? "L'assistente legge la tua cantina per rispondere; per modificarla, racconta cosa è successo." : "The assistant reads your cellar to answer; to change it, describe what happened."}</small>
       </section> : null}
 
-      <form className="cellar-assistant-composer" onSubmit={submit}>
+      <form className={`cellar-assistant-composer${conversation.length ? " has-conversation" : ""}`} onSubmit={submit}>
         <label htmlFor="cellar-assistant-command">{isItalian ? "Chiedi o racconta" : "Ask or tell"}</label>
         <div className="cellar-assistant-command-examples" aria-label={isItalian ? "Esempi di domande" : "Question examples"}>
           <span>{isItalian ? "Chiedi:" : "Ask:"}</span>

@@ -95,3 +95,10 @@
 .assistant-answer li { line-height: 1.5; }
 .assistant-answer li::marker { color: var(--accent); }
 .assistant-answer strong { font-weight: 750; }
+
+/* Mobile chat: each new exchange scrolls into view below the sticky header, and the
+   example chips step aside once a conversation is open so it stays close to the composer. */
+.cellar-assistant-conversation > ol > li { scroll-margin-top: 84px; }
+@media (max-width: 820px) {
+  .cellar-assistant-composer.has-conversation > .cellar-assistant-command-examples { display: none !important; }
+}
