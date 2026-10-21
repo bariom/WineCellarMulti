@@ -9396,6 +9396,29 @@ def test_wine_shelf_scan_counts_the_cost_of_an_unusable_section_answer(monkeypat
     assert Decimal(result["estimated_cost_usd"]) > 0
 
 
+def test_shelf_label_points_snap_onto_the_nearest_label():
+    from PIL import Image, ImageDraw
+
+    from app.services.wine_image_recognition import label_snapper
+
+    # Dark glass with five pale labels, 100 px apart, centred at x = 50, 150, ... and y = 150.
+    image = Image.new("RGB", (500, 300), (20, 15, 12))
+    draw = ImageDraw.Draw(image)
+    for left in range(20, 500, 100):
+        draw.rectangle((left, 100, left + 60, 200), fill=(235, 225, 200))
+    buffer = BytesIO()
+    image.save(buffer, "PNG")
+    snap = label_snapper(buffer.getvalue())
+
+    # A point near the edge between two labels, and low on the label, lands on the label centre.
+    x, y = snap(185 / 500, 190 / 300, 60 / 500, 100 / 300)
+    assert abs(x * 500 - 150) <= 3 and abs(y * 300 - 150) <= 3
+    x, y = snap(330 / 500, 120 / 300, 60 / 500, 100 / 300)
+    assert abs(x * 500 - 350) <= 3 and abs(y * 300 - 150) <= 3
+    # Unreadable image data leaves the model's point as it is.
+    assert label_snapper(b"not an image")(0.3, 0.4, 0.1, 0.1) == (0.3, 0.4)
+
+
 def test_shelf_photos_are_split_into_overlapping_sections():
     from PIL import Image
 

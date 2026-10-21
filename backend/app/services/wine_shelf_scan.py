@@ -31,6 +31,7 @@ from app.schemas.ai import (
     WineShelfScanResponse,
     WineShelfScanStatus,
 )
+from app.services.wine_image_recognition import label_snapper
 
 logger = logging.getLogger(__name__)
 
@@ -246,12 +247,13 @@ def section_bottles(
     image_index: int,
     box: tuple[float, float, float, float],
     size: tuple[int, int],
+    snap: Callable[[float, float, float, float], tuple[float, float]] | None = None,
 ) -> list[WineShelfBottle]:
     """Validate one section's bottles and map their label points onto the whole photo.
 
     The model points at the middle of each label in section pixels; the box sent to
     the app is centred on that point and kept inside the section, so the badge sits
-    on the bottle.
+    on the bottle. ``snap`` moves the point onto the label seen in the section image.
     """
     left, top, width, height = box
     pixel_width, pixel_height = size
@@ -263,12 +265,14 @@ def section_bottles(
         confidence = str(item.get("confidence") or "")
         center_x = _pixel_ratio(item.get("center_x"), pixel_width)
         center_y = _pixel_ratio(item.get("center_y"), pixel_height)
-        half_width = min(
-            _pixel_ratio(item.get("label_width"), pixel_width) / 2, center_x, 1 - center_x
-        )
-        half_height = min(
-            _pixel_ratio(item.get("label_height"), pixel_height) / 2, center_y, 1 - center_y
-        )
+        label_width = _pixel_ratio(item.get("label_width"), pixel_width)
+        label_height = _pixel_ratio(item.get("label_height"), pixel_height)
+        if snap is not None:
+            center_x, center_y = (
+                _clamp_unit(value) for value in snap(center_x, center_y, label_width, label_height)
+            )
+        half_width = min(label_width / 2, center_x, 1 - center_x)
+        half_height = min(label_height / 2, center_y, 1 - center_y)
         bottles.append(
             WineShelfBottle(
                 name=str(item.get("name") or "").strip()[:180],
@@ -389,7 +393,11 @@ def read_section(
         bottles: list[WineShelfBottle] | None
         try:
             bottles = section_bottles(
-                parse_json_response(response.text), image_index=image_index, box=box, size=size
+                parse_json_response(response.text),
+                image_index=image_index,
+                box=box,
+                size=size,
+                snap=label_snapper(image),
             )
         except HTTPException:
             bottles = None

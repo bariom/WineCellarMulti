@@ -108,6 +108,108 @@ def shelf_photo_sections(
     return sections
 
 
+def _smoothed(values: list[float], radius: int) -> list[float]:
+    radius = max(radius, 1)
+    prefix = [0.0]
+    for value in values:
+        prefix.append(prefix[-1] + value)
+    return [
+        (prefix[min(index + radius + 1, len(values))] - prefix[max(index - radius, 0)])
+        / (min(index + radius + 1, len(values)) - max(index - radius, 0))
+        for index in range(len(values))
+    ]
+
+
+def label_snapper(content: bytes) -> Callable[[float, float, float, float], tuple[float, float]]:
+    """Move a label point the vision model gave onto the label it belongs to.
+
+    Vision models place points about half a bottle off. On a shelf, labels are
+    the bright areas between dark glass, so across the label band the brightness
+    peaks at the middle of each label: the point moves to the nearest peak, then
+    to the middle of that label's bright stretch vertically. Values are ratios of
+    the image size: (x, y, label width, label height) in, (x, y) out.
+    """
+    try:
+        image = Image.open(BytesIO(content)).convert("L")
+    except (UnidentifiedImageError, OSError, ValueError):
+        return lambda x, y, _width, _height: (x, y)
+    width, height = image.size
+
+    def snap(x: float, y: float, label_width: float, label_height: float) -> tuple[float, float]:
+        if width < 8 or height < 8:
+            return x, y
+        center_x, center_y = x * width, y * height
+        label_px = max(label_width * width, width * 0.04)
+        band_px = max(label_height * height, height * 0.08)
+        top = max(int(center_y - band_px / 2), 0)
+        bottom = min(int(center_y + band_px / 2) + 1, height)
+        if bottom - top < 2:
+            return x, y
+        columns = list(
+            image.crop((0, top, width, bottom)).resize((width, 1), Image.Resampling.BOX).tobytes()
+        )
+        profile = _smoothed([float(value) for value in columns], round(label_px / 6))
+        reach = label_px * 0.9
+        start, end = max(int(center_x - reach), 1), min(int(center_x + reach) + 1, width - 1)
+        window = profile[start:end]
+        if not window:
+            return x, y
+        floor = sum(window) / len(window)
+        peaks = [
+            index
+            for index in range(start, end)
+            if profile[index] > floor
+            and profile[index] >= profile[index - 1]
+            and profile[index] > profile[index + 1]
+        ]
+        if peaks:
+            peak = min(peaks, key=lambda index: abs(index - center_x))
+            # The middle of the label's bright stretch, not its brightest column
+            # (a reflection on one side would pull the point off centre).
+            threshold = (profile[peak] + min(window)) / 2
+
+            def stretch(limit: int) -> tuple[int, int]:
+                first = last = peak
+                while first > max(peak - limit, 0) and profile[first - 1] > threshold:
+                    first -= 1
+                while last < min(peak + limit, width - 1) and profile[last + 1] > threshold:
+                    last += 1
+                return first, last
+
+            first, last = stretch(width)
+            if last - first > label_px * 1.5:
+                # Touching labels merged into one stretch: keep to about one label.
+                first, last = stretch(round(label_px * 0.6))
+            center_x = (first + last) / 2
+        # Vertically, the middle of the bright stretch of that label.
+        strip_half = max(label_px / 4, 2)
+        left = max(int(center_x - strip_half), 0)
+        right = min(int(center_x + strip_half) + 1, width)
+        upper = max(int(center_y - band_px), 0)
+        lower = min(int(center_y + band_px) + 1, height)
+        rows = list(
+            image.crop((left, upper, right, lower))
+            .resize((1, lower - upper), Image.Resampling.BOX)
+            .tobytes()
+        )
+        if rows:
+            threshold = (max(rows) + min(rows)) / 2
+            nearest = min(
+                range(len(rows)),
+                key=lambda index: (rows[index] <= threshold, abs(upper + index - center_y)),
+            )
+            if rows[nearest] > threshold:
+                first = last = nearest
+                while first > 0 and rows[first - 1] > threshold:
+                    first -= 1
+                while last < len(rows) - 1 and rows[last + 1] > threshold:
+                    last += 1
+                center_y = upper + (first + last) / 2
+        return center_x / width, center_y / height
+
+    return snap
+
+
 def optimized_wine_images(content: bytes) -> tuple[bytes, bytes | None]:
     image = load_upright_rgb_image(content)
     maximum = max(settings.wine_recognition_max_dimension, 320)
