@@ -54,19 +54,47 @@ def load_upright_rgb_image(content: bytes) -> Image.Image:
         ) from exc
 
 
-def optimized_shelf_image(content: bytes) -> bytes:
-    """Return an upright JPEG of a shop shelf, keeping enough pixels for small labels.
+SHELF_SECTION_OVERLAP = 0.12
 
-    The EXIF orientation is applied, as browsers do when displaying the original
-    photo, so normalized bottle positions line up with the image the user sees.
+
+def shelf_photo_sections(content: bytes) -> list[tuple[bytes, tuple[float, float, float, float]]]:
+    """Split an upright shelf photo into overlapping sections read in parallel.
+
+    Each section is returned as a JPEG with its box (x, y, width, height)
+    normalized to the whole photo, so bottle positions can be mapped back. A
+    section shows its labels larger than the whole photo would, and several
+    small readings finish much sooner than one long one. Bottles cut by a
+    border appear whole in the neighbouring section thanks to the overlap.
     """
     image = load_upright_rgb_image(content)
     maximum = max(settings.wine_shelf_max_dimension, 800)
     quality = min(max(settings.wine_recognition_jpeg_quality, 50), 95)
     image.thumbnail((maximum, maximum), Image.Resampling.LANCZOS)
-    buffer = BytesIO()
-    image.save(buffer, "JPEG", quality=quality, optimize=True)
-    return buffer.getvalue()
+    width, height = image.size
+    if max(width, height) < 1000:
+        columns = rows = 1
+    else:
+        columns = 3 if width >= 1.8 * height else 2
+        rows = 3 if height >= 1.8 * width else 2
+    sections: list[tuple[bytes, tuple[float, float, float, float]]] = []
+    for row in range(rows):
+        for column in range(columns):
+            left = max(column / columns - SHELF_SECTION_OVERLAP / columns, 0.0)
+            top = max(row / rows - SHELF_SECTION_OVERLAP / rows, 0.0)
+            right = min((column + 1) / columns + SHELF_SECTION_OVERLAP / columns, 1.0)
+            bottom = min((row + 1) / rows + SHELF_SECTION_OVERLAP / rows, 1.0)
+            crop = image.crop(
+                (
+                    round(left * width),
+                    round(top * height),
+                    round(right * width),
+                    round(bottom * height),
+                )
+            )
+            buffer = BytesIO()
+            crop.save(buffer, "JPEG", quality=quality, optimize=True)
+            sections.append((buffer.getvalue(), (left, top, right - left, bottom - top)))
+    return sections
 
 
 def optimized_wine_images(content: bytes) -> tuple[bytes, bytes | None]:

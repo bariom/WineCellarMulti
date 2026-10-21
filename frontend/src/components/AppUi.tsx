@@ -245,6 +245,8 @@ export function aiOverlayMessage(mode: string, t: (key: TranslationKey) => strin
       return t("aiMagicPairing");
     case "buying-advice":
       return t("aiMagicBuying");
+    case "wine-shelf":
+      return t("aiMagicShelf");
     case "compare":
       return t("aiMagicCompare");
     case "cellar-intelligence":
@@ -281,6 +283,8 @@ export function aiOverlayLabel(mode: string, t: (key: TranslationKey) => string)
       return t("aiMagicLabelPairing");
     case "buying-advice":
       return t("aiMagicLabelBuying");
+    case "wine-shelf":
+      return t("aiMagicLabelShelf");
     case "compare":
       return t("aiMagicLabelCompare");
     case "cellar-intelligence":
@@ -293,6 +297,7 @@ export function aiOverlayLabel(mode: string, t: (key: TranslationKey) => string)
 }
 
 export function aiOverlayHint(mode: string, t: (key: TranslationKey) => string) {
+  if (mode === "wine-shelf") return t("aiMagicShelfHint");
   return mode === "buying-advice" ? t("aiMagicBuyingHint") : t("aiMagicHint");
 }
 
@@ -301,6 +306,7 @@ export function wineProgressName(wine: Pick<Wine, "name" | "vintage">) {
 }
 
 export function aiOverlayProgressText(progress: AiOverlayProgress, locale: Locale) {
+  if (progress?.text) return progress.text;
   if (!progress?.itemName) return "";
   if (progress.current && progress.total) {
     const count = locale === "it" ? `Vino ${progress.current} di ${progress.total}` : `Wine ${progress.current} of ${progress.total}`;

@@ -7,7 +7,8 @@ from app.prompts import (
     pairing_prompt,
     restaurant_wine_list_question_prompt,
     restaurant_wine_list_scan_prompt,
-    wine_shelf_scan_prompt,
+    wine_shelf_ranking_prompt,
+    wine_shelf_recognition_prompt,
     wine_full_enrichment_prompt,
     wine_sensory_metadata_prompt,
     wine_value_prompt,
@@ -53,10 +54,17 @@ def test_restaurant_wine_list_question_prompt_restricts_answers_to_listed_wines(
     assert prompt.user.endswith("Question: Meglio il Barolo o il Brunello col brasato?")
 
 
-def test_wine_shelf_scan_prompt_reads_only_legible_labels_and_uses_the_cellar():
-    prompt = wine_shelf_scan_prompt(
+def test_wine_shelf_prompts_read_only_legible_labels_then_rank_with_the_cellar():
+    reading = wine_shelf_recognition_prompt(section=2, sections=4)
+    assert (reading.id, reading.version) == ("wine_shop.shelf_recognition", "1")
+    assert "Never invent a producer" in reading.system
+    assert "normalized from 0 to 1" in reading.system
+    assert "(2 of 4)" in reading.user
+    assert "untrusted reference material" in reading.user
+
+    ranking = wine_shelf_ranking_prompt(
         locale="it",
-        photo_count=2,
+        bottles=[{"index": 0, "name": "Barolo", "producer": "Vietti"}],
         occasion="Cena con brasato",
         budget_chf="40",
         wine_type="Red",
@@ -66,17 +74,13 @@ def test_wine_shelf_scan_prompt_reads_only_legible_labels_and_uses_the_cellar():
         taste_context={"dimensions": {"tannin": 0.7}},
         pairing_preferences="",
     )
-
-    assert (prompt.id, prompt.version) == ("wine_shop.shelf_scan", "2")
-    assert "the budget does not apply to it" in prompt.system
-    assert "never estimate its price" in prompt.system
-    assert "Never invent a producer" in prompt.system
-    assert "normalized from 0 to 1" in prompt.system
-    assert "set owned=true" in prompt.system
-    assert "Photos supplied: 2" in prompt.user
-    assert "Ranked bottles wanted: up to 3" in prompt.user
-    assert '"producer": "Vietti"' in prompt.user
-    assert "untrusted reference material" in prompt.user
+    assert (ranking.id, ranking.version) == ("wine_shop.shelf_ranking", "1")
+    assert "the budget does not apply to it" in ranking.system
+    assert "never estimate its price" in ranking.system
+    assert "owned_indexes" in ranking.system
+    assert "Ranked bottles wanted: up to 3" in ranking.user
+    assert '"producer": "Vietti"' in ranking.user
+    assert "untrusted" in ranking.user
 
 
 def test_wine_list_question_prompt_can_answer_about_a_shop_shelf():

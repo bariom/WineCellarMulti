@@ -9189,7 +9189,18 @@ def test_restaurant_wine_list_question_answers_only_about_listed_wines(monkeypat
     assert client.post("/api/v1/ai/restaurant-wine-list/ask", json={**payload, "history": too_long_history}).status_code == 422
 
 
-def test_wine_shelf_scan_ranks_recognized_bottles_with_clamped_positions(monkeypatch):
+def run_shelf_scans_inline(monkeypatch, sections):
+    """Run shelf jobs synchronously on the test database with fake photo sections."""
+    from app.api.routes import ai as ai_routes
+    from app.services import wine_shelf_scan
+
+    monkeypatch.setattr(wine_shelf_scan, "submit", lambda task, *args: task(*args))
+    monkeypatch.setattr(wine_shelf_scan, "SessionLocal", TestingSessionLocal)
+    monkeypatch.setattr(wine_shelf_scan, "MAX_PARALLEL_SECTIONS", 1)
+    monkeypatch.setattr(ai_routes, "shelf_photo_sections", sections)
+
+
+def test_wine_shelf_scan_reads_sections_merges_bottles_and_ranks_them(monkeypatch):
     from app.api.routes import ai as ai_routes
 
     client = TestClient(app)
@@ -9200,66 +9211,150 @@ def test_wine_shelf_scan_ranks_recognized_bottles_with_clamped_positions(monkeyp
         json={"name": "Barolo", "producer": "Vietti", "vintage": "2019", "quantity": 2, "price": 60},
     )
     assert owned.status_code == 201, owned.text
-    monkeypatch.setattr(ai_routes, "optimized_shelf_image", lambda content: b"shelf-" + content)
+    run_shelf_scans_inline(
+        monkeypatch,
+        lambda content: (
+            [(b"left", (0.0, 0.0, 0.6, 1.0)), (b"right", (0.4, 0.0, 0.6, 1.0))]
+            if content == b"one"
+            else [(b"broken", (0.0, 0.0, 1.0, 1.0))]
+        ),
+    )
+    readings = {
+        b"left": [
+            {"name": "Barolo", "producer": "Vietti", "vintage": "2019", "style": "Red", "region": "Piemonte",
+             "price_text": "", "confidence": "high", "x": 0.1, "y": 0.2, "width": 0.1, "height": 0.3},
+            {"name": "Barbera", "producer": "Cantina B", "vintage": "2022", "style": "Red", "region": "Piemonte",
+             "price_text": "", "confidence": "medium", "x": -0.5, "y": 0.95, "width": 2, "height": 0.4},
+            {"name": "", "producer": "Illeggibile", "vintage": "", "style": "", "region": "",
+             "price_text": "", "confidence": "low", "x": 0.5, "y": 0.5, "width": 0.1, "height": 0.1},
+        ],
+        # The same Barolo seen again in the overlap, less clearly but with its price tag.
+        b"right": [
+            {"name": "Barolo", "producer": "Vietti", "vintage": "2019", "style": "", "region": "",
+             "price_text": "CHF 62", "confidence": "low", "x": 0.0, "y": 0.2, "width": 0.1, "height": 0.3},
+        ],
+    }
+    calls = []
 
     def fake_create_response(*args, **kwargs):
-        assert kwargs["input_images"] == [("image/jpeg", b"shelf-one"), ("image/jpeg", b"shelf-two")]
-        assert "Photos supplied: 2" in args[2]
+        images = kwargs.get("input_images")
+        if images:
+            image = images[0][1]
+            calls.append(image)
+            if image == b"broken":
+                raise TimeoutError("section timed out")
+            assert "untrusted reference material" in args[2]
+            return OpenAIResponse(
+                text=json.dumps({"bottles": readings[image]}),
+                usage=TokenUsage(input_tokens=900, output_tokens=200, total_tokens=1100),
+                model="gpt-5.5",
+            )
+        calls.append("ranking")
         assert "Required wine type: Red" in args[2]
         assert '"producer": "Vietti"' in args[2]
+        assert '"name": "Barbera"' in args[2]
         return OpenAIResponse(
-            text=(
-                '{"summary":"Tre etichette leggibili.","bottles":['
-                '{"name":"Barolo","producer":"Vietti","vintage":"2019","style":"Red","region":"Piemonte",'
-                '"price_text":"CHF 62","confidence":"high","owned":true,"image_index":0,'
-                '"x":0.1,"y":0.2,"width":0.1,"height":0.3},'
-                '{"name":"Barbera","producer":"Cantina B","vintage":"2022","style":"Red","region":"Piemonte",'
-                '"price_text":"","confidence":"medium","owned":false,"image_index":7,'
-                '"x":-0.5,"y":0.95,"width":2,"height":0.4},'
-                '{"name":"","producer":"Illeggibile","vintage":"","style":"","region":"",'
-                '"price_text":"","confidence":"low","owned":false,"image_index":1,'
-                '"x":0.5,"y":0.5,"width":0.1,"height":0.1}],'
-                '"ranking":[{"bottle_index":1,"reason":"Fresca e versatile.","taste_affinity":5},'
-                '{"bottle_index":1,"reason":"Duplicato.","taste_affinity":5},'
-                '{"bottle_index":9,"reason":"Inesistente.","taste_affinity":5},'
-                '{"bottle_index":0,"reason":"Gia in cantina.","taste_affinity":4}]}'
-            ),
-            usage=TokenUsage(input_tokens=900, output_tokens=200, total_tokens=1100),
+            text=json.dumps({
+                "summary": "Due etichette leggibili.",
+                "ranking": [
+                    {"bottle_index": 1, "reason": "Fresca e versatile.", "taste_affinity": 5},
+                    {"bottle_index": 1, "reason": "Duplicato.", "taste_affinity": 5},
+                    {"bottle_index": 9, "reason": "Inesistente.", "taste_affinity": 5},
+                    {"bottle_index": 0, "reason": "Gia in cantina.", "taste_affinity": 4},
+                ],
+                "owned_indexes": [0],
+            }),
+            usage=TokenUsage(input_tokens=300, output_tokens=100, total_tokens=400),
             model="gpt-5.5",
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
-    response = client.post(
-        "/api/v1/ai/wine-shop/shelf-scan",
+    started = client.post(
+        "/api/v1/ai/wine-shop/shelf-scans",
         data={"locale": "it", "wine_type": "Red", "cellar_mode": "avoid_owned", "ranking_size": "2"},
         files=[
             ("images", ("shelf-1.jpg", b"one", "image/jpeg")),
             ("images", ("shelf-2.jpg", b"two", "image/jpeg")),
         ],
     )
-
-    assert response.status_code == 200, response.text
-    body = response.json()
+    assert started.status_code == 202, started.text
+    job = client.get(f"/api/v1/ai/wine-shop/shelf-scans/{started.json()['id']}").json()
+    assert (job["status"], job["stage"]) == ("done", "done")
+    assert (job["sections_total"], job["sections_done"], job["bottles_found"]) == (3, 3, 2)
+    assert sorted(map(str, calls)) == sorted(map(str, [b"left", b"right", b"broken", "ranking"]))
+    body = job["result"]
     assert [bottle["name"] for bottle in body["bottles"]] == ["Barolo", "Barbera"]
-    assert body["bottles"][0]["owned"] is True
-    barbera = body["bottles"][1]
-    assert barbera["image_index"] == 0
+    barolo, barbera = body["bottles"]
+    # The clearer reading wins and borrows the price read in the overlap.
+    assert (barolo["confidence"], barolo["price_text"], barolo["owned"]) == ("high", "CHF 62", True)
+    assert abs(barolo["x"] - 0.06) < 1e-9 and abs(barolo["width"] - 0.06) < 1e-9
+    assert barbera["image_index"] == 0 and barbera["owned"] is False
     assert (barbera["x"], barbera["y"]) == (0.0, 0.95)
-    assert barbera["width"] == 1.0
+    assert abs(barbera["width"] - 0.6) < 1e-9
     assert abs(barbera["height"] - 0.05) < 1e-9
     assert [(item["rank"], item["bottle_index"]) for item in body["recommendations"]] == [(1, 1), (2, 0)]
     # Without a structured taste profile the model's affinity is not shown.
     assert body["recommendations"][0]["taste_affinity"] == 0
     assert body["cellar_mode"] == "avoid_owned"
-    audit = client.get("/api/v1/ai/audit")
-    assert audit.json()[0]["feature"] == "wine_shelf_scan"
+    assert "Sezioni della foto non lette: 1; alcune bottiglie potrebbero mancare." in body["summary"]
+    audit = client.get("/api/v1/ai/audit").json()
+    assert {entry["feature"] for entry in audit} == {"wine_shelf_scan"}
+    assert len(audit) == 3
+
+    # Another user, or another cellar, cannot read the job.
+    other = TestClient(app)
+    assert register(other, email="other@example.com", password="strong-password-2").status_code == 201
+    assert other.get(f"/api/v1/ai/wine-shop/shelf-scans/{started.json()['id']}").status_code in {401, 403, 404}
+    assert client.get(f"/api/v1/ai/wine-shop/shelf-scans/{uuid.uuid4()}").status_code == 404
 
     too_many = client.post(
-        "/api/v1/ai/wine-shop/shelf-scan",
+        "/api/v1/ai/wine-shop/shelf-scans",
         files=[("images", (f"shelf-{index}.jpg", b"x", "image/jpeg")) for index in range(4)],
     )
     assert too_many.status_code == 422
-    assert client.post("/api/v1/ai/wine-shop/shelf-scan", data={"locale": "it"}).status_code == 400
+    assert client.post("/api/v1/ai/wine-shop/shelf-scans", data={"locale": "it"}).status_code == 400
+
+
+def test_wine_shelf_scan_reports_the_provider_error_when_no_section_can_be_read(monkeypatch):
+    from fastapi import HTTPException as ProviderError
+
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    run_shelf_scans_inline(monkeypatch, lambda content: [(b"a", (0.0, 0.0, 1.0, 1.0))])
+
+    def failing_create_response(*args, **kwargs):
+        raise ProviderError(402, "Not enough AI credit")
+
+    monkeypatch.setattr(ai_routes, "create_response", failing_create_response)
+    started = client.post(
+        "/api/v1/ai/wine-shop/shelf-scans", files=[("images", ("shelf.jpg", b"one", "image/jpeg"))]
+    )
+    job = client.get(f"/api/v1/ai/wine-shop/shelf-scans/{started.json()['id']}").json()
+    assert (job["status"], job["error"], job["result"]) == ("failed", "Not enough AI credit", None)
+
+
+def test_shelf_photos_are_split_into_overlapping_sections():
+    from PIL import Image
+
+    from app.services.wine_image_recognition import shelf_photo_sections
+
+    def photo(width, height):
+        buffer = BytesIO()
+        Image.new("RGB", (width, height), "white").save(buffer, "JPEG")
+        return buffer.getvalue()
+
+    sections = shelf_photo_sections(photo(1800, 2400))
+    boxes = [box for _, box in sections]
+    assert len(boxes) == 4
+    assert boxes[0][0] == 0.0 and boxes[0][1] == 0.0
+    # Neighbouring sections overlap so a bottle on the border is whole in one of them.
+    assert boxes[0][0] + boxes[0][2] > boxes[1][0]
+    assert all(abs(x + width - 1.0) < 1e-9 for x, _, width, _ in boxes[1::2])
+    assert len(shelf_photo_sections(photo(3600, 1200))) == 6
+    assert [box for _, box in shelf_photo_sections(photo(600, 800))] == [(0.0, 0.0, 1.0, 1.0)]
 
 
 def test_wine_shelf_scanner_is_reserved_for_subscribers(monkeypatch):
@@ -9293,7 +9388,7 @@ def test_wine_shelf_scanner_is_reserved_for_subscribers(monkeypatch):
 
     monkeypatch.setattr(ai_routes, "create_response", unexpected_ai_call)
     scan = user_client.post(
-        "/api/v1/ai/wine-shop/shelf-scan",
+        "/api/v1/ai/wine-shop/shelf-scans",
         files=[("images", ("shelf.jpg", b"one", "image/jpeg"))],
     )
     assert scan.status_code == 402
@@ -9310,28 +9405,35 @@ def test_wine_shelf_scan_ignores_ownership_when_the_cellar_is_not_used(monkeypat
     client = TestClient(app)
     assert register(client).status_code == 201
     assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
-    monkeypatch.setattr(ai_routes, "optimized_shelf_image", lambda content: b"shelf")
+    run_shelf_scans_inline(monkeypatch, lambda content: [(b"shelf", (0.0, 0.0, 1.0, 1.0))])
 
     def fake_create_response(*args, **kwargs):
+        if kwargs.get("input_images"):
+            return OpenAIResponse(
+                text=(
+                    '{"bottles":[{"name":"Soave","producer":"","vintage":"","style":"",'
+                    '"region":"","price_text":"","confidence":"certain",'
+                    '"x":0.4,"y":0.4,"width":0.1,"height":0.2}]}'
+                ),
+                usage=TokenUsage(input_tokens=10, output_tokens=10, total_tokens=20),
+                model="gpt-5.5",
+            )
         assert "Cellar: (not used)" in args[2]
         return OpenAIResponse(
-            text=(
-                '{"summary":"","bottles":[{"name":"Soave","producer":"","vintage":"","style":"",'
-                '"region":"","price_text":"","confidence":"certain","owned":true,"image_index":0,'
-                '"x":0.4,"y":0.4,"width":0.1,"height":0.2}],"ranking":[]}'
-            ),
+            text='{"summary":"","ranking":[],"owned_indexes":[0]}',
             usage=TokenUsage(input_tokens=10, output_tokens=10, total_tokens=20),
             model="gpt-5.5",
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
-    response = client.post(
-        "/api/v1/ai/wine-shop/shelf-scan",
+    started = client.post(
+        "/api/v1/ai/wine-shop/shelf-scans",
         files=[("images", ("shelf.jpg", b"one", "image/jpeg"))],
     )
-    assert response.status_code == 200, response.text
-    assert response.json()["bottles"][0]["owned"] is False
-    assert response.json()["bottles"][0]["confidence"] == "low"
+    assert started.status_code == 202, started.text
+    result = client.get(f"/api/v1/ai/wine-shop/shelf-scans/{started.json()['id']}").json()["result"]
+    assert result["bottles"][0]["owned"] is False
+    assert result["bottles"][0]["confidence"] == "low"
 
 
 def test_pairing_ai_suggests_dishes_for_a_selected_wine(monkeypatch):

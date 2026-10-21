@@ -299,7 +299,7 @@ export function WineShelfScanner({
     </div>
     <label className="pairing-option"><input type="checkbox" checked={ignoreTaste} onChange={(event) => setIgnoreTaste(event.target.checked)} disabled={scanning} /><span>{it ? "Non usare il mio profilo gusto" : "Do not use my taste profile"}</span></label>
     <button type="submit" className="wine-shelf-submit" disabled={disabled}>{scanning ? (it ? "Leggo le etichette…" : "Reading the labels…") : (it ? "Quale compro?" : "Which one should I buy?")}</button>
-    {scanning ? <p className="wine-shelf-progress" role="status">{it ? "Uno scaffale affollato può richiedere fino a un minuto." : "A crowded shelf can take up to a minute."}</p> : null}
+    {scanning ? <p className="wine-shelf-progress" role="status">{it ? "Leggo lo scaffale a sezioni: uno scaffale affollato può richiedere un paio di minuti." : "The shelf is read in sections: a crowded shelf can take a couple of minutes."}</p> : null}
     {error ? <p className="restaurant-wine-list-error" role="alert">{error}</p> : null}
     {result ? <button type="button" className="secondary compact" onClick={() => setShowResult(true)}>{it ? "Torna all'ultima classifica" : "Back to the last ranking"}</button> : null}
   </form>;

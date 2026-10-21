@@ -21,6 +21,7 @@ import { initializeTabletLayout, isTabletDevice, saveTabletLayout } from "./doma
 import { localizedNotification } from "./domain/notifications";
 import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isMissedDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
+import { runWineShelfScan } from "./services/wineShelfScan";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
 import { wineToDraft, draftPayload, wishlistToDraft, wishlistPayload } from "./domain/drafts";
@@ -5157,13 +5158,11 @@ export function App() {
     setGeneratingAi("wine-shelf");
     try {
       formData.set("locale", locale);
-      const result = await api<WineShelfScanResult>("/api/v1/ai/wine-shop/shelf-scan", {
-        method: "POST",
-        body: formData,
-      });
+      const result = await runWineShelfScan(formData, locale, (text) => setAiOverlayProgress({ text }));
       await Promise.all([loadAiAudit(), loadAiUsage()]);
       return result;
     } finally {
+      setAiOverlayProgress(null);
       setGeneratingAi("");
     }
   }

@@ -398,6 +398,19 @@ class WineShelfScanResponse(BaseModel):
     estimated_cost_usd: Decimal = Decimal("0")
 
 
+class WineShelfScanStatus(BaseModel):
+    """Progress of a background shelf scan; the result is set once it is done."""
+
+    id: UUID
+    status: Literal["running", "done", "failed"]
+    stage: Literal["reading", "ranking", "done"]
+    sections_total: int = 0
+    sections_done: int = 0
+    bottles_found: int = 0
+    error: str = ""
+    result: WineShelfScanResponse | None = None
+
+
 class RestaurantWineListQuestionResponse(BaseModel):
     answer: str = ""
     referenced_indexes: list[int] = Field(default_factory=list)

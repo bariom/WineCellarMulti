@@ -1009,6 +1009,17 @@ export type WineShelfScanResult = {
   estimated_cost_usd: string;
 };
 
+export type WineShelfScanStatus = {
+  id: string;
+  status: "running" | "done" | "failed";
+  stage: "reading" | "ranking" | "done";
+  sections_total: number;
+  sections_done: number;
+  bottles_found: number;
+  error: string;
+  result: WineShelfScanResult | null;
+};
+
 export type RestaurantWineListQuestionResult = {
   answer: string;
   referenced_indexes: number[];
@@ -1073,6 +1084,8 @@ export type SortMode = "name" | "vintage" | "value" | "drink_window" | "priority
 export type Locale = "en" | "it";
 
 export type AiOverlayProgress = {
+  /** A ready-made status line, e.g. the shelf scanner's section count. */
+  text?: string;
   itemName?: string;
   current?: number;
   total?: number;
