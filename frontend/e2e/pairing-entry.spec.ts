@@ -58,7 +58,8 @@ for (const entry of ["cellar row", "wine detail"] as const) {
 }
 
 test("a multi-page restaurant wine list can be scanned and questioned", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+  // Reach Sommelier AI through the desktop menu, then work at phone width.
+  await page.setViewportSize({ width: 1440, height: 900 });
   await mockApi(page, [], true, memberships, [wine], session);
   await page.addInitScript(() => {
     const previous = window.fetch;
@@ -91,6 +92,7 @@ test("a multi-page restaurant wine list can be scanned and questioned", async ({
   await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
   await page.getByRole("button", { name: "Sommelier AI (Abbinamenti)", exact: true }).first().click();
   await page.getByRole("button", { name: /^Al ristorante/ }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: /^Analizza una carta vini/ }).click();
   const photo = { mimeType: "image/jpeg", buffer: Buffer.from("jpeg") };
   await page.locator(".restaurant-wine-list-upload-button input").setInputFiles([{ name: "pagina-1.jpg", ...photo }, { name: "pagina-2.jpg", ...photo }]);

@@ -64,7 +64,7 @@ test("Taste signature distinguishes a zero preference from missing dimensions", 
 
 test("Taste signature tells strong preferences from weak, near-neutral ones", async ({ page }) => {
   await page.route("**/taste-wheel-strength-test", route => route.fulfill({ contentType: "text/html", body: `
-    <html><body style="background:#3a1c22"><div id="root"></div><script type="module">
+    <html><head><meta charset="utf-8"></head><body style="background:#3a1c22"><div id="root"></div><script type="module">
     import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window);
     window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => (type) => type;
     window.__vite_plugin_react_preamble_installed__ = true;
@@ -158,7 +158,8 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(section.getByRole("figure", { name: "Grafico: Denominazioni preferite" })).toBeVisible();
     for (const width of [360, 390, 430, 1440]) {
       await page.setViewportSize({ width, height: 844 });
-      await section.scrollIntoViewIfNeeded();
+      // The section now holds every preference: bring the grapes chart itself into view.
+      await chart.scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       const rows = await chart.getByRole("listitem").all();
       let bottom = 0;

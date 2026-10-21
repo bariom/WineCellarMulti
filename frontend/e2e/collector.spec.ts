@@ -447,12 +447,12 @@ test("scroll cues stay hidden for one wine and follow dashboard overflow", async
   await expect(shell).toBeVisible();
   const overflows = await shell.locator(".dashboard-grid").evaluate(el => el.scrollWidth > el.clientWidth + 2);
   if (overflows) {
-    await expect(shell.getByRole("group")).toBeVisible();
+    await expect(shell.getByRole("group", { name: /^Scorrimento:/ })).toBeVisible();
     const next = shell.getByRole("button", { name: /^Successivo:/ });
     await next.click();
     await expect(shell.getByRole("button", { name: /^Precedente:/ })).toBeEnabled();
     await shell.screenshot({ path: testInfo.outputPath("dashboard-scroll-cues.png") });
-  } else await expect(shell.getByRole("group")).toHaveCount(0);
+  } else await expect(shell.getByRole("group", { name: /^Scorrimento:/ })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
