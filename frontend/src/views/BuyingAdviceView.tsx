@@ -1,6 +1,7 @@
 import { CSSProperties, FormEvent, lazy, Suspense, useEffect, useState } from "react";
 import { AppIcon } from "../components/AppIcon";
 import { EmptyState } from "../components/AppUi";
+import { WishlistDestinationPicker } from "../components/WishlistDestinationPicker";
 import type { RestaurantWineListQuestionPayload, RestaurantWineListQuestionResult, WineShelfScanResult } from "../types";
 
 const WineShelfScanner = lazy(() => import("../components/WineShelfScanner"));
@@ -50,7 +51,9 @@ type BuyingAdviceViewProps = {
   buyingAdviceResult: BuyingAdviceResult | null;
   formatAiBudget: (value: string | number) => string;
   onGenerateBuyingAdvice: (event: FormEvent<HTMLFormElement>) => void;
-  onAddRecommendationToWishlist: (recommendation: BuyingAdviceResult["recommendations"][number]) => Promise<void>;
+  onAddRecommendationToWishlist: (recommendation: BuyingAdviceResult["recommendations"][number], listId: string) => Promise<void>;
+  wishlistLists?: Array<{ id: string; name: string }>;
+  defaultWishlistListId?: string;
   onScanWineShelf: (formData: FormData) => Promise<WineShelfScanResult>;
   onAskWineShelf: (payload: RestaurantWineListQuestionPayload) => Promise<RestaurantWineListQuestionResult>;
   shelfScanAvailable: boolean;
@@ -89,6 +92,8 @@ export default function BuyingAdviceView({
   formatAiBudget,
   onGenerateBuyingAdvice,
   onAddRecommendationToWishlist,
+  wishlistLists = [],
+  defaultWishlistListId = "",
   onScanWineShelf,
   onAskWineShelf,
   shelfScanAvailable,
@@ -130,12 +135,22 @@ export default function BuyingAdviceView({
     setWishlistError("");
   }, [buyingAdviceResult]);
 
+  // One destination for both the shopping advice and the shelf scanner, starting
+  // from the list open in the wishlist view (or the first one).
+  const [destinationListId, setDestinationListId] = useState(defaultWishlistListId || wishlistLists[0]?.id || "");
+  useEffect(() => {
+    if (!wishlistLists.some((list) => list.id === destinationListId)) setDestinationListId(defaultWishlistListId || wishlistLists[0]?.id || "");
+  }, [wishlistLists, defaultWishlistListId, destinationListId]);
+  const [savedListNames, setSavedListNames] = useState<Map<string, string>>(() => new Map());
+
   async function addRecommendationToWishlist(item: BuyingAdviceResult["recommendations"][number], key: string) {
     setSavingRecommendationKey(key);
     setWishlistError("");
     try {
-      await onAddRecommendationToWishlist(item);
+      await onAddRecommendationToWishlist(item, destinationListId);
       setSavedRecommendationKeys((current) => new Set(current).add(key));
+      const listName = wishlistLists.find((list) => list.id === destinationListId)?.name || "";
+      setSavedListNames((current) => new Map(current).set(key, listName));
     } catch {
       setWishlistError(locale === "it" ? "Non è stato possibile aggiungere il vino alla wishlist." : "The wine could not be added to the wishlist.");
     } finally {
@@ -165,7 +180,7 @@ export default function BuyingAdviceView({
         <button type="button" onClick={onExploreRiserva}>{locale === "it" ? "Scopri Riserva" : "Explore Reserve"} <span aria-hidden="true">→</span></button>
       </section> : buyingPlace === "shelf" ? <section className="buying-advice-card wine-shelf-card">
         <Suspense fallback={<div className="loading-state compact" role="status"><span>{locale === "it" ? "Caricamento…" : "Loading…"}</span></div>}>
-          <WineShelfScanner locale={locale} canGenerateAi={canGenerateAi} canWriteWishlist={canWriteWishlist} formatAiBudget={formatAiBudget} onScan={onScanWineShelf} onAsk={onAskWineShelf} onAddToWishlist={onAddRecommendationToWishlist} />
+          <WineShelfScanner locale={locale} canGenerateAi={canGenerateAi} canWriteWishlist={canWriteWishlist} formatAiBudget={formatAiBudget} onScan={onScanWineShelf} onAsk={onAskWineShelf} wishlistLists={wishlistLists} wishlistListId={destinationListId} onWishlistListChange={setDestinationListId} onAddToWishlist={onAddRecommendationToWishlist} />
         </Suspense>
         {!canGenerateAi ? <EmptyState title={t("noApiKey")} icon="glass-sparkle" compact /> : null}
       </section> : <section className="buying-advice-card">
@@ -307,6 +322,7 @@ export default function BuyingAdviceView({
             <p className="pairing-summary">{buyingAdviceResult.summary}</p>
             {buyingAdviceResult.warning ? <p className="buying-advice-warning">{buyingAdviceResult.warning}</p> : null}
             {wishlistError ? <p className="buying-advice-warning" role="alert">{wishlistError}</p> : null}
+            {buyingAdviceResult.recommendations.length && canWriteWishlist ? <WishlistDestinationPicker lists={wishlistLists} value={destinationListId} onChange={setDestinationListId} locale={locale} /> : null}
             <div className="buying-recommendation-grid">
               {buyingAdviceResult.recommendations.map((item, index) => {
                 const key = recommendationKey(item, index);
@@ -334,7 +350,7 @@ export default function BuyingAdviceView({
                         onClick={() => addRecommendationToWishlist(item, key)}
                       >
                         {saved
-                          ? (locale === "it" ? "Aggiunto alla wishlist" : "Added to wishlist")
+                          ? (locale === "it" ? "Aggiunto alla wishlist" : "Added to wishlist") + (wishlistLists.length > 1 && savedListNames.get(key) ? ` · ${savedListNames.get(key)}` : "")
                           : saving
                             ? (locale === "it" ? "Aggiunta in corso…" : "Adding…")
                             : (locale === "it" ? "Aggiungi alla wishlist" : "Add to wishlist")}

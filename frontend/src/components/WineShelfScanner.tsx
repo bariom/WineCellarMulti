@@ -2,6 +2,7 @@ import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "
 import { AppIcon } from "./AppIcon";
 import { WineListChat } from "./WineListChat";
 import type { RestaurantWineListQuestionPayload, RestaurantWineListQuestionResult, WineShelfBottle, WineShelfCellarMode, WineShelfScanResult } from "../types";
+import { WishlistDestinationPicker } from "./WishlistDestinationPicker";
 import "./WineShelfScanner.css";
 
 const maxPhotos = 3;
@@ -25,6 +26,10 @@ export type ShelfWishlistCandidate = {
   reason: string;
   local: boolean;
   confidence: "high" | "medium" | "low";
+  /** Read from the bottle, so the wishlist item does not take the shopping form's values. */
+  type: string;
+  region: string;
+  origin: "shelf";
 };
 
 function shelfPrice(priceText: string) {
@@ -36,6 +41,9 @@ export function WineShelfScanner({
   locale,
   canGenerateAi,
   canWriteWishlist,
+  wishlistLists = [],
+  wishlistListId = "",
+  onWishlistListChange,
   formatAiBudget,
   onScan,
   onAsk,
@@ -44,10 +52,13 @@ export function WineShelfScanner({
   locale: "it" | "en";
   canGenerateAi: boolean;
   canWriteWishlist: boolean;
+  wishlistLists?: Array<{ id: string; name: string }>;
+  wishlistListId?: string;
+  onWishlistListChange?: (listId: string) => void;
   formatAiBudget: (value: string | number) => string;
   onScan: (formData: FormData) => Promise<WineShelfScanResult>;
   onAsk: (payload: RestaurantWineListQuestionPayload) => Promise<RestaurantWineListQuestionResult>;
-  onAddToWishlist: (candidate: ShelfWishlistCandidate) => Promise<void>;
+  onAddToWishlist: (candidate: ShelfWishlistCandidate, listId: string) => Promise<void>;
 }) {
   const it = locale === "it";
   const [photos, setPhotos] = useState<File[]>([]);
@@ -67,7 +78,8 @@ export function WineShelfScanner({
   const [zoomedPhoto, setZoomedPhoto] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
   const zoomDialogRef = useRef<HTMLDialogElement>(null);
-  const [savedBottles, setSavedBottles] = useState<Set<number>>(() => new Set());
+  // Bottle index -> name of the wishlist it was added to.
+  const [savedBottles, setSavedBottles] = useState<Map<number, string>>(() => new Map());
   const [savingBottle, setSavingBottle] = useState<number | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   // The photos stay on the device: the result is drawn on the local previews.
@@ -118,7 +130,7 @@ export function WineShelfScanner({
       setResultKey((key) => key + 1);
       setActiveBottle(next.recommendations[0]?.bottle_index ?? null);
       setShowAllLabels(false);
-      setSavedBottles(new Set());
+      setSavedBottles(new Map());
       setShowResult(true);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : (it ? "Non è stato possibile analizzare lo scaffale." : "The shelf could not be analysed."));
@@ -133,9 +145,10 @@ export function WineShelfScanner({
       await onAddToWishlist({
         name: bottle.name, producer: bottle.producer, vintage: bottle.vintage, merchant: "", merchant_type: "local_shop",
         price: shelfPrice(bottle.price_text), currency: "CHF", availability: "", delivery_estimate: "", source_url: "",
-        reason, local: true, confidence: bottle.confidence,
-      });
-      setSavedBottles((current) => new Set(current).add(index));
+        reason, local: true, confidence: bottle.confidence, type: bottle.style, region: bottle.region, origin: "shelf",
+      }, wishlistListId);
+      const listName = wishlistLists.find((list) => list.id === wishlistListId)?.name || "";
+      setSavedBottles((current) => new Map(current).set(index, listName));
     } catch {
       setError(it ? "Non è stato possibile aggiungere il vino alla wishlist." : "The wine could not be added to the wishlist.");
     } finally {
@@ -213,11 +226,13 @@ export function WineShelfScanner({
         {result.bottles.length > result.recommendations.length ? <label className="pairing-option wine-shelf-toggle"><input type="checkbox" checked={showAllLabels} onChange={(event) => setShowAllLabels(event.target.checked)} /><span>{it ? "Mostra tutte le etichette riconosciute" : "Show every recognized label"}</span></label> : null}
         <small className="wine-shelf-note">{it ? "Le posizioni sono indicative: controlla l'etichetta sulla bottiglia." : "Positions are approximate: check the label on the bottle."}</small>
       </div> : null}
+      {result.recommendations.length && canWriteWishlist && onWishlistListChange ? <WishlistDestinationPicker lists={wishlistLists} value={wishlistListId} onChange={onWishlistListChange} locale={locale} /> : null}
       {result.recommendations.length ? <ol className="wine-shelf-ranking" aria-label={it ? "Classifica" : "Ranking"}>
         {result.recommendations.map((item) => {
           const bottle = result.bottles[item.bottle_index];
           if (!bottle) return null;
           const saved = savedBottles.has(item.bottle_index);
+          const savedList = savedBottles.get(item.bottle_index) || "";
           return <li key={item.bottle_index} id={`wine-shelf-choice-${item.bottle_index}`} className={`wine-shelf-choice rank-${Math.min(item.rank, 4)}${activeBottle === item.bottle_index ? " is-active" : ""}`} onClick={() => setActiveBottle(item.bottle_index)}>
             <div className="wine-shelf-choice-head">
               <span className="wine-shelf-medal" aria-hidden="true">{item.rank}</span>
@@ -235,7 +250,7 @@ export function WineShelfScanner({
               {bottle.owned ? <span className="is-owned">{it ? "Già in cantina" : "Already in your cellar"}</span> : null}
               {bottle.confidence === "low" ? <span className="is-uncertain">{it ? "Lettura incerta" : "Uncertain reading"}</span> : null}
               <button type="button" className="secondary compact" disabled={!canWriteWishlist || saved || savingBottle === item.bottle_index} onClick={(event) => { event.stopPropagation(); void addToWishlist(bottle, item.bottle_index, item.reason); }}>
-                {saved ? (it ? "In wishlist" : "In wishlist") : savingBottle === item.bottle_index ? (it ? "Aggiunta…" : "Adding…") : (it ? "Aggiungi alla wishlist" : "Add to wishlist")}
+                {saved ? (savedList && wishlistLists.length > 1 ? `In wishlist · ${savedList}` : "In wishlist") : savingBottle === item.bottle_index ? (it ? "Aggiunta…" : "Adding…") : (it ? "Aggiungi alla wishlist" : "Add to wishlist")}
               </button>
             </div>
           </li>;

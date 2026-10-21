@@ -5168,11 +5168,13 @@ export function App() {
   }
 
   async function addBuyingAdviceRecommendationToWishlist(
-    recommendation: BuyingAdviceResult["recommendations"][number],
+    recommendation: BuyingAdviceResult["recommendations"][number] & { type?: string; region?: string; origin?: "shelf" },
+    listId = "",
   ) {
     const parsedPrice = Number(recommendation.price.trim().replace(",", "."));
     const price = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : 0;
-    const destinationListId = selectedWishlistListId || wishlistLists[0]?.id || "";
+    const destinationListId = listId || selectedWishlistListId || wishlistLists[0]?.id || "";
+    const fromShelf = recommendation.origin === "shelf";
     setSaving(true);
     setError("");
     try {
@@ -5183,17 +5185,18 @@ export function App() {
           name: recommendation.name.trim(),
           producer: recommendation.producer.trim(),
           vintage: recommendation.vintage.trim(),
-          type: buyingWineType.trim(),
-          region: buyingRegion.trim(),
+          // A shelf bottle brings its own type and region; advice uses the search criteria.
+          type: (fromShelf ? recommendation.type || "" : buyingWineType).trim(),
+          region: (fromShelf ? recommendation.region || "" : buyingRegion).trim(),
           target_price: price,
           offer_price: price || null,
           currency: recommendation.currency.trim().toUpperCase() || "CHF",
           merchant: recommendation.merchant.trim(),
           priority: recommendation.confidence === "high" ? "High" : recommendation.confidence === "low" ? "Low" : "Medium",
-          purpose: buyingPurpose === "cellar" ? "Cellar" : "Drink",
+          purpose: !fromShelf && buyingPurpose === "cellar" ? "Cellar" : "Drink",
           status: "Evaluate",
           notes: recommendation.reason.trim(),
-          ai_context_note: `Sommelier acquisti. Fonte: ${recommendation.source_url}`,
+          ai_context_note: fromShelf ? "Scaffale AI in enoteca." : `Sommelier acquisti. Fonte: ${recommendation.source_url}`,
         }),
       });
       setWishlistPortfolioStrategy(null);
@@ -11156,6 +11159,8 @@ export function App() {
                   formatAiBudget={formatAiBudget}
                   onGenerateBuyingAdvice={generateBuyingAdvice}
                   onAddRecommendationToWishlist={addBuyingAdviceRecommendationToWishlist}
+                  wishlistLists={wishlistLists}
+                  defaultWishlistListId={selectedWishlistListId}
                   onScanWineShelf={scanWineShelf}
                   onAskWineShelf={askRestaurantWineList}
                   shelfScanAvailable={Boolean(session?.wine_shelf_scan_available)}

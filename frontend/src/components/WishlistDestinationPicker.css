@@ -1,0 +1,24 @@
+.wishlist-destination-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 4px 0 12px;
+}
+.wishlist-destination-picker > span {
+  color: var(--text-muted);
+  font-size: .78rem;
+  font-weight: 750;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.wishlist-destination-picker select {
+  width: auto;
+  min-width: 0;
+  max-width: min(320px, 100%);
+  min-height: 44px;
+}
+@media (max-width: 600px) {
+  .wishlist-destination-picker { display: grid; }
+  .wishlist-destination-picker select { width: 100%; max-width: none; }
+}

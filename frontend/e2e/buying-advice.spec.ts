@@ -43,7 +43,8 @@ test("keeps location optional until immediate availability is requested", async 
             buyingLocation: location, buyingMinPrice: minPrice, buyingMaxPrice: maxPrice,
             buyingAdviceResult: advice, formatAiBudget: String,
             onGenerateBuyingAdvice: event => { event.preventDefault(); setSubmitted(true); },
-            canWriteWishlist: true, onAddRecommendationToWishlist: async () => {},
+            canWriteWishlist: true, onAddRecommendationToWishlist: async (item, listId) => { window.addedTo = listId; },
+            wishlistLists: [{ id: 'list-general', name: 'Generale' }, { id: 'list-rossi', name: 'Rossi' }], defaultWishlistListId: 'list-general',
             setBuyingPurpose: setPurpose, setBuyingPairingWith: setPairing,
             setBuyingPreferences: setPreferences, setBuyingWineType: setWineType,
             setBuyingRegion: setRegion, setBuyingUseTasteProfile: setUseProfile,
@@ -63,8 +64,11 @@ test("keeps location optional until immediate availability is requested", async 
 
   const addToWishlist = page.getByRole("button", { name: "Aggiungi alla wishlist", exact: true });
   await expect(addToWishlist).toBeVisible();
+  // The recommendation goes to the wishlist chosen here, not the first one.
+  await page.getByRole("combobox", { name: "Wishlist di destinazione" }).selectOption({ label: "Rossi" });
   await addToWishlist.click();
-  await expect(page.getByRole("button", { name: "Aggiunto alla wishlist", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Aggiunto alla wishlist · Rossi", exact: true })).toBeDisabled();
+  expect(await page.evaluate(() => (window as unknown as { addedTo: string }).addedTo)).toBe("list-rossi");
   await expect(page.getByText("La disponibilità non verrà considerata", { exact: false })).toBeVisible();
   await expect(page.getByText("✓ Selezionato", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Dove vuoi acquistare o ricevere?")).toHaveCount(0);

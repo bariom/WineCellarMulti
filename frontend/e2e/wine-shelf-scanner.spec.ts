@@ -25,7 +25,12 @@ test("a shelf photo is ranked, highlighted and questioned", async ({ page }, tes
         { name: 'Barolo', producer: 'Vietti', vintage: '2019', style: 'Red', region: 'Piemonte', price_text: '', confidence: 'medium', owned: true, image_index: 1, x: 0.6, y: 0.3, width: 0.1, height: 0.4 },
         { name: 'Dolcetto', producer: 'Cantina C', vintage: '2023', style: 'Red', region: 'Piemonte', price_text: 'CHF 18', confidence: 'low', owned: false, image_index: 0, x: 0.7, y: 0.5, width: 0.1, height: 0.3 },
       ];
-      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(WineShelfScanner, {
+      const lists = [{ id: 'list-general', name: 'Generale' }, { id: 'list-rossi', name: 'Rossi' }];
+      function Harness(props) {
+        const [listId, setListId] = React.useState('list-general');
+        return React.createElement(WineShelfScanner, { ...props, wishlistLists: lists, wishlistListId: listId, onWishlistListChange: setListId });
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Harness, {
         locale: 'it', canGenerateAi: true, canWriteWishlist: true, formatAiBudget: (value) => 'USD ' + value,
         onScan: async (formData) => {
           window.shelfScans.push({ images: formData.getAll('images').length, budget: formData.get('max_price_chf'), type: formData.get('wine_type'), cellar: formData.get('cellar_mode'), size: formData.get('ranking_size') });
@@ -33,7 +38,7 @@ test("a shelf photo is ranked, highlighted and questioned", async ({ page }, tes
             recommendations: [{ bottle_index: 0, rank: 1, reason: 'Frutto e freschezza, perfetta per il tuo gusto.', taste_affinity: 5 }, { bottle_index: 1, rank: 2, reason: 'Grande annata ma ce l\\'hai già.', taste_affinity: 4 }] };
         },
         onAsk: async (payload) => { window.shelfQuestions.push(payload); return { answer: 'La Barbera è più pronta da bere.', referenced_indexes: [0], taste_profile_applied: true, model: 'test-model', reasoning_effort: 'low', estimated_cost_usd: '0' }; },
-        onAddToWishlist: async (candidate) => { window.shelfWishlist.push(candidate); },
+        onAddToWishlist: async (candidate, listId) => { window.shelfWishlist.push({ ...candidate, listId }); },
       }));
     </script></body></html>`,
   }));
@@ -70,9 +75,17 @@ test("a shelf photo is ranked, highlighted and questioned", async ({ page }, tes
   await page.getByText("Mostra tutte le etichette riconosciute", { exact: true }).click();
   await expect(page.locator(".wine-shelf-dot")).toHaveCount(1);
 
+  // The destination wishlist is chosen, and the item takes type and region from the bottle.
+  const destination = page.getByRole("combobox", { name: "Wishlist di destinazione" });
+  await expect(destination).toHaveValue("list-general");
+  await destination.selectOption({ label: "Rossi" });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.locator(".wishlist-destination-picker").screenshot({ path: testInfo.outputPath("shelf-wishlist-picker-390.png") });
   await ranking.getByRole("listitem").first().getByRole("button", { name: "Aggiungi alla wishlist" }).click();
-  await expect(ranking.getByRole("listitem").first().getByRole("button", { name: "In wishlist" })).toBeDisabled();
-  expect(await page.evaluate(() => (window as any).shelfWishlist[0])).toMatchObject({ name: "Barbera d'Alba", price: "24.50", currency: "CHF", local: true });
+  await expect(ranking.getByRole("listitem").first().getByRole("button", { name: "In wishlist · Rossi" })).toBeDisabled();
+  expect(await page.evaluate(() => (window as any).shelfWishlist[0])).toMatchObject({
+    name: "Barbera d'Alba", price: "24.50", currency: "CHF", local: true, type: "Red", region: "Piemonte", origin: "shelf", listId: "list-rossi",
+  });
 
   const chat = page.getByRole("region", { name: "Chiedi al sommelier" });
   await chat.getByRole("button", { name: "Quale si conserva più a lungo?" }).click();
