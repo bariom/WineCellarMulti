@@ -164,12 +164,15 @@ def assistant_tools() -> list[dict[str, Any]]:
         ),
         _tool(
             "purchases",
-            "Bottles bought over a period from the recorded purchase lots: "
-            "quantity, cost, supplier.",
+            "Bottles bought over a period from the recorded purchase lots (or the order "
+            "date of wines without lots): quantity, cost, supplier.",
             {
                 "date_from": date_field,
                 "date_to": date_field,
-                "text": _nullable("string", description="Matches wine, producer or supplier"),
+                "text": _nullable(
+                    "string",
+                    description="Matches wine, producer, region, appellation, type or supplier",
+                ),
                 "group_by": {
                     "type": "string",
                     "enum": ["none", "supplier", "type", "region", "month"],
@@ -604,38 +607,73 @@ class CellarAssistantTools:
         }
 
     def purchases(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Purchases from the lots; a wine without lots counts once on its order date."""
         date_from = _parse_date(args.get("date_from"))
         date_to = _parse_date(args.get("date_to"))
         visible = {wine.id: wine for wine in self.wines()}
-        rows = []
+        # (date, wine, bottles, unit cost, currency, supplier)
+        bought: list[tuple[date, Wine, int, Decimal | None, str, str]] = []
+        with_lots: set[Any] = set()
         for lot in self.db.scalars(
             select(WineStockLot).where(WineStockLot.household_id == self.context.household.id)
         ):
             wine = visible.get(lot.wine_id)
-            if wine is None or lot.quantity_received <= 0:
+            if wine is None:
                 continue
-            if (date_from and lot.acquired_on < date_from) or (
-                date_to and lot.acquired_on > date_to
-            ):
-                continue
-            if not _matches(args.get("text"), wine.name, wine.producer, lot.supplier):
-                continue
-            rows.append((lot, wine))
+            with_lots.add(wine.id)
+            if lot.quantity_received > 0:
+                bought.append(
+                    (
+                        lot.acquired_on,
+                        wine,
+                        lot.quantity_received,
+                        lot.unit_cost,
+                        lot.currency,
+                        lot.supplier,
+                    )
+                )
+        for wine in visible.values():
+            if wine.id not in with_lots and wine.order_date and wine.quantity > 0:
+                bought.append(
+                    (
+                        wine.order_date,
+                        wine,
+                        wine.quantity,
+                        wine.price or None,
+                        wine.currency,
+                        wine.merchant,
+                    )
+                )
+        rows = [
+            row
+            for row in bought
+            if not (date_from and row[0] < date_from)
+            and not (date_to and row[0] > date_to)
+            and _matches(
+                args.get("text"),
+                row[1].name,
+                row[1].producer,
+                row[1].region,
+                row[1].appellation,
+                row[1].type,
+                row[5],
+            )
+        ]
         group_by = args.get("group_by") or "none"
         totals: dict[str, dict[str, float]] = defaultdict(lambda: {"bottles": 0, "cost": 0.0})
-        for lot, wine in rows:
+        for bought_on, wine, bottles, unit_cost, _currency, supplier in rows:
             key = {
                 "none": "total",
-                "supplier": lot.supplier or "—",
+                "supplier": supplier or "—",
                 "type": wine.type or "—",
                 "region": wine.region or "—",
-                "month": lot.acquired_on.strftime("%Y-%m"),
+                "month": bought_on.strftime("%Y-%m"),
             }[group_by]
-            totals[key]["bottles"] += lot.quantity_received
-            totals[key]["cost"] += float(lot.unit_cost or 0) * lot.quantity_received
-        rows.sort(key=lambda item: item[0].acquired_on, reverse=True)
+            totals[key]["bottles"] += bottles
+            totals[key]["cost"] += float(unit_cost or 0) * bottles
+        rows.sort(key=lambda row: row[0], reverse=True)
         return {
-            "currency_note": "Costs are in each lot's currency, usually CHF.",
+            "currency_note": "Costs are in each purchase's currency, usually CHF.",
             "totals": [
                 {"group": key, "bottles": int(value["bottles"]), "cost": round(value["cost"], 2)}
                 for key, value in sorted(
@@ -644,16 +682,17 @@ class CellarAssistantTools:
             ],
             "purchases": [
                 {
-                    "date": lot.acquired_on.isoformat(),
+                    "date": bought_on.isoformat(),
                     "wine": wine.name,
                     "producer": wine.producer,
                     "vintage": wine.vintage,
-                    "bottles": lot.quantity_received,
-                    "unit_cost": _money(lot.unit_cost),
-                    "currency": lot.currency,
-                    "supplier": lot.supplier,
+                    "region": wine.region,
+                    "bottles": bottles,
+                    "unit_cost": _money(unit_cost),
+                    "currency": currency,
+                    "supplier": supplier,
                 }
-                for lot, wine in rows[:MAX_ROWS]
+                for bought_on, wine, bottles, unit_cost, currency, supplier in rows[:MAX_ROWS]
             ],
         }
 

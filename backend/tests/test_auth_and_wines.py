@@ -5921,6 +5921,13 @@ def test_cellar_assistant_tools_read_only_the_active_cellar():
         wine("Champagne", household_id=household.id, type="Sparkling", region="Champagne", quantity=6,
              drink_from=2020, drink_to=2026)
         wine("Altro Barolo", household_id=other.id, type="Red", region="Piemonte")
+        # "Champagne" is only the region here; one wine has lots, the other just an order date.
+        dom = wine("Dom Perignon", household_id=household.id, producer="Moet", type="Sparkling",
+                   region="Champagne", drink_from=2023, drink_to=2032)
+        db.add(WineStockLot(wine_id=dom.id, household_id=household.id, acquired_on=date(2026, 5, 12),
+                            quantity_received=2, quantity_remaining=2, unit_cost=160, supplier="Caveau 99"))
+        wine("Krug", household_id=household.id, producer="Krug", type="Sparkling", region="Champagne",
+             price=200, merchant="Arvi", order_date=date(2026, 6, 1), status="Ordered")
         db.add(WineTastingEntry(wine_id=peak.id, household_id=household.id, created_by_user_id=owner.id,
                                 consumed_at=date(2026, 9, 12), rating=5, companions="Marco", pairing="Brasato"))
         db.add(WineStockLot(wine_id=peak.id, household_id=household.id, acquired_on=date(2026, 3, 1),
@@ -5935,7 +5942,7 @@ def test_cellar_assistant_tools_read_only_the_active_cellar():
         tools = CellarAssistantTools(db, context, can_see=lambda _wine: True, today=today)
 
         summary = tools.invoke("cellar_summary", json.dumps({"group_by": "region", "in_cellar_only": True}))
-        assert summary["total_bottles"] == 8
+        assert summary["total_bottles"] == 10
         assert {group["group"] for group in summary["groups"]} == {"Piemonte", "Champagne"}
 
         peak_now = tools.invoke("drinking_plan", json.dumps({"horizon": "peak_now"}))
@@ -5953,7 +5960,16 @@ def test_cellar_assistant_tools_read_only_the_active_cellar():
         spent = tools.invoke("purchases", json.dumps({
             "date_from": "2026-01-01", "date_to": "2026-12-31", "text": None, "group_by": "supplier",
         }))
-        assert spent["totals"] == [{"group": "Enoteca Rossi", "bottles": 6, "cost": 330.0}]
+        assert spent["totals"] == [
+            {"group": "Arvi", "bottles": 2, "cost": 400.0},
+            {"group": "Enoteca Rossi", "bottles": 6, "cost": 330.0},
+            {"group": "Caveau 99", "bottles": 2, "cost": 320.0},
+        ]
+        champagne = tools.invoke("purchases", json.dumps({
+            "date_from": "2026-01-01", "date_to": "2026-12-31", "text": "Champagne", "group_by": "none",
+        }))
+        assert champagne["totals"] == [{"group": "total", "bottles": 4, "cost": 720.0}]
+        assert [item["wine"] for item in champagne["purchases"]] == ["Krug", "Dom Perignon"]
 
         wishes = tools.invoke("wishlist", json.dumps({"list_name": "Rossi", "text": None}))
         assert wishes["items"][0]["name"] == "Sassicaia"
