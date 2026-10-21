@@ -93,6 +93,15 @@ def shelf_photo_sections(
                     round(bottom * height),
                 )
             )
+            # Send each section at the size the vision model actually sees (high detail
+            # fits the short side in 768 px and the long side in 2048 px), so the pixel
+            # coordinates it returns refer to the size declared in the prompt.
+            scale = min(1.0, 768 / min(crop.size), 2048 / max(crop.size))
+            if scale < 1:
+                crop = crop.resize(
+                    (max(round(crop.width * scale), 1), max(round(crop.height * scale), 1)),
+                    Image.Resampling.LANCZOS,
+                )
             buffer = BytesIO()
             crop.save(buffer, "JPEG", quality=quality, optimize=True)
             sections.append((buffer.getvalue(), (left, top, right - left, bottom - top), crop.size))

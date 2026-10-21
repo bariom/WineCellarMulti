@@ -351,7 +351,12 @@ def read_section(
     box: tuple[float, float, float, float],
     size: tuple[int, int],
     number: int,
-) -> tuple[list[WineShelfBottle], Decimal]:
+) -> tuple[list[WineShelfBottle] | None, Decimal]:
+    """Read one section; the bottles are None when the answer could not be used.
+
+    The call is audited and its cost returned before the answer is parsed: the
+    provider bills an unusable answer (e.g. JSON cut short) like any other.
+    """
     from app.api.routes.ai import (
         create_ai_response,
         effective_response_model,
@@ -381,9 +386,13 @@ def read_section(
             max_output_tokens=6000,
             timeout_seconds=SECTION_TIMEOUT_SECONDS,
         )
-        bottles = section_bottles(
-            parse_json_response(response.text), image_index=image_index, box=box, size=size
-        )
+        bottles: list[WineShelfBottle] | None
+        try:
+            bottles = section_bottles(
+                parse_json_response(response.text), image_index=image_index, box=box, size=size
+            )
+        except HTTPException:
+            bottles = None
         record_ai_audit(
             db,
             context,
@@ -394,6 +403,8 @@ def read_section(
             reasoning_effort=response.reasoning_effort or "",
             summary=(
                 f"Wine shelf section {number}/{job.sections_total} read: {len(bottles)} bottles."
+                if bottles is not None
+                else f"Wine shelf section {number}/{job.sections_total}: unusable answer."
             ),
             usage=response.usage,
             provider_source=provider_source,
@@ -502,8 +513,11 @@ def scan(job: ShelfScanJob, request: ShelfScanRequest) -> WineShelfScanResponse:
                 failures.append(exc)
                 logger.warning("Wine shelf section failed: %s", type(exc).__name__)
             else:
-                readings.append(bottles)
                 total_cost += cost
+                if bottles is None:
+                    failures.append(ValueError("unusable section answer"))
+                else:
+                    readings.append(bottles)
             job.sections_done += 1
             job.bottles_found = len(merge_bottles(readings))
     if not readings:

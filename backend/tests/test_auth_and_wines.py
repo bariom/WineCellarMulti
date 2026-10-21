@@ -9343,6 +9343,59 @@ def test_wine_shelf_scan_reports_the_provider_error_when_no_section_can_be_read(
     assert (job["status"], job["error"], job["result"]) == ("failed", "Not enough AI credit", None)
 
 
+def test_wine_shelf_scan_counts_the_cost_of_an_unusable_section_answer(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    run_shelf_scans_inline(
+        monkeypatch,
+        lambda content: [
+            (b"good", (0.0, 0.0, 0.6, 1.0), (600, 1000)),
+            (b"cut", (0.4, 0.0, 0.6, 1.0), (600, 1000)),
+        ],
+    )
+    usage = TokenUsage(input_tokens=1000, output_tokens=500, total_tokens=1500)
+
+    def fake_create_response(*args, **kwargs):
+        images = kwargs.get("input_images")
+        if images and images[0][1] == b"cut":
+            # The provider bills an answer cut short like any other.
+            return OpenAIResponse(text='{"bottles":[{"name":"Sass', usage=usage, model="gpt-5.5")
+        if images:
+            return OpenAIResponse(
+                text=json.dumps({"bottles": [{
+                    "name": "Soave", "producer": "Pieropan", "vintage": "2023", "style": "White",
+                    "region": "Veneto", "price_text": "", "confidence": "high", "center_x": 300,
+                    "center_y": 500, "label_width": 80, "label_height": 120,
+                }]}),
+                usage=usage,
+                model="gpt-5.5",
+            )
+        return OpenAIResponse(
+            text='{"summary":"Un bianco.","ranking":[{"bottle_index":0,"reason":"Fresco.","taste_affinity":0}],"owned_indexes":[]}',
+            usage=usage,
+            model="gpt-5.5",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    started = client.post(
+        "/api/v1/ai/wine-shop/shelf-scans", files=[("images", ("shelf.jpg", b"one", "image/jpeg"))]
+    )
+    result = client.get(f"/api/v1/ai/wine-shop/shelf-scans/{started.json()['id']}").json()["result"]
+    assert [bottle["name"] for bottle in result["bottles"]] == ["Soave"]
+    assert "Sezioni della foto non lette: 1" in result["summary"]
+    audit = client.get("/api/v1/ai/audit").json()
+    assert len(audit) == 3
+    assert any("unusable answer" in entry["summary"] for entry in audit)
+    # The cost shown for the scan is the sum of every billed call, the unusable one included.
+    assert Decimal(result["estimated_cost_usd"]) == sum(
+        (Decimal(entry["estimated_cost_usd"]) for entry in audit), Decimal("0")
+    )
+    assert Decimal(result["estimated_cost_usd"]) > 0
+
+
 def test_shelf_photos_are_split_into_overlapping_sections():
     from PIL import Image
 
@@ -9355,8 +9408,9 @@ def test_shelf_photos_are_split_into_overlapping_sections():
 
     sections = shelf_photo_sections(photo(1800, 2400))
     boxes = [box for _, box, _ in sections]
-    # Each section reports its own pixel size for the label points.
-    assert sections[0][2] == (1008, 1344)
+    # Each section is sent at the size the vision model sees (short side 768 px) and
+    # reports that size, so the label points it returns refer to it.
+    assert sections[0][2] == (768, 1024)
     assert len(boxes) == 4
     assert boxes[0][0] == 0.0 and boxes[0][1] == 0.0
     # Neighbouring sections overlap so a bottle on the border is whole in one of them.
