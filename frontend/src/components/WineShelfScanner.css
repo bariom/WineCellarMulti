@@ -112,11 +112,46 @@
   border-radius: 50%;
   background: color-mix(in srgb, var(--pin-color) 16%, transparent);
   box-shadow: 0 0 0 4px color-mix(in srgb, black 35%, transparent), 0 0 26px color-mix(in srgb, var(--pin-color) 70%, transparent);
-  /* "translate", not "transform": the global button hover transform must not
-     undo the centring and make the circle jump away from the pointer. */
-  translate: -50% -50%;
+  /* The element's top-left sits so that the circle is offset from the label point
+     (diagonally, by its own size) and an arrow points back at it: the badge no
+     longer covers the label. --dx/--dy flip the side near the photo's edges.
+     "translate", not "transform": the global button hover transform must not
+     undo the placement and make the circle jump away from the pointer. */
+  --dx: 1;
+  --dy: 1;
+  translate: calc(-50% + 100% * var(--dx)) calc(-50% + 100% * var(--dy));
   transform: none;
   cursor: pointer;
+}
+.wine-shelf-pin.is-flip-x { --dx: -1; }
+.wine-shelf-pin.is-flip-y { --dy: -1; }
+/* The arrow shaft runs from the label point towards the circle... */
+.wine-shelf-pin::before,
+.wine-shelf-pin::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 100% * var(--dx));
+  top: calc(50% - 100% * var(--dy));
+  transform-origin: 0 50%;
+  rotate: calc(atan2(var(--dy), var(--dx)));
+  pointer-events: none;
+}
+.wine-shelf-pin::before {
+  width: 92%;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 2px;
+  background: var(--pin-color);
+  box-shadow: 0 0 0 1px color-mix(in srgb, black 45%, transparent);
+}
+/* ...and its head points at the label. */
+.wine-shelf-pin::after {
+  width: 15px;
+  height: 14px;
+  margin-top: -7px;
+  background: var(--pin-color);
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
+  filter: drop-shadow(0 0 1px color-mix(in srgb, black 60%, transparent));
 }
 .wine-shelf-pin b {
   display: grid;

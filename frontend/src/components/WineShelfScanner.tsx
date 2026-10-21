@@ -163,16 +163,19 @@ export function WineShelfScanner({
         if (bottle.image_index !== photoIndex) return null;
         const rank = rankByBottle.get(bottleIndex);
         if (!rank && !showAllLabels) return null;
-        // The badge sits on the middle of the label and never leaves the photo.
-        const inside = (value: number) => Math.min(Math.max(value, 0.04), 0.96) * 100;
+        // The arrow points at the middle of the label; the badge sits below-right of
+        // it, or on the other side near the right and bottom edges of the photo.
+        const pointX = Math.min(Math.max(bottle.x + bottle.width / 2, 0.02), 0.98);
+        const pointY = Math.min(Math.max(bottle.y + bottle.height / 2, 0.02), 0.98);
+        const flip = `${pointX > 0.8 ? " is-flip-x" : ""}${pointY > 0.72 ? " is-flip-y" : ""}`;
         const style = {
-          left: `${inside(bottle.x + bottle.width / 2)}%`,
-          top: `${inside(bottle.y + bottle.height / 2)}%`,
+          left: `${pointX * 100}%`,
+          top: `${pointY * 100}%`,
           "--halo": `${Math.min(Math.max(bottle.width, 0.04), 0.22) * 100}%`,
         } as CSSProperties;
         const label = `${rank ? `${rank}. ` : ""}${bottle.name}${bottle.vintage ? ` ${bottle.vintage}` : ""}`;
         return rank
-          ? <button type="button" key={bottleIndex} className={`wine-shelf-pin rank-${Math.min(rank, 4)}${activeBottle === bottleIndex ? " is-active" : ""}`} style={style} aria-label={label} aria-pressed={activeBottle === bottleIndex} onClick={() => { setActiveBottle(bottleIndex); if (variant === "inline") document.getElementById(`wine-shelf-choice-${bottleIndex}`)?.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" }); }}><b>{rank}</b></button>
+          ? <button type="button" key={bottleIndex} className={`wine-shelf-pin rank-${Math.min(rank, 4)}${flip}${activeBottle === bottleIndex ? " is-active" : ""}`} style={style} aria-label={label} aria-pressed={activeBottle === bottleIndex} onClick={() => { setActiveBottle(bottleIndex); if (variant === "inline") document.getElementById(`wine-shelf-choice-${bottleIndex}`)?.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" }); }}><b>{rank}</b></button>
           : <span key={bottleIndex} className="wine-shelf-dot" style={style} title={label} aria-hidden="true" />;
       })}
     </div>;
