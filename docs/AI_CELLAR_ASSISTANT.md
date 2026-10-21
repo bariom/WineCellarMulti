@@ -32,6 +32,23 @@ new order instead of creating a duplicate automatically.
 named wishlist. If that wishlist does not exist, Vinaris presents the household's existing lists
 for the user to choose.
 
+## Questions about the cellar
+
+The assistant also answers free questions such as "Quali vini sono al picco?", "Quanto ho speso
+in Champagne quest'anno?" or "Cosa ho bevuto con Marco?". A message ending with `?` goes straight
+to `POST /api/v1/ai/cellar-assistant/ask`; any other message is first interpreted as a command and
+falls back to the question endpoint when it is not a supported action.
+
+The question endpoint runs a short tool loop (at most six steps) with the user's pairing model.
+The model never reads the database directly: it calls read-only tools in
+`app/services/cellar_assistant.py` — `search_wines`, `cellar_summary`, `drinking_plan`,
+`deliveries`, `tasting_history`, `taste_profile`, `wishlist` and `purchases` — that read only the
+active household, apply the user's wine visibility, omit database IDs and return at most 25 rows.
+They include purchase prices, personal notes, cellar locations and tasting companions, as agreed
+with the product owner. Nothing is written: asked to change the cellar, the assistant explains how
+to describe the action instead. The client sends the last ten turns of the open conversation so
+follow-up questions keep their meaning; nothing is stored server side beyond the AI audit entries.
+
 ## Safety and behavior
 
 - Only active wines belonging to the current household and having available stock are candidates.

@@ -531,3 +531,22 @@ class CellarIntelligencePlanResponse(BaseModel):
 
 class CellarIntelligencePlanStateUpdate(BaseModel):
     applied_recommendation_keys: list[str] = Field(default_factory=list, max_length=24)
+
+
+class CellarAssistantTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class CellarAssistantQuestion(AiGenerationRequest):
+    question: str = Field(min_length=2, max_length=1000)
+    # The open conversation, so follow-ups such as "and the 2016?" keep their meaning.
+    history: list[CellarAssistantTurn] = Field(default_factory=list, max_length=20)
+
+
+class CellarAssistantAnswer(BaseModel):
+    answer: str
+    tools_used: list[str] = Field(default_factory=list)
+    model: str
+    reasoning_effort: str = ""
+    estimated_cost_usd: Decimal = Decimal("0")

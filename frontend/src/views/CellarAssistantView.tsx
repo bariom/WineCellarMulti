@@ -75,6 +75,8 @@ export default function CellarAssistantView({
   const [voicePreparing, setVoicePreparing] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
+  // The open conversation with the assistant: questions and answers, newest last.
+  const [conversation, setConversation] = useState<Array<{ role: "user" | "assistant"; content: string; meta?: string }>>([]);
   const recognitionRef = useRef<VoiceRecognition | null>(null);
   const voiceTimeoutRef = useRef<number | null>(null);
   const finalTranscriptRef = useRef("");
@@ -115,6 +117,9 @@ export default function CellarAssistantView({
   const producerStrategyExample = isItalian
     ? "Metti i vini di Lantieri da maturare."
     : "Mark Lantieri wines for maturation.";
+  const questionExamples = isItalian
+    ? ["Quali vini sono al picco?", "Cosa scade quest'anno?", "Quanto ho speso in Champagne quest'anno?", "Cosa ho bevuto con Marco?"]
+    : ["Which wines are at their peak?", "What should I drink this year?", "How much did I spend on Champagne this year?", "What did I drink with Marco?"];
   const helpExamples = [
     { label: isItalian ? "Bevuta" : "Drinking", description: isItalian ? "Nota, data e voto: scala 6, 10 o 100." : "Notes, date, and a score on a 6, 10, or 100 scale.", example: consumptionExample },
     { label: isItalian ? "Acquisto" : "Purchase", description: isItalian ? "Nuove bottiglie con prezzo, valuta e rivenditore." : "New bottles with price, currency, and merchant.", example: purchaseExample },
@@ -329,12 +334,37 @@ export default function CellarAssistantView({
     });
   }
 
+  async function askAssistant(question: string) {
+    const answer = await api<{ answer: string; tools_used: string[]; model: string; estimated_cost_usd: string }>("/api/v1/ai/cellar-assistant/ask", {
+      method: "POST",
+      body: JSON.stringify({
+        question,
+        locale,
+        history: conversation.slice(-10).map(({ role, content }) => ({ role, content: content.slice(0, 4000) })),
+      }),
+    });
+    setConversation((current) => [
+      ...current,
+      { role: "user", content: question },
+      { role: "assistant", content: answer.answer, meta: `${answer.model} · ${requestCostLabel(answer.estimated_cost_usd)}` },
+    ]);
+    setResult(null);
+    setText("");
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!text.trim() || busy || disabled || listening) return;
     setBusy(true);
     setError("");
+    const question = text.trim();
     try {
+      // A question goes straight to the assistant, so "did I drink the Barolo?"
+      // is never taken for a tasting to record.
+      if (question.endsWith("?")) {
+        await askAssistant(question);
+        return;
+      }
       const next = await api<CellarCommandResult>("/api/v1/ai/cellar-commands", {
         method: "POST",
         body: JSON.stringify({
@@ -344,6 +374,11 @@ export default function CellarAssistantView({
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Zurich",
         }),
       });
+      // Not a cellar action: let the assistant answer it with the conversation so far.
+      if (next.status === "unsupported") {
+        await askAssistant(question);
+        return;
+      }
       setResult(next);
       if (next.status === "executed") await onCellarChanged();
       if (
@@ -465,11 +500,11 @@ export default function CellarAssistantView({
       <header className="cellar-assistant-hero">
         <span className="cellar-assistant-icon"><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /></span>
         <div>
-          <p>{isItalian ? "Azioni guidate" : "Guided actions"}</p>
+          <p>{isItalian ? "Domande e azioni" : "Questions and actions"}</p>
           <div className="cellar-assistant-title-row"><h1 id="cellar-assistant-title">{isItalian ? "Assistente Cantina AI" : "AI Cellar Assistant"}</h1><button type="button" className="secondary compact cellar-assistant-help-button" onClick={() => setHelpOpen(true)} aria-label={isItalian ? "Come funziona l'assistente AI" : "How the AI assistant works"}>?</button></div>
           <span>{isItalian
-            ? "Racconta cosa hai bevuto, acquistato o deciso per le bottiglie: Vinaris prepara l’aggiornamento corretto."
-            : "Describe what you drank, purchased, or decided for your bottles: Vinaris prepares the correct update."}</span>
+            ? "Chiedi qualsiasi cosa sulla tua cantina, oppure racconta cosa hai bevuto, acquistato o deciso: Vinaris risponde o prepara l’aggiornamento."
+            : "Ask anything about your cellar, or describe what you drank, purchased, or decided: Vinaris answers or prepares the update."}</span>
         </div>
       </header>
 
@@ -502,8 +537,32 @@ export default function CellarAssistantView({
         </div>
       ) : null}
 
+      {conversation.length ? <section className="cellar-assistant-conversation" aria-label={isItalian ? "Conversazione con l'assistente" : "Conversation with the assistant"}>
+        <header>
+          <strong>{isItalian ? "Conversazione" : "Conversation"}</strong>
+          <button type="button" className="secondary compact" onClick={() => setConversation([])} disabled={busy}>{isItalian ? "Nuova conversazione" : "New conversation"}</button>
+        </header>
+        <ol aria-live="polite">
+          {conversation.map((turn, index) => <li key={index} className={`is-${turn.role}`}>
+            <p>{turn.content}</p>
+            {turn.meta ? <small>{turn.meta}</small> : null}
+          </li>)}
+        </ol>
+        <small className="cellar-assistant-conversation-note">{isItalian ? "L'assistente legge la tua cantina per rispondere; per modificarla, racconta cosa è successo." : "The assistant reads your cellar to answer; to change it, describe what happened."}</small>
+      </section> : null}
+
       <form className="cellar-assistant-composer" onSubmit={submit}>
-        <label htmlFor="cellar-assistant-command">{isItalian ? "Cosa è successo in cantina?" : "What happened in your cellar?"}</label>
+        <label htmlFor="cellar-assistant-command">{isItalian ? "Chiedi o racconta" : "Ask or tell"}</label>
+        <div className="cellar-assistant-command-examples" aria-label={isItalian ? "Esempi di domande" : "Question examples"}>
+          <span>{isItalian ? "Chiedi:" : "Ask:"}</span>
+          <div>
+            {questionExamples.map((example) => (
+              <button type="button" key={example} className="secondary compact" onClick={() => applyExample(example)} disabled={disabled || busy}>
+                {example}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="cellar-assistant-command-examples" aria-label={isItalian ? "Esempi di comandi" : "Command examples"}>
           <span>{isItalian ? "Prova un comando:" : "Try a command:"}</span>
           <div>
@@ -545,7 +604,7 @@ export default function CellarAssistantView({
         </div>
         <div className="cellar-assistant-composer-footer">
           <small id="cellar-assistant-continue-help">
-            {isItalian ? "Interpreta il testo e prepara il prossimo aggiornamento della cantina." : "Interpret the text and prepare the next cellar update."}
+            {isItalian ? "Risponde alle domande sulla cantina o prepara il prossimo aggiornamento." : "Answers cellar questions or prepares the next cellar update."}
           </small>
           <button type="submit" disabled={disabled || busy || listening || !text.trim()} aria-describedby="cellar-assistant-continue-help">
             <AppIcon name="glass-sparkle" variant="ai" />

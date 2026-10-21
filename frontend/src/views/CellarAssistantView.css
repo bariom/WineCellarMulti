@@ -76,3 +76,14 @@
   .cellar-assistant-composer{grid-template-columns:minmax(0,1fr)!important;width:100%;min-width:0}
   .cellar-assistant-sidekick{display:none}
 }
+
+
+.cellar-assistant-conversation { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); border-radius: var(--radius-card); background: color-mix(in srgb, var(--surface) 90%, var(--accent-soft, var(--surface))); }
+.cellar-assistant-conversation > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cellar-assistant-conversation ol { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.cellar-assistant-conversation li { display: grid; gap: 4px; max-width: min(88%, 720px); padding: 10px 13px; border-radius: 14px; overflow-wrap: anywhere; }
+.cellar-assistant-conversation li p { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+.cellar-assistant-conversation li.is-user { justify-self: end; border-bottom-right-radius: 4px; background: var(--primary); color: var(--primary-contrast); }
+.cellar-assistant-conversation li.is-assistant { justify-self: start; border: 1px solid var(--border); border-bottom-left-radius: 4px; background: var(--surface); color: var(--text); }
+.cellar-assistant-conversation li small { color: var(--text-muted); font-size: .72rem; }
+.cellar-assistant-conversation-note { color: var(--text-muted); font-size: .78rem; }

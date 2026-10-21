@@ -57,6 +57,7 @@ from app.models import (
 from app.prompts import (
     ai_notes_prompt,
     buying_advice_prompt,
+    cellar_assistant_prompt,
     cellar_command_prompt,
     cellar_intelligence_plan_prompt,
     drink_window_prompt,
@@ -83,6 +84,8 @@ from app.schemas.ai import (
     BuyingAdviceRequest,
     BuyingAdviceResponse,
     BuyingRecommendation,
+    CellarAssistantAnswer,
+    CellarAssistantQuestion,
     CellarCommandCatalogCandidate,
     CellarCommandEnjoyment,
     CellarCommandExecuteRequest,
@@ -133,6 +136,7 @@ from app.services.ai_credits import (
 )
 from app.services.ai_models import parameters_for_model
 from app.services.ambassador import is_ambassador
+from app.services.cellar_assistant import CellarAssistantTools, assistant_tools
 from app.services.critic_scores import (
     score_has_weak_evidence,
     score_matches_page,
@@ -2416,6 +2420,114 @@ def ensure_cellar_ai_assistant_available(context: CurrentContext) -> None:
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="The AI cellar assistant is currently disabled",
+    )
+
+
+CELLAR_ASSISTANT_MAX_STEPS = 6
+CELLAR_ASSISTANT_HISTORY_TURNS = 10
+
+
+@router.post("/cellar-assistant/ask", response_model=CellarAssistantAnswer)
+def ask_cellar_assistant(
+    payload: CellarAssistantQuestion,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> CellarAssistantAnswer:
+    """Answer a free question about the cellar, reading it through read-only tools."""
+    ensure_cellar_ai_assistant_available(context)
+    user_settings = get_or_create_user_ai_settings(db, context)
+    model = user_settings.pairing_model
+    today = datetime.now(UTC).date()
+    prompt = cellar_assistant_prompt(locale=payload.locale, today=today.isoformat())
+    tools = CellarAssistantTools(
+        db, context, can_see=lambda wine: user_can_see_wine(context, wine), today=today
+    )
+    schema = {
+        "name": "cellar_assistant_answer",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"answer": {"type": "string"}},
+            "required": ["answer"],
+        },
+    }
+    history: list[dict[str, Any]] = [
+        {"role": turn.role, "content": turn.content}
+        for turn in payload.history[-CELLAR_ASSISTANT_HISTORY_TURNS:]
+    ]
+    history.append({"role": "user", "content": payload.question.strip()})
+    tools_used: list[str] = []
+    total_cost = Decimal("0")
+    answer = ""
+    effective_model = model
+    reasoning_effort = ""
+    for step in range(CELLAR_ASSISTANT_MAX_STEPS + 1):
+        response, provider_source = create_ai_response(
+            db,
+            context,
+            user_settings,
+            model=model,
+            task_type="cellar_analysis",
+            system_prompt=prompt.system,
+            user_prompt=payload.question.strip(),
+            json_schema=schema,
+            reasoning_effort="low",
+            max_output_tokens=2500,
+            agent_tools=assistant_tools(),
+            agent_history=history,
+        )
+        total_cost += response.charged_cost_usd
+        effective_model = effective_response_model(response, model)
+        reasoning_effort = response.reasoning_effort or ""
+        calls = [item for item in response.agent_output if item.get("type") == "function_call"]
+        record_ai_audit(
+            db,
+            context,
+            entity_type="household",
+            entity_id=context.household.id,
+            feature=prompt.id,
+            model=effective_model,
+            reasoning_effort=reasoning_effort,
+            summary=(
+                f"Cellar assistant step {step + 1}: "
+                + (", ".join(str(call.get("name", "")) for call in calls) or "answer")
+            ),
+            usage=response.usage,
+            provider_source=provider_source,
+        )
+        history.extend(response.agent_output)
+        if calls and step < CELLAR_ASSISTANT_MAX_STEPS and not response.incomplete:
+            for call in calls:
+                name = str(call.get("name", ""))
+                tools_used.append(name)
+                result = tools.invoke(name, str(call.get("arguments", "")))
+                history.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": call.get("call_id", ""),
+                        "output": json.dumps(result, ensure_ascii=False, default=str),
+                    }
+                )
+            continue
+        if response.text.strip():
+            try:
+                answer = str(parse_json_response(response.text).get("answer") or "").strip()
+            except HTTPException:
+                answer = ""
+        break
+    db.commit()
+    if not answer:
+        answer = (
+            "Non sono riuscito a completare la risposta. Prova a rendere la domanda più precisa."
+            if payload.locale == "it"
+            else "I could not complete the answer. Try making the question more specific."
+        )
+    return CellarAssistantAnswer(
+        answer=answer[:6000],
+        tools_used=tools_used,
+        model=effective_model,
+        reasoning_effort=reasoning_effort,
+        estimated_cost_usd=total_cost,
     )
 
 

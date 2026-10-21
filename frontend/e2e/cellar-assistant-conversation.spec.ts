@@ -1,0 +1,63 @@
+import { expect, test } from "@playwright/test";
+import { memberships, mockApi, session, wine } from "./fixtures/app";
+
+test("the cellar assistant answers questions and keeps the conversation", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], true, memberships, [wine], { ...session, cellar_ai_assistant_available: true });
+  // mockApi replaces window.fetch, so these two endpoints are answered in the page too.
+  await page.addInitScript(() => {
+    const previous = window.fetch;
+    const record = (key: string, value: unknown) => sessionStorage.setItem(key, JSON.stringify([...JSON.parse(sessionStorage.getItem(key) || "[]"), value]));
+    window.fetch = async (input, init) => {
+      const path = new URL(String(input instanceof Request ? input.url : input), location.href).pathname;
+      if (path === "/api/v1/ai/cellar-assistant/ask") {
+        const body = JSON.parse(String(init?.body));
+        record("asked", body);
+        const count = JSON.parse(sessionStorage.getItem("asked") || "[]").length;
+        return Response.json({
+          answer: count === 1 ? "Hai 4 bottiglie di Nebbiolo di Test 2019, al picco fino al 2028." : "Il 2016 non è in cantina.",
+          tools_used: ["search_wines"], model: "test-model", reasoning_effort: "low", estimated_cost_usd: "0.01",
+        });
+      }
+      // A sentence that is not an action falls back from the command interpreter to the assistant.
+      if (path === "/api/v1/ai/cellar-commands") {
+        record("commands", JSON.parse(String(init?.body)).text);
+        return Response.json({
+          command_id: "command-e2e", status: "unsupported", intent: "unsupported", message: "Questo comando non è ancora supportato.",
+          candidates: [], catalog_candidates: [], wishlist_lists: [], matched_wine: null, tasting: null, purchase_draft: null,
+          strategy_purpose: null, strategy_quantity: null, strategy_bulk: false, collection_bulk: false, model: "test-model", estimated_cost_usd: "0",
+        });
+      }
+      return previous(input, init);
+    };
+  });
+  const stored = (key: string) => page.evaluate((name) => JSON.parse(sessionStorage.getItem(name) || "[]"), key);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  await page.locator(".mobile-navigation-sheet summary").filter({ hasText: "Strumenti AI" }).click();
+  await page.getByRole("button", { name: "Assistente AI", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Assistente Cantina AI" })).toBeVisible();
+
+  const field = page.getByLabel("Chiedi o racconta", { exact: true });
+  await field.fill("Quanti Nebbiolo ho?");
+  await page.getByRole("button", { name: "Continua", exact: true }).click();
+  const conversation = page.getByRole("region", { name: "Conversazione con l'assistente" });
+  await expect(conversation).toContainText("Hai 4 bottiglie di Nebbiolo di Test 2019");
+  // A question with a question mark never goes through the command interpreter.
+  expect(await stored("commands")).toEqual([]);
+  await expect(field).toHaveValue("");
+
+  await field.fill("Mostrami anche quello del 2016");
+  await page.getByRole("button", { name: "Continua", exact: true }).click();
+  await expect(conversation).toContainText("Il 2016 non è in cantina.");
+  expect(await stored("commands")).toEqual(["Mostrami anche quello del 2016"]);
+  expect((await stored("asked"))[1].history).toEqual([
+    { role: "user", content: "Quanti Nebbiolo ho?" },
+    { role: "assistant", content: "Hai 4 bottiglie di Nebbiolo di Test 2019, al picco fino al 2028." },
+  ]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("assistant-conversation-390.png"), fullPage: true });
+
+  await conversation.getByRole("button", { name: "Nuova conversazione", exact: true }).click();
+  await expect(conversation).toHaveCount(0);
+});

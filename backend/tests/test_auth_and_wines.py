@@ -5,7 +5,7 @@ import json
 import struct
 import time
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
 from urllib.parse import parse_qs, urlparse
@@ -5773,6 +5773,166 @@ def test_monitor_activity_lists_more_than_a_hundred_actions_in_a_stable_order():
     assert [item["id"] for item in first.json()] == [item["id"] for item in second.json()]
     assert len(client.get("/api/v1/admin/operations/activity", params={"limit": 110}).json()) == 110
     assert client.get("/api/v1/admin/operations/activity", params={"limit": 501}).status_code == 422
+
+
+def test_cellar_assistant_answers_questions_by_reading_the_cellar_with_tools(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    year = datetime.now(UTC).year
+    barolo = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Barolo", "producer": "Vietti", "vintage": "2019", "quantity": 3, "price": 60,
+            "status": "Delivered", "drink_from": year - 2, "drink_peak_from": year + 2,
+            "drink_peak_to": year + 5, "drink_to": year + 8,
+            "notes": "Comprato alla fiera di Alba",
+        },
+    )
+    assert barolo.status_code == 201, barolo.text
+    finished = client.post(
+        "/api/v1/wines",
+        json={"name": "Barolo Finito", "producer": "Vietti", "vintage": "2015", "quantity": 0, "status": "Delivered"},
+    )
+    assert finished.status_code == 201, finished.text
+    calls: list[dict] = []
+
+    def fake_create_response(*args, **kwargs):
+        history = kwargs["agent_history"]
+        calls.append({"history": list(history), "tools": [tool["name"] for tool in kwargs["agent_tools"]]})
+        outputs = [item for item in history if item.get("type") == "function_call_output"]
+        if not outputs:
+            arguments = {
+                "text": "Barolo", "wine_type": None, "region": None, "producer": None, "grape": None,
+                "vintage_from": None, "vintage_to": None, "status": "in_cellar", "drink_phase": None,
+                "location": None, "max_value": None, "include_finished": False,
+            }
+            return OpenAIResponse(
+                text="",
+                usage=TokenUsage(input_tokens=300, output_tokens=40, total_tokens=340),
+                model="gpt-5.5",
+                agent_output=({"type": "function_call", "name": "search_wines", "call_id": "call-1", "arguments": json.dumps(arguments)},),
+            )
+        found = json.loads(outputs[0]["output"])
+        assert [wine["name"] for wine in found["wines"]] == ["Barolo"]
+        assert found["wines"][0]["producer"] == "Vietti"
+        assert found["wines"][0]["purchase_price_per_bottle"] == 60.0
+        assert found["wines"][0]["notes"] == "Comprato alla fiera di Alba"
+        assert found["wines"][0]["phase"] == "ready"
+        return OpenAIResponse(
+            text='{"answer":"Hai 3 bottiglie di Barolo 2019 di Vietti, pronte da bere."}',
+            usage=TokenUsage(input_tokens=500, output_tokens=60, total_tokens=560),
+            model="gpt-5.5",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    response = client.post(
+        "/api/v1/ai/cellar-assistant/ask",
+        json={
+            "question": "Quanti Barolo ho?",
+            "locale": "it",
+            "history": [
+                {"role": "user", "content": "Ciao"},
+                {"role": "assistant", "content": "Ciao! Chiedimi della tua cantina."},
+            ],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["answer"] == "Hai 3 bottiglie di Barolo 2019 di Vietti, pronte da bere."
+    assert body["tools_used"] == ["search_wines"]
+    assert len(calls) == 2
+    # The open conversation reaches the model, followed by the new question.
+    assert calls[0]["history"][:3] == [
+        {"role": "user", "content": "Ciao"},
+        {"role": "assistant", "content": "Ciao! Chiedimi della tua cantina."},
+        {"role": "user", "content": "Quanti Barolo ho?"},
+    ]
+    assert "purchases" in calls[0]["tools"] and "tasting_history" in calls[0]["tools"]
+    audit = client.get("/api/v1/ai/audit").json()
+    assert [entry["feature"] for entry in audit[:2]] == ["cellar.assistant", "cellar.assistant"]
+    # Nothing in the cellar changed.
+    assert client.get(f"/api/v1/wines/{barolo.json()['id']}").json()["quantity"] == 3
+
+
+def test_cellar_assistant_tools_read_only_the_active_cellar():
+    from types import SimpleNamespace
+
+    from app.models import WineStockLot, WishlistItem, WishlistList
+    from app.services.cellar_assistant import CellarAssistantTools
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    today = date(2026, 10, 21)
+    with TestingSessionLocal() as db:
+        owner = db.query(User).filter(User.email == "owner@example.com").one()
+        household = db.query(Household).filter(Household.name == "Main Cellar").one()
+        other = Household(name="Someone else")
+        db.add(other)
+        db.flush()
+
+        def wine(name, *, household_id, **values):
+            item = Wine(household_id=household_id, created_by_user_id=owner.id, name=name,
+                        producer=values.pop("producer", "Producer"), vintage=values.pop("vintage", "2019"),
+                        quantity=values.pop("quantity", 2), status=values.pop("status", "Delivered"), **values)
+            db.add(item)
+            db.flush()
+            return item
+
+        peak = wine("Barolo", household_id=household.id, type="Red", region="Piemonte", price=60,
+                    drink_from=2022, drink_peak_from=2025, drink_peak_to=2028, drink_to=2035)
+        wine("Champagne", household_id=household.id, type="Sparkling", region="Champagne", quantity=6,
+             drink_from=2020, drink_to=2026)
+        wine("Altro Barolo", household_id=other.id, type="Red", region="Piemonte")
+        db.add(WineTastingEntry(wine_id=peak.id, household_id=household.id, created_by_user_id=owner.id,
+                                consumed_at=date(2026, 9, 12), rating=5, companions="Marco", pairing="Brasato"))
+        db.add(WineStockLot(wine_id=peak.id, household_id=household.id, acquired_on=date(2026, 3, 1),
+                            quantity_received=6, quantity_remaining=2, unit_cost=55, supplier="Enoteca Rossi"))
+        wishlist = WishlistList(household_id=household.id, name="Rossi")
+        db.add(wishlist)
+        db.flush()
+        db.add(WishlistItem(household_id=household.id, wishlist_list_id=wishlist.id, name="Sassicaia",
+                            vintage="2021", target_price=180))
+        db.commit()
+        context = SimpleNamespace(household=household, user=owner)
+        tools = CellarAssistantTools(db, context, can_see=lambda _wine: True, today=today)
+
+        summary = tools.invoke("cellar_summary", json.dumps({"group_by": "region", "in_cellar_only": True}))
+        assert summary["total_bottles"] == 8
+        assert {group["group"] for group in summary["groups"]} == {"Piemonte", "Champagne"}
+
+        peak_now = tools.invoke("drinking_plan", json.dumps({"horizon": "peak_now"}))
+        assert [item["name"] for item in peak_now["wines"]] == ["Barolo"]
+        ending = tools.invoke("drinking_plan", json.dumps({"horizon": "ending_this_year"}))
+        assert [item["name"] for item in ending["wines"]] == ["Champagne"]
+
+        with_marco = tools.invoke("tasting_history", json.dumps({
+            "date_from": "2026-09-01", "date_to": None, "text": "Marco",
+            "min_rating": None, "max_rating": None, "include_outside": True,
+        }))
+        assert with_marco["tastings"][0]["wine"] == "Barolo"
+        assert with_marco["tastings"][0]["pairing"] == "Brasato"
+
+        spent = tools.invoke("purchases", json.dumps({
+            "date_from": "2026-01-01", "date_to": "2026-12-31", "text": None, "group_by": "supplier",
+        }))
+        assert spent["totals"] == [{"group": "Enoteca Rossi", "bottles": 6, "cost": 330.0}]
+
+        wishes = tools.invoke("wishlist", json.dumps({"list_name": "Rossi", "text": None}))
+        assert wishes["items"][0]["name"] == "Sassicaia"
+        assert wishes["items"][0]["target_price"] == 180.0
+
+        everything = tools.invoke("search_wines", json.dumps({
+            "text": "Barolo", "wine_type": None, "region": None, "producer": None, "grape": None,
+            "vintage_from": None, "vintage_to": None, "status": "any", "drink_phase": None,
+            "location": None, "max_value": None, "include_finished": True,
+        }))
+        # The other household's Barolo never shows up.
+        assert [item["name"] for item in everything["wines"]] == ["Barolo"]
+        assert tools.invoke("drop_table", "{}") == {"error": "Unknown tool drop_table"}
 
 
 def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
