@@ -11,6 +11,7 @@ import type {
 import "./CellarAssistantView.css";
 import "./CellarAssistantVoice.css";
 import "./CellarAssistantStrategy.css";
+import { AssistantAnswer } from "../components/AssistantAnswer";
 
 type VoiceRecognitionResult = {
   isFinal: boolean;
@@ -544,7 +545,7 @@ export default function CellarAssistantView({
         </header>
         <ol aria-live="polite">
           {conversation.map((turn, index) => <li key={index} className={`is-${turn.role}`}>
-            <p>{turn.content}</p>
+            {turn.role === "assistant" ? <AssistantAnswer text={turn.content} /> : <p>{turn.content}</p>}
             {turn.meta ? <small>{turn.meta}</small> : null}
           </li>)}
         </ol>
