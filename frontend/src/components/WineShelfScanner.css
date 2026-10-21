@@ -112,7 +112,10 @@
   border-radius: 50%;
   background: color-mix(in srgb, var(--pin-color) 16%, transparent);
   box-shadow: 0 0 0 4px color-mix(in srgb, black 35%, transparent), 0 0 26px color-mix(in srgb, var(--pin-color) 70%, transparent);
-  transform: translate(-50%, -50%);
+  /* "translate", not "transform": the global button hover transform must not
+     undo the centring and make the circle jump away from the pointer. */
+  translate: -50% -50%;
+  transform: none;
   cursor: pointer;
 }
 .wine-shelf-pin b {
@@ -131,6 +134,7 @@
 .wine-shelf-pin.rank-3 { --pin-color: var(--shelf-bronze); }
 .wine-shelf-pin.rank-4 { --pin-color: #e9dfd2; }
 .wine-shelf-pin.is-active { z-index: 3; animation: wine-shelf-pulse 1.8s ease-in-out infinite; }
+.wine-shelf-pin:hover, .wine-shelf-pin:active { transform: none; }
 .wine-shelf-pin:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .wine-shelf-dot {
   position: absolute;
@@ -141,7 +145,7 @@
   border-radius: 50%;
   background: color-mix(in srgb, white 35%, transparent);
   box-shadow: 0 0 0 2px color-mix(in srgb, black 40%, transparent);
-  transform: translate(-50%, -50%);
+  translate: -50% -50%;
 }
 @keyframes wine-shelf-pulse {
   0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, black 35%, transparent), 0 0 18px color-mix(in srgb, var(--pin-color) 60%, transparent); }

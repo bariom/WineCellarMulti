@@ -6,6 +6,11 @@ import "./WineShelfScanner.css";
 
 const maxPhotos = 3;
 
+/** Smooth scrolling, unless the system asks for reduced motion. */
+function scrollBehavior(): ScrollBehavior {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
+
 export type ShelfWishlistCandidate = {
   name: string;
   producer: string;
@@ -76,7 +81,7 @@ export function WineShelfScanner({
   }, [zoomedPhoto]);
   useEffect(() => {
     if (!showResult) return;
-    const frame = window.requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    const frame = window.requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "start" }));
     return () => window.cancelAnimationFrame(frame);
   }, [showResult, resultKey]);
 
@@ -165,7 +170,7 @@ export function WineShelfScanner({
         } as CSSProperties;
         const label = `${rank ? `${rank}. ` : ""}${bottle.name}${bottle.vintage ? ` ${bottle.vintage}` : ""}`;
         return rank
-          ? <button type="button" key={bottleIndex} className={`wine-shelf-pin rank-${Math.min(rank, 4)}${activeBottle === bottleIndex ? " is-active" : ""}`} style={style} aria-label={label} aria-pressed={activeBottle === bottleIndex} onClick={() => { setActiveBottle(bottleIndex); if (variant === "inline") document.getElementById(`wine-shelf-choice-${bottleIndex}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}><b>{rank}</b></button>
+          ? <button type="button" key={bottleIndex} className={`wine-shelf-pin rank-${Math.min(rank, 4)}${activeBottle === bottleIndex ? " is-active" : ""}`} style={style} aria-label={label} aria-pressed={activeBottle === bottleIndex} onClick={() => { setActiveBottle(bottleIndex); if (variant === "inline") document.getElementById(`wine-shelf-choice-${bottleIndex}`)?.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" }); }}><b>{rank}</b></button>
           : <span key={bottleIndex} className="wine-shelf-dot" style={style} title={label} aria-hidden="true" />;
       })}
     </div>;

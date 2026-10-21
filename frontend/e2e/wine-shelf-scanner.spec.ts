@@ -38,6 +38,8 @@ test("a shelf photo is ranked, highlighted and questioned", async ({ page }, tes
     </script></body></html>`,
   }));
 
+  // Smooth scrolling would move the circles while they are tapped.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/wine-shelf-test");
   await expect(page.getByRole("heading", { name: "Fotografa lo scaffale: ti dico quale comprare" })).toBeVisible();
@@ -53,6 +55,8 @@ test("a shelf photo is ranked, highlighted and questioned", async ({ page }, tes
 
   await expect(page.getByRole("heading", { name: "3 etichette riconosciute" })).toBeVisible();
   expect(await page.evaluate(() => (window as any).shelfScans)).toEqual([{ images: 2, budget: "40", type: "Red", cellar: "avoid_owned", size: "3" }]);
+  // The previews finish loading after the ranking appears and push the page down.
+  await expect.poll(() => page.locator(".wine-shelf-photo-frame img").evaluateAll((images) => images.every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
   const pins = page.locator(".wine-shelf-pin");
   await expect(pins).toHaveCount(2);
   await expect(page.getByRole("button", { name: "1. Barbera d'Alba 2022" })).toHaveAttribute("aria-pressed", "true");
