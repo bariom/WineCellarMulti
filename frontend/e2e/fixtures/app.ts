@@ -103,6 +103,7 @@ export const session = {
   can_use_label_recognition: false,
   can_manage_wine_photos: true,
   cellar_ai_assistant_available: false,
+  cellar_ai_assistant_subscribed: true,
   is_free_tier: false,
   free_tier_label_limit: 15,
   can_use_personal_openai_key: false,

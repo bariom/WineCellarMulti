@@ -550,3 +550,5 @@ class CellarAssistantAnswer(BaseModel):
     model: str
     reasoning_effort: str = ""
     estimated_cost_usd: Decimal = Decimal("0")
+    # True when the economy model could not answer and the pairing model did.
+    escalated: bool = False

@@ -2415,12 +2415,21 @@ CELLAR_COMMAND_SCHEMA = {
 
 
 def ensure_cellar_ai_assistant_available(context: CurrentContext) -> None:
-    if settings.cellar_ai_assistant_enabled or context.user.is_app_admin or is_ambassador(context.user):
-        return
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="The AI cellar assistant is currently disabled",
-    )
+    if not (
+        settings.cellar_ai_assistant_enabled
+        or context.user.is_app_admin
+        or is_ambassador(context.user)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The AI cellar assistant is currently disabled",
+        )
+    # A Vinaris Riserva feature: AI credit alone is not enough on the free tier.
+    if is_free_tier(context) and not is_ambassador(context.user):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="An active subscription is required for the AI cellar assistant",
+        )
 
 
 CELLAR_ASSISTANT_MAX_STEPS = 6
@@ -2433,10 +2442,14 @@ def ask_cellar_assistant(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> CellarAssistantAnswer:
-    """Answer a free question about the cellar, reading it through read-only tools."""
+    """Answer a free question about the cellar, reading it through read-only tools.
+
+    The economy model answers first; the balanced model takes over only when
+    it cannot: it ran out of steps, returned nothing usable, or said it could not
+    answer with the tools.
+    """
     ensure_cellar_ai_assistant_available(context)
     user_settings = get_or_create_user_ai_settings(db, context)
-    model = user_settings.pairing_model
     today = datetime.now(UTC).date()
     prompt = cellar_assistant_prompt(locale=payload.locale, today=today.isoformat())
     tools = CellarAssistantTools(
@@ -2447,74 +2460,99 @@ def ask_cellar_assistant(
         "schema": {
             "type": "object",
             "additionalProperties": False,
-            "properties": {"answer": {"type": "string"}},
-            "required": ["answer"],
+            "properties": {
+                "answer": {"type": "string"},
+                "complete": {
+                    "type": "boolean",
+                    "description": "False only when you could not answer the question with "
+                    "the tools and a more capable assistant should try.",
+                },
+            },
+            "required": ["answer", "complete"],
         },
     }
-    history: list[dict[str, Any]] = [
+    conversation: list[dict[str, Any]] = [
         {"role": turn.role, "content": turn.content}
         for turn in payload.history[-CELLAR_ASSISTANT_HISTORY_TURNS:]
     ]
-    history.append({"role": "user", "content": payload.question.strip()})
+    conversation.append({"role": "user", "content": payload.question.strip()})
     tools_used: list[str] = []
     total_cost = Decimal("0")
-    answer = ""
-    effective_model = model
-    reasoning_effort = ""
-    for step in range(CELLAR_ASSISTANT_MAX_STEPS + 1):
-        response, provider_source = create_ai_response(
-            db,
-            context,
-            user_settings,
-            model=model,
-            task_type="cellar_analysis",
-            system_prompt=prompt.system,
-            user_prompt=payload.question.strip(),
-            json_schema=schema,
-            reasoning_effort="low",
-            max_output_tokens=2500,
-            agent_tools=assistant_tools(),
-            agent_history=history,
-        )
-        total_cost += response.charged_cost_usd
-        effective_model = effective_response_model(response, model)
-        reasoning_effort = response.reasoning_effort or ""
-        calls = [item for item in response.agent_output if item.get("type") == "function_call"]
-        record_ai_audit(
-            db,
-            context,
-            entity_type="household",
-            entity_id=context.household.id,
-            feature=prompt.id,
-            model=effective_model,
-            reasoning_effort=reasoning_effort,
-            summary=(
-                f"Cellar assistant step {step + 1}: "
-                + (", ".join(str(call.get("name", "")) for call in calls) or "answer")
-            ),
-            usage=response.usage,
-            provider_source=provider_source,
-        )
-        history.extend(response.agent_output)
-        if calls and step < CELLAR_ASSISTANT_MAX_STEPS and not response.incomplete:
-            for call in calls:
-                name = str(call.get("name", ""))
-                tools_used.append(name)
-                result = tools.invoke(name, str(call.get("arguments", "")))
-                history.append(
-                    {
-                        "type": "function_call_output",
-                        "call_id": call.get("call_id", ""),
-                        "output": json.dumps(result, ensure_ascii=False, default=str),
-                    }
-                )
-            continue
-        if response.text.strip():
+
+    def attempt(model: str) -> tuple[str, str, str]:
+        """Run the tool loop with one model; return (answer, model used, effort)."""
+        nonlocal total_cost
+        history = list(conversation)
+        effective_model, reasoning_effort = model, ""
+        for step in range(CELLAR_ASSISTANT_MAX_STEPS + 1):
+            response, provider_source = create_ai_response(
+                db,
+                context,
+                user_settings,
+                model=model,
+                task_type="cellar_analysis",
+                system_prompt=prompt.system,
+                user_prompt=payload.question.strip(),
+                json_schema=schema,
+                reasoning_effort="low",
+                max_output_tokens=2500,
+                agent_tools=assistant_tools(),
+                agent_history=history,
+            )
+            total_cost += response.charged_cost_usd
+            effective_model = effective_response_model(response, model)
+            reasoning_effort = response.reasoning_effort or ""
+            calls = [
+                item for item in response.agent_output if item.get("type") == "function_call"
+            ]
+            record_ai_audit(
+                db,
+                context,
+                entity_type="household",
+                entity_id=context.household.id,
+                feature=prompt.id,
+                model=effective_model,
+                reasoning_effort=reasoning_effort,
+                summary=(
+                    f"Cellar assistant step {step + 1}: "
+                    + (", ".join(str(call.get("name", "")) for call in calls) or "answer")
+                ),
+                usage=response.usage,
+                provider_source=provider_source,
+            )
+            history.extend(response.agent_output)
+            if calls and step < CELLAR_ASSISTANT_MAX_STEPS and not response.incomplete:
+                for call in calls:
+                    name = str(call.get("name", ""))
+                    tools_used.append(name)
+                    result = tools.invoke(name, str(call.get("arguments", "")))
+                    history.append(
+                        {
+                            "type": "function_call_output",
+                            "call_id": call.get("call_id", ""),
+                            "output": json.dumps(result, ensure_ascii=False, default=str),
+                        }
+                    )
+                continue
+            if not response.text.strip():
+                return "", effective_model, reasoning_effort
             try:
-                answer = str(parse_json_response(response.text).get("answer") or "").strip()
+                parsed = parse_json_response(response.text)
             except HTTPException:
-                answer = ""
-        break
+                return "", effective_model, reasoning_effort
+            answer = str(parsed.get("answer") or "").strip()
+            if parsed.get("complete") is False:
+                return "", effective_model, reasoning_effort
+            return answer, effective_model, reasoning_effort
+        return "", effective_model, reasoning_effort
+
+    economy_model = settings.openai_economy_model
+    fallback_model = settings.openai_balanced_model
+    answer, effective_model, reasoning_effort = attempt(economy_model)
+    escalated = False
+    if not answer and fallback_model != economy_model:
+        escalated = True
+        answer, effective_model, reasoning_effort = attempt(fallback_model)
     db.commit()
     if not answer:
         answer = (
@@ -2528,6 +2566,7 @@ def ask_cellar_assistant(
         model=effective_model,
         reasoning_effort=reasoning_effort,
         estimated_cost_usd=total_cost,
+        escalated=escalated,
     )
 
 

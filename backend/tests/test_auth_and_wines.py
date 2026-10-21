@@ -5858,6 +5858,40 @@ def test_cellar_assistant_answers_questions_by_reading_the_cellar_with_tools(mon
     assert client.get(f"/api/v1/wines/{barolo.json()['id']}").json()["quantity"] == 3
 
 
+def test_cellar_assistant_tries_the_economy_model_first_and_escalates_when_it_cannot_answer(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    monkeypatch.setattr(settings, "openai_enable_gpt56", True)
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    models: list[str] = []
+
+    def fake_create_response(*args, **kwargs):
+        models.append(args[0])
+        usage = TokenUsage(input_tokens=200, output_tokens=30, total_tokens=230)
+        if args[0] == settings.openai_economy_model:
+            if "simple" in kwargs["agent_history"][-1]["content"]:
+                return OpenAIResponse(text='{"answer":"Risposta semplice.","complete":true}', usage=usage, model=args[0])
+            return OpenAIResponse(text='{"answer":"","complete":false}', usage=usage, model=args[0])
+        return OpenAIResponse(text='{"answer":"Risposta ragionata.","complete":true}', usage=usage, model=args[0])
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    simple = client.post("/api/v1/ai/cellar-assistant/ask", json={"question": "Domanda simple", "locale": "it"})
+    assert simple.status_code == 200, simple.text
+    assert simple.json()["answer"] == "Risposta semplice."
+    assert simple.json()["escalated"] is False
+    assert models == [settings.openai_economy_model]
+
+    models.clear()
+    hard = client.post("/api/v1/ai/cellar-assistant/ask", json={"question": "Domanda difficile", "locale": "it"})
+    assert hard.status_code == 200, hard.text
+    assert hard.json()["answer"] == "Risposta ragionata."
+    assert hard.json()["escalated"] is True
+    # The economy model tried first, then the pairing model answered.
+    assert models == [settings.openai_economy_model, settings.openai_balanced_model]
+
+
 def test_cellar_assistant_tools_read_only_the_active_cellar():
     from types import SimpleNamespace
 
@@ -5933,6 +5967,45 @@ def test_cellar_assistant_tools_read_only_the_active_cellar():
         # The other household's Barolo never shows up.
         assert [item["name"] for item in everything["wines"]] == ["Barolo"]
         assert tools.invoke("drop_table", "{}") == {"error": "Unknown tool drop_table"}
+
+
+def test_cellar_assistant_is_reserved_for_subscribers(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    monkeypatch.setattr(settings, "cellar_ai_assistant_enabled", True)
+    admin_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+    assert admin_client.get("/api/v1/session").json()["cellar_ai_assistant_subscribed"] is True
+
+    user_client = TestClient(app)
+    assert register(user_client, email="free-assistant@example.com", password="strong-password-2").status_code == 201
+    pending_user = next(
+        user
+        for user in admin_client.get("/api/v1/auth/pending-users").json()
+        if user["email"] == "free-assistant@example.com"
+    )
+    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
+    login = user_client.post(
+        "/api/v1/auth/login", json={"email": "free-assistant@example.com", "password": "strong-password-2"}
+    )
+    assert login.status_code == 200
+    session_payload = user_client.get("/api/v1/session").json()
+    assert session_payload["cellar_ai_assistant_available"] is True
+    assert session_payload["cellar_ai_assistant_subscribed"] is False
+
+    def unexpected_ai_call(*args, **kwargs):
+        raise AssertionError("A free-tier assistant request must not reach the AI provider")
+
+    monkeypatch.setattr(ai_routes, "create_response", unexpected_ai_call)
+    question = user_client.post(
+        "/api/v1/ai/cellar-assistant/ask", json={"question": "Quanti Barolo ho?", "locale": "it"}
+    )
+    assert question.status_code == 402
+    command = user_client.post(
+        "/api/v1/ai/cellar-commands",
+        json={"request_id": str(uuid.uuid4()), "text": "Ho bevuto il Barolo", "locale": "it", "timezone": "Europe/Zurich"},
+    )
+    assert command.status_code == 402
 
 
 def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
@@ -8888,7 +8961,7 @@ def test_restaurant_wine_list_scan_extracts_and_ranks_only_visible_entries(monke
     monkeypatch.setattr(settings, "openai_enable_gpt56", True)
     settings_response = client.patch(
         "/api/v1/ai/settings",
-        json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.4"},
+        json={"openai_api_key": "sk-test"},
     )
     assert settings_response.status_code == 200
     monkeypatch.setattr(ai_routes, "optimized_wine_images", lambda _content: (b"jpeg", None))
@@ -9164,7 +9237,7 @@ def test_pairing_ai_suggests_dishes_for_a_selected_wine(monkeypatch):
     assert register(client).status_code == 201
     assert (
         client.patch(
-            "/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.4"}
+            "/api/v1/ai/settings", json={"openai_api_key": "sk-test"}
         ).status_code
         == 200
     )

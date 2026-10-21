@@ -11059,7 +11059,17 @@ export function App() {
           ) : null}
 
           {activeView === "assistant" && canAccessCellarAssistant ? (
-            <>{aiPackUpgradeNotice}<Suspense fallback={<LoadingState label={t("loadingData")} />}><CellarAssistantView
+            !session?.cellar_ai_assistant_subscribed ? (
+              <section className="buying-advice-card wine-shelf-locked cellar-assistant-locked" aria-labelledby="cellar-assistant-locked-title">
+                <span className="buying-place-premium"><AppIcon name="star" size="0.9rem" /> Vinaris Riserva</span>
+                <h3 id="cellar-assistant-locked-title">{locale === "it" ? "Assistente Cantina AI" : "AI Cellar Assistant"}</h3>
+                <p>{locale === "it"
+                  ? "Chiedi qualsiasi cosa sulla tua cantina, anche a voce: cosa è al picco, quanto hai speso, cosa hai bevuto e con chi. E racconta cosa hai bevuto o acquistato: l'assistente prepara l'aggiornamento."
+                  : "Ask anything about your cellar, even by voice: what is at its peak, how much you spent, what you drank and with whom. And tell it what you drank or bought: the assistant prepares the update."}</p>
+                <p>{locale === "it" ? "L'assistente è riservato agli abbonati Vinaris Riserva e usa il tuo credito AI." : "The assistant is reserved for Vinaris Riserva subscribers and uses your AI credit."}</p>
+                <button type="button" onClick={() => { setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile"); }}>{locale === "it" ? "Scopri Riserva" : "Explore Reserve"} <span aria-hidden="true">→</span></button>
+              </section>
+            ) : <>{aiPackUpgradeNotice}<Suspense fallback={<LoadingState label={t("loadingData")} />}><CellarAssistantView
               locale={locale}
               disabled={!canGenerateAi || !canWriteWine}
               onPreparePurchase={prepareAssistantPurchaseDraft}

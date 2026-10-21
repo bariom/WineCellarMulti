@@ -26,6 +26,7 @@ export type Session = {
   can_manage_wine_photos: boolean;
   cellar_ai_assistant_available: boolean;
   wine_shelf_scan_available?: boolean;
+  cellar_ai_assistant_subscribed?: boolean;
   is_free_tier?: boolean;
   free_tier_label_limit?: number;
   can_use_personal_openai_key?: boolean;

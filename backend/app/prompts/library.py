@@ -121,7 +121,7 @@ def cellar_assistant_prompt(*, locale: str, today: str) -> Prompt:
     """Answer questions about the user's own cellar, reading it only through tools."""
     return Prompt(
         id="cellar.assistant",
-        version="1",
+        version="2",
         system=(
             "You are the private assistant of the user's wine cellar in Vinaris. Answer questions "
             "about the user's own cellar, tastings, purchases, wishlist and taste. Call the tools "
@@ -134,7 +134,9 @@ def cellar_assistant_prompt(*, locale: str, today: str) -> Prompt:
             "explain that it can be recorded by describing it, for example 'ho bevuto il Barolo "
             "2019'. Keep answers short and concrete; for several wines use a short list with name, "
             "vintage, producer and only the details that answer the question. Return the final "
-            "answer in the required JSON. "
+            "answer in the required JSON; set complete to false only when you could not answer "
+            "with the tools and a more capable assistant should try, never just because the "
+            "data is missing. "
             f"Today is {today}. {language_instruction(locale)}"
         ),
         user="",

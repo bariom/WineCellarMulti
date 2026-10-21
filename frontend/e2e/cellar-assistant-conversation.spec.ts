@@ -15,7 +15,7 @@ test("the cellar assistant answers questions and keeps the conversation", async 
         record("asked", body);
         const count = JSON.parse(sessionStorage.getItem("asked") || "[]").length;
         return Response.json({
-          answer: count === 1 ? "Hai 4 bottiglie di Nebbiolo di Test 2019, al picco fino al 2028." : "Il 2016 non è in cantina.",
+          answer: count === 1 ? "Hai **4 bottiglie** di Nebbiolo di Test 2019:\n- 2 in cantina\n- 2 nel frigo vini\n\nAl picco fino al 2028." : "Il 2016 non è in cantina.",
           tools_used: ["search_wines"], model: "test-model", reasoning_effort: "low", estimated_cost_usd: "0.01",
         });
       }
@@ -43,6 +43,10 @@ test("the cellar assistant answers questions and keeps the conversation", async 
   await page.getByRole("button", { name: "Continua", exact: true }).click();
   const conversation = page.getByRole("region", { name: "Conversazione con l'assistente" });
   await expect(conversation).toContainText("Hai 4 bottiglie di Nebbiolo di Test 2019");
+  // The answer's light formatting is rendered, not shown as raw asterisks.
+  await expect(conversation.locator(".assistant-answer strong")).toHaveText("4 bottiglie");
+  await expect(conversation.locator(".assistant-answer ul li")).toHaveCount(2);
+  await expect(conversation).not.toContainText("**");
   // A question with a question mark never goes through the command interpreter.
   expect(await stored("commands")).toEqual([]);
   await expect(field).toHaveValue("");
@@ -53,11 +57,25 @@ test("the cellar assistant answers questions and keeps the conversation", async 
   expect(await stored("commands")).toEqual(["Mostrami anche quello del 2016"]);
   expect((await stored("asked"))[1].history).toEqual([
     { role: "user", content: "Quanti Nebbiolo ho?" },
-    { role: "assistant", content: "Hai 4 bottiglie di Nebbiolo di Test 2019, al picco fino al 2028." },
+    { role: "assistant", content: "Hai **4 bottiglie** di Nebbiolo di Test 2019:\n- 2 in cantina\n- 2 nel frigo vini\n\nAl picco fino al 2028." },
   ]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("assistant-conversation-390.png"), fullPage: true });
 
   await conversation.getByRole("button", { name: "Nuova conversazione", exact: true }).click();
   await expect(conversation).toHaveCount(0);
+});
+
+test("the cellar assistant is offered to subscribers only", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], true, memberships, [wine], { ...session, cellar_ai_assistant_available: true, cellar_ai_assistant_subscribed: false });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  await page.locator(".mobile-navigation-sheet summary").filter({ hasText: "Strumenti AI" }).click();
+  await page.getByRole("button", { name: "Assistente AI", exact: true }).click();
+  const locked = page.locator(".cellar-assistant-locked");
+  await expect(locked).toContainText("riservato agli abbonati Vinaris Riserva");
+  await expect(page.getByLabel("Chiedi o racconta", { exact: true })).toHaveCount(0);
+  await expect(locked.getByRole("button", { name: /Scopri Riserva/ })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });

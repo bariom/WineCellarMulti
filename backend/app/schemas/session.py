@@ -34,6 +34,7 @@ class SessionResponse(BaseModel):
     can_manage_wine_photos: bool = False
     cellar_ai_assistant_available: bool = False
     wine_shelf_scan_available: bool = False
+    cellar_ai_assistant_subscribed: bool = False
     is_free_tier: bool = False
     free_tier_label_limit: int = 30
     can_use_personal_openai_key: bool = False
