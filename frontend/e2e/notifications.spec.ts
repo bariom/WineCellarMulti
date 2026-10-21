@@ -221,14 +221,21 @@ test("a bottle drunk without stars can be rated from the reminder in one tap", a
     counts: { total: 1, unread: 1, actionable: 1, attention: 1, actions: 1, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false,
   };
   await mockApi(page, [], false, memberships, [wine], session, [], center);
-  const ratings: unknown[] = [];
-  await page.route("**/api/v1/notifications/tastings-to-rate", route => route.fulfill({ json: [
-    { tasting_id: "tasting-e2e", wine_id: wine.id, wine_name: wine.name, vintage: wine.vintage, producer: wine.producer, consumed_at: "2026-10-19" },
-  ] }));
-  await page.route(`**/api/v1/wines/${wine.id}/tastings/tasting-e2e/rating`, async route => {
-    ratings.push(route.request().postDataJSON());
-    await route.fulfill({ json: wine });
-  });
+  // mockApi replaces window.fetch, so the quick-rating endpoints are answered in the page too.
+  await page.addInitScript((wineFixture) => {
+    const previous = window.fetch;
+    window.fetch = async (input, init) => {
+      const path = new URL(String(input instanceof Request ? input.url : input), location.href).pathname;
+      if (path === "/api/v1/notifications/tastings-to-rate") {
+        return Response.json([{ tasting_id: "tasting-e2e", wine_id: wineFixture.id, wine_name: wineFixture.name, vintage: wineFixture.vintage, producer: wineFixture.producer, consumed_at: "2026-10-19" }]);
+      }
+      if (path === `/api/v1/wines/${wineFixture.id}/tastings/tasting-e2e/rating`) {
+        sessionStorage.setItem("ratings", JSON.stringify([...JSON.parse(sessionStorage.getItem("ratings") || "[]"), JSON.parse(String(init?.body))]));
+        return Response.json(wineFixture);
+      }
+      return previous(input, init);
+    };
+  }, wine);
   await page.goto("/");
   await page.getByRole("button", { name: "Notifiche", exact: true }).click();
   const quick = page.getByRole("list", { name: "Valuta le bevute" });
@@ -236,6 +243,21 @@ test("a bottle drunk without stars can be rated from the reminder in one tap", a
   await expect(quick).toContainText("Cantina Vinaris");
   await quick.getByRole("button", { name: "4 su 6", exact: true }).click();
   await expect(quick).toContainText("4 su 6, grazie");
-  expect(ratings).toEqual([{ rating: 4 }]);
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("ratings") || "[]"))).toEqual([{ rating: 4 }]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
+
+for (const [days, expected] of [[649, 0], [10, 1]] as const) {
+  test(`a delivery due in ${days} days ${expected ? "is" : "is not"} an operational reminder`, async ({ page }) => {
+    const due = new Date();
+    due.setDate(due.getDate() + days);
+    const expectedDelivery = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockApi(page, [], false, memberships, [{ ...wine, status: "Ordered", expected_delivery: expectedDelivery }]);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Notifiche", exact: true }).click();
+    const reminders = page.getByRole("region", { name: "Promemoria operativi" });
+    await expect(reminders.getByText("Consegne future", { exact: true })).toHaveCount(expected);
+    if (expected) await expect(reminders).toContainText(`${days} g`);
+  });
+}

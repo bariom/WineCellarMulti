@@ -7106,13 +7106,14 @@ export function App() {
       signature: `${readyInCellarWineCount}:${drinkNowWines[0]?.id || drinkNowWines[0]?.name || ""}:${drinkNowWines[0]?.drink_from || ""}:${drinkNowWines[0]?.drink_to || ""}`,
       onOpen: () => openOperationalCellarFilter("drink_now"),
     } : null,
-    cellarStats.futureDeliveries ? {
+    // Only deliveries due within 30 days are worth a reminder, as for the server notification.
+    deliveryHorizonStats.next30 ? {
       id: "future-deliveries",
       kind: "smart_future_deliveries",
       title: t("futureDeliveries"),
-      detail: upcomingDeliveries[0] ? `${upcomingDeliveries[0].wine.name} - ${upcomingDeliveries[0].days}d` : t("deliveryTimeline"),
-      count: cellarStats.futureDeliveries,
-      signature: `${cellarStats.futureDeliveries}:${upcomingDeliveries[0]?.wine.id || upcomingDeliveries[0]?.wine.name || ""}:${upcomingDeliveries[0]?.wine.expected_delivery || ""}`,
+      detail: upcomingDeliveries[0] ? `${upcomingDeliveries[0].wine.name} - ${upcomingDeliveries[0].days} ${locale === "it" ? "g" : "d"}` : t("deliveryTimeline"),
+      count: deliveryHorizonStats.next30,
+      signature: `${deliveryHorizonStats.next30}:${upcomingDeliveries[0]?.wine.id || upcomingDeliveries[0]?.wine.name || ""}:${upcomingDeliveries[0]?.wine.expected_delivery || ""}`,
       onOpen: () => openOperationalCellarFilter("future_deliveries"),
     } : null,
     cellarStats.toCollect ? {
