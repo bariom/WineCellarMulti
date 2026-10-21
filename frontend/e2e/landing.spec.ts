@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/v1/session", route => route.fulfill({ json: { authenticated: false } }));
   await page.route("**/api/v1/public-config", route => route.fulfill({ json: { free_tier_label_limit: 23 } }));
-  await page.addInitScript(() => localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-09-23T00:00:00Z" })));
+  await page.addInitScript(() => localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, analytics: false, updatedAt: "2026-09-23T00:00:00Z" })));
   // The updates panel emerges while scrolling; most tests start with it dismissed so the page is stable.
   await page.addInitScript(() => localStorage.setItem("vinaris.landing-news", JSON.stringify({ dismissedFor: "9999-12" })));
 });

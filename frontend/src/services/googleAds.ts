@@ -1,12 +1,15 @@
 const GOOGLE_ADS_CONVERSION_LABEL = "AW-814958967/poQGCLu-5-scEPeSzYQD";
 const GOOGLE_ADS_TAG_ID = "AW-814958967";
-const GOOGLE_ADS_SCRIPT_ID = "vinaris-google-ads-tag";
+const GOOGLE_ANALYTICS_ID = "G-MY7R9EMSGX";
+// One gtag.js serves both tags; it loads only after a consent that needs it.
+const GOOGLE_TAG_SCRIPT_ID = "vinaris-google-tag";
 const SUBSCRIPTION_CONVERSION_VALUES = {
   monthly: 6,
   annual: 60,
   ai_credits: 5,
 } as const;
 let marketingEnabled = false;
+const configuredTags = new Set<string>();
 
 export type GoogleAdsCheckoutPlan = keyof typeof SUBSCRIPTION_CONVERSION_VALUES;
 
@@ -23,39 +26,49 @@ function gtag(...args: unknown[]) {
   window.gtag(...args);
 }
 
-function clearGoogleAdsCookies() {
+function clearGoogleCookies(prefix: string) {
+  // Analytics sets its cookies on the parent domain, so clear both scopes.
+  const domain = window.location.hostname.replace(/^www\./, "");
   for (const cookie of document.cookie.split(";")) {
     const name = cookie.trim().split("=", 1)[0];
-    if (!name.startsWith("_gcl")) continue;
+    if (!name.startsWith(prefix)) continue;
     document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
+    document.cookie = `${name}=; Max-Age=0; Path=/; Domain=.${domain}; SameSite=Lax`;
   }
 }
 
-export function updateGoogleAdsConsent(marketing: boolean) {
+function configureTag(tagId: string) {
+  if (configuredTags.has(tagId)) return;
+  configuredTags.add(tagId);
+  gtag("config", tagId);
+}
+
+export function updateGoogleConsent({ marketing, analytics }: { marketing: boolean; analytics: boolean }) {
   marketingEnabled = marketing;
-  const consent = marketing ? "granted" : "denied";
+  const ads = marketing ? "granted" : "denied";
   gtag("consent", "update", {
-    ad_storage: consent,
-    ad_user_data: consent,
-    ad_personalization: consent,
-    analytics_storage: "denied",
+    ad_storage: ads,
+    ad_user_data: ads,
+    ad_personalization: ads,
+    analytics_storage: analytics ? "granted" : "denied",
   });
-  if (!marketing) {
-    clearGoogleAdsCookies();
-    return;
+  if (!marketing) clearGoogleCookies("_gcl");
+  if (!analytics) clearGoogleCookies("_ga");
+  if (!marketing && !analytics) return;
+  if (!document.getElementById(GOOGLE_TAG_SCRIPT_ID)) {
+    gtag("js", new Date());
+    const script = document.createElement("script");
+    script.id = GOOGLE_TAG_SCRIPT_ID;
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${analytics ? GOOGLE_ANALYTICS_ID : GOOGLE_ADS_TAG_ID}`;
+    document.head.append(script);
   }
-  if (document.getElementById(GOOGLE_ADS_SCRIPT_ID)) return;
-  gtag("js", new Date());
-  gtag("config", GOOGLE_ADS_TAG_ID);
-  const script = document.createElement("script");
-  script.id = GOOGLE_ADS_SCRIPT_ID;
-  script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_TAG_ID}`;
-  document.head.append(script);
+  if (analytics) configureTag(GOOGLE_ANALYTICS_ID);
+  if (marketing) configureTag(GOOGLE_ADS_TAG_ID);
 }
 
 export function reportGoogleAdsCheckoutConversion(plan: GoogleAdsCheckoutPlan) {
-  if (!marketingEnabled || !document.getElementById(GOOGLE_ADS_SCRIPT_ID)) return;
+  if (!marketingEnabled || !document.getElementById(GOOGLE_TAG_SCRIPT_ID)) return;
   gtag("event", "conversion", {
     send_to: GOOGLE_ADS_CONVERSION_LABEL,
     value: SUBSCRIPTION_CONVERSION_VALUES[plan],

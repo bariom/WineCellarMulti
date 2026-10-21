@@ -139,7 +139,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
         </section>
         <section id="cookies">
           <h2>6. Cookies and local storage</h2>
-          <p>Vinaris uses an essential HTTP-only session cookie. Local or session storage is used for interface preferences, offline files selected by you, operational display state, checkout continuity, monitor-device tokens, and your cookie preference. Google Ads conversion measurement and related cookies are activated only if you give marketing consent; you can change that choice at any time using the Cookie button.</p>
+          <p>Vinaris uses an essential HTTP-only session cookie. Local or session storage is used for interface preferences, offline files selected by you, operational display state, checkout continuity, monitor-device tokens, and your cookie preference. Google Analytics usage statistics and their cookies are activated only if you consent to usage statistics; Google Ads conversion measurement and related cookies are activated only if you give marketing consent. You can change either choice at any time using the Cookie button, and Vinaris then removes the related Google cookies.</p>
         </section>
         <section>
           <h2>7. Retention and backups</h2>
@@ -187,7 +187,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
       </section>
       <section id="cookies">
         <h2>6. Cookie e memoria locale</h2>
-        <p>Vinaris utilizza un cookie di sessione essenziale, HTTP-only. La memoria locale o di sessione conserva preferenze dell’interfaccia, file offline scelti dall’utente, stato operativo della UI, continuità del checkout, token dei dispositivi Monitor e la preferenza cookie. La misurazione delle conversioni Google Ads e i cookie correlati vengono attivati solo con il consenso marketing; puoi modificare la scelta in ogni momento dal pulsante Cookie.</p>
+        <p>Vinaris utilizza un cookie di sessione essenziale, HTTP-only. La memoria locale o di sessione conserva preferenze dell’interfaccia, file offline scelti dall’utente, stato operativo della UI, continuità del checkout, token dei dispositivi Monitor e la preferenza cookie. Le statistiche di utilizzo di Google Analytics e i relativi cookie vengono attivati solo con il consenso alle statistiche; la misurazione delle conversioni Google Ads e i cookie correlati solo con il consenso marketing. Puoi modificare ciascuna scelta in ogni momento dal pulsante Cookie e Vinaris rimuove allora i cookie Google relativi.</p>
       </section>
       <section>
         <h2>7. Conservazione e backup</h2>

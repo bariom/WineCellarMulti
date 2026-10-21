@@ -302,7 +302,7 @@ export async function mockApi(
     if (scene && !sessionStorage.getItem("vinaris.home-backdrop.v1")) sessionStorage.setItem("vinaris.home-backdrop.v1", scene);
   }, heroScene);
   await page.addInitScript(() => {
-    window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-01-01T00:00:00Z" }));
+    window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, analytics: false, updatedAt: "2026-01-01T00:00:00Z" }));
   });
   await page.addInitScript(({ fixtureWine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureNotificationCenter, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive, tasteProfileCollection }) => {
     const nativeFetch = window.fetch.bind(window);

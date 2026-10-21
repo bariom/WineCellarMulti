@@ -2,14 +2,14 @@ import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import { CookieConsentBanner } from "./components/CookieConsentBanner";
 import { readCookieConsent } from "./services/cookieConsent";
-import { updateGoogleAdsConsent } from "./services/googleAds";
+import { updateGoogleConsent } from "./services/googleAds";
 import "@fontsource-variable/newsreader/opsz.css";
 import "@fontsource-variable/hanken-grotesk/wght.css";
 import "./tokens.css";
 import "./monitor.css";
 
 const storedCookieConsent = readCookieConsent();
-if (storedCookieConsent) updateGoogleAdsConsent(storedCookieConsent.marketing);
+if (storedCookieConsent) updateGoogleConsent(storedCookieConsent);
 
 const monitorOnly = import.meta.env.VITE_VINARIS_MONITOR === "true";
 const App = monitorOnly
