@@ -24,6 +24,7 @@ from app.models import (
     ExternalWineTasting,
     Wine,
     WineStockLot,
+    WineStockMovement,
     WineStorageAllocation,
     WineTastingEntry,
     WishlistItem,
@@ -614,6 +615,15 @@ class CellarAssistantTools:
         # (date, wine, bottles, unit cost, currency, supplier)
         bought: list[tuple[date, Wine, int, Decimal | None, str, str]] = []
         with_lots: set[Any] = set()
+        # Corrections and voided sales also create lots, but they are not purchases.
+        not_bought = set(
+            self.db.scalars(
+                select(WineStockMovement.lot_id).where(
+                    WineStockMovement.household_id == self.context.household.id,
+                    WineStockMovement.movement_type.in_(("adjustment_in", "sale_void")),
+                )
+            )
+        )
         for lot in self.db.scalars(
             select(WineStockLot).where(WineStockLot.household_id == self.context.household.id)
         ):
@@ -621,7 +631,7 @@ class CellarAssistantTools:
             if wine is None:
                 continue
             with_lots.add(wine.id)
-            if lot.quantity_received > 0:
+            if lot.quantity_received > 0 and lot.id not in not_bought:
                 bought.append(
                     (
                         lot.acquired_on,

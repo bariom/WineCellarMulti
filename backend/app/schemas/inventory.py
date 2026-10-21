@@ -34,6 +34,19 @@ class StockMovementCreate(BaseModel):
         return self
 
 
+class StockLotUpdate(BaseModel):
+    acquired_on: date | None = None
+    unit_cost: Decimal | None = Field(default=None, ge=0)
+    supplier: str | None = Field(default=None, max_length=160)
+    reference: str | None = Field(default=None, max_length=160)
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class StockLotDeleted(BaseModel):
+    wine_quantity: int
+    quantity_removed: int
+
+
 class StockMovementResponse(BaseModel):
     id: UUID
     wine_id: UUID

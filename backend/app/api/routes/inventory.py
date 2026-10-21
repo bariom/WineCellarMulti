@@ -2,16 +2,27 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_write_context
 from app.db.session import get_db
-from app.models import Wine, WineStockLot, WineStockMovement
-from app.schemas.inventory import StockLotResponse, StockMovementCreate, StockMovementResponse
+from app.models import Wine, WineStockLot, WineStockMovement, WineStrategyAllocation
+from app.schemas.inventory import (
+    StockLotDeleted,
+    StockLotResponse,
+    StockLotUpdate,
+    StockMovementCreate,
+    StockMovementResponse,
+)
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.merchants import get_or_create_merchant
-from app.services.stock_ledger import add_inbound_stock, remove_fifo_stock
+from app.services.stock_ledger import (
+    INBOUND_LEDGER_TYPES,
+    add_inbound_stock,
+    remove_fifo_stock,
+)
+from app.services.storage import sync_storage_to_wine_quantity
 
 router = APIRouter(prefix="/inventory")
 
@@ -74,24 +85,117 @@ def list_lots(
         query = query.where(WineStockLot.wine_id == wine_id)
     if not include_empty:
         query = query.where(WineStockLot.quantity_remaining > 0)
-    return [
-        StockLotResponse(
-            id=lot.id,
-            wine_id=wine.id,
-            wine_name=wine.name,
-            acquired_on=lot.acquired_on,
-            quantity_received=lot.quantity_received,
-            quantity_remaining=lot.quantity_remaining,
-            unit_cost=lot.unit_cost,
-            total_remaining_cost=lot.unit_cost * lot.quantity_remaining,
-            currency=lot.currency,
-            supplier=lot.supplier,
-            reference=lot.reference,
-            note=lot.note,
-            created_at=lot.created_at,
+    return [lot_response(lot, wine) for lot, wine in db.execute(query).all()]
+
+
+# Movements that brought a lot into the cellar, as opposed to bottles taken from it.
+LOT_SOURCE_TYPES = INBOUND_LEDGER_TYPES | {"opening_balance"}
+
+
+def lot_response(lot: WineStockLot, wine: Wine) -> StockLotResponse:
+    return StockLotResponse(
+        id=lot.id,
+        wine_id=wine.id,
+        wine_name=wine.name,
+        acquired_on=lot.acquired_on,
+        quantity_received=lot.quantity_received,
+        quantity_remaining=lot.quantity_remaining,
+        unit_cost=lot.unit_cost,
+        total_remaining_cost=lot.unit_cost * lot.quantity_remaining,
+        currency=lot.currency,
+        supplier=lot.supplier,
+        reference=lot.reference,
+        note=lot.note,
+        created_at=lot.created_at,
+    )
+
+
+def get_household_lot(
+    db: Session, context: CurrentContext, lot_id: UUID
+) -> tuple[WineStockLot, Wine]:
+    row = db.execute(
+        select(WineStockLot, Wine)
+        .join(Wine, Wine.id == WineStockLot.wine_id)
+        .where(WineStockLot.id == lot_id, WineStockLot.household_id == context.household.id)
+        .with_for_update()
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lot not found")
+    return row[0], row[1]
+
+
+@router.patch("/lots/{lot_id}", response_model=StockLotResponse)
+def update_lot(
+    lot_id: UUID,
+    payload: StockLotUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> StockLotResponse:
+    """Correct a lot's date, price or supplier; its bottle count changes only by movements."""
+    lot, wine = get_household_lot(db, context, lot_id)
+    data = payload.model_dump(exclude_unset=True, exclude_none=True)
+    if "supplier" in data:
+        data["supplier"] = get_or_create_merchant(db, context, data["supplier"])
+    for field, value in data.items():
+        setattr(lot, field, value.strip() if isinstance(value, str) else value)
+    for movement in db.scalars(
+        select(WineStockMovement).where(
+            WineStockMovement.lot_id == lot.id,
+            WineStockMovement.movement_type.in_(LOT_SOURCE_TYPES),
         )
-        for lot, wine in db.execute(query).all()
-    ]
+    ):
+        movement.occurred_on = lot.acquired_on
+        movement.unit_cost = lot.unit_cost
+        movement.supplier = lot.supplier
+        movement.reference = lot.reference
+    db.commit()
+    db.refresh(lot)
+    return lot_response(lot, wine)
+
+
+@router.delete("/lots/{lot_id}", response_model=StockLotDeleted)
+def delete_lot(
+    lot_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> StockLotDeleted:
+    """Remove a lot recorded by mistake, as long as no bottle has left it.
+
+    The wine keeps its quantity when the other lots still cover it; otherwise
+    the quantity drops to what they hold.
+    """
+    lot, wine = get_household_lot(db, context, lot_id)
+    used = db.scalar(
+        select(func.count(WineStockMovement.id)).where(
+            WineStockMovement.lot_id == lot.id,
+            WineStockMovement.movement_type.not_in(LOT_SOURCE_TYPES),
+        )
+    )
+    if used or lot.quantity_remaining != lot.quantity_received or wine.open_bottle_lot_id == lot.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Bottles from this lot were already used; it cannot be deleted",
+        )
+    db.execute(delete(WineStockMovement).where(WineStockMovement.lot_id == lot.id))
+    db.execute(delete(WineStrategyAllocation).where(WineStrategyAllocation.stock_lot_id == lot.id))
+    db.delete(lot)
+    db.flush()
+    covered = int(
+        db.scalar(
+            select(func.coalesce(func.sum(WineStockLot.quantity_remaining), 0)).where(
+                WineStockLot.wine_id == wine.id
+            )
+        )
+        or 0
+    )
+    removed = max(wine.quantity - covered, 0)
+    if removed:
+        wine.quantity = covered
+        if covered == 0 and wine.status.lower() not in {"ordered", "shipped"}:
+            wine.status = "Sold"
+        sync_storage_to_wine_quantity(db, wine)
+    db.commit()
+    return StockLotDeleted(wine_quantity=wine.quantity, quantity_removed=removed)
 
 
 @router.post("/movements", response_model=list[StockMovementResponse], status_code=201)

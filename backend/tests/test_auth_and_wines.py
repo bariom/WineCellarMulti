@@ -4693,6 +4693,94 @@ def test_private_cellar_tracks_purchase_lots_and_consumes_fifo():
     ]
 
 
+def test_private_quantity_edits_follow_the_purchase_lots():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wine_id = client.post(
+        "/api/v1/wines",
+        json={"name": "Vino B", "vintage": "2019", "quantity": 3, "price": 30,
+              "order_date": "2026-05-12", "merchant": "Caveau 99", "status": "Delivered"},
+    ).json()["id"]
+
+    def remaining():
+        lots = client.get(f"/api/v1/inventory/lots?wine_id={wine_id}").json()
+        return [item["quantity_remaining"] for item in lots]
+
+    assert client.patch(f"/api/v1/wines/{wine_id}", json={"quantity": 2}).status_code == 200
+    assert remaining() == [2]
+    assert client.patch(f"/api/v1/wines/{wine_id}", json={"quantity": 4}).status_code == 200
+    assert remaining() == [2, 2]
+    # Deleting a lot the wine relied on lowers its quantity to what the other lots hold.
+    latest = client.get(f"/api/v1/inventory/lots?wine_id={wine_id}").json()[-1]["id"]
+    deleted = client.delete(f"/api/v1/inventory/lots/{latest}")
+    assert deleted.json() == {"wine_quantity": 2, "quantity_removed": 2}
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 2
+
+
+def test_a_mistaken_purchase_lot_can_be_corrected_or_deleted():
+    from types import SimpleNamespace
+
+    from app.services.cellar_assistant import CellarAssistantTools
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wine_id = client.post(
+        "/api/v1/wines",
+        json={"name": "Dom Perignon", "vintage": "2017", "quantity": 2, "price": 160,
+              "region": "Champagne", "order_date": "2026-05-12", "merchant": "Caveau 99",
+              "status": "Delivered"},
+    ).json()["id"]
+    extra = client.post(
+        "/api/v1/inventory/movements",
+        json={"wine_id": wine_id, "movement_type": "purchase", "quantity": 1, "unit_cost": 160,
+              "occurred_on": "2026-09-10"},
+    )
+    assert extra.status_code == 201
+    extra_lot = extra.json()[0]["lot_id"]
+    # The record was later set back to two bottles without touching the lots (older behavior).
+    with TestingSessionLocal() as db:
+        wine = db.get(Wine, uuid.UUID(wine_id))
+        wine.quantity = 2
+        db.commit()
+
+    corrected = client.patch(
+        f"/api/v1/inventory/lots/{extra_lot}", json={"acquired_on": "2026-09-12", "supplier": "Arvi"}
+    )
+    assert corrected.status_code == 200
+    assert (corrected.json()["acquired_on"], corrected.json()["supplier"]) == ("2026-09-12", "Arvi")
+    movements = client.get(f"/api/v1/inventory/movements?wine_id={wine_id}").json()
+    assert {(item["occurred_on"], item["supplier"]) for item in movements if item["lot_id"] == extra_lot} == {
+        ("2026-09-12", "Arvi")
+    }
+
+    # The other lot still covers the two bottles, so the wine keeps its quantity.
+    deleted = client.delete(f"/api/v1/inventory/lots/{extra_lot}")
+    assert deleted.json() == {"wine_quantity": 2, "quantity_removed": 0}
+    lots = client.get(f"/api/v1/inventory/lots?wine_id={wine_id}").json()
+    assert [(item["quantity_remaining"], item["supplier"]) for item in lots] == [(2, "Caveau 99")]
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 2
+
+    # A lot bottles were taken from cannot be deleted.
+    assert client.post(f"/api/v1/wines/{wine_id}/consume", json={}).status_code == 200
+    assert client.delete(f"/api/v1/inventory/lots/{lots[0]['id']}").status_code == 409
+    assert client.delete(f"/api/v1/inventory/lots/{uuid.uuid4()}").status_code == 404
+
+    # A correction lot is not a purchase in the assistant's spend.
+    assert client.patch(f"/api/v1/wines/{wine_id}", json={"quantity": 3}).status_code == 200
+    with TestingSessionLocal() as db:
+        wine = db.get(Wine, uuid.UUID(wine_id))
+        household = db.get(Household, wine.household_id)
+        user = db.query(User).filter(User.email == "owner@example.com").one()
+        tools = CellarAssistantTools(
+            db, SimpleNamespace(household=household, user=user), can_see=lambda _wine: True,
+            today=date(2026, 10, 21),
+        )
+        spent = tools.invoke("purchases", json.dumps({
+            "date_from": "2026-01-01", "date_to": "2026-12-31", "text": "Champagne", "group_by": "none",
+        }))
+    assert spent["totals"] == [{"group": "total", "bottles": 2, "cost": 320.0}]
+
+
 def test_tasting_history_normalization_tolerates_legacy_empty_scores():
     entries = normalize_tasting_history(
         [

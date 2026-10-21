@@ -86,6 +86,7 @@ from app.services.shared_wine_data import (
 )
 from app.services.stock_ledger import (
     add_inbound_stock,
+    align_lots_to_quantity,
     reconcile_direct_quantity_change,
 )
 from app.services.storage import (
@@ -1994,6 +1995,13 @@ def update_wine(
         )
     if context.household.operating_mode == "restaurant" and "quantity" in data:
         reconcile_direct_quantity_change(
+            db,
+            wine,
+            previous_quantity=previous_quantity,
+            user_id=context.user.id,
+        )
+    elif "quantity" in data:
+        align_lots_to_quantity(
             db,
             wine,
             previous_quantity=previous_quantity,

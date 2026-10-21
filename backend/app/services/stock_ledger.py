@@ -276,6 +276,71 @@ def restore_sale_stock(
     return restored
 
 
+def align_lots_to_quantity(
+    db: Session,
+    wine: Wine,
+    *,
+    previous_quantity: int,
+    user_id: uuid.UUID | None,
+) -> None:
+    """Follow a quantity typed in a private wine record with the purchase lots.
+
+    Unlike the restaurant ledger this never refuses the edit: a decrease takes
+    bottles from the oldest lots as far as they go, an increase adds an
+    adjustment lot. Wine quantity and storage are left to the caller.
+    """
+    delta = wine.quantity - previous_quantity
+    if not delta:
+        return
+    ensure_opening_stock(db, wine, user_id=user_id, quantity=previous_quantity)
+    today = datetime.now(UTC).date()
+    if delta > 0:
+        add_inbound_stock(
+            db,
+            wine,
+            movement_type="adjustment_in",
+            quantity=delta,
+            occurred_on=today,
+            unit_cost=wine.price,
+            supplier=wine.merchant,
+            reference="",
+            note="Quantity changed from wine record",
+            user_id=user_id,
+            update_quantity=False,
+            update_storage=False,
+        )
+        return
+    remaining = -delta
+    lots = db.scalars(
+        select(WineStockLot)
+        .where(WineStockLot.wine_id == wine.id, WineStockLot.quantity_remaining > 0)
+        .order_by(WineStockLot.acquired_on.asc(), WineStockLot.created_at.asc())
+        .with_for_update()
+    )
+    for lot in lots:
+        if remaining <= 0:
+            break
+        taken = min(remaining, lot.quantity_remaining)
+        lot.quantity_remaining -= taken
+        remaining -= taken
+        db.add(
+            WineStockMovement(
+                wine_id=wine.id,
+                household_id=wine.household_id,
+                lot_id=lot.id,
+                created_by_user_id=user_id,
+                movement_type="adjustment_out",
+                quantity_delta=-taken,
+                unit_cost=lot.unit_cost,
+                currency=lot.currency,
+                occurred_on=today,
+                supplier=lot.supplier,
+                reference=lot.reference,
+                note="Quantity changed from wine record",
+            )
+        )
+
+
 def reconcile_direct_quantity_change(
     db: Session,
     wine: Wine,

@@ -103,3 +103,79 @@ for (const mode of ["personal", "restaurant"] as const) {
     await detailLots.screenshot({ path: testInfo.outputPath(`detail-lots-${mode}-390.png`) });
   });
 }
+
+test("a mistaken purchase lot can be corrected and deleted from the wine editor", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page, [], false, memberships, [{ ...wine, quantity: 2 }], session);
+  await page.addInitScript(fixture => {
+    const original = window.fetch.bind(window);
+    const base = { wine_id: fixture.id, wine_name: fixture.name, currency: "CHF", reference: "", note: "", created_at: "2026-05-12" };
+    let lots = [
+      { ...base, id: "lot-real", acquired_on: "2026-05-12", quantity_received: 2, quantity_remaining: 2, unit_cost: "160", total_remaining_cost: "320", supplier: "Caveau 99" },
+      { ...base, id: "lot-wrong", acquired_on: "2026-09-10", quantity_received: 1, quantity_remaining: 1, unit_cost: "160", total_remaining_cost: "160", supplier: "" },
+    ];
+    const record = (key: string, value: unknown) => sessionStorage.setItem(key, JSON.stringify([...JSON.parse(sessionStorage.getItem(key) || "[]"), value]));
+    const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+    window.fetch = async (input, init) => {
+      const url = new URL(String(input), location.origin);
+      const method = init?.method || "GET";
+      if (url.pathname === "/api/v1/inventory/lots") return json(lots);
+      const lotId = url.pathname.match(/^\/api\/v1\/inventory\/lots\/([\w-]+)$/)?.[1];
+      if (lotId && method === "PATCH") {
+        const payload = JSON.parse(String(init?.body));
+        record("lot-patches", { lotId, ...payload });
+        lots = lots.map(lot => lot.id === lotId ? { ...lot, ...payload, unit_cost: String(payload.unit_cost) } : lot);
+        return json(lots.find(lot => lot.id === lotId));
+      }
+      if (lotId && method === "DELETE") {
+        record("lot-deletes", lotId);
+        lots = lots.filter(lot => lot.id !== lotId);
+        return json({ wine_quantity: 2, quantity_removed: 0 });
+      }
+      if (url.pathname === `/api/v1/wines/${fixture.id}` && method === "PATCH") {
+        sessionStorage.setItem("lot-wine-update", String(init?.body));
+        return json({ ...fixture, ...JSON.parse(String(init?.body)) });
+      }
+      return original(input, init);
+    };
+  }, { ...wine, quantity: 2 });
+  await page.goto("/");
+  await page.getByRole("button", { name: /^Cantina/ }).first().click();
+  await page.locator('[data-wine-row-id="wine-e2e-1"] article').click();
+  await page.getByRole("button", { name: "Modifica selezionato" }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const editor = page.locator(".wine-editor-form");
+  await editor.getByRole("button", { name: /Giacenza e acquisti/ }).click();
+  const lots = editor.getByRole("region", { name: "Lotti d'acquisto" });
+  await expect(lots.getByText(/1\/1 bott/)).toBeVisible();
+
+  await lots.getByRole("button", { name: "Correggi il lotto del 10/09/2026", exact: true }).click();
+  const correction = lots.getByRole("group", { name: "Correzione del lotto del 10/09/2026" });
+  await correction.getByLabel("Commerciante del lotto", { exact: true }).fill("Arvi");
+  await correction.getByLabel("Data acquisto del lotto", { exact: true }).fill("12/09/2026");
+  for (const width of [360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await correction.screenshot({ path: testInfo.outputPath("lot-correction-390.png") });
+  await correction.getByRole("button", { name: "Salva correzione", exact: true }).click();
+  await expect(lots.getByRole("status")).toContainText("Lotto corretto");
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("lot-patches") || "[]"))).toEqual([
+    { lotId: "lot-wrong", acquired_on: "2026-09-12", unit_cost: 160, supplier: "Arvi" },
+  ]);
+
+  // Deleting asks for a confirmation first.
+  await lots.getByRole("button", { name: "Correggi il lotto del 12/09/2026", exact: true }).click();
+  await lots.getByRole("button", { name: "Elimina lotto", exact: true }).click();
+  expect(await page.evaluate(() => sessionStorage.getItem("lot-deletes"))).toBeNull();
+  await lots.getByRole("button", { name: "Conferma eliminazione", exact: true }).click();
+  await expect(lots.getByRole("status")).toContainText("La giacenza del vino non cambia");
+  await expect(lots.getByText(/1\/1 bott/)).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("lot-deletes") || "[]"))).toEqual(["lot-wrong"]);
+  await lots.screenshot({ path: testInfo.outputPath("lots-after-delete-390.png") });
+
+  // Saving the wine afterwards keeps the two bottles.
+  await editor.getByRole("button", { name: "Salva modifiche", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("lot-wine-update") || "null")?.quantity)).toBe(2);
+});
