@@ -57,10 +57,12 @@ def load_upright_rgb_image(content: bytes) -> Image.Image:
 SHELF_SECTION_OVERLAP = 0.12
 
 
-def shelf_photo_sections(content: bytes) -> list[tuple[bytes, tuple[float, float, float, float]]]:
+def shelf_photo_sections(
+    content: bytes,
+) -> list[tuple[bytes, tuple[float, float, float, float], tuple[int, int]]]:
     """Split an upright shelf photo into overlapping sections read in parallel.
 
-    Each section is returned as a JPEG with its box (x, y, width, height)
+    Each section is returned as a JPEG with its pixel size and its box (x, y, width, height)
     normalized to the whole photo, so bottle positions can be mapped back. A
     section shows its labels larger than the whole photo would, and several
     small readings finish much sooner than one long one. Bottles cut by a
@@ -76,7 +78,7 @@ def shelf_photo_sections(content: bytes) -> list[tuple[bytes, tuple[float, float
     else:
         columns = 3 if width >= 1.8 * height else 2
         rows = 3 if height >= 1.8 * width else 2
-    sections: list[tuple[bytes, tuple[float, float, float, float]]] = []
+    sections: list[tuple[bytes, tuple[float, float, float, float], tuple[int, int]]] = []
     for row in range(rows):
         for column in range(columns):
             left = max(column / columns - SHELF_SECTION_OVERLAP / columns, 0.0)
@@ -93,7 +95,7 @@ def shelf_photo_sections(content: bytes) -> list[tuple[bytes, tuple[float, float
             )
             buffer = BytesIO()
             crop.save(buffer, "JPEG", quality=quality, optimize=True)
-            sections.append((buffer.getvalue(), (left, top, right - left, bottom - top)))
+            sections.append((buffer.getvalue(), (left, top, right - left, bottom - top), crop.size))
     return sections
 
 

@@ -163,9 +163,11 @@ export function WineShelfScanner({
         if (bottle.image_index !== photoIndex) return null;
         const rank = rankByBottle.get(bottleIndex);
         if (!rank && !showAllLabels) return null;
+        // The badge sits on the middle of the label and never leaves the photo.
+        const inside = (value: number) => Math.min(Math.max(value, 0.04), 0.96) * 100;
         const style = {
-          left: `${(bottle.x + bottle.width / 2) * 100}%`,
-          top: `${(bottle.y + bottle.height / 2) * 100}%`,
+          left: `${inside(bottle.x + bottle.width / 2)}%`,
+          top: `${inside(bottle.y + bottle.height / 2)}%`,
           "--halo": `${Math.min(Math.max(bottle.width, 0.04), 0.22) * 100}%`,
         } as CSSProperties;
         const label = `${rank ? `${rank}. ` : ""}${bottle.name}${bottle.vintage ? ` ${bottle.vintage}` : ""}`;

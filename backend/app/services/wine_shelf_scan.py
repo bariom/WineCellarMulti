@@ -43,7 +43,8 @@ JOB_RETENTION = timedelta(minutes=30)
 # A finished job that nobody polls is dropped; a stuck one is reported as failed.
 JOB_MAX_RUNTIME = timedelta(minutes=8)
 
-Section = tuple[bytes, tuple[float, float, float, float]]
+# JPEG bytes, box (x, y, width, height) normalized to the whole photo, pixel size.
+Section = tuple[bytes, tuple[float, float, float, float], tuple[int, int]]
 
 
 @dataclass
@@ -181,10 +182,10 @@ RECOGNITION_SCHEMA = {
                         "region": {"type": "string"},
                         "price_text": {"type": "string"},
                         "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
-                        "x": {"type": "number"},
-                        "y": {"type": "number"},
-                        "width": {"type": "number"},
-                        "height": {"type": "number"},
+                        "center_x": {"type": "number"},
+                        "center_y": {"type": "number"},
+                        "label_width": {"type": "number"},
+                        "label_height": {"type": "number"},
                     },
                     "required": [
                         "name",
@@ -194,10 +195,10 @@ RECOGNITION_SCHEMA = {
                         "region",
                         "price_text",
                         "confidence",
-                        "x",
-                        "y",
-                        "width",
-                        "height",
+                        "center_x",
+                        "center_y",
+                        "label_width",
+                        "label_height",
                     ],
                 },
             }
@@ -233,20 +234,41 @@ RANKING_SCHEMA = {
 }
 
 
+def _pixel_ratio(value: object, size: int) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
+        return 0.0
+    return _clamp_unit(value / size) if size > 0 else 0.0
+
+
 def section_bottles(
-    parsed: dict[str, Any], *, image_index: int, box: tuple[float, float, float, float]
+    parsed: dict[str, Any],
+    *,
+    image_index: int,
+    box: tuple[float, float, float, float],
+    size: tuple[int, int],
 ) -> list[WineShelfBottle]:
-    """Validate one section's bottles and map their boxes onto the whole photo."""
+    """Validate one section's bottles and map their label points onto the whole photo.
+
+    The model points at the middle of each label in section pixels; the box sent to
+    the app is centred on that point and kept inside the section, so the badge sits
+    on the bottle.
+    """
     left, top, width, height = box
+    pixel_width, pixel_height = size
     bottles: list[WineShelfBottle] = []
     raw = parsed.get("bottles")
     for item in raw if isinstance(raw, list) else []:
         if not isinstance(item, dict) or not str(item.get("name") or "").strip():
             continue
         confidence = str(item.get("confidence") or "")
-        x, y = _clamp_unit(item.get("x")), _clamp_unit(item.get("y"))
-        box_width = min(_clamp_unit(item.get("width")), 1 - x)
-        box_height = min(_clamp_unit(item.get("height")), 1 - y)
+        center_x = _pixel_ratio(item.get("center_x"), pixel_width)
+        center_y = _pixel_ratio(item.get("center_y"), pixel_height)
+        half_width = min(
+            _pixel_ratio(item.get("label_width"), pixel_width) / 2, center_x, 1 - center_x
+        )
+        half_height = min(
+            _pixel_ratio(item.get("label_height"), pixel_height) / 2, center_y, 1 - center_y
+        )
         bottles.append(
             WineShelfBottle(
                 name=str(item.get("name") or "").strip()[:180],
@@ -261,10 +283,10 @@ def section_bottles(
                 ),
                 owned=False,
                 image_index=image_index,
-                x=left + x * width,
-                y=top + y * height,
-                width=box_width * width,
-                height=box_height * height,
+                x=left + (center_x - half_width) * width,
+                y=top + (center_y - half_height) * height,
+                width=2 * half_width * width,
+                height=2 * half_height * height,
             )
         )
         if len(bottles) == MAX_BOTTLES_PER_SECTION:
@@ -327,6 +349,7 @@ def read_section(
     *,
     image_index: int,
     box: tuple[float, float, float, float],
+    size: tuple[int, int],
     number: int,
 ) -> tuple[list[WineShelfBottle], Decimal]:
     from app.api.routes.ai import (
@@ -337,7 +360,9 @@ def read_section(
     )
     from app.services.openai_client import parse_json_response
 
-    prompt = wine_shelf_recognition_prompt(section=number, sections=job.sections_total)
+    prompt = wine_shelf_recognition_prompt(
+        section=number, sections=job.sections_total, width=size[0], height=size[1]
+    )
     with SessionLocal() as db:
         context = _worker_context(db, job)
         user_settings = get_or_create_user_ai_settings(db, context)
@@ -357,7 +382,7 @@ def read_section(
             timeout_seconds=SECTION_TIMEOUT_SECONDS,
         )
         bottles = section_bottles(
-            parse_json_response(response.text), image_index=image_index, box=box
+            parse_json_response(response.text), image_index=image_index, box=box, size=size
         )
         record_ai_audit(
             db,
@@ -456,9 +481,9 @@ def rank(
 
 def scan(job: ShelfScanJob, request: ShelfScanRequest) -> WineShelfScanResponse:
     tasks = [
-        (image_index, section, box)
+        (image_index, section, box, size)
         for image_index, sections in enumerate(request.photos)
-        for section, box in sections
+        for section, box, size in sections
     ]
     readings: list[list[WineShelfBottle]] = []
     total_cost = Decimal("0")
@@ -466,9 +491,9 @@ def scan(job: ShelfScanJob, request: ShelfScanRequest) -> WineShelfScanResponse:
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_SECTIONS) as executor:
         futures = [
             executor.submit(
-                read_section, job, image, image_index=image_index, box=box, number=number
+                read_section, job, image, image_index=image_index, box=box, size=size, number=number
             )
-            for number, (image_index, image, box) in enumerate(tasks, start=1)
+            for number, (image_index, image, box, size) in enumerate(tasks, start=1)
         ]
         for future in as_completed(futures):
             try:

@@ -55,10 +55,11 @@ def test_restaurant_wine_list_question_prompt_restricts_answers_to_listed_wines(
 
 
 def test_wine_shelf_prompts_read_only_legible_labels_then_rank_with_the_cellar():
-    reading = wine_shelf_recognition_prompt(section=2, sections=4)
-    assert (reading.id, reading.version) == ("wine_shop.shelf_recognition", "1")
+    reading = wine_shelf_recognition_prompt(section=2, sections=4, width=1200, height=1600)
+    assert (reading.id, reading.version) == ("wine_shop.shelf_recognition", "2")
     assert "Never invent a producer" in reading.system
-    assert "normalized from 0 to 1" in reading.system
+    assert "middle of its front label" in reading.system
+    assert "1200 pixels wide and 1600 pixels high" in reading.user
     assert "(2 of 4)" in reading.user
     assert "untrusted reference material" in reading.user
 

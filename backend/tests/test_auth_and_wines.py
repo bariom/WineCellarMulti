@@ -9214,24 +9214,28 @@ def test_wine_shelf_scan_reads_sections_merges_bottles_and_ranks_them(monkeypatc
     run_shelf_scans_inline(
         monkeypatch,
         lambda content: (
-            [(b"left", (0.0, 0.0, 0.6, 1.0)), (b"right", (0.4, 0.0, 0.6, 1.0))]
+            [(b"left", (0.0, 0.0, 0.6, 1.0), (600, 1000)), (b"right", (0.4, 0.0, 0.6, 1.0), (600, 1000))]
             if content == b"one"
-            else [(b"broken", (0.0, 0.0, 1.0, 1.0))]
+            else [(b"broken", (0.0, 0.0, 1.0, 1.0), (1000, 1000))]
         ),
     )
     readings = {
         b"left": [
             {"name": "Barolo", "producer": "Vietti", "vintage": "2019", "style": "Red", "region": "Piemonte",
-             "price_text": "", "confidence": "high", "x": 0.1, "y": 0.2, "width": 0.1, "height": 0.3},
+             "price_text": "", "confidence": "high", "center_x": 90, "center_y": 350,
+             "label_width": 60, "label_height": 300},
             {"name": "Barbera", "producer": "Cantina B", "vintage": "2022", "style": "Red", "region": "Piemonte",
-             "price_text": "", "confidence": "medium", "x": -0.5, "y": 0.95, "width": 2, "height": 0.4},
+             "price_text": "", "confidence": "medium", "center_x": -300, "center_y": 975,
+             "label_width": 1200, "label_height": 400},
             {"name": "", "producer": "Illeggibile", "vintage": "", "style": "", "region": "",
-             "price_text": "", "confidence": "low", "x": 0.5, "y": 0.5, "width": 0.1, "height": 0.1},
+             "price_text": "", "confidence": "low", "center_x": 300, "center_y": 500,
+             "label_width": 60, "label_height": 100},
         ],
         # The same Barolo seen again in the overlap, less clearly but with its price tag.
         b"right": [
             {"name": "Barolo", "producer": "Vietti", "vintage": "2019", "style": "", "region": "",
-             "price_text": "CHF 62", "confidence": "low", "x": 0.0, "y": 0.2, "width": 0.1, "height": 0.3},
+             "price_text": "CHF 62", "confidence": "low", "center_x": 30, "center_y": 350,
+             "label_width": 60, "label_height": 300},
         ],
     }
     calls = []
@@ -9244,6 +9248,7 @@ def test_wine_shelf_scan_reads_sections_merges_bottles_and_ranks_them(monkeypatc
             if image == b"broken":
                 raise TimeoutError("section timed out")
             assert "untrusted reference material" in args[2]
+            assert "1000 pixels high" in args[2]
             return OpenAIResponse(
                 text=json.dumps({"bottles": readings[image]}),
                 usage=TokenUsage(input_tokens=900, output_tokens=200, total_tokens=1100),
@@ -9287,11 +9292,13 @@ def test_wine_shelf_scan_reads_sections_merges_bottles_and_ranks_them(monkeypatc
     barolo, barbera = body["bottles"]
     # The clearer reading wins and borrows the price read in the overlap.
     assert (barolo["confidence"], barolo["price_text"], barolo["owned"]) == ("high", "CHF 62", True)
+    # The label point (90, 350) of a 600x1000 section becomes a box centred on it.
     assert abs(barolo["x"] - 0.06) < 1e-9 and abs(barolo["width"] - 0.06) < 1e-9
+    assert abs(barolo["y"] - 0.2) < 1e-9 and abs(barolo["height"] - 0.3) < 1e-9
     assert barbera["image_index"] == 0 and barbera["owned"] is False
-    assert (barbera["x"], barbera["y"]) == (0.0, 0.95)
-    assert abs(barbera["width"] - 0.6) < 1e-9
-    assert abs(barbera["height"] - 0.05) < 1e-9
+    # A point outside the section is clamped and the box shrinks to stay inside it.
+    assert (barbera["x"], barbera["width"]) == (0.0, 0.0)
+    assert abs(barbera["y"] - 0.95) < 1e-9 and abs(barbera["height"] - 0.05) < 1e-9
     assert [(item["rank"], item["bottle_index"]) for item in body["recommendations"]] == [(1, 1), (2, 0)]
     # Without a structured taste profile the model's affinity is not shown.
     assert body["recommendations"][0]["taste_affinity"] == 0
@@ -9323,7 +9330,7 @@ def test_wine_shelf_scan_reports_the_provider_error_when_no_section_can_be_read(
     client = TestClient(app)
     assert register(client).status_code == 201
     assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
-    run_shelf_scans_inline(monkeypatch, lambda content: [(b"a", (0.0, 0.0, 1.0, 1.0))])
+    run_shelf_scans_inline(monkeypatch, lambda content: [(b"a", (0.0, 0.0, 1.0, 1.0), (1000, 1000))])
 
     def failing_create_response(*args, **kwargs):
         raise ProviderError(402, "Not enough AI credit")
@@ -9347,14 +9354,18 @@ def test_shelf_photos_are_split_into_overlapping_sections():
         return buffer.getvalue()
 
     sections = shelf_photo_sections(photo(1800, 2400))
-    boxes = [box for _, box in sections]
+    boxes = [box for _, box, _ in sections]
+    # Each section reports its own pixel size for the label points.
+    assert sections[0][2] == (1008, 1344)
     assert len(boxes) == 4
     assert boxes[0][0] == 0.0 and boxes[0][1] == 0.0
     # Neighbouring sections overlap so a bottle on the border is whole in one of them.
     assert boxes[0][0] + boxes[0][2] > boxes[1][0]
     assert all(abs(x + width - 1.0) < 1e-9 for x, _, width, _ in boxes[1::2])
     assert len(shelf_photo_sections(photo(3600, 1200))) == 6
-    assert [box for _, box in shelf_photo_sections(photo(600, 800))] == [(0.0, 0.0, 1.0, 1.0)]
+    assert [(box, size) for _, box, size in shelf_photo_sections(photo(600, 800))] == [
+        ((0.0, 0.0, 1.0, 1.0), (600, 800))
+    ]
 
 
 def test_wine_shelf_scanner_is_reserved_for_subscribers(monkeypatch):
@@ -9405,7 +9416,7 @@ def test_wine_shelf_scan_ignores_ownership_when_the_cellar_is_not_used(monkeypat
     client = TestClient(app)
     assert register(client).status_code == 201
     assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
-    run_shelf_scans_inline(monkeypatch, lambda content: [(b"shelf", (0.0, 0.0, 1.0, 1.0))])
+    run_shelf_scans_inline(monkeypatch, lambda content: [(b"shelf", (0.0, 0.0, 1.0, 1.0), (1000, 1000))])
 
     def fake_create_response(*args, **kwargs):
         if kwargs.get("input_images"):
@@ -9413,7 +9424,7 @@ def test_wine_shelf_scan_ignores_ownership_when_the_cellar_is_not_used(monkeypat
                 text=(
                     '{"bottles":[{"name":"Soave","producer":"","vintage":"","style":"",'
                     '"region":"","price_text":"","confidence":"certain",'
-                    '"x":0.4,"y":0.4,"width":0.1,"height":0.2}]}'
+                    '"center_x":450,"center_y":500,"label_width":100,"label_height":200}]}'
                 ),
                 usage=TokenUsage(input_tokens=10, output_tokens=10, total_tokens=20),
                 model="gpt-5.5",

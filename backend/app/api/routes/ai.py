@@ -4883,7 +4883,7 @@ async def start_wine_shelf_scan(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="A shelf analysis is already running"
         )
-    photos: list[list[tuple[bytes, tuple[float, float, float, float]]]] = []
+    photos: list[list[wine_shelf_scan.Section]] = []
     for image in images:
         if not (image.content_type or "").lower().startswith("image/"):
             raise HTTPException(
