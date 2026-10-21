@@ -8,6 +8,9 @@ type LocalizedDateInputProps = {
   locale: Locale;
   disabled?: boolean;
   required?: boolean;
+  /** The field's visible label, so it stays the accessible name. */
+  ariaLabel?: string;
+  form?: string;
 };
 
 function displayDate(value: string, locale: Locale) {
@@ -29,7 +32,7 @@ function isoDate(value: string, locale: Locale) {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-export default function LocalizedDateInput({ value, onChange, locale, disabled = false, required = false }: LocalizedDateInputProps) {
+export default function LocalizedDateInput({ value, onChange, locale, disabled = false, required = false, ariaLabel, form }: LocalizedDateInputProps) {
   const [text, setText] = useState(() => displayDate(value, locale));
   const pickerRef = useRef<HTMLInputElement>(null);
 
@@ -64,7 +67,8 @@ export default function LocalizedDateInput({ value, onChange, locale, disabled =
         maxLength={10}
         disabled={disabled}
         required={required}
-        aria-label={locale === "it" ? "Data in formato giorno, mese, anno" : "Date in month, day, year format"}
+        form={form}
+        aria-label={ariaLabel || (locale === "it" ? "Data in formato giorno, mese, anno" : "Date in month, day, year format")}
       />
       <input
         ref={pickerRef}

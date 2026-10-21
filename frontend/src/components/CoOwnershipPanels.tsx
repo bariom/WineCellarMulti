@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { CoOwnershipAgreement, CoOwnershipParticipantDraft, Locale, Session, Wine } from "../types";
+import LocalizedDateInput from "./LocalizedDateInput";
 import { api } from "../services/api";
 
 
@@ -328,7 +329,7 @@ function PaymentLedger({ agreement, locale, saving, onRecord, onVoid }: {
               {agreement.can_manage_payments && onRecord ? (
                 <form className="coownership-payment-form" onSubmit={(event) => submitPayment(event, participant.id)}>
                   <label><span>{locale === "it" ? "Importo" : "Amount"}</span><input required type="number" min="0.01" step="0.01" value={draft.amount} onChange={(event) => updateDraft(participant.id, { amount: event.target.value })} /></label>
-                  <label><span>{locale === "it" ? "Data" : "Date"}</span><input required type="date" value={draft.paid_on} onChange={(event) => updateDraft(participant.id, { paid_on: event.target.value })} /></label>
+                  <label><span>{locale === "it" ? "Data" : "Date"}</span><LocalizedDateInput required value={draft.paid_on} onChange={(paid_on) => updateDraft(participant.id, { paid_on })} locale={locale} ariaLabel={locale === "it" ? "Data" : "Date"} /></label>
                   <label><span>{locale === "it" ? "Nota" : "Note"}</span><input maxLength={500} value={draft.note} onChange={(event) => updateDraft(participant.id, { note: event.target.value })} placeholder={locale === "it" ? "Bonifico, contanti…" : "Transfer, cash…"} /></label>
                   <button type="submit" className="compact" disabled={saving || !draft.amount || Number(draft.amount) <= 0}>{locale === "it" ? "Registra" : "Record"}</button>
                 </form>

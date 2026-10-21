@@ -4,6 +4,7 @@ import { CSSProperties, ChangeEvent, Children, ComponentProps, Dispatch, FormEve
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import PremiumMemoriesNotice from "./components/PremiumMemoriesNotice";
+import LocalizedDateInput from "./components/LocalizedDateInput";
 import type { AmbassadorChange } from "./components/AdminAmbassadorEditor";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
@@ -11565,11 +11566,11 @@ export function App() {
                   </label>
                   <label>
                     <span>{t("orderDate")}</span>
-                    <input type="date" value={draft.order_date} onChange={(event) => setDraft({ ...draft, order_date: event.target.value })} disabled={!canWriteWine} />
+                    <LocalizedDateInput value={draft.order_date} onChange={(order_date) => setDraft({ ...draft, order_date })} locale={locale} disabled={!canWriteWine} ariaLabel={t("orderDate")} />
                   </label>
                   <label>
                     <span>{t("delivery")}</span>
-                    <input type="date" value={draft.expected_delivery} onChange={(event) => setDraft({ ...draft, expected_delivery: event.target.value })} disabled={!canWriteWine} />
+                    <LocalizedDateInput value={draft.expected_delivery} onChange={(expected_delivery) => setDraft({ ...draft, expected_delivery })} locale={locale} disabled={!canWriteWine} ariaLabel={t("delivery")} />
                   </label>
                 </div>
                 {isRestaurant ? <div className="restaurant-commercial-settings">
@@ -14675,11 +14676,11 @@ export function App() {
                         </label>
                         <label>
                           <span>{t("auditDateFrom")}</span>
-                          <input type="date" value={aiAuditDateFrom} onChange={(event) => setAiAuditDateFrom(event.target.value)} />
+                          <LocalizedDateInput value={aiAuditDateFrom} onChange={setAiAuditDateFrom} locale={locale} ariaLabel={t("auditDateFrom")} />
                         </label>
                         <label>
                           <span>{t("auditDateTo")}</span>
-                          <input type="date" value={aiAuditDateTo} onChange={(event) => setAiAuditDateTo(event.target.value)} />
+                          <LocalizedDateInput value={aiAuditDateTo} onChange={setAiAuditDateTo} locale={locale} ariaLabel={t("auditDateTo")} />
                         </label>
                         <button
                           type="button"

@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import type { FormEvent } from "react";
 import type { Locale, Wine, WineStockLot } from "../types";
+import LocalizedDateInput from "./LocalizedDateInput";
 import { api } from "../services/api";
 import { formatDisplayDate, formatMoney } from "./panelSupport";
 import { WineLocationPicker } from "./StoragePanels";
@@ -67,7 +68,7 @@ export default function WineLotsSection({ wine, canWrite, saving, locale, onChan
       <div className="detail-grid consume-grid">
         <label><span>{italian ? "Bottiglie acquistate" : "Bottles purchased"}</span><input form={formId} type="number" min="1" step="1" required value={draft.quantity} onChange={event => setDraft({ ...draft, quantity: event.target.value })} /></label>
         <label><span>{italian ? `Prezzo per bottiglia (${wine.currency})` : `Price per bottle (${wine.currency})`}</span><input form={formId} type="number" min="0" step="0.01" required value={draft.unit_cost} onChange={event => setDraft({ ...draft, unit_cost: event.target.value })} /></label>
-        <label><span>{italian ? "Data acquisto" : "Purchase date"}</span><input form={formId} type="date" required value={draft.acquired_on} onChange={event => setDraft({ ...draft, acquired_on: event.target.value })} /></label>
+        <label><span>{italian ? "Data acquisto" : "Purchase date"}</span><LocalizedDateInput form={formId} required value={draft.acquired_on} onChange={acquired_on => setDraft({ ...draft, acquired_on })} locale={locale} ariaLabel={italian ? "Data acquisto" : "Purchase date"} /></label>
         <label><span>{italian ? "Commerciante" : "Merchant"}</span><input form={formId} value={draft.supplier} onChange={event => setDraft({ ...draft, supplier: event.target.value })} /></label>
       </div>
       <WineLocationPicker formId={formId} locale={locale} locationId={draft.storage_location_id} binId={draft.storage_bin_id} disabled={saving || loading} onChange={(storage_location_id, storage_bin_id) => setDraft(current => ({ ...current, storage_location_id, storage_bin_id }))} />

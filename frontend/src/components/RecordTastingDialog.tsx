@@ -9,6 +9,7 @@ import { emptyConsumeWineDraft } from "./panelSupport";
 import "./RecordTastingDialog.css";
 import { tastingRequest } from "../domain/tasting";
 import { TastingMemoryPhotoInput } from "./TastingMemoryPhoto";
+import LocalizedDateInput from "./LocalizedDateInput";
 
 const blankWine = (): TastingWineIdentity => ({ name: "", producer: "", vintage: "", format: "", type: "", region: "", appellation: "" });
 
@@ -160,7 +161,7 @@ export default function RecordTastingDialog({ locale, wines, canRecognize, onClo
           {identityField("vintage", it ? "Annata (se nota)" : "Vintage (if known)", 16)}
         </section> : null}
         {mode === "external" || selected ? <>
-          <label><span>{it ? "Data" : "Date"}</span><input type="date" required value={draft.consumed_at} onChange={event => setDraft(current => ({ ...current, consumed_at: event.target.value }))} /></label>
+          <label><span>{it ? "Data" : "Date"}</span><LocalizedDateInput required value={draft.consumed_at} onChange={consumed_at => setDraft(current => ({ ...current, consumed_at }))} locale={locale} ariaLabel={it ? "Data" : "Date"} /></label>
           <label><span>{it ? "Ti è piaciuto?" : "Did you enjoy it?"}</span><TastingEnjoymentInput disabled={busy} value={draft.tasting_enjoyment} t={t} onChange={tasting_enjoyment => setDraft(current => ({ ...current, tasting_enjoyment }))} /></label>
           <label><span>{it ? "Voto (facoltativo)" : "Score (optional)"}</span><select value={draft.tasting_rating} onChange={event => setDraft(current => ({ ...current, tasting_rating: event.target.value }))}>{RATING_HALF_STEPS.map((score) => <option key={score} value={String(score)}>{score ? `${score}/6` : "—"}</option>)}</select></label>
           <label><span>{it ? "Un ricordo di questo vino" : "A memory of this wine"}</span><textarea rows={2} maxLength={5000} value={draft.note} onChange={event => setDraft(current => ({ ...current, note: event.target.value }))} /></label>

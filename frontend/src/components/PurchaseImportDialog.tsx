@@ -6,6 +6,7 @@ import PurchaseImagePreview from "./PurchaseImagePreview";
 import PurchasePhotoSuggestions from "./PurchasePhotoSuggestions";
 import PurchaseDocuments from "./PurchaseDocuments";
 import "./PurchaseImportDialog.css";
+import LocalizedDateInput from "./LocalizedDateInput";
 
 const PurchasePdfPreview = lazy(() => import("./PurchasePdfPreview"));
 
@@ -147,10 +148,10 @@ export default function PurchaseImportDialog({ locale, canAnalyze, included, isA
           <fieldset disabled={busy}><legend>{it ? "Dati comuni" : "Purchase details"}</legend><div className="purchase-import-fields">
             <label>{it ? "Fornitore" : "Supplier"}<input value={supplier} maxLength={160} onChange={e => setSupplier(e.target.value)} /></label>
             <label>{it ? "Numero documento / ordine" : "Document / order reference"}<input value={reference} maxLength={160} onChange={e => setReference(e.target.value)} /></label>
-            <label>{it ? "Data acquisto" : "Purchase date"}<input type="date" required value={date} onChange={e => setDate(e.target.value)} /></label>
+            <label>{it ? "Data acquisto" : "Purchase date"}<LocalizedDateInput required value={date} onChange={setDate} locale={locale} ariaLabel={it ? "Data acquisto" : "Purchase date"} /></label>
             <label>{it ? "Valuta" : "Currency"}<input required pattern="[A-Z]{3}" maxLength={3} placeholder="CHF / EUR" value={currency} onChange={e => { setCurrency(e.target.value.toUpperCase()); setRows(current => current.map(row => ({ ...row, existing_wine_id: "" }))); }} /></label>
             <label>{it ? "Consegna" : "Delivery"}<select aria-label={it ? "Consegna" : "Delivery"} value={delivery} onChange={e => setDelivery(e.target.value)}><option value="received">{it ? "Bottiglie già ricevute" : "Bottles received"}</option><option value="pending">{it ? "In attesa di consegna" : "Awaiting delivery"}</option></select></label>
-            {delivery === "pending" ? <label>{it ? "Consegna prevista" : "Expected delivery"}<input type="date" value={expected} onChange={e => setExpected(e.target.value)} /></label> : null}
+            {delivery === "pending" ? <label>{it ? "Consegna prevista" : "Expected delivery"}<LocalizedDateInput value={expected} onChange={setExpected} locale={locale} ariaLabel={it ? "Consegna prevista" : "Expected delivery"} /></label> : null}
           </div></fieldset>
           <p>{it ? "Quantità in bottiglie e prezzo per singola bottiglia, dopo eventuali sconti. Seleziona una scheda esistente per aggiungere un lotto." : "Enter bottle quantities and price per bottle after discounts. Select an existing record to add a purchase lot."}</p>
           {!rows.length ? <p role="status">{it ? "Nessun vino riconosciuto. Puoi aggiungere una riga o provare con un documento più leggibile." : "No wines recognized. Add a row or try a clearer document."}</p> : null}

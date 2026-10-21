@@ -4,9 +4,19 @@
   width: 100%;
 }
 
+/* The wrapper is a span inside a <label>; don't take on the label caption's styling. */
+.localized-date-input,
+.localized-date-input > input[type="text"] {
+  font-family: inherit;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .localized-date-input > input[type="text"] {
   width: 100%;
   padding-right: 2.75rem;
+  color: var(--text);
 }
 
 .localized-date-native-picker {

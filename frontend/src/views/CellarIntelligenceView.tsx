@@ -4,6 +4,7 @@ import { XCircle } from "@phosphor-icons/react/dist/csr/XCircle";
 import { AiGenerationOverlay } from "../components/AppUi";
 import { translate } from "../i18n";
 import type { CellarIntelligencePlan, CellarIntelligencePreferences, CellarIntelligenceSnapshot, CellarIntelligenceWine, Locale, Wine, WineStrategyPurpose } from "../types";
+import LocalizedDateInput from "../components/LocalizedDateInput";
 import { api } from "../services/api";
 import "./CellarIntelligenceView.css";
 
@@ -508,7 +509,7 @@ export default function CellarIntelligenceView({
           <label><span>{it ? "Bottiglie da bere all’anno" : "Bottles to drink per year"}</span><input type="number" min="0" max="10000" value={preferences.annual_drink_target} onChange={(event) => setPreferences((current) => ({ ...current, annual_drink_target: Math.max(0, Number(event.target.value) || 0) }))} /></label>
           <label><span>{it ? "Capitale da proteggere" : "Capital to protect"}</span><span className="intelligence-input-suffix"><input type="number" min="0" max="100" value={preferences.protected_capital_pct} onChange={(event) => setPreferences((current) => ({ ...current, protected_capital_pct: Math.min(100, Math.max(0, Number(event.target.value) || 0)) }))} /><b>%</b></span></label>
           <label><span>{it ? "Bottiglie per occasioni speciali" : "Special-occasion bottles"}</span><input type="number" min="0" max="10000" value={preferences.special_occasion_target} onChange={(event) => setPreferences((current) => ({ ...current, special_occasion_target: Math.max(0, Number(event.target.value) || 0) }))} /></label>
-          <label><span>{it ? "Prossima occasione" : "Next special occasion"}</span><input type="date" value={preferences.next_special_occasion_date || ""} onChange={(event) => setPreferences((current) => ({ ...current, next_special_occasion_date: event.target.value || null }))} /></label>
+          <label><span>{it ? "Prossima occasione" : "Next special occasion"}</span><LocalizedDateInput value={preferences.next_special_occasion_date || ""} onChange={(date) => setPreferences((current) => ({ ...current, next_special_occasion_date: date || null }))} locale={locale} ariaLabel={it ? "Prossima occasione" : "Next special occasion"} /></label>
           <label><span>{it ? "Orizzonte di pianificazione" : "Planning horizon"}</span><span className="intelligence-input-suffix"><input type="number" min="1" max="20" value={preferences.planning_horizon_years} onChange={(event) => setPreferences((current) => ({ ...current, planning_horizon_years: Math.min(20, Math.max(1, Number(event.target.value) || 1)) }))} /><b>{it ? "anni" : "years"}</b></span></label>
           <label><span>{it ? "Ricontrolla il piano ogni" : "Review plan every"}</span><span className="intelligence-input-suffix"><input type="number" min="1" max="365" value={preferences.refresh_interval_days} onChange={(event) => setPreferences((current) => ({ ...current, refresh_interval_days: Math.min(365, Math.max(1, Number(event.target.value) || 1)) }))} /><b>{it ? "giorni" : "days"}</b></span></label>
           <button type="button" disabled={disabled || savingPreferences} onClick={() => void savePreferences()}>{savingPreferences ? (it ? "Salvataggio…" : "Saving…") : (it ? "Salva obiettivi" : "Save goals")}</button>
