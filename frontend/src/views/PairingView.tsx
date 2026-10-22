@@ -58,6 +58,8 @@ type PairingViewProps = {
   pairingMaxPrice: string;
   pairingPreferLocal: boolean;
   pairingResult: PairingResult | null;
+  /** Opened from the assistant with a cellar pairing ready: skip "Dove sei?". */
+  startAtHome?: boolean;
   saving: boolean;
   savedPairingPreferences: string;
   wines: WineLike[];
@@ -145,6 +147,7 @@ export default function PairingView({
   pairingMaxPrice,
   pairingPreferLocal,
   pairingResult,
+  startAtHome = false,
   saving,
   savedPairingPreferences,
   setAiSettingsDraft,
@@ -171,8 +174,15 @@ export default function PairingView({
   const [restaurantScanKey, setRestaurantScanKey] = useState(0);
   const [restaurantScanError, setRestaurantScanError] = useState("");
   const [restaurantFlow, setRestaurantFlow] = useState<"choose" | "scan" | "without-list" | "result">("choose");
-  const [selectedPairingLocation, setPairingLocation] = useState<"choose" | "home" | "restaurant">("choose");
+  const [selectedPairingLocation, setPairingLocation] = useState<"choose" | "home" | "restaurant">(startAtHome ? "home" : "choose");
   const restaurantResultRef = useRef<HTMLDivElement>(null);
+  const pairingResultRef = useRef<HTMLDivElement>(null);
+  // From the assistant the pairing is already there: show it, not the empty form above.
+  useEffect(() => {
+    if (!startAtHome || !pairingResult) return;
+    const frame = window.requestAnimationFrame(() => pairingResultRef.current?.scrollIntoView({ block: "start" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
   const pairingLocation = pairingTargetWine ? "home" : selectedPairingLocation;
   const restaurantContext = pairingLocation === "restaurant";
   const isWineFirstPairing = Boolean(pairingTargetWine);
@@ -526,7 +536,7 @@ export default function PairingView({
             {!canGenerateAi ? <EmptyState title={t("noApiKey")} icon="glass-sparkle" compact /> : null}
           </form>
           {pairingResult && (!isWineFirstPairing || pairingResult.dish_recommendations.length) ? (
-            <div className="pairing-result">
+            <div className="pairing-result" ref={pairingResultRef}>
               {pairingResult.summary ? <p className="pairing-summary">{pairingResult.summary}</p> : null}
               {isWineFirstPairing && pairingResult.dish_recommendations.length ? (
                 <section>

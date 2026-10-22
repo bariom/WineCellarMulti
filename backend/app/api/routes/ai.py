@@ -2627,6 +2627,34 @@ def ask_cellar_assistant(
     conversation.append({"role": "user", "content": payload.question.strip()})
     tools_used: list[str] = []
     total_cost = Decimal("0")
+    pairing_result: dict[str, Any] = {}
+
+    def run_pairing(arguments: str) -> dict[str, Any]:
+        """The Sommelier AI as the assistant's tool; the full result is kept for the app."""
+        try:
+            dish = str(json.loads(arguments or "{}").get("dish") or "").strip()[:240]
+        except (ValueError, AttributeError):
+            dish = ""
+        if len(dish) < 2:
+            return {"error": "Name the dish to pair."}
+        pairing = suggest_pairing(
+            PairingRequest(dish=dish, locale=payload.locale), db=db, context=context
+        )
+        pairing_result["dish"] = dish
+        pairing_result["response"] = pairing
+        return {
+            "summary": pairing.summary,
+            "cellar_matches": [
+                {
+                    "wine": match.wine_name,
+                    "producer": match.producer,
+                    "reason": match.reason,
+                    "serving_note": match.serving_note,
+                    "taste_affinity_out_of_6": match.taste_affinity or None,
+                }
+                for match in pairing.cellar_matches
+            ],
+        }
 
     def attempt(model: str, effort: str) -> tuple[str, str, str]:
         """Run the tool loop with one model; return (answer, model used, effort)."""
@@ -2674,7 +2702,11 @@ def ask_cellar_assistant(
                 for call in calls:
                     name = str(call.get("name", ""))
                     tools_used.append(name)
-                    result = tools.invoke(name, str(call.get("arguments", "")))
+                    result = (
+                        run_pairing(str(call.get("arguments", "")))
+                        if name == "suggest_pairing"
+                        else tools.invoke(name, str(call.get("arguments", "")))
+                    )
                     history.append(
                         {
                             "type": "function_call_output",
@@ -2716,8 +2748,12 @@ def ask_cellar_assistant(
         tools_used=tools_used,
         model=effective_model,
         reasoning_effort=reasoning_effort,
-        estimated_cost_usd=total_cost,
+        estimated_cost_usd=total_cost + (
+            pairing_result["response"].estimated_cost_usd if pairing_result else Decimal("0")
+        ),
         escalated=escalated,
+        pairing_dish=str(pairing_result.get("dish") or ""),
+        pairing=pairing_result.get("response"),
     )
 
 

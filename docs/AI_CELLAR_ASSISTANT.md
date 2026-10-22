@@ -81,6 +81,15 @@ with the product owner. Nothing is written: asked to change the cellar, the assi
 to describe the action instead. The client sends the last ten turns of the open conversation so
 follow-up questions keep their meaning; nothing is stored server side beyond the AI audit entries.
 
+## Food pairings
+
+"Che cosa apro con un salmì di cervo?" is answered in the conversation (and aloud in voice mode):
+the assistant (prompt `cellar.assistant` v4) calls its `suggest_pairing` tool, which runs the
+Sommelier AI pairing on the cellar with the user's taste profile and drinking windows, and answers
+with its matches instead of picking wines itself. The full pairing comes back in the answer
+(`pairing_dish`, `pairing`, with its cost included in the request's), so "Vedi nel Sommelier AI"
+opens the pairing view on that result, at home and without a new call.
+
 ## Safety and behavior
 
 - Only active wines belonging to the current household and having available stock are candidates.

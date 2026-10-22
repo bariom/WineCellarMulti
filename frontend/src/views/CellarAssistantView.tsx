@@ -7,6 +7,7 @@ import type {
   CellarCommandResult,
   Locale,
   WineLabelEnrichment,
+  PairingResult,
 } from "../types";
 import "./CellarAssistantView.css";
 import "./CellarAssistantVoice.css";
@@ -78,6 +79,8 @@ type CellarAssistantViewProps = {
   onCellarChanged: () => Promise<void> | void;
   onPreparePurchase: (draft: CellarCommandPurchaseDraft) => void;
   onOpenWishlist: () => void;
+  /** Open a pairing the assistant obtained from the Sommelier AI, in full. */
+  onOpenPairing?: (dish: string, result: PairingResult) => void;
   /** A question asked elsewhere (the home ask bar), sent as soon as the view opens. */
   initialQuestion?: { id: number; text: string } | null;
   /** Set (to a new value each time) to open the view straight into voice conversation. */
@@ -90,6 +93,7 @@ export default function CellarAssistantView({
   onCellarChanged,
   onPreparePurchase,
   onOpenWishlist,
+  onOpenPairing,
   initialQuestion = null,
   startVoice = null,
 }: CellarAssistantViewProps) {
@@ -105,7 +109,7 @@ export default function CellarAssistantView({
   const [voiceMessage, setVoiceMessage] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   // The open conversation with the assistant: questions and answers, newest last.
-  const [conversation, setConversation] = useState<Array<{ role: "user" | "assistant"; content: string; meta?: string }>>([]);
+  const [conversation, setConversation] = useState<Array<{ role: "user" | "assistant"; content: string; meta?: string; pairing?: { dish: string; result: PairingResult } }>>([]);
   const recognitionRef = useRef<VoiceRecognition | null>(null);
   const voiceTimeoutRef = useRef<number | null>(null);
   const finalTranscriptRef = useRef("");
@@ -360,8 +364,16 @@ export default function CellarAssistantView({
   }, [heard?.id]);
 
   // Opened from the home microphone: start talking right away.
+  // Unlike a question, a start may repeat after the remount that stops the
+  // microphone (development), so the guard is cleared with the effect.
+  const startedVoiceRef = useRef<number | null>(null);
   useEffect(() => {
-    if (startVoice && !voiceModeRef.current) void startVoiceMode();
+    if (!startVoice || startedVoiceRef.current === startVoice) return;
+    startedVoiceRef.current = startVoice;
+    void startVoiceMode();
+    return () => {
+      startedVoiceRef.current = null;
+    };
   }, [startVoice]);
 
   function voiceErrorMessage(code: string) {
@@ -539,7 +551,7 @@ export default function CellarAssistantView({
   }
 
   async function askAssistant(question: string) {
-    const answer = await api<{ answer: string; tools_used: string[]; model: string; estimated_cost_usd: string }>("/api/v1/ai/cellar-assistant/ask", {
+    const answer = await api<{ answer: string; tools_used: string[]; model: string; estimated_cost_usd: string; pairing_dish?: string; pairing?: PairingResult | null }>("/api/v1/ai/cellar-assistant/ask", {
       method: "POST",
       body: JSON.stringify({
         question,
@@ -550,7 +562,12 @@ export default function CellarAssistantView({
     setConversation((current) => [
       ...current,
       { role: "user", content: question },
-      { role: "assistant", content: answer.answer, meta: `${answer.model} · ${requestCostLabel(answer.estimated_cost_usd)}` },
+      {
+        role: "assistant",
+        content: answer.answer,
+        meta: `${answer.model} · ${requestCostLabel(answer.estimated_cost_usd)}`,
+        ...(answer.pairing && answer.pairing_dish ? { pairing: { dish: answer.pairing_dish, result: answer.pairing } } : {}),
+      },
     ]);
     setResults([]);
     setText("");
@@ -561,8 +578,12 @@ export default function CellarAssistantView({
     await send(text);
   }
 
+  // Send a question from the home once, even when effects run twice (development).
+  const sentQuestionRef = useRef<number | null>(null);
   useEffect(() => {
-    if (initialQuestion?.text.trim()) void send(initialQuestion.text);
+    if (!initialQuestion?.text.trim() || sentQuestionRef.current === initialQuestion.id) return;
+    sentQuestionRef.current = initialQuestion.id;
+    void send(initialQuestion.text);
   }, [initialQuestion?.id]);
 
   function sendCommand(commandText: string) {
@@ -774,6 +795,9 @@ export default function CellarAssistantView({
         <ol aria-live="polite">
           {conversation.map((turn, index) => <li key={index} className={`is-${turn.role}`} ref={turn.role === "user" && index === conversation.length - 2 ? latestQuestionRef : undefined}>
             {turn.role === "assistant" ? <AssistantAnswer text={turn.content} /> : <p>{turn.content}</p>}
+            {turn.pairing && onOpenPairing ? <button type="button" className="secondary compact cellar-assistant-open-pairing" onClick={() => onOpenPairing(turn.pairing!.dish, turn.pairing!.result)}>
+              <AppIcon name="glass-sparkle" variant="ai" />{isItalian ? "Vedi nel Sommelier AI" : "Open in Sommelier AI"}
+            </button> : null}
             {turn.role === "assistant" && (turn.meta || canSpeak) ? <div className="cellar-assistant-turn-footer">
               {turn.meta ? <small>{turn.meta}</small> : <span />}
               {canSpeak ? <button type="button" className={`cellar-assistant-speak${speakingIndex === index ? " is-speaking" : ""}`} aria-pressed={speakingIndex === index} aria-label={speakingIndex === index ? (isItalian ? "Ferma la lettura" : "Stop reading") : (isItalian ? "Leggi ad alta voce" : "Read aloud")} title={speakingIndex === index ? (isItalian ? "Ferma la lettura" : "Stop reading") : (isItalian ? "Leggi ad alta voce" : "Read aloud")} onClick={() => toggleSpeech(index, turn.content)}><span aria-hidden="true">{speakingIndex === index ? "■" : "🔊"}</span></button> : null}

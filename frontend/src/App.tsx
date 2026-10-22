@@ -1240,6 +1240,8 @@ export function App() {
   // A question asked from the home ask bar, handed to the assistant view.
   const [assistantQuestion, setAssistantQuestion] = useState<{ id: number; text: string } | null>(null);
   const [assistantVoiceStart, setAssistantVoiceStart] = useState<number | null>(null);
+  // A pairing the assistant got from the Sommelier AI, opened in the pairing view.
+  const [pairingFromAssistant, setPairingFromAssistant] = useState(false);
   const [tastingOrigin, setTastingOrigin] = useState<"" | "cellar" | "external">("");
   const [tastingArchivePage, setTastingArchivePage] = useState<TastingArchivePage | null>(null);
   const [tastingArchiveOverview, setTastingArchiveOverview] = useState<TastingArchivePage | null>(null);
@@ -5381,6 +5383,11 @@ export function App() {
   const canAccessMemories = Boolean(session?.is_app_admin || (
     !session?.is_demo && session?.has_active_entitlement
   ));
+  useEffect(() => {
+    // Only the visit that comes from the assistant skips "Dove sei?".
+    if (activeView !== "pairing") setPairingFromAssistant(false);
+  }, [activeView]);
+
   function openMemoryBook() {
     if (canAccessMemories) setMemoryBookOpen(true);
     else openSubscriptionSettings();
@@ -11107,6 +11114,14 @@ export function App() {
               onOpenWishlist={() => setActiveView("wishlist")}
               initialQuestion={assistantQuestion}
               startVoice={assistantVoiceStart}
+              onOpenPairing={(dish, result) => {
+                setPairingTargetWineId(null);
+                setPairingMarketOnly(false);
+                setPairingDish(dish);
+                setPairingResult(result);
+                setPairingFromAssistant(true);
+                leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing");
+              }}
               onCellarChanged={async () => {
                 await Promise.all([loadWines(), loadWishlist(), loadWishlistLists()]);
                 if (!offlineMode && historySection === "tastings") await loadTastingArchive(0);
@@ -11146,6 +11161,7 @@ export function App() {
                   pairingMaxPrice={pairingMaxPrice}
                   pairingPreferLocal={pairingPreferLocal}
                   pairingResult={pairingResult}
+                  startAtHome={pairingFromAssistant}
                   saving={saving}
                   savedPairingPreferences={aiSettings?.pairing_preferences || ""}
                   setAiSettingsDraft={setAiSettingsDraft}

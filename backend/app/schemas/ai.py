@@ -567,3 +567,6 @@ class CellarAssistantAnswer(BaseModel):
     estimated_cost_usd: Decimal = Decimal("0")
     # True when the economy model could not answer and the pairing model did.
     escalated: bool = False
+    # A food pairing the assistant asked the Sommelier AI for, to open it in full.
+    pairing_dish: str = ""
+    pairing: PairingResponse | None = None

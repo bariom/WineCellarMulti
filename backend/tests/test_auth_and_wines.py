@@ -6085,6 +6085,67 @@ def test_monitor_activity_lists_more_than_a_hundred_actions_in_a_stable_order():
     assert client.get("/api/v1/admin/operations/activity", params={"limit": 501}).status_code == 422
 
 
+def test_cellar_assistant_asks_the_sommelier_for_a_food_pairing(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    barolo = client.post(
+        "/api/v1/wines",
+        json={"name": "Barolo", "producer": "Vietti", "vintage": "2016", "quantity": 2, "status": "Delivered"},
+    ).json()
+
+    def fake_create_response(*args, **kwargs):
+        if kwargs.get("agent_tools") is None:
+            # The Sommelier AI's own pairing call, with the cellar's candidates.
+            assert "salmì di cervo" in args[2]
+            return OpenAIResponse(
+                text=json.dumps({
+                    "summary": "Un rosso strutturato regge il salmì.",
+                    "cellar_matches": [{
+                        "wine_id": barolo["id"], "wine_name": "Barolo", "producer": "Vietti",
+                        "reason": "Tannini e acidità per il sugo di selvaggina.", "serving_note": "Aprire un'ora prima.",
+                    }],
+                    "market_recommendations": {"low": [], "medium": [], "high": []},
+                    "dish_recommendations": [],
+                }),
+                usage=TokenUsage(input_tokens=800, output_tokens=200, total_tokens=1000),
+                model="gpt-5.5",
+            )
+        assert "suggest_pairing" in [tool["name"] for tool in kwargs["agent_tools"]]
+        outputs = [item for item in kwargs["agent_history"] if item.get("type") == "function_call_output"]
+        if not outputs:
+            return OpenAIResponse(
+                text="",
+                usage=TokenUsage(input_tokens=300, output_tokens=40, total_tokens=340),
+                model="gpt-5.5",
+                agent_output=({"type": "function_call", "name": "suggest_pairing", "call_id": "call-1", "arguments": json.dumps({"dish": "salmì di cervo"})},),
+            )
+        matches = json.loads(outputs[0]["output"])["cellar_matches"]
+        assert matches[0]["wine"] == "Barolo"
+        assert "wine_id" not in matches[0]
+        return OpenAIResponse(
+            text='{"answer":"Apri il Barolo 2016 di Vietti: tannini e acidità per il sugo.","complete":true}',
+            usage=TokenUsage(input_tokens=500, output_tokens=60, total_tokens=560),
+            model="gpt-5.5",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    response = client.post(
+        "/api/v1/ai/cellar-assistant/ask",
+        json={"question": "Che cosa apro con un salmì di cervo?", "locale": "it", "history": []},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["answer"].startswith("Apri il Barolo 2016")
+    assert body["tools_used"] == ["suggest_pairing"]
+    # The full Sommelier result comes back so the app can open it without a new call.
+    assert body["pairing_dish"] == "salmì di cervo"
+    assert body["pairing"]["cellar_matches"][0]["wine_id"] == barolo["id"]
+    assert Decimal(body["estimated_cost_usd"]) > Decimal(body["pairing"]["estimated_cost_usd"])
+
+
 def test_cellar_assistant_answers_questions_by_reading_the_cellar_with_tools(monkeypatch):
     from app.api.routes import ai as ai_routes
 

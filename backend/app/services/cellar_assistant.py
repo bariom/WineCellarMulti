@@ -164,6 +164,14 @@ def assistant_tools() -> list[dict[str, Any]]:
             {"list_name": _nullable("string"), "text": _nullable("string")},
         ),
         _tool(
+            "suggest_pairing",
+            "Ask the Vinaris Sommelier which bottles of the user's cellar to open with a dish. "
+            "It uses the user's taste profile and drinking windows and returns the best matches "
+            "with the reason and serving notes. Use it whenever the user asks what to open, drink "
+            "or serve with a food.",
+            {"dish": {"type": "string", "description": "The dish or food, as the user said it"}},
+        ),
+        _tool(
             "purchases",
             "What the user bought over a period: lists each purchase (date, wine, producer, "
             "vintage, region, bottles, unit cost, supplier) and totals. Use it for questions "

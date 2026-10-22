@@ -42,6 +42,8 @@ test("a question asked on the home goes straight to the assistant", async ({ pag
   await expect(page.getByRole("heading", { name: "Assistente Cantina AI" })).toBeVisible();
   const conversation = page.getByRole("region", { name: "Conversazione con l'assistente" });
   await expect(conversation).toContainText("Il Nebbiolo di Test 2019 è al picco.");
+  // Asked once, answered once.
+  await expect(conversation.locator("ol > li")).toHaveCount(2);
   expect(JSON.parse(await page.evaluate(() => sessionStorage.getItem("asked") || "{}")).question).toBe("Quali vini sono al picco");
 
   // On a phone Speak and Continue share one row.
@@ -110,4 +112,49 @@ test("the home microphone opens the assistant in voice conversation", async ({ p
   await expect(page.getByRole("button", { name: "Termina la conversazione a voce" })).toHaveAttribute("aria-pressed", "true");
   // Exactly one microphone listens (development remounts may restart it, never double it).
   await expect.poll(() => page.evaluate(() => (window as unknown as { activeRecognitions: number }).activeRecognitions)).toBe(1);
+});
+
+test("a food pairing question is answered in chat and opens in the Sommelier AI", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], true, memberships, [wine], subscribed);
+  await page.addInitScript((fixture) => {
+    const previous = window.fetch;
+    window.fetch = async (input, init) => {
+      const path = new URL(String(input instanceof Request ? input.url : input), location.href).pathname;
+      if (path === "/api/v1/ai/cellar-assistant/ask") {
+        return Response.json({
+          answer: `Apri il **${fixture.name} ${fixture.vintage}**: tannini e acidità reggono il sugo di selvaggina.`,
+          tools_used: ["suggest_pairing"], model: "gpt-6-luna", reasoning_effort: "none", estimated_cost_usd: "0.004",
+          pairing_dish: "salmì di cervo",
+          pairing: {
+            summary: "Un rosso strutturato regge il salmì.", model: "gpt-6-luna", reasoning_effort: "low", taste_profile_applied: true,
+            cellar_matches: [{ wine_id: fixture.id, wine_name: fixture.name, producer: fixture.producer, reason: "Tannini e acidità per il sugo di selvaggina.", serving_note: "Aprire un'ora prima.", taste_affinity: 5 }],
+            market_recommendations: { low: [], medium: [], high: [] }, dish_recommendations: [], estimated_cost_usd: "0.003",
+          },
+        });
+      }
+      if (path === "/api/v1/ai/pairing") {
+        sessionStorage.setItem("pairing-called", "1");
+      }
+      return previous(input, init);
+    };
+  }, wine);
+  await page.goto("/");
+  const ask = page.getByRole("search", { name: "Chiedi all'assistente della cantina" });
+  await ask.getByRole("textbox", { name: "Chiedi alla tua cantina" }).fill("Che cosa apro con un salmì di cervo?");
+  await ask.getByRole("button", { name: "Chiedi" }).click();
+  const conversation = page.getByRole("region", { name: "Conversazione con l'assistente" });
+  await expect(conversation).toContainText("tannini e acidità reggono il sugo");
+  await conversation.getByRole("button", { name: "Vedi nel Sommelier AI" }).screenshot({ path: testInfo.outputPath("open-pairing-button-390.png") });
+  await conversation.getByRole("button", { name: "Vedi nel Sommelier AI" }).click();
+
+  // The pairing view opens on the cellar result, without asking where the user is or a new call.
+  await expect(page.getByRole("heading", { name: "Dove sei?" })).toHaveCount(0);
+  await expect(page.locator(".pairing-view")).toContainText("Tannini e acidità per il sugo di selvaggina.");
+  // It opens on the result, not on the form above it.
+  await expect(page.locator(".pairing-result")).toBeInViewport();
+  await page.screenshot({ path: testInfo.outputPath("pairing-result-in-view-390.png") });
+  expect(await page.evaluate(() => sessionStorage.getItem("pairing-called"))).toBeNull();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("pairing-from-assistant-390.png"), fullPage: true });
 });
