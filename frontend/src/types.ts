@@ -1362,6 +1362,8 @@ export type CellarCommandPurchaseDraft = {
 
 export type CellarCommandResult = {
   command_id: string;
+  /** Further operations of the same message, sent as their own commands. */
+  follow_up_texts?: string[];
   status: "processing" | "needs_confirmation" | "catalog_selection" | "wishlist_selection" | "draft_ready" | "ai_research_required" | "not_found" | "unsupported" | "executed" | "undone" | "failed";
   intent: string;
   message: string;

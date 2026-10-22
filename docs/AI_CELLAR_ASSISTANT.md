@@ -32,6 +32,32 @@ new order instead of creating a duplicate automatically.
 named wishlist. If that wishlist does not exist, Vinaris presents the household's existing lists
 for the user to choose.
 
+## More actions on a wine
+
+Besides one tasting, the assistant understands (prompt v16), always as a proposal to confirm:
+
+- several bottles drunk on one occasion ("abbiamo bevuto 2 bottiglie di Barolo"): one tasting,
+  the other bottles taken out with it;
+- bottles given away or broken ("ho regalato…", "si è rotta…"): stock goes down as a
+  complimentary or breakage movement, with no tasting;
+- bottles moved to a named storage place ("sposta il Barolo nel frigo vini"): the place is matched
+  among the cellar's locations and bins, and an unknown name lists the existing ones;
+- a rating or note without drinking ("dai 5 stelle al Barolo", "aggiungi una nota al Chianti: …"),
+  also for wines already finished.
+
+Undo restores each of them: bottles go back into their purchase lots and storage (this also fixes
+undoing a tasting, which used to restore the wine's count only), a move restores the previous
+places, and a rating restores the previous rating and notes.
+
+## Several actions in one message
+
+"Ho bevuto il Barolo e ho ordinato 6 Sassicaia 2021 da Arvi" describes two operations. The
+interpreter (prompt `cellar.command_interpretation` v15) extracts the first and returns the others
+as standalone sentences (`other_actions`, at most four), which the response exposes as
+`follow_up_texts`. The app sends each as its own command and shows one card per operation, each
+confirmed (or completed in the wine editor) on its own; with several cards an acquisition opens its
+wine record from a button instead of automatically. A single-operation message costs no extra call.
+
 ## Questions about the cellar
 
 The assistant also answers free questions such as "Quali vini sono al picco?", "Quanto ho speso
@@ -58,8 +84,9 @@ follow-up questions keep their meaning; nothing is stored server side beyond the
 ## Safety and behavior
 
 - Only active wines belonging to the current household and having available stock are candidates.
-- An unambiguous explicit command is executed automatically; ambiguous matches require the user
-  to select a candidate.
+- Every change is shown first and saved only when the user confirms it: a single clear match shows
+  the wine with a "Conferma" button (a named wishlist likewise), ambiguous matches list the
+  candidates to choose from. A confirmed update can still be undone.
 - A tasting score is stored as both `score_value` and `score_scale`, so `9/10` is not converted to
   the legacy six-point rating.
 - The client-generated request UUID makes retries idempotent.

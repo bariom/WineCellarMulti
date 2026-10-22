@@ -186,6 +186,8 @@ class CellarCommandResponse(BaseModel):
     status: CellarCommandStatus
     intent: str = "unsupported"
     message: str
+    # Further operations described in the same message, each to be sent as its own command.
+    follow_up_texts: list[str] = Field(default_factory=list)
     candidates: list[CellarCommandWineCandidate] = Field(default_factory=list)
     catalog_candidates: list[CellarCommandCatalogCandidate] = Field(default_factory=list)
     wishlist_lists: list[CellarCommandWishlistList] = Field(default_factory=list)

@@ -85,7 +85,10 @@ export default function CellarAssistantView({
   initialQuestion = null,
 }: CellarAssistantViewProps) {
   const [text, setText] = useState("");
-  const [result, setResult] = useState<CellarCommandResult | null>(null);
+  // One card per operation of the last message, each confirmed on its own.
+  const [results, setResults] = useState<CellarCommandResult[]>([]);
+  const result = results[results.length - 1] ?? null;
+  const replaceResult = (next: CellarCommandResult) => setResults((current) => current.map((item) => (item.command_id === next.command_id ? next : item)));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [listening, setListening] = useState(false);
@@ -157,6 +160,10 @@ export default function CellarAssistantView({
     { label: isItalian ? "Obiettivo vino" : "Wine objective", description: isItalian ? "Da bere, maturare, investimento o occasione speciale." : "Drinking, maturation, investment, or special occasion.", example: strategyExample },
     { label: isItalian ? "Strategia per valore" : "Value strategy", description: isItalian ? "Propone tutte le bottiglie sotto una soglia." : "Proposes every bottle below a value threshold.", example: valueStrategyExample },
     { label: isItalian ? "Strategia produttore" : "Producer strategy", description: isItalian ? "Propone i vini di un produttore in una sola volta." : "Proposes a producer's wines in one action.", example: producerStrategyExample },
+    { label: isItalian ? "Regalo o rottura" : "Gift or breakage", description: isItalian ? "Scarica bottiglie regalate o rotte, senza degustazione." : "Takes out bottles given away or broken, with no tasting.", example: isItalian ? "Ho regalato una bottiglia di Sassicaia 2019." : "I gave away a bottle of Sassicaia 2019." },
+    { label: isItalian ? "Sposta" : "Move", description: isItalian ? "Cambia la posizione delle bottiglie in cantina." : "Changes where the bottles are stored.", example: isItalian ? "Sposta 2 bottiglie di Barolo 2019 nel frigo vini." : "Move 2 bottles of Barolo 2019 to the wine fridge." },
+    { label: isItalian ? "Voto o nota" : "Rating or note", description: isItalian ? "Aggiorna voto e note di un vino, anche già finito." : "Updates a wine's rating and notes, even when finished.", example: isItalian ? "Dai 5 stelle al Chianti 2018 e aggiungi una nota: splendido con il brasato." : "Give the Chianti 2018 five stars and add a note: superb with braised beef." },
+    { label: isItalian ? "Più azioni" : "Several actions", description: isItalian ? "Una frase, più operazioni: ognuna da confermare." : "One sentence, several operations: each one confirmed.", example: isItalian ? "Abbiamo bevuto 2 bottiglie di Barolo 2019 e ho ordinato 6 Sassicaia 2021 da Arvi." : "We drank 2 bottles of Barolo 2019 and I ordered 6 Sassicaia 2021 from Arvi." },
   ];
   const strategyPurposeLabel = (purpose: string) => ({
     drink: isItalian ? "Da bere" : "For drinking",
@@ -168,7 +175,7 @@ export default function CellarAssistantView({
   const applyExample = (example: string) => {
     setText(example);
     setError("");
-    setResult(null);
+    setResults([]);
     setHelpOpen(false);
   };
   const purchaseStatusLabel = (status: string) => {
@@ -239,10 +246,14 @@ export default function CellarAssistantView({
     const index = conversation.length - 1;
     if (speak(lastTurn.content, locale, () => setSpeakingIndex((current) => (current === index ? null : current)))) setSpeakingIndex(index);
   }, [conversation.length]);
+  // Command cards: read each message that is new or changed (a confirmation's "Fatto…").
+  const spokenMessages = useRef<Record<string, string>>({});
   useEffect(() => {
-    if (!readAloud || !result?.message) return;
-    if (speak(result.message, locale, () => setSpeakingIndex((current) => (current === -1 ? null : current)))) setSpeakingIndex(-1);
-  }, [result]);
+    const fresh = results.filter((item) => item.message && spokenMessages.current[item.command_id] !== item.message);
+    for (const item of results) spokenMessages.current[item.command_id] = item.message;
+    if (!readAloud || !fresh.length) return;
+    if (speak(fresh.map((item) => item.message).join(" "), locale, () => setSpeakingIndex((current) => (current === -1 ? null : current)))) setSpeakingIndex(-1);
+  }, [results]);
   useEffect(() => () => stopSpeaking(), []);
 
   function voiceErrorMessage(code: string) {
@@ -418,7 +429,7 @@ export default function CellarAssistantView({
       { role: "user", content: question },
       { role: "assistant", content: answer.answer, meta: `${answer.model} · ${requestCostLabel(answer.estimated_cost_usd)}` },
     ]);
-    setResult(null);
+    setResults([]);
     setText("");
   }
 
@@ -430,6 +441,18 @@ export default function CellarAssistantView({
   useEffect(() => {
     if (initialQuestion?.text.trim()) void send(initialQuestion.text);
   }, [initialQuestion?.id]);
+
+  function sendCommand(commandText: string) {
+    return api<CellarCommandResult>("/api/v1/ai/cellar-commands", {
+      method: "POST",
+      body: JSON.stringify({
+        request_id: crypto.randomUUID(),
+        text: commandText,
+        locale,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Zurich",
+      }),
+    });
+  }
 
   async function send(message: string) {
     const question = message.trim();
@@ -446,24 +469,26 @@ export default function CellarAssistantView({
         await askAssistant(question);
         return;
       }
-      const next = await api<CellarCommandResult>("/api/v1/ai/cellar-commands", {
-        method: "POST",
-        body: JSON.stringify({
-          request_id: crypto.randomUUID(),
-          text: question,
-          locale,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Zurich",
-        }),
-      });
+      const next = await sendCommand(question);
       // Not a cellar action: let the assistant answer it with the conversation so far.
-      if (next.status === "unsupported") {
+      if (next.status === "unsupported" && !next.follow_up_texts?.length) {
         await askAssistant(question);
         return;
       }
-      setResult(next);
-      if (next.status === "executed") await onCellarChanged();
+      const prepared = [next];
+      setResults([next]);
+      setText("");
+      // The other operations of the same message, one command (and one card) each.
+      for (const followUp of next.follow_up_texts || []) {
+        const extra = await sendCommand(followUp);
+        prepared.push(extra);
+        setResults([...prepared]);
+      }
+      // A single acquisition opens its wine record straight away; with several
+      // operations each card offers it, so one editor does not hide the others.
       if (
-        next.purchase_draft
+        prepared.length === 1
+        && next.purchase_draft
         && (next.status === "draft_ready" || next.status === "ai_research_required")
       ) {
         await preparePurchase(next.purchase_draft);
@@ -475,8 +500,8 @@ export default function CellarAssistantView({
     }
   }
 
-  async function selectCatalogCandidate(candidate: CellarCommandCatalogCandidate) {
-    if (!result?.purchase_draft || busy) return;
+  async function selectCatalogCandidate(result: CellarCommandResult, candidate: CellarCommandCatalogCandidate) {
+    if (!result.purchase_draft || busy) return;
     setBusy(true);
     setError("");
     try {
@@ -488,8 +513,8 @@ export default function CellarAssistantView({
     }
   }
 
-  async function selectWishlistList(wishlistListId: string) {
-    if (!result || busy) return;
+  async function selectWishlistList(result: CellarCommandResult, wishlistListId: string) {
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
@@ -497,7 +522,7 @@ export default function CellarAssistantView({
         `/api/v1/ai/cellar-commands/${result.command_id}/wishlist`,
         { method: "POST", body: JSON.stringify({ wishlist_list_id: wishlistListId }) },
       );
-      setResult(next);
+      replaceResult(next);
       await onCellarChanged();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to add wishlist item");
@@ -506,8 +531,8 @@ export default function CellarAssistantView({
     }
   }
 
-  async function prepareMissingShipment() {
-    if (!result?.purchase_draft || busy) return;
+  async function prepareResultPurchase(result: CellarCommandResult) {
+    if (!result.purchase_draft || busy) return;
     setBusy(true);
     setError("");
     try {
@@ -519,8 +544,8 @@ export default function CellarAssistantView({
     }
   }
 
-  async function execute(wineId: string) {
-    if (!result || busy) return;
+  async function execute(result: CellarCommandResult, wineId: string) {
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
@@ -528,7 +553,7 @@ export default function CellarAssistantView({
         `/api/v1/ai/cellar-commands/${result.command_id}/execute`,
         { method: "POST", body: JSON.stringify({ wine_id: wineId }) },
       );
-      setResult(next);
+      replaceResult(next);
       await onCellarChanged();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to execute command");
@@ -537,8 +562,8 @@ export default function CellarAssistantView({
     }
   }
 
-  async function executeBulkStrategy() {
-    if (!result || busy) return;
+  async function executeBulkStrategy(result: CellarCommandResult) {
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
@@ -546,7 +571,7 @@ export default function CellarAssistantView({
         `/api/v1/ai/cellar-commands/${result.command_id}/execute`,
         { method: "POST", body: JSON.stringify({ confirm_all: true }) },
       );
-      setResult(next);
+      replaceResult(next);
       await onCellarChanged();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to execute command");
@@ -555,8 +580,8 @@ export default function CellarAssistantView({
     }
   }
 
-  async function undo() {
-    if (!result || busy) return;
+  async function undo(result: CellarCommandResult) {
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
@@ -564,7 +589,7 @@ export default function CellarAssistantView({
         `/api/v1/ai/cellar-commands/${result.command_id}/undo`,
         { method: "POST" },
       );
-      setResult(next);
+      replaceResult(next);
       await onCellarChanged();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to undo command");
@@ -711,8 +736,8 @@ export default function CellarAssistantView({
 
       {error ? <p ref={errorRef} className="cellar-assistant-error" role="alert" tabIndex={-1}>{error}</p> : null}
 
-      {result ? (
-        <article ref={resultRef} className={`cellar-assistant-result status-${result.status}`} aria-live="polite" tabIndex={-1}>
+      {results.map((result, index) => (
+        <article key={result.command_id} ref={index === 0 ? resultRef : undefined} className={`cellar-assistant-result status-${result.status}`} aria-live="polite" tabIndex={-1}>
           <header>
             <AppIcon name={result.status === "executed" ? "status-delivered" : "glass-sparkle"} variant={result.status === "executed" ? "status" : "ai"} />
             <div><strong>{result.message}</strong>{result.model ? <small>{result.model} · {requestCostLabel(result.estimated_cost_usd)}</small> : null}</div>
@@ -740,19 +765,24 @@ export default function CellarAssistantView({
               {result.strategy_quantity !== null ? <div><dt>{isItalian ? "Bottiglie" : "Bottles"}</dt><dd>{result.strategy_quantity}</dd></div> : null}
             </dl>
           ) : null}
-          {result.candidates.length ? (
+          {result.status === "needs_confirmation" && result.candidates.length === 1 && !result.strategy_bulk && !result.collection_bulk ? (
+            <div className="cellar-assistant-confirm">
+              <span><strong>{result.candidates[0].name}</strong><small>{[result.candidates[0].producer, result.candidates[0].vintage, result.candidates[0].format].filter(Boolean).join(" · ")}</small></span>
+              <button type="button" onClick={() => void execute(result, result.candidates[0].wine_id)} disabled={busy}>{isItalian ? "Conferma" : "Confirm"}</button>
+            </div>
+          ) : result.candidates.length ? (
             <div className="cellar-assistant-candidates">
               {result.candidates.map((candidate) => (
                 (result.strategy_bulk || result.collection_bulk) ? <div className="cellar-assistant-candidate-preview" key={candidate.wine_id}>
                   <span><strong>{candidate.name} {candidate.vintage}</strong><small>{[candidate.producer, candidate.format].filter(Boolean).join(" · ")}</small></span>
                   <b>{candidate.unit_value} {candidate.currency}<small>{candidate.value_source === "purchase" ? (isItalian ? "Prezzo d’acquisto" : "Purchase price") : (isItalian ? "Valore attuale" : "Current value")}</small></b>
-                </div> : <button type="button" className="secondary" key={candidate.wine_id} onClick={() => void execute(candidate.wine_id)} disabled={busy}>
+                </div> : <button type="button" className="secondary" key={candidate.wine_id} onClick={() => void execute(result, candidate.wine_id)} disabled={busy}>
                   <span><strong>{candidate.name}</strong><small>{[candidate.producer, candidate.vintage, candidate.format].filter(Boolean).join(" · ")}</small></span>
                   <b>{candidate.quantity} {isItalian ? "bott." : "btl."}</b>
                 </button>
               ))}
-              {result.strategy_bulk ? <button type="button" onClick={() => void executeBulkStrategy()} disabled={busy}>{isItalian ? `Conferma tutti come ${strategyPurposeLabel(result.strategy_purpose || "")}` : `Confirm all ${strategyPurposeLabel(result.strategy_purpose || "")}`}</button> : null}
-              {result.collection_bulk ? <button type="button" onClick={() => void executeBulkStrategy()} disabled={busy}>{result.intent === "ship_wine"
+              {result.strategy_bulk ? <button type="button" onClick={() => void executeBulkStrategy(result)} disabled={busy}>{isItalian ? `Conferma tutti come ${strategyPurposeLabel(result.strategy_purpose || "")}` : `Confirm all ${strategyPurposeLabel(result.strategy_purpose || "")}`}</button> : null}
+              {result.collection_bulk ? <button type="button" onClick={() => void executeBulkStrategy(result)} disabled={busy}>{result.intent === "ship_wine"
                 ? (isItalian ? (result.candidates.length === 1 ? "Conferma: segna il vino come spedito" : `Conferma: segna i ${result.candidates.length} vini come spediti`) : `Confirm: mark ${result.candidates.length === 1 ? "the wine" : `all ${result.candidates.length} wines`} as shipped`)
                 : (isItalian ? "Conferma ritiro e sposta in cantina" : "Confirm collection and move to cellar")}</button> : null}
             </div>
@@ -760,17 +790,22 @@ export default function CellarAssistantView({
           {result.catalog_candidates.length ? (
             <div className="cellar-assistant-candidates">
               {result.catalog_candidates.map((candidate) => (
-                <button type="button" className="secondary" key={candidate.catalog_entry_id} onClick={() => void selectCatalogCandidate(candidate)} disabled={busy}>
+                <button type="button" className="secondary" key={candidate.catalog_entry_id} onClick={() => void selectCatalogCandidate(result, candidate)} disabled={busy}>
                   <span><strong>{candidate.name}</strong><small>{[candidate.producer, candidate.region, candidate.appellation].filter(Boolean).join(" · ")}</small></span>
                   <b>{isItalian ? "Usa" : "Use"}</b>
                 </button>
               ))}
             </div>
           ) : null}
-          {result.wishlist_lists.length ? (
+          {result.status === "wishlist_selection" && result.wishlist_lists.length === 1 ? (
+            <div className="cellar-assistant-confirm">
+              <span><strong>{result.wishlist_lists[0].name}</strong><small>{isItalian ? "Wishlist" : "Wishlist"}</small></span>
+              <button type="button" onClick={() => void selectWishlistList(result, result.wishlist_lists[0].wishlist_list_id)} disabled={busy}>{isItalian ? "Conferma" : "Confirm"}</button>
+            </div>
+          ) : result.wishlist_lists.length ? (
             <div className="cellar-assistant-candidates">
               {result.wishlist_lists.map((wishlistList) => (
-                <button type="button" className="secondary" key={wishlistList.wishlist_list_id} onClick={() => void selectWishlistList(wishlistList.wishlist_list_id)} disabled={busy}>
+                <button type="button" className="secondary" key={wishlistList.wishlist_list_id} onClick={() => void selectWishlistList(result, wishlistList.wishlist_list_id)} disabled={busy}>
                   <span><strong>{wishlistList.name}</strong><small>{isItalian ? "Aggiungi a questa wishlist" : "Add to this wishlist"}</small></span>
                   <b>{isItalian ? "Scegli" : "Choose"}</b>
                 </button>
@@ -782,14 +817,19 @@ export default function CellarAssistantView({
               {isItalian ? "Apri wishlist e completa i dati" : "Open wishlist and complete details"}
             </button>
           ) : null}
+          {results.length > 1 && result.intent === "acquire_wine" && result.purchase_draft && (result.status === "draft_ready" || result.status === "ai_research_required") ? (
+            <button type="button" onClick={() => void prepareResultPurchase(result)} disabled={busy}>
+              {isItalian ? "Apri la scheda del vino" : "Open the wine record"}
+            </button>
+          ) : null}
           {result.intent === "ship_wine" && result.status === "not_found" && result.purchase_draft ? (
-            <button type="button" className="secondary" onClick={() => void prepareMissingShipment()} disabled={busy}>
+            <button type="button" className="secondary" onClick={() => void prepareResultPurchase(result)} disabled={busy}>
               {isItalian ? "Aggiungi come nuovo ordine" : "Add as a new order"}
             </button>
           ) : null}
-          {result.status === "executed" ? <button type="button" className="secondary compact" onClick={() => void undo()} disabled={busy}>{isItalian ? "Annulla aggiornamento" : "Undo update"}</button> : null}
+          {result.status === "executed" ? <button type="button" className="secondary compact" onClick={() => void undo(result)} disabled={busy}>{isItalian ? "Annulla aggiornamento" : "Undo update"}</button> : null}
         </article>
-      ) : null}
+      ))}
       </div>
       <aside className="cellar-assistant-sidekick" aria-hidden="true">
         <div className="cellar-assistant-sidekick-card">

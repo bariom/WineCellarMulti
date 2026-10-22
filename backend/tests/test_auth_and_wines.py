@@ -4952,8 +4952,15 @@ def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monk
         "locale": "it",
         "timezone": "Europe/Zurich",
     }
-    command = client.post("/api/v1/ai/cellar-commands", json=payload)
-    assert command.status_code == 200
+    proposed = client.post("/api/v1/ai/cellar-commands", json=payload)
+    assert proposed.status_code == 200
+    # Nothing changes before the user confirms the one matching bottle.
+    assert proposed.json()["status"] == "needs_confirmation"
+    assert [item["wine_id"] for item in proposed.json()["candidates"]] == [wine.json()["id"]]
+    assert client.get(f"/api/v1/wines/{wine.json()['id']}").json()["quantity"] == 2
+    command = client.post(
+        f"/api/v1/ai/cellar-commands/{request_id}/execute", json={"wine_id": wine.json()["id"]}
+    )
     assert command.json()["status"] == "executed"
     assert command.json()["matched_wine"]["wine_id"] == wine.json()["id"]
     assert command.json()["previous_quantity"] == 2
@@ -4989,6 +4996,214 @@ def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monk
     assert restored["status"] == "Delivered"
     assert restored["tasting_history"] == []
     assert restored["rating"] == 4.5
+
+
+def test_cellar_ai_command_returns_the_other_actions_of_the_message(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wine = client.post(
+        "/api/v1/wines",
+        json={"name": "Barolo", "producer": "Vietti", "vintage": "2019", "quantity": 2, "status": "Delivered"},
+    )
+
+    def fake_create_ai_response(*args, **kwargs):
+        return (
+            OpenAIResponse(
+                text=json.dumps({
+                    "intent": "consume_wine", "explicit_action": True, "wine_name": "Barolo",
+                    "producer": "Vietti", "vintage": "2019", "format": "", "quantity": 1,
+                    "consumed_at": "2026-10-21", "note": "", "score_present": False,
+                    "score_value": 0, "score_scale": 0, "enjoyment": "", "occasion": "",
+                    "pairing": "", "companions": "",
+                    "other_actions": [
+                        "ho ordinato 6 Sassicaia 2021 da Arvi", " ", "x",
+                        "a", "b c d", "e f g", "h i l", "m n o",
+                    ],
+                }),
+                usage=TokenUsage(input_tokens=400, output_tokens=100, total_tokens=500),
+                charged_cost_usd=Decimal("0.000300"),
+            ),
+            "credits",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_ai_response", fake_create_ai_response)
+    response = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Ho bevuto il Barolo Vietti 2019 e ho ordinato 6 Sassicaia 2021 da Arvi",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    # The first operation waits for confirmation; the others come back as standalone texts.
+    assert body["status"] == "needs_confirmation"
+    assert [item["wine_id"] for item in body["candidates"]] == [wine.json()["id"]]
+    assert body["follow_up_texts"] == ["ho ordinato 6 Sassicaia 2021 da Arvi", "b c d", "e f g", "h i l"]
+
+
+def interpret_as(monkeypatch, **fields):
+    """Make the command interpreter return these fields (the rest empty)."""
+    from app.api.routes import ai as ai_routes
+
+    parsed = {
+        "intent": "unsupported", "explicit_action": True, "wine_name": "", "producer": "", "vintage": "",
+        "format": "", "quantity": 1, "quantity_present": False, "strategy_purpose": "", "consumed_at": "",
+        "purchase_date": "", "purchase_price_present": False, "purchase_price": 0, "currency": "",
+        "merchant": "", "note": "", "score_present": False, "score_value": 0, "score_scale": 0,
+        "enjoyment": "", "occasion": "", "pairing": "", "companions": "", "wishlist_list_name": "",
+        "other_actions": [], "removal_reason": "", "location_name": "",
+    }
+    parsed.update(fields)
+
+    def fake_create_ai_response(*args, **kwargs):
+        return (
+            OpenAIResponse(
+                text=json.dumps(parsed),
+                usage=TokenUsage(input_tokens=400, output_tokens=100, total_tokens=500),
+                charged_cost_usd=Decimal("0.000300"),
+            ),
+            "credits",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_ai_response", fake_create_ai_response)
+
+
+def propose_and_confirm(client, text):
+    proposed = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={"request_id": str(uuid.uuid4()), "text": text, "locale": "it", "timezone": "Europe/Zurich"},
+    )
+    assert proposed.status_code == 200, proposed.text
+    body = proposed.json()
+    assert body["status"] == "needs_confirmation", body
+    assert len(body["candidates"]) == 1
+    executed = client.post(
+        f"/api/v1/ai/cellar-commands/{body['command_id']}/execute",
+        json={"wine_id": body["candidates"][0]["wine_id"]},
+    )
+    assert executed.status_code == 200, executed.text
+    assert executed.json()["status"] == "executed"
+    return body, executed.json()
+
+
+def remaining_in_lots(client, wine_id):
+    lots = client.get(f"/api/v1/inventory/lots?wine_id={wine_id}&include_empty=true").json()
+    return sum(item["quantity_remaining"] for item in lots)
+
+
+def test_cellar_ai_records_several_bottles_drunk_and_undo_restores_the_lots(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wine = client.post(
+        "/api/v1/wines",
+        json={"name": "Barolo", "producer": "Vietti", "vintage": "2019", "quantity": 4, "status": "Delivered"},
+    ).json()
+    interpret_as(
+        monkeypatch, intent="consume_wine", wine_name="Barolo", producer="Vietti", vintage="2019",
+        quantity=2, quantity_present=True, consumed_at="2026-10-21",
+    )
+    proposed, executed = propose_and_confirm(client, "Abbiamo bevuto 2 bottiglie di Barolo Vietti 2019")
+    assert "2 bottiglie" in proposed["message"]
+    updated = client.get(f"/api/v1/wines/{wine['id']}").json()
+    assert updated["quantity"] == 2
+    assert len(updated["tasting_history"]) == 1
+    assert remaining_in_lots(client, wine["id"]) == 2
+
+    undone = client.post(f"/api/v1/ai/cellar-commands/{executed['command_id']}/undo")
+    assert undone.json()["status"] == "undone"
+    restored = client.get(f"/api/v1/wines/{wine['id']}").json()
+    assert restored["quantity"] == 4
+    assert restored["tasting_history"] == []
+    # The bottles are back in their purchase lot too, not only in the record.
+    assert remaining_in_lots(client, wine["id"]) == 4
+
+
+def test_cellar_ai_marks_a_bottle_given_away_and_can_undo(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wine = client.post(
+        "/api/v1/wines",
+        json={"name": "Sassicaia", "producer": "Tenuta San Guido", "vintage": "2019", "quantity": 3, "status": "Delivered"},
+    ).json()
+    interpret_as(
+        monkeypatch, intent="remove_wine", wine_name="Sassicaia", producer="Tenuta San Guido",
+        vintage="2019", removal_reason="gift",
+    )
+    proposed, executed = propose_and_confirm(client, "Ho regalato una bottiglia di Sassicaia 2019")
+    assert "regalata" in proposed["message"]
+    assert client.get(f"/api/v1/wines/{wine['id']}").json()["quantity"] == 2
+    movements = client.get(f"/api/v1/inventory/movements?wine_id={wine['id']}").json()
+    assert [item["movement_type"] for item in movements if item["quantity_delta"] < 0] == ["complimentary"]
+    # No tasting is recorded for a bottle given away.
+    assert client.get(f"/api/v1/wines/{wine['id']}").json()["tasting_history"] == []
+
+    client.post(f"/api/v1/ai/cellar-commands/{executed['command_id']}/undo")
+    assert client.get(f"/api/v1/wines/{wine['id']}").json()["quantity"] == 3
+    assert remaining_in_lots(client, wine["id"]) == 3
+
+
+def test_cellar_ai_moves_bottles_to_a_named_place_and_can_undo(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    fridge = client.post("/api/v1/storage/locations", json={"name": "Frigo vini"})
+    assert fridge.status_code == 201
+    wine = client.post(
+        "/api/v1/wines",
+        json={"name": "Chablis", "producer": "Raveneau", "vintage": "2020", "quantity": 3, "status": "Delivered"},
+    ).json()
+
+    def places():
+        allocations = client.get(f"/api/v1/storage/allocations?wine_id={wine['id']}").json()
+        return {item["location_name"]: item["quantity"] for item in allocations if item["quantity"]}
+
+    before = places()
+    interpret_as(
+        monkeypatch, intent="move_wine", wine_name="Chablis", producer="Raveneau", vintage="2020",
+        quantity=2, quantity_present=True, location_name="frigo vini",
+    )
+    proposed, executed = propose_and_confirm(client, "Sposta 2 bottiglie di Chablis nel frigo vini")
+    assert "«Frigo vini»" in proposed["message"]
+    assert places().get("Frigo vini") == 2
+
+    client.post(f"/api/v1/ai/cellar-commands/{executed['command_id']}/undo")
+    assert places() == before
+
+    # An unknown place is reported with the places that exist.
+    interpret_as(monkeypatch, intent="move_wine", wine_name="Chablis", location_name="garage")
+    unknown = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={"request_id": str(uuid.uuid4()), "text": "Sposta il Chablis in garage", "locale": "it", "timezone": "Europe/Zurich"},
+    ).json()
+    assert unknown["status"] == "failed"
+    assert "Frigo vini" in unknown["message"]
+
+
+def test_cellar_ai_rates_a_finished_wine_and_adds_a_note(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wine = client.post(
+        "/api/v1/wines",
+        json={"name": "Chianti", "producer": "Fontodi", "vintage": "2018", "quantity": 0, "status": "Consumed", "rating": 2, "notes": "Acquistato in cantina."},
+    ).json()
+    interpret_as(
+        monkeypatch, intent="rate_wine", wine_name="Chianti", producer="Fontodi", vintage="2018",
+        score_present=True, score_value=5, score_scale=6, note="Splendido con il brasato",
+    )
+    proposed, executed = propose_and_confirm(client, "Dai 5 stelle al Chianti Fontodi 2018 e aggiungi una nota: splendido con il brasato")
+    assert "voto 5/6" in proposed["message"]
+    rated = client.get(f"/api/v1/wines/{wine['id']}").json()
+    assert rated["rating"] == 5
+    assert rated["notes"].startswith("Acquistato in cantina.\n")
+    assert rated["notes"].endswith("Splendido con il brasato")
+
+    client.post(f"/api/v1/ai/cellar-commands/{executed['command_id']}/undo")
+    restored = client.get(f"/api/v1/wines/{wine['id']}").json()
+    assert (restored["rating"], restored["notes"]) == (2, "Acquistato in cantina.")
 
 
 def test_cellar_ai_command_assigns_intelligence_objective_without_overwriting_and_can_undo(
@@ -5703,6 +5918,13 @@ def test_cellar_ai_shipment_updates_only_matching_ordered_wine(monkeypatch):
     )
 
     assert command.status_code == 200
+    assert command.json()["status"] == "needs_confirmation"
+    assert [item["wine_id"] for item in command.json()["candidates"]] == [ordered.json()["id"]]
+    assert client.get(f"/api/v1/wines/{ordered.json()['id']}").json()["status"] == "Ordered"
+    command = client.post(
+        f"/api/v1/ai/cellar-commands/{command.json()['command_id']}/execute",
+        json={"wine_id": ordered.json()["id"]},
+    )
     assert command.json()["status"] == "executed"
     assert command.json()["matched_wine"]["wine_id"] == ordered.json()["id"]
     shipped = client.get(f"/api/v1/wines/{ordered.json()['id']}").json()
@@ -6173,6 +6395,13 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
     )
 
     assert response.status_code == 200
+    # The named list is proposed alone and filled only on confirmation.
+    assert response.json()["status"] == "wishlist_selection"
+    assert [item["name"] for item in response.json()["wishlist_lists"]] == ["Rossi"]
+    response = client.post(
+        f"/api/v1/ai/cellar-commands/{response.json()['command_id']}/wishlist",
+        json={"wishlist_list_id": wishlist_list.json()["id"]},
+    )
     assert response.json()["status"] == "executed"
     items = client.get(f"/api/v1/wishlist?wishlist_list_id={wishlist_list.json()['id']}").json()
     assert [

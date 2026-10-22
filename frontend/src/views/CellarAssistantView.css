@@ -114,3 +114,13 @@
 .cellar-assistant-speak.is-speaking { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--surface-raised)); }
 .cellar-assistant-read-aloud { display: flex !important; align-items: center; gap: 10px; font-weight: 600 !important; }
 .cellar-assistant-read-aloud input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+
+/* One proposed bottle or list: what will change, then an explicit Confirm. */
+.cellar-assistant-confirm { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border)); border-radius: var(--radius-card); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.cellar-assistant-confirm > span { display: grid; gap: 2px; min-width: 0; }
+.cellar-assistant-confirm small { color: var(--text-muted); }
+.cellar-assistant-confirm > button { flex: none; min-height: 44px; min-width: 120px; }
+@media (max-width: 620px) {
+  .cellar-assistant-confirm { display: grid; }
+  .cellar-assistant-confirm > button { width: 100%; }
+}

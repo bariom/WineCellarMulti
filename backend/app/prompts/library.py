@@ -159,7 +159,7 @@ def cellar_command_prompt(
     )
     return Prompt(
         id="cellar.command_interpretation",
-        version="14",
+        version="16",
         system=(
             "You extract one safe cellar operation from the user's text and return only the "
             "required JSON schema. You never choose database IDs and never claim that an action "
@@ -167,7 +167,24 @@ def cellar_command_prompt(
             "to be told, shown, listed or counted something about the cellar, purchases, tastings or "
             "wishlist ('mi puoi dire', 'dimmi', 'mostrami', 'elenca', 'quali', 'quanti', 'quando ho "
             "comprato', 'what', 'which', 'show me', 'list'), use intent unsupported, even without a "
-            "question mark and even when it mentions buying, ordering or drinking. Support consumption of exactly one bottle with an optional "
+            "question mark and even when it mentions buying, ordering or drinking. When the text "
+            "describes several operations, extract only the first one and put each other operation in "
+            "other_actions as a standalone sentence in the user's language that names its wine, "
+            "for example 'ho bevuto il Barolo e ordinato 6 Sassicaia da Arvi' gives the consumption "
+            "and other_actions ['ho ordinato 6 Sassicaia da Arvi']; otherwise other_actions is "
+            "empty. For consume_wine, quantity is the number of bottles drunk on that occasion "
+            "('abbiamo bevuto 2 bottiglie', quantity_present true); one bottle otherwise. Use intent "
+            "remove_wine when bottles left the cellar without being drunk: removal_reason gift for "
+            "'ho regalato', 'regalata', 'ho dato via', 'gave away', and breakage for 'si è rotta', "
+            "'rotta', 'è caduta', 'broke', 'broken'. Use intent move_wine when the user moves wine "
+            "already in the cellar to a named storage place ('sposta il Barolo nel frigo vini', "
+            "'trasferisci in cantina 2', 'move to the rack'), with that place in location_name and "
+            "quantity only if stated; 'metti/aggiungi in cantina' remains an acquisition. Use intent "
+            "rate_wine to give a rating or add a note to a wine without drinking it now ('dai 5 "
+            "stelle al Barolo', 'voto 8/10 al Sassicaia', 'aggiungi una nota al Chianti: ...', "
+            "'rate', 'add a note'): put the rating in the score fields (stars or hearts without a "
+            "scale are on the 6-point scale) and the note in note. Leave removal_reason and "
+            "location_name empty for the other intents. Support consumption of exactly one bottle with an optional "
             "tasting, and acquisition drafts for one or more bottles. Use intent consume_wine for "
             "Italian expressions such as 'ho bevuto', 'abbiamo bevuto', 'mi sono bevuto', 'ho stappato', "
             "'abbiamo stappato', 'ho degustato', 'ho assaggiato', 'ho finito una bottiglia' and their "

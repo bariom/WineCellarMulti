@@ -126,6 +126,7 @@ from app.schemas.ai import (
 )
 from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
+from app.services import cellar_command_actions as wine_actions
 from app.services import wine_shelf_scan
 from app.services.ai_credits import (
     ZERO_USD,
@@ -155,7 +156,11 @@ from app.services.shared_wine_data import (
     publish_shared_fact,
 )
 from app.services.stock_ledger import add_inbound_stock
-from app.services.taste_profiles import calculate_taste_match, compact_taste_context
+from app.services.taste_profiles import (
+    calculate_taste_match,
+    compact_taste_context,
+    record_user_wine_rating,
+)
 from app.services.valuation_market import market_instruction, source_matches_market
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
@@ -1383,12 +1388,13 @@ def matching_cellar_command_wines(
     parsed: dict[str, Any],
     *,
     required_status: str | None = None,
+    include_finished: bool = False,
 ) -> list[tuple[Wine, float]]:
     wines = list(db.scalars(select(Wine).where(Wine.household_id == context.household.id)))
     ranked = [
         (wine, cellar_command_match_score(parsed, wine))
         for wine in wines
-        if wine.quantity > 0
+        if (wine.quantity > 0 or include_finished)
         and user_can_see_wine(context, wine)
         and (required_status is None or wine.status == required_status)
     ]
@@ -1795,10 +1801,14 @@ def cellar_command_response(
                 if command.intent == "collect_wine"
                 else None
             ),
+            include_finished=command.intent == "rate_wine",
         )
         if command.status == "needs_confirmation" and not bulk_wine_ids
         else []
     )
+    confirm_wine_id = str(parsed.get("_confirm_wine_id") or "")
+    if confirm_wine_id and any(str(wine.id) == confirm_wine_id for wine, _ in ranked):
+        ranked = [item for item in ranked if str(item[0].id) == confirm_wine_id]
     matched = db.get(Wine, command.matched_wine_id) if command.matched_wine_id else None
     localized_message = message or {
         "processing": "Comando in elaborazione.",
@@ -1829,10 +1839,13 @@ def cellar_command_response(
             [
                 CellarCommandWishlistList(wishlist_list_id=item.id, name=item.name)
                 for item in cellar_command_wishlist_lists(db, context)
+                if not parsed.get("_wishlist_list_id")
+                or str(item.id) == str(parsed.get("_wishlist_list_id"))
             ]
             if command.status == "wishlist_selection"
             else []
         ),
+        follow_up_texts=[str(item) for item in parsed.get("_follow_ups") or []],
         matched_wine=cellar_command_candidate(matched) if matched is not None else None,
         tasting=cellar_command_tasting(parsed) if command.intent == "consume_wine" else None,
         purchase_draft=(
@@ -2277,6 +2290,119 @@ def execute_cellar_ai_command(
             command,
             message=f"Aggiunte {purchase.quantity} bottiglie a {wine.name} {wine.vintage} come nuovo lotto.",
         )
+    parsed = dict(command.parsed_payload or {})
+    italian = parsed.get("_locale") == "it"
+    label = f"{wine.name} {wine.vintage}".strip()
+    if command.intent == "remove_wine":
+        count = wine_actions.action_quantity(parsed)
+        reason = str(parsed.get("removal_reason") or "breakage")
+        previous_quantity, previous_status = wine.quantity, wine.status
+        before = wine_actions.stock_movement_ids(db, wine)
+        wine_actions.remove_more_bottles(
+            db,
+            wine,
+            quantity=count,
+            movement_type=wine_actions.REMOVAL_MOVEMENTS.get(reason, "breakage"),
+            occurred_on=local_today,
+            note=command.raw_text,
+            user_id=context.user.id,
+        )
+        parsed["_movement_ids"] = [
+            str(item) for item in wine_actions.stock_movement_ids(db, wine) - before
+        ]
+        parsed["_removed_quantity"] = count
+        command.parsed_payload = parsed
+        command.status = "executed"
+        command.matched_wine_id = wine.id
+        command.previous_quantity = previous_quantity
+        command.previous_status = previous_status
+        command.executed_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        db.refresh(wine)
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=(
+                f"Fatto. {label}: {previous_quantity} → {wine.quantity} bottiglie."
+                if italian
+                else f"Done. {label}: {previous_quantity} → {wine.quantity} bottles."
+            ),
+        )
+    if command.intent == "move_wine":
+        if not parsed.get("_move_location_id"):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="The destination is missing"
+            )
+        count = (
+            wine_actions.action_quantity(parsed) if parsed.get("quantity_present") else wine.quantity
+        )
+        if count < 1 or count > wine.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Not enough bottles to move"
+            )
+        parsed["_previous_storage"] = wine_actions.storage_snapshot(db, wine)
+        moved = wine_actions.move_bottles(
+            db,
+            wine,
+            quantity=count,
+            location_id=UUID(str(parsed["_move_location_id"])),
+            bin_id=UUID(str(parsed["_move_bin_id"])) if parsed.get("_move_bin_id") else None,
+            user_id=context.user.id,
+            note=command.raw_text,
+        )
+        if moved == 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The bottles are already in that place",
+            )
+        parsed["_moved_quantity"] = moved
+        command.parsed_payload = parsed
+        command.status = "executed"
+        command.matched_wine_id = wine.id
+        command.previous_quantity = wine.quantity
+        command.executed_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        destination = str(parsed.get("_move_destination") or "")
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=(
+                f"Fatto. {wine_actions.bottles(moved, True)} di {label} in «{destination}»."
+                if italian
+                else f"Done. {wine_actions.bottles(moved, False)} of {label} moved to “{destination}”."
+            ),
+        )
+    if command.intent == "rate_wine":
+        parsed["_previous_rating"] = wine.rating
+        parsed["_previous_notes"] = wine.notes or ""
+        wine_actions.apply_rating(
+            db,
+            wine,
+            rating=float(parsed["score_value"]) if parsed.get("score_present") else None,
+            note=str(parsed.get("note") or "").strip(),
+            user_id=context.user.id,
+            noted_on=local_today,
+        )
+        command.parsed_payload = parsed
+        command.status = "executed"
+        command.matched_wine_id = wine.id
+        command.executed_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=f"Fatto. {label} aggiornato." if italian else f"Done. {label} updated.",
+        )
+    count = wine_actions.action_quantity(parsed)
+    if count > wine.quantity:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Not enough bottles in stock")
+    before = wine_actions.stock_movement_ids(db, wine)
     tasting = cellar_command_tasting(command.parsed_payload or {})
     try:
         result = record_wine_consumption(
@@ -2297,6 +2423,19 @@ def execute_cellar_ai_command(
         )
     except NoBottlesAvailableError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+    # Several bottles of the same occasion: one tasting, the others taken out too.
+    wine_actions.remove_more_bottles(
+        db,
+        wine,
+        quantity=count - 1,
+        movement_type="consumption",
+        occurred_on=parsed_cellar_command_date(command.parsed_payload or {}, local_today),
+        note=tasting.note,
+        user_id=context.user.id,
+    )
+    parsed["_movement_ids"] = [str(item) for item in wine_actions.stock_movement_ids(db, wine) - before]
+    parsed["_removed_quantity"] = count
+    command.parsed_payload = parsed
     # Insert the tasting before storing its id on the AI command.  These two
     # models have no ORM relationship, so PostgreSQL can otherwise issue the
     # command update first and reject it on the foreign-key constraint.
@@ -2345,9 +2484,14 @@ CELLAR_COMMAND_SCHEMA = {
                     "collect_wine",
                     "add_to_wishlist",
                     "set_strategy",
+                    "remove_wine",
+                    "move_wine",
+                    "rate_wine",
                     "unsupported",
                 ],
             },
+            "removal_reason": {"type": "string", "enum": ["", "gift", "breakage"]},
+            "location_name": {"type": "string"},
             "explicit_action": {"type": "boolean"},
             "wine_name": {"type": "string"},
             "producer": {"type": "string"},
@@ -2381,6 +2525,7 @@ CELLAR_COMMAND_SCHEMA = {
             "occasion": {"type": "string"},
             "pairing": {"type": "string"},
             "companions": {"type": "string"},
+            "other_actions": {"type": "array", "items": {"type": "string"}},
         },
         "required": [
             "intent",
@@ -2407,9 +2552,15 @@ CELLAR_COMMAND_SCHEMA = {
             "pairing",
             "companions",
             "wishlist_list_name",
+            "other_actions",
+            "removal_reason",
+            "location_name",
         ],
     },
 }
+
+# A message may describe several operations; each follow-up becomes its own command.
+CELLAR_COMMAND_MAX_FOLLOW_UPS = 4
 
 
 def ensure_cellar_ai_assistant_available(context: CurrentContext) -> None:
@@ -2637,6 +2788,12 @@ def create_cellar_ai_command(
         payload.text, str(parsed.get("merchant") or "")
     )
     parsed["_locale"] = payload.locale
+    raw_follow_ups = parsed.pop("other_actions", None)
+    parsed["_follow_ups"] = [
+        str(item).strip()[:2000]
+        for item in (raw_follow_ups if isinstance(raw_follow_ups, list) else [])
+        if len(str(item).strip()) >= 3
+    ][:CELLAR_COMMAND_MAX_FOLLOW_UPS]
     if parsed_intent == "consume_wine" and not str(parsed.get("consumed_at") or "").strip():
         parsed["consumed_at"] = local_today.isoformat()
     if parsed_intent == "acquire_wine" and not str(parsed.get("purchase_date") or "").strip():
@@ -2667,7 +2824,7 @@ def create_cellar_ai_command(
     command.model = response.model or settings.openai_cellar_command_model
     command.reasoning_effort = response.reasoning_effort or "none"
     command.estimated_cost_usd = response.charged_cost_usd
-    if command.intent == "consume_wine":
+    if command.intent in {"consume_wine", "rate_wine"}:
         try:
             normalize_cellar_command_tasting_score(parsed)
         except (InvalidOperation, ValueError):
@@ -2765,7 +2922,21 @@ def create_cellar_ai_command(
             wishlist_lists,
         )
         if matching_list is not None:
-            return execute_cellar_ai_wishlist_command(db, context, command, matching_list)
+            # Every change is confirmed: propose the list the user named.
+            parsed["_wishlist_list_id"] = str(matching_list.id)
+            command.parsed_payload = parsed
+            command.status = "wishlist_selection"
+            db.commit()
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message=(
+                    f"Aggiungo il vino alla wishlist «{matching_list.name}»: conferma."
+                    if payload.locale == "it"
+                    else f"I will add the wine to the “{matching_list.name}” wishlist: confirm."
+                ),
+            )
         command.status = "wishlist_selection"
         db.commit()
         return cellar_command_response(
@@ -3070,11 +3241,21 @@ def create_cellar_ai_command(
         best_wine, best_score = ranked[0]
         clear_lead = len(ranked) == 1 or best_score - ranked[1][1] >= 20
         command.status = "needs_confirmation"
-        db.commit()
         if best_score >= 100 and clear_lead:
-            return execute_cellar_ai_command(
-                db, context, command, best_wine.id, local_today=local_today
+            parsed["_confirm_wine_id"] = str(best_wine.id)
+            command.parsed_payload = parsed
+            db.commit()
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message=(
+                    "Ho trovato l’ordine: conferma per segnarlo come spedito."
+                    if payload.locale == "it"
+                    else "I found the order: confirm to mark it as shipped."
+                ),
             )
+        db.commit()
         return cellar_command_response(
             db,
             context,
@@ -3085,7 +3266,7 @@ def create_cellar_ai_command(
                 else "I found several possible ordered wines. Choose the one that was shipped."
             ),
         )
-    if command.intent != "consume_wine":
+    if command.intent not in wine_actions.WINE_ACTIONS:
         command.status = "unsupported"
         db.commit()
         return cellar_command_response(
@@ -3094,16 +3275,47 @@ def create_cellar_ai_command(
             command,
             message="Posso registrare una bevuta oppure preparare l’aggiunta di un vino.",
         )
-    if int(parsed.get("quantity") or 1) != 1:
-        command.status = "unsupported"
+    italian = payload.locale == "it"
+    if command.intent == "move_wine":
+        destination = wine_actions.matching_location(
+            db, context.household.id, str(parsed.get("location_name") or "")
+        )
+        if destination is None:
+            names = ", ".join(wine_actions.location_names(db, context.household.id))
+            requested_place = str(parsed.get("location_name") or "").strip()
+            command.status = "failed"
+            db.commit()
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message=(
+                    f"Non trovo la posizione «{requested_place}». "
+                    + (f"Posizioni della cantina: {names}." if names else "Crea prima le posizioni in Cantina.")
+                    if italian
+                    else f"I cannot find the place “{requested_place}”. "
+                    + (f"Cellar places: {names}." if names else "Create the places in the Cellar first.")
+                ),
+            )
+        location, cellar_bin = destination
+        parsed["_move_location_id"] = str(location.id)
+        parsed["_move_bin_id"] = str(cellar_bin.id) if cellar_bin else None
+        parsed["_move_destination"] = location.name + (f" · {cellar_bin.name}" if cellar_bin else "")
+        command.parsed_payload = parsed
+    if command.intent == "rate_wine" and not (
+        parsed.get("score_present") or str(parsed.get("note") or "").strip()
+    ):
+        command.status = "failed"
         db.commit()
         return cellar_command_response(
             db,
             context,
             command,
-            message="Il consumo tramite assistente supporta una bottiglia alla volta.",
+            message="Indica un voto o una nota per il vino." if italian else "Give a rating or a note for the wine.",
         )
-    ranked = matching_cellar_command_wines(db, context, parsed)
+    ranked = matching_cellar_command_wines(
+        db, context, parsed, include_finished=command.intent == "rate_wine"
+    )
     if not ranked:
         command.status = "not_found"
         db.commit()
@@ -3113,11 +3325,17 @@ def create_cellar_ai_command(
     best_wine, best_score = ranked[0]
     clear_lead = len(ranked) == 1 or best_score - ranked[1][1] >= 20
     command.status = "needs_confirmation"
-    db.commit()
-    if bool(parsed.get("explicit_action")) and best_score >= 100 and clear_lead:
-        return execute_cellar_ai_command(
-            db, context, command, best_wine.id, local_today=local_today
+    if best_score >= 100 and clear_lead:
+        parsed["_confirm_wine_id"] = str(best_wine.id)
+        command.parsed_payload = parsed
+        db.commit()
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=wine_actions.proposal_message(command.intent, parsed, best_wine, italian),
         )
+    db.commit()
     return cellar_command_response(
         db,
         context,
@@ -3476,9 +3694,82 @@ def undo_cellar_ai_command(
                 else f"Undone. {wine.name} {wine.vintage} is marked for collection again."
             ),
         )
+    label = f"{wine.name} {wine.vintage}".strip()
+    italian = parsed.get("_locale") == "it"
+    if command.intent == "remove_wine":
+        removed = int(parsed.get("_removed_quantity") or 1)
+        if wine.quantity != (command.previous_quantity or 0) - removed:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The wine changed after this command and cannot be safely restored",
+            )
+        wine_actions.restore_removed_bottles(
+            db,
+            wine,
+            [str(item) for item in parsed.get("_movement_ids") or []],
+            quantity=removed,
+            previous_status=command.previous_status or wine.status,
+        )
+        command.status = "undone"
+        command.undone_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        db.refresh(wine)
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=(
+                f"Annullato. {label} è tornato a {wine.quantity} bottiglie."
+                if italian
+                else f"Undone. {label} is back to {wine.quantity} bottles."
+            ),
+        )
+    if command.intent == "move_wine":
+        snapshot = parsed.get("_previous_storage")
+        if not isinstance(snapshot, list) or wine.quantity != command.previous_quantity:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The wine changed after this command and cannot be safely restored",
+            )
+        wine_actions.restore_storage(db, wine, snapshot)
+        command.status = "undone"
+        command.undone_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=(
+                f"Annullato. {label} è tornato nelle posizioni di prima."
+                if italian
+                else f"Undone. {label} is back where it was."
+            ),
+        )
+    if command.intent == "rate_wine":
+        previous_rating = float(parsed.get("_previous_rating") or 0)
+        wine.rating = previous_rating
+        wine.notes = str(parsed.get("_previous_notes") or "")
+        record_user_wine_rating(db, user_id=context.user.id, wine=wine, rating=previous_rating)
+        command.status = "undone"
+        command.undone_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=(
+                f"Annullato. Voto e note di {label} ripristinati."
+                if italian
+                else f"Undone. Rating and notes of {label} restored."
+            ),
+        )
     if command.tasting_id is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Command cannot be undone")
-    expected_quantity = max((command.previous_quantity or 1) - 1, 0)
+    removed = int(parsed.get("_removed_quantity") or 1)
+    expected_quantity = max((command.previous_quantity or 1) - removed, 0)
     if wine.quantity != expected_quantity:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -3500,8 +3791,18 @@ def undo_cellar_ai_command(
             if str(entry.get("id") or "") != str(command.tasting_id)
         ]
     )
-    wine.quantity = command.previous_quantity or wine.quantity + 1
-    wine.status = command.previous_status
+    if parsed.get("_movement_ids"):
+        # Bottles go back into their purchase lots and storage, not only the record.
+        wine_actions.restore_removed_bottles(
+            db,
+            wine,
+            [str(item) for item in parsed["_movement_ids"]],
+            quantity=removed,
+            previous_status=command.previous_status or wine.status,
+        )
+    else:
+        wine.quantity = command.previous_quantity or wine.quantity + 1
+        wine.status = command.previous_status
     command.status = "undone"
     command.undone_at = datetime.now(UTC)
     db.commit()

@@ -112,3 +112,57 @@ test("the cellar assistant is offered to subscribers only", async ({ page }) => 
   await expect(locked.getByRole("button", { name: /Scopri Riserva/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
+
+test("several actions in one message become cards confirmed one by one", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], true, memberships, [wine], { ...session, cellar_ai_assistant_available: true });
+  await page.addInitScript((fixture) => {
+    const previous = window.fetch;
+    const record = (key: string, value: unknown) => sessionStorage.setItem(key, JSON.stringify([...JSON.parse(sessionStorage.getItem(key) || "[]"), value]));
+    const base = { candidates: [], catalog_candidates: [], wishlist_lists: [], matched_wine: null, tasting: null, purchase_draft: null, strategy_purpose: null, strategy_quantity: null, strategy_bulk: false, collection_bulk: false, previous_quantity: null, new_quantity: null, model: "gpt-6-luna", estimated_cost_usd: "0.0003", follow_up_texts: [] };
+    const candidate = { wine_id: fixture.id, name: fixture.name, producer: fixture.producer, vintage: fixture.vintage, format: "", quantity: 4, location: "" };
+    const tasting = { consumed_at: "2026-10-21", note: "", score_value: null, score_scale: null, occasion: "", pairing: "", companions: "" };
+    window.fetch = async (input, init) => {
+      const path = new URL(String(input instanceof Request ? input.url : input), location.href).pathname;
+      if (path === "/api/v1/ai/cellar-commands") {
+        const text = JSON.parse(String(init?.body)).text;
+        record("commands", text);
+        if (text.startsWith("ho ordinato")) {
+          return Response.json({ ...base, command_id: "cmd-order", status: "draft_ready", intent: "acquire_wine", message: "Vino trovato nel catalogo. Ho precompilato la scheda da verificare.",
+            purchase_draft: { catalog_entry_id: null, lookup_source: "catalog", name: "Sassicaia", producer: "Tenuta San Guido", vintage: "2021", quantity: 6, format: "", region: "Toscana", appellation: "", type: "Red", country: "Italia", grapes_text: "", price: null, currency: "CHF", merchant: "Arvi", order_date: "2026-10-21", status: "Ordered" } });
+        }
+        return Response.json({ ...base, command_id: "cmd-drink", status: "needs_confirmation", intent: "consume_wine", message: "Ho preparato la bevuta: controlla e conferma.", candidates: [candidate], tasting, follow_up_texts: ["ho ordinato 6 Sassicaia 2021 da Arvi"] });
+      }
+      if (path === "/api/v1/ai/cellar-commands/cmd-drink/execute") {
+        record("executed", JSON.parse(String(init?.body)));
+        return Response.json({ ...base, command_id: "cmd-drink", status: "executed", intent: "consume_wine", message: "Fatto. Bevuta registrata.", matched_wine: candidate, tasting, previous_quantity: 4, new_quantity: 3 });
+      }
+      return previous(input, init);
+    };
+  }, wine);
+  const stored = (key: string) => page.evaluate((name) => JSON.parse(sessionStorage.getItem(name) || "[]"), key);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  await page.getByRole("button", { name: "Assistente AI", exact: true }).click();
+  await page.getByLabel("Chiedi o racconta", { exact: true }).fill("Ho bevuto il Nebbiolo e ho ordinato 6 Sassicaia 2021 da Arvi");
+  await page.getByRole("button", { name: "Continua", exact: true }).click();
+
+  // Each operation has its own card; nothing is written before a confirmation.
+  const cards = page.locator(".cellar-assistant-result");
+  await expect(cards).toHaveCount(2);
+  expect(await stored("commands")).toEqual(["Ho bevuto il Nebbiolo e ho ordinato 6 Sassicaia 2021 da Arvi", "ho ordinato 6 Sassicaia 2021 da Arvi"]);
+  expect(await stored("executed")).toEqual([]);
+  await expect(cards.nth(0)).toContainText("Ho preparato la bevuta");
+  await expect(cards.nth(1)).toContainText("Sassicaia");
+  await expect(cards.nth(1).getByRole("button", { name: "Apri la scheda del vino" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.locator(".cellar-assistant-result").first().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("assistant-two-actions-390.png"), fullPage: true });
+
+  await cards.nth(0).getByRole("button", { name: "Conferma", exact: true }).click();
+  await expect(cards.nth(0)).toContainText("Fatto. Bevuta registrata.");
+  expect(await stored("executed")).toEqual([{ wine_id: wine.id }]);
+  await expect(cards.nth(0).getByRole("button", { name: "Annulla aggiornamento" })).toBeVisible();
+  // The other card is unchanged and still waits for its own step.
+  await expect(cards.nth(1).getByRole("button", { name: "Apri la scheda del vino" })).toBeVisible();
+});
