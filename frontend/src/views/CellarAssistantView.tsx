@@ -16,6 +16,12 @@ import { primeSpeech, speak, speechSupported, stopSpeaking } from "../utils/spee
 
 const READ_ALOUD_KEY = "vinaris.assistant.read-aloud";
 
+// Voice conversation replies. The lookahead replaces \b, which fails after "ì".
+const VOICE_YES = /^(s[iì]|conferma|confermo|confermato|ok|okay|va bene|vai|procedi|certo|esatto|yes|yeah|confirm|go ahead|sure)(?=[\s,.!]|$)/;
+const VOICE_NO = /^(no|annulla|lascia stare|lascia perdere|non confermare|cancel|never mind|nope)(?=[\s,.!]|$)/;
+const VOICE_STOP = /^(basta|fine|stop|esci|chiudi|termina|smetti|that'?s all|exit|end)(?=[\s,.!]|$)/;
+const spokenReply = (text: string) => text.trim().toLowerCase().replace(/[.!?…]+$/, "").trim();
+
 // Openings of a question or a request to be told something. The lookahead replaces
 // \b, which does not work after accented letters such as "c'è" or "perché".
 const QUESTION_OPENING = /^(mi\s+(puoi|potresti|sai)\s+(dire|mostrare|elencare|indicare|ricordare)|dimmi|mostrami|elencami|elenca|fammi\s+vedere|quali|quale|quanti|quante|quanto|cosa|che\s+cosa|chi|dove|quando|perch[eé]|c['’]?\s*è|ci\s+sono|ho\s+ancora|what|which|how|when|where|who|why|show\s+me|list|tell\s+me|can\s+you\s+(tell|show|list)|do\s+i|did\s+i|have\s+i|is\s+there|are\s+there)(?=[\s,.!:;]|$)/i;
@@ -110,6 +116,13 @@ export default function CellarAssistantView({
   });
   // Conversation turn being read aloud; -1 is the command result.
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+  // Voice conversation: listen, send what was said, read the answer aloud, listen again.
+  const [voiceMode, setVoiceMode] = useState(false);
+  const voiceModeRef = useRef(false);
+  // What the microphone heard in voice mode, handled in an effect with fresh state.
+  const [heard, setHeard] = useState<{ id: number; text: string } | null>(null);
+  const silentTurnsRef = useRef(0);
+  const startVoiceInputRef = useRef<() => Promise<void>>(async () => {});
   const voiceSupported = Boolean(browserVoiceRecognition());
   const isItalian = locale === "it";
   const consumptionExample = isItalian
@@ -242,7 +255,7 @@ export default function CellarAssistantView({
   // a newly added answer is read, not one already on screen when it is switched on.
   const lastTurn = conversation[conversation.length - 1];
   useEffect(() => {
-    if (!readAloud || lastTurn?.role !== "assistant") return;
+    if (!(readAloud || voiceMode) || lastTurn?.role !== "assistant") return;
     const index = conversation.length - 1;
     if (speak(lastTurn.content, locale, () => setSpeakingIndex((current) => (current === index ? null : current)))) setSpeakingIndex(index);
   }, [conversation.length]);
@@ -251,10 +264,96 @@ export default function CellarAssistantView({
   useEffect(() => {
     const fresh = results.filter((item) => item.message && spokenMessages.current[item.command_id] !== item.message);
     for (const item of results) spokenMessages.current[item.command_id] = item.message;
-    if (!readAloud || !fresh.length) return;
-    if (speak(fresh.map((item) => item.message).join(" "), locale, () => setSpeakingIndex((current) => (current === -1 ? null : current)))) setSpeakingIndex(-1);
+    if (!(readAloud || voiceMode) || !fresh.length) return;
+    const hint = voiceMode && fresh.some((item) => confirmableCard([item]))
+      ? (isItalian ? " Di' sì per confermare o no per lasciar stare." : " Say yes to confirm or no to skip it.")
+      : "";
+    if (speak(fresh.map((item) => item.message).join(" ") + hint, locale, () => setSpeakingIndex((current) => (current === -1 ? null : current)))) setSpeakingIndex(-1);
   }, [results]);
-  useEffect(() => () => stopSpeaking(), []);
+  useEffect(() => () => {
+    voiceModeRef.current = false;
+    stopSpeaking();
+  }, []);
+
+  /** The first card a spoken "yes" would confirm: one proposed wine, list or batch. */
+  function confirmableCard(items: CellarCommandResult[]) {
+    return items.find((item) => (
+      item.status === "needs_confirmation" && (item.strategy_bulk || item.collection_bulk || item.candidates.length === 1)
+    ) || (item.status === "wishlist_selection" && item.wishlist_lists.length === 1)) ?? null;
+  }
+
+  async function confirmCard(card: CellarCommandResult) {
+    if (card.status === "wishlist_selection") await selectWishlistList(card, card.wishlist_lists[0].wishlist_list_id);
+    else if (card.strategy_bulk || card.collection_bulk) await executeBulkStrategy(card);
+    else await execute(card, card.candidates[0].wine_id);
+  }
+
+  function stopVoiceMode(message: string) {
+    voiceModeRef.current = false;
+    setVoiceMode(false);
+    recognitionRef.current?.stop();
+    setListening(false);
+    setVoiceMessage(message);
+  }
+
+  async function startVoiceMode() {
+    // Inside the tap, so mobile browsers allow the answers to be spoken.
+    primeSpeech();
+    voiceModeRef.current = true;
+    setVoiceMode(true);
+    silentTurnsRef.current = 0;
+    await startVoiceInput();
+  }
+
+  /** Listen again once the answer has been read, so the microphone does not hear it. */
+  function resumeListening() {
+    const check = () => {
+      if (!voiceModeRef.current) return;
+      if (speechSupported() && window.speechSynthesis.speaking) {
+        window.setTimeout(check, 300);
+        return;
+      }
+      void startVoiceInputRef.current();
+    };
+    window.setTimeout(check, 600);
+  }
+
+  async function handleVoiceTurn(spoken: string) {
+    if (!voiceModeRef.current) return;
+    if (!spoken) {
+      silentTurnsRef.current += 1;
+      if (silentTurnsRef.current >= 2) {
+        const goodbye = isItalian ? "Non sento nulla: chiudo la conversazione a voce." : "I hear nothing: ending the voice conversation.";
+        stopVoiceMode(goodbye);
+        speak(goodbye, locale);
+        return;
+      }
+      resumeListening();
+      return;
+    }
+    silentTurnsRef.current = 0;
+    const reply = spokenReply(spoken);
+    if (VOICE_STOP.test(reply)) {
+      const goodbye = isItalian ? "Va bene, chiudo la conversazione a voce." : "All right, ending the voice conversation.";
+      stopVoiceMode(goodbye);
+      speak(goodbye, locale);
+      return;
+    }
+    const pending = confirmableCard(results);
+    if (pending && VOICE_YES.test(reply)) {
+      await confirmCard(pending);
+    } else if (pending && VOICE_NO.test(reply)) {
+      setResults((current) => current.filter((item) => item.command_id !== pending.command_id));
+      speak(isItalian ? "Va bene, lascio stare." : "All right, skipped.", locale);
+    } else {
+      await send(spoken);
+    }
+    resumeListening();
+  }
+
+  useEffect(() => {
+    if (heard) void handleVoiceTurn(heard.text);
+  }, [heard?.id]);
 
   function voiceErrorMessage(code: string) {
     if (code === "not-allowed" || code === "service-not-allowed") {
@@ -303,7 +402,11 @@ export default function CellarAssistantView({
         setVoiceMessage(isItalian ? "Lingua locale non disponibile; uso il servizio vocale del browser…" : "Local language unavailable; using the browser voice service…");
         return;
       }
-      setVoiceMessage(voiceErrorMessage(event.error));
+      if (voiceModeRef.current && event.error !== "no-speech") {
+        stopVoiceMode(voiceErrorMessage(event.error));
+        return;
+      }
+      if (!voiceModeRef.current) setVoiceMessage(voiceErrorMessage(event.error));
     };
     recognition.onend = () => {
       if (retryWithBrowserService) {
@@ -314,13 +417,19 @@ export default function CellarAssistantView({
         return;
       }
       const transcript = finalTranscriptRef.current;
-      appendVoiceTranscript(transcript);
+      if (voiceModeRef.current) {
+        setHeard({ id: Date.now(), text: transcript.trim() });
+        setVoiceMessage(transcript.trim() ? `${isItalian ? "Ho sentito" : "I heard"}: ${transcript.trim()}` : (isItalian ? "Ti ascolto…" : "Listening…"));
+      } else {
+        appendVoiceTranscript(transcript);
+      }
       setListening(false);
       recognitionRef.current = null;
       if (voiceTimeoutRef.current !== null) {
         window.clearTimeout(voiceTimeoutRef.current);
         voiceTimeoutRef.current = null;
       }
+      if (voiceModeRef.current) return;
       if (transcript.trim()) {
         setVoiceMessage(isItalian ? "Testo aggiunto. Controllalo prima di continuare." : "Text added. Review it before continuing.");
       } else {
@@ -331,6 +440,8 @@ export default function CellarAssistantView({
     recognition.start();
     voiceTimeoutRef.current = window.setTimeout(() => recognition.stop(), 45_000);
   }
+
+  startVoiceInputRef.current = () => startVoiceInput();
 
   async function startVoiceInput() {
     const Recognition = browserVoiceRecognition();
@@ -723,6 +834,13 @@ export default function CellarAssistantView({
             </button>
           </div>
         </div>
+        {voiceSupported && canSpeak ? <div className="cellar-assistant-voice-mode-row">
+          <button type="button" className={`cellar-assistant-voice-mode${voiceMode ? " is-active" : ""}`} aria-pressed={voiceMode} disabled={disabled || (!voiceMode && (busy || voicePreparing))} onClick={() => (voiceMode ? stopVoiceMode(isItalian ? "Conversazione a voce terminata." : "Voice conversation ended.") : void startVoiceMode())}>
+            <span aria-hidden="true">{voiceMode ? "■" : "🎧"}</span>
+            {voiceMode ? (isItalian ? "Termina la conversazione a voce" : "End the voice conversation") : (isItalian ? "Conversazione a voce" : "Voice conversation")}
+          </button>
+          <small>{isItalian ? "Parla liberamente: ti rispondo a voce. Di' «sì» per confermare, «no» per lasciar stare, «basta» per finire." : "Just talk: I answer aloud. Say “yes” to confirm, “no” to skip, “stop” to finish."}</small>
+        </div> : null}
         {canSpeak ? <label className="cellar-assistant-read-aloud"><input type="checkbox" checked={readAloud} onChange={(event) => changeReadAloud(event.target.checked)} /><span>{isItalian ? "Leggi le risposte ad alta voce" : "Read answers aloud"}</span></label> : null}
         {voiceMessage ? <p className={`cellar-assistant-voice-status${listening ? " is-listening" : ""}`} aria-live="polite">{voiceMessage}</p> : null}
         <small>{isItalian

@@ -166,3 +166,83 @@ test("several actions in one message become cards confirmed one by one", async (
   // The other card is unchanged and still waits for its own step.
   await expect(cards.nth(1).getByRole("button", { name: "Apri la scheda del vino" })).toBeVisible();
 });
+
+test("a voice conversation answers, confirms by voice and ends on request", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], true, memberships, [wine], { ...session, cellar_ai_assistant_available: true });
+  await page.addInitScript((fixture) => {
+    const win = window as unknown as Record<string, unknown>;
+    // What the user says, one phrase per listening turn.
+    win.voiceQueue = ["quali vini sono al picco", "ho bevuto il Nebbiolo", "sì", "basta"];
+    win.spoken = [];
+    class FakeRecognition {
+      lang = ""; continuous = false; interimResults = false; maxAlternatives = 1; ended = false;
+      onstart: (() => void) | null = null; onresult: ((event: unknown) => void) | null = null;
+      onerror: ((event: unknown) => void) | null = null; onend: (() => void) | null = null;
+      start() {
+        const next = (win.voiceQueue as string[]).shift();
+        window.setTimeout(() => {
+          this.onstart?.();
+          if (next) {
+            const result = Object.assign([{ transcript: next }], { isFinal: true });
+            this.onresult?.({ resultIndex: 0, results: [result] });
+          }
+          window.setTimeout(() => this.end(), 20);
+        }, 40);
+      }
+      end() { if (!this.ended) { this.ended = true; this.onend?.(); } }
+      stop() { this.end(); }
+      abort() { this.end(); }
+    }
+    Object.defineProperty(window, "SpeechRecognition", { value: FakeRecognition, configurable: true });
+    class Utterance { text: string; lang = ""; volume = 1; voice = null; onend: (() => void) | null = null; onerror: (() => void) | null = null; constructor(text: string) { this.text = text; } }
+    Object.defineProperty(window, "SpeechSynthesisUtterance", { value: Utterance, configurable: true });
+    Object.defineProperty(window, "speechSynthesis", { configurable: true, value: {
+      speaking: false, getVoices: () => [], cancel: () => {},
+      speak: (utterance: Utterance) => { if (utterance.text) (win.spoken as string[]).push(utterance.text); window.setTimeout(() => utterance.onend?.(), 20); },
+    } });
+    const previous = window.fetch;
+    const record = (key: string, value: unknown) => sessionStorage.setItem(key, JSON.stringify([...JSON.parse(sessionStorage.getItem(key) || "[]"), value]));
+    const base = { candidates: [], catalog_candidates: [], wishlist_lists: [], matched_wine: null, tasting: null, purchase_draft: null, strategy_purpose: null, strategy_quantity: null, strategy_bulk: false, collection_bulk: false, previous_quantity: null, new_quantity: null, model: "gpt-6-luna", estimated_cost_usd: "0.0003", follow_up_texts: [] };
+    const candidate = { wine_id: fixture.id, name: fixture.name, producer: fixture.producer, vintage: fixture.vintage, format: "", quantity: 4, location: "" };
+    window.fetch = async (input, init) => {
+      const path = new URL(String(input instanceof Request ? input.url : input), location.href).pathname;
+      if (path === "/api/v1/ai/cellar-assistant/ask") {
+        record("asked", JSON.parse(String(init?.body)).question);
+        return Response.json({ answer: "Il Nebbiolo di Test è al picco.", tools_used: [], model: "gpt-6-luna", reasoning_effort: "none", estimated_cost_usd: "0.001" });
+      }
+      if (path === "/api/v1/ai/cellar-commands") {
+        record("commands", JSON.parse(String(init?.body)).text);
+        return Response.json({ ...base, command_id: "cmd-voice", status: "needs_confirmation", intent: "consume_wine", message: "Ho preparato la bevuta: controlla e conferma.", candidates: [candidate] });
+      }
+      if (path === "/api/v1/ai/cellar-commands/cmd-voice/execute") {
+        record("executed", JSON.parse(String(init?.body)).wine_id);
+        return Response.json({ ...base, command_id: "cmd-voice", status: "executed", intent: "consume_wine", message: "Fatto. Bevuta registrata.", matched_wine: candidate, previous_quantity: 4, new_quantity: 3 });
+      }
+      return previous(input, init);
+    };
+  }, wine);
+  const stored = (key: string) => page.evaluate((name) => JSON.parse(sessionStorage.getItem(name) || "[]"), key);
+  const spoken = () => page.evaluate(() => (window as unknown as { spoken: string[] }).spoken);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  await page.getByRole("button", { name: "Assistente AI", exact: true }).click();
+  const toggle = page.getByRole("button", { name: "Conversazione a voce" });
+  await expect(toggle).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("voice-mode-off-390.png"), fullPage: true });
+  await toggle.click();
+  await expect(page.getByRole("button", { name: "Termina la conversazione a voce" })).toHaveAttribute("aria-pressed", "true");
+
+  // The question is answered and read aloud without touching Continue.
+  await expect.poll(() => stored("asked")).toEqual(["quali vini sono al picco"]);
+  await expect.poll(async () => (await spoken()).some((text) => text.includes("Il Nebbiolo di Test è al picco"))).toBe(true);
+  // The tasting is proposed, the proposal tells how to answer, and "sì" confirms it.
+  await expect.poll(() => stored("commands")).toEqual(["ho bevuto il Nebbiolo"]);
+  await expect.poll(async () => (await spoken()).some((text) => text.includes("Di' sì per confermare"))).toBe(true);
+  await expect.poll(() => stored("executed"), { timeout: 10_000 }).toEqual([wine.id]);
+  await expect(page.locator(".cellar-assistant-result")).toContainText("Fatto. Bevuta registrata.");
+  // "basta" ends the conversation.
+  await expect(page.getByRole("button", { name: "Conversazione a voce" })).toHaveAttribute("aria-pressed", "false", { timeout: 10_000 });
+  await expect.poll(async () => (await spoken()).at(-1)).toContain("chiudo la conversazione a voce");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});

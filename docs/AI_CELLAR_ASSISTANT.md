@@ -128,6 +128,18 @@ Browsers without `SpeechRecognition` or `webkitSpeechRecognition` receive the un
 experience and make no audio or transcription request. There is intentionally no paid transcription
 fallback.
 
+## Voice conversation
+
+"Conversazione a voce" turns the assistant into a hands-free loop: it listens, sends what was said
+(no Continue tap), reads the answer aloud and listens again once it has finished speaking, so the
+microphone does not hear the answer. When a card waits for confirmation the spoken proposal ends with
+"Di' sì per confermare o no per lasciar stare": "sì", "conferma", "ok"… confirm it (a single wine or
+list, or a whole batch), "no", "lascia stare"… drop the card, anything else is a new message.
+"basta", "fine" or "stop" end the conversation, as do two silent turns or a microphone error. Every
+change still needs that confirmation, which is why sending without a tap is safe. It uses the
+browser's own recognition and speech synthesis: no audio is uploaded or stored by Vinaris. Mobile
+browsers may stop restarting the microphone without a tap; the toggle then simply ends.
+
 ## Reading answers aloud
 
 Each assistant answer has a speaker button, and the option "Leggi le risposte ad alta voce" reads
