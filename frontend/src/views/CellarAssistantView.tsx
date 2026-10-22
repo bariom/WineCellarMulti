@@ -72,6 +72,8 @@ type CellarAssistantViewProps = {
   onCellarChanged: () => Promise<void> | void;
   onPreparePurchase: (draft: CellarCommandPurchaseDraft) => void;
   onOpenWishlist: () => void;
+  /** A question asked elsewhere (the home ask bar), sent as soon as the view opens. */
+  initialQuestion?: { id: number; text: string } | null;
 };
 
 export default function CellarAssistantView({
@@ -80,6 +82,7 @@ export default function CellarAssistantView({
   onCellarChanged,
   onPreparePurchase,
   onOpenWishlist,
+  initialQuestion = null,
 }: CellarAssistantViewProps) {
   const [text, setText] = useState("");
   const [result, setResult] = useState<CellarCommandResult | null>(null);
@@ -421,12 +424,20 @@ export default function CellarAssistantView({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!text.trim() || busy || disabled || listening) return;
+    await send(text);
+  }
+
+  useEffect(() => {
+    if (initialQuestion?.text.trim()) void send(initialQuestion.text);
+  }, [initialQuestion?.id]);
+
+  async function send(message: string) {
+    const question = message.trim();
+    if (!question || busy || disabled || listening) return;
     // Still inside the tap: lets mobile Safari read the answer when it arrives.
     if (readAloud) primeSpeech();
     setBusy(true);
     setError("");
-    const question = text.trim();
     try {
       // A question goes straight to the assistant, so "did I drink the Barolo?"
       // is never taken for a tasting to record. Dictation adds no question mark,
@@ -439,7 +450,7 @@ export default function CellarAssistantView({
         method: "POST",
         body: JSON.stringify({
           request_id: crypto.randomUUID(),
-          text: text.trim(),
+          text: question,
           locale,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Zurich",
         }),
@@ -656,33 +667,36 @@ export default function CellarAssistantView({
             disabled={disabled || busy}
             placeholder={purchaseExample}
           />
-          {voiceSupported ? (
-            <button
-              type="button"
-              className={`cellar-assistant-microphone${listening ? " is-listening" : ""}`}
-              onClick={listening ? stopVoiceInput : () => void startVoiceInput()}
-              disabled={disabled || busy || voicePreparing}
-              aria-pressed={listening}
-              aria-label={listening ? (isItalian ? "Ferma dettatura" : "Stop dictation") : (isItalian ? "Detta il comando" : "Dictate command")}
-              title={listening ? (isItalian ? "Ferma dettatura" : "Stop dictation") : (isItalian ? "Parla" : "Speak")}
-            >
-              <span aria-hidden="true">🎙</span>
-              {listening
-                ? (isItalian ? "Ferma" : "Stop")
-                : voicePreparing
-                  ? (isItalian ? "Preparo…" : "Preparing…")
-                  : (isItalian ? "Parla" : "Speak")}
-            </button>
-          ) : null}
         </div>
         <div className="cellar-assistant-composer-footer">
           <small id="cellar-assistant-continue-help">
             {isItalian ? "Risponde alle domande sulla cantina o prepara il prossimo aggiornamento." : "Answers cellar questions or prepares the next cellar update."}
           </small>
-          <button type="submit" disabled={disabled || busy || listening || !text.trim()} aria-describedby="cellar-assistant-continue-help">
-            <AppIcon name="glass-sparkle" variant="ai" />
-            {busy ? (isItalian ? "Elaborazione…" : "Processing…") : (isItalian ? "Continua" : "Continue")}
-          </button>
+          {/* Speak and send side by side, so dictating and sending are one thumb apart. */}
+          <div className="cellar-assistant-send-actions">
+              {voiceSupported ? (
+                <button
+                  type="button"
+                  className={`cellar-assistant-microphone${listening ? " is-listening" : ""}`}
+                  onClick={listening ? stopVoiceInput : () => void startVoiceInput()}
+                  disabled={disabled || busy || voicePreparing}
+                  aria-pressed={listening}
+                  aria-label={listening ? (isItalian ? "Ferma dettatura" : "Stop dictation") : (isItalian ? "Detta il comando" : "Dictate command")}
+                  title={listening ? (isItalian ? "Ferma dettatura" : "Stop dictation") : (isItalian ? "Parla" : "Speak")}
+                >
+                  <span aria-hidden="true">🎙</span>
+                  {listening
+                    ? (isItalian ? "Ferma" : "Stop")
+                    : voicePreparing
+                      ? (isItalian ? "Preparo…" : "Preparing…")
+                      : (isItalian ? "Parla" : "Speak")}
+                </button>
+              ) : null}
+            <button type="submit" disabled={disabled || busy || listening || !text.trim()} aria-describedby="cellar-assistant-continue-help">
+              <AppIcon name="glass-sparkle" variant="ai" />
+              {busy ? (isItalian ? "Elaborazione…" : "Processing…") : (isItalian ? "Continua" : "Continue")}
+            </button>
+          </div>
         </div>
         {canSpeak ? <label className="cellar-assistant-read-aloud"><input type="checkbox" checked={readAloud} onChange={(event) => changeReadAloud(event.target.checked)} /><span>{isItalian ? "Leggi le risposte ad alta voce" : "Read answers aloud"}</span></label> : null}
         {voiceMessage ? <p className={`cellar-assistant-voice-status${listening ? " is-listening" : ""}`} aria-live="polite">{voiceMessage}</p> : null}

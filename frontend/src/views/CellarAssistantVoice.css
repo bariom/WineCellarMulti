@@ -88,3 +88,16 @@
 @media (prefers-reduced-motion: reduce) {
   .cellar-assistant-microphone.is-listening { animation: none; }
 }
+
+/* Speak and Continue share one row next to the help text; on phones they split it. */
+.cellar-assistant-voice-input textarea { padding-right: 1rem; }
+.cellar-assistant-send-actions { display: flex; flex: none; align-items: center; gap: 10px; }
+.cellar-assistant-send-actions .cellar-assistant-microphone { position: static; justify-content: center; min-width: 0; }
+@media (max-width: 620px) {
+  .cellar-assistant-send-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); width: 100%; }
+  .cellar-assistant-send-actions > button,
+  .cellar-assistant-send-actions .cellar-assistant-microphone { width: 100% !important; min-width: 0 !important; min-height: 48px; }
+}
+@media (max-width: 620px) {
+  .cellar-assistant-composer-footer > .cellar-assistant-send-actions { order: -1; }
+}

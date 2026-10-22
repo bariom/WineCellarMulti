@@ -137,6 +137,8 @@ const MaturityPanorama = lazy(() => import("./components/MaturityPanorama").then
 const BottlePhotoCapture = lazy(() => import("./components/BottlePhotoCapture"));
 const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
 const MemoryBookButton = lazy(() => import("./views/MemoryBookButton"));
+const MemoryBook = lazy(() => import("./views/MemoryBook"));
+const HomeAssistantAsk = lazy(() => import("./components/HomeAssistantAsk"));
 const MemoriesWidget = lazy(() => import("./components/MemoriesWidget"));
 const PolaroidsWidget = lazy(() => import("./components/PolaroidsWidget"));
 const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
@@ -1232,6 +1234,10 @@ export function App() {
   const [buyingAdviceResult, setBuyingAdviceResult] = useState<BuyingAdviceResult | null>(null);
   const [historySection, setHistorySection] = useState<HistorySection>("tastings");
   const [recordTastingOpen, setRecordTastingOpen] = useState(false);
+  // "Momenti" opens from the menus on any page, not only from the home and history.
+  const [memoryBookOpen, setMemoryBookOpen] = useState(false);
+  // A question asked from the home ask bar, handed to the assistant view.
+  const [assistantQuestion, setAssistantQuestion] = useState<{ id: number; text: string } | null>(null);
   const [tastingOrigin, setTastingOrigin] = useState<"" | "cellar" | "external">("");
   const [tastingArchivePage, setTastingArchivePage] = useState<TastingArchivePage | null>(null);
   const [tastingArchiveOverview, setTastingArchiveOverview] = useState<TastingArchivePage | null>(null);
@@ -5373,6 +5379,11 @@ export function App() {
   const canAccessMemories = Boolean(session?.is_app_admin || (
     !session?.is_demo && session?.has_active_entitlement
   ));
+  function openMemoryBook() {
+    if (canAccessMemories) setMemoryBookOpen(true);
+    else openSubscriptionSettings();
+  }
+
   function openSubscriptionSettings() {
     setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile");
     // Wait for the lazy profile fields above billing to occupy their space.
@@ -9486,6 +9497,10 @@ export function App() {
           </form>
         ) : null}
         {authenticated && activeView === "home" && !isRestaurant ? <CellarHomeHero wines={cellarWines} locale={locale} stats={homeHeroStats} /> : null}
+        {authenticated && activeView === "home" && !isRestaurant && canAccessCellarAssistant && session?.cellar_ai_assistant_subscribed ? <Suspense fallback={null}><HomeAssistantAsk locale={locale} onAsk={(text) => {
+          setAssistantQuestion({ id: Date.now(), text });
+          leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant");
+        }} /></Suspense> : null}
       </header>
       ) : null}
 
@@ -10041,6 +10056,10 @@ export function App() {
               <AppIcon name="tasting" variant="navigation" detailLevel="rich" />
               {locale === "it" ? "Registra bevuta" : "Record a tasting"}
             </button> : null}
+            {!isRestaurant && !offlineMode ? <button type="button" className="secondary" aria-haspopup="dialog" onClick={openMemoryBook}>
+              <AppIcon name="camera" variant="navigation" detailLevel="rich" />
+              {locale === "it" ? "Momenti" : "Moments"}
+            </button> : null}
             <details className={`view-tabs-ai-group${aiNavigationActive ? " is-active" : ""}`}>
               <summary><AppIcon name="assistant" variant="ai" detailLevel="rich" />{t("aiTools")}</summary>
               <div className="view-tabs-ai-options" onClick={(event) => {
@@ -10134,13 +10153,14 @@ export function App() {
                   setMobileNavigationOpen(false);
                   setRecordTastingOpen(true);
                 }}><AppIcon name="tasting" variant="navigation" detailLevel="rich" />{locale === "it" ? "Registra bevuta" : "Record a tasting"}</button> : null}
+                {!isRestaurant && !offlineMode ? <button type="button" aria-haspopup="dialog" onClick={() => { setMobileNavigationOpen(false); openMemoryBook(); }}><AppIcon name="camera" variant="navigation" detailLevel="rich" />{locale === "it" ? "Momenti" : "Moments"}</button> : null}
+                {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="assistant" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
                 <details className="mobile-navigation-ai-group">
                   <summary><AppIcon name="assistant" variant="ai" detailLevel="rich" />{t("aiTools")}</summary>
                   <div>
                     <button type="button" onClick={() => { setMobileNavigationOpen(false); setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />{t("pairingMenu")}</button>
                     <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("buying"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("buying"); }}><AppIcon name="buying" variant="ai" detailLevel="rich" />{t("buyingSommelier")}</button>
                     {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}><AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />Intelligence</button> : null}
-                    {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="assistant" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
                   </div>
                 </details>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}><AppIcon name="pulse" variant="premium" detailLevel="rich" />Wine Pulse</button>
@@ -10158,6 +10178,7 @@ export function App() {
             </>
           ) : null}
           {purchaseImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><PurchaseImportDialog locale={locale} canAnalyze={canAnalyzePurchase} included={purchaseImportIncluded} isAdmin={Boolean(session?.is_app_admin)} onActivate={() => { setPurchaseImportOpen(false); setWineFormOpen(false); openSubscriptionSettings(); }} onAnalyzed={async () => { await Promise.all([loadAiSettings(), loadBilling()]); }} onClose={() => setPurchaseImportOpen(false)} onImported={async () => { await loadWines(); await loadMerchants(); setWineFormOpen(false); }} /></Suspense> : null}
+          {memoryBookOpen ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><MemoryBook key={session?.active_household_id} locale={locale} onClose={() => setMemoryBookOpen(false)} /></Suspense> : null}
           {recordTastingOpen && canWriteWine && !offlineMode ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><RecordTastingDialog
             key={session?.active_household_id}
             locale={locale}
@@ -11077,6 +11098,7 @@ export function App() {
               disabled={!canGenerateAi || !canWriteWine}
               onPreparePurchase={prepareAssistantPurchaseDraft}
               onOpenWishlist={() => setActiveView("wishlist")}
+              initialQuestion={assistantQuestion}
               onCellarChanged={async () => {
                 await Promise.all([loadWines(), loadWishlist(), loadWishlistLists()]);
                 if (!offlineMode && historySection === "tastings") await loadTastingArchive(0);
