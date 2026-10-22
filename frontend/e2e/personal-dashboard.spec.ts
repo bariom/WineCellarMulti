@@ -49,7 +49,8 @@ test("tonight widget cycles eligible wines and pairs the displayed proposal", as
   }
   await next.click();
   await widget.getByRole("button", { name: "Trova un abbinamento" }).click();
-  await page.getByRole("button", { name: /^A casa/ }).click();
+  // The bottle is already chosen, so where the user is does not matter: no "Dove sei?" step.
+  await expect(page.getByRole("heading", { name: "Dove sei?" })).toHaveCount(0);
   await expect(page.locator(".pairing-form .pairing-match").first()).toContainText("Altra proposta");
 });
 
@@ -521,6 +522,8 @@ for (const width of [360, 390, 430, 1440]) {
 }
 
 test("personal dashboard supports every widget at half width", async ({ page }, testInfo) => {
+  // Every widget of the catalogue is checked at six widths: more than the default minute.
+  test.setTimeout(180_000);
   const ids = personalDashboardCatalogue.map(widget => widget.id);
   await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: ids.map(id => ({ id, width: "half" })) });
   await page.goto("/");
