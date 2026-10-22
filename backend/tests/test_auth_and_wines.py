@@ -5954,9 +5954,11 @@ def test_cellar_assistant_tries_the_economy_model_first_and_escalates_when_it_ca
     assert register(client).status_code == 201
     assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
     models: list[str] = []
+    efforts: list[str | None] = []
 
     def fake_create_response(*args, **kwargs):
         models.append(args[0])
+        efforts.append(kwargs.get("reasoning_effort"))
         usage = TokenUsage(input_tokens=200, output_tokens=30, total_tokens=230)
         if args[0] == settings.openai_economy_model:
             if "simple" in kwargs["agent_history"][-1]["content"]:
@@ -5978,6 +5980,8 @@ def test_cellar_assistant_tries_the_economy_model_first_and_escalates_when_it_ca
     assert hard.json()["escalated"] is True
     # The economy model tried first, then the pairing model answered.
     assert models == [settings.openai_economy_model, settings.openai_balanced_model]
+    # Luna answers without reasoning; Sol keeps a little.
+    assert efforts[-2:] == ["none", "low"]
 
 
 def test_cellar_assistant_tools_read_only_the_active_cellar():

@@ -2477,7 +2477,7 @@ def ask_cellar_assistant(
     tools_used: list[str] = []
     total_cost = Decimal("0")
 
-    def attempt(model: str) -> tuple[str, str, str]:
+    def attempt(model: str, effort: str) -> tuple[str, str, str]:
         """Run the tool loop with one model; return (answer, model used, effort)."""
         nonlocal total_cost
         history = list(conversation)
@@ -2492,7 +2492,7 @@ def ask_cellar_assistant(
                 system_prompt=prompt.system,
                 user_prompt=payload.question.strip(),
                 json_schema=schema,
-                reasoning_effort="low",
+                reasoning_effort=effort,
                 max_output_tokens=2500,
                 agent_tools=assistant_tools(),
                 agent_history=history,
@@ -2546,11 +2546,13 @@ def ask_cellar_assistant(
 
     economy_model = settings.openai_economy_model
     fallback_model = settings.openai_balanced_model
-    answer, effective_model, reasoning_effort = attempt(economy_model)
+    # Luna answers without reasoning for speed (and fewer billed tokens); Sol, which
+    # only steps in when Luna could not answer, keeps a little reasoning.
+    answer, effective_model, reasoning_effort = attempt(economy_model, "none")
     escalated = False
     if not answer and fallback_model != economy_model:
         escalated = True
-        answer, effective_model, reasoning_effort = attempt(fallback_model)
+        answer, effective_model, reasoning_effort = attempt(fallback_model, "low")
     db.commit()
     if not answer:
         answer = (

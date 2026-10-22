@@ -16,6 +16,16 @@ import { primeSpeech, speak, speechSupported, stopSpeaking } from "../utils/spee
 
 const READ_ALOUD_KEY = "vinaris.assistant.read-aloud";
 
+// Openings of a question or a request to be told something. The lookahead replaces
+// \b, which does not work after accented letters such as "c'è" or "perché".
+const QUESTION_OPENING = /^(mi\s+(puoi|potresti|sai)\s+(dire|mostrare|elencare|indicare|ricordare)|dimmi|mostrami|elencami|elenca|fammi\s+vedere|quali|quale|quanti|quante|quanto|cosa|che\s+cosa|chi|dove|quando|perch[eé]|c['’]?\s*è|ci\s+sono|ho\s+ancora|what|which|how|when|where|who|why|show\s+me|list|tell\s+me|can\s+you\s+(tell|show|list)|do\s+i|did\s+i|have\s+i|is\s+there|are\s+there)(?=[\s,.!:;]|$)/i;
+
+/** A question for the assistant rather than a cellar action, with or without "?". */
+function isQuestion(text: string) {
+  const trimmed = text.trim();
+  return trimmed.endsWith("?") || QUESTION_OPENING.test(trimmed);
+}
+
 type VoiceRecognitionResult = {
   isFinal: boolean;
   length: number;
@@ -419,8 +429,9 @@ export default function CellarAssistantView({
     const question = text.trim();
     try {
       // A question goes straight to the assistant, so "did I drink the Barolo?"
-      // is never taken for a tasting to record.
-      if (question.endsWith("?")) {
+      // is never taken for a tasting to record. Dictation adds no question mark,
+      // so a message that opens like a question or a request to be told counts too.
+      if (isQuestion(question)) {
         await askAssistant(question);
         return;
       }

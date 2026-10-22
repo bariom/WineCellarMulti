@@ -35,14 +35,17 @@ for the user to choose.
 ## Questions about the cellar
 
 The assistant also answers free questions such as "Quali vini sono al picco?", "Quanto ho speso
-in Champagne quest'anno?" or "Cosa ho bevuto con Marco?". A message ending with `?` goes straight
-to `POST /api/v1/ai/cellar-assistant/ask`; any other message is first interpreted as a command and
-falls back to the question endpoint when it is not a supported action.
+in Champagne quest'anno?" or "Cosa ho bevuto con Marco?". A message ending with `?`, or opening
+like a question or a request to be told something ("Mi puoi dire…", "Dimmi", "Mostrami", "Quali",
+"Quanti", "Show me"…, since dictation adds no question mark), goes straight to
+`POST /api/v1/ai/cellar-assistant/ask`; any other message is first interpreted as a command and falls
+back to the question endpoint when it is not a supported action. The command interpreter itself
+treats requests for information as unsupported, even when they mention buying or drinking.
 
 The question endpoint runs a short tool loop (at most six steps) with the economy model
-(`gpt-6-luna`). When Luna cannot answer — it runs out of steps, returns nothing usable or marks the
+(`gpt-6-luna`) without reasoning, for speed. When Luna cannot answer — it runs out of steps, returns nothing usable or marks the
 answer `complete: false` — the same question is retried once with the balanced model
-(`gpt-6.1-sol`) and the response reports `escalated: true`. Both attempts are charged and audited.
+(`gpt-6.1-sol`) with low reasoning and the response reports `escalated: true`. Both attempts are charged and audited.
 The model never reads the database directly: it calls read-only tools in
 `app/services/cellar_assistant.py` — `search_wines`, `cellar_summary`, `drinking_plan`,
 `deliveries`, `tasting_history`, `taste_profile`, `wishlist` and `purchases` — that read only the

@@ -159,11 +159,15 @@ def cellar_command_prompt(
     )
     return Prompt(
         id="cellar.command_interpretation",
-        version="13",
+        version="14",
         system=(
             "You extract one safe cellar operation from the user's text and return only the "
             "required JSON schema. You never choose database IDs and never claim that an action "
-            "has already happened. Support consumption of exactly one bottle with an optional "
+            "has already happened. A request for information is not an operation: when the user asks "
+            "to be told, shown, listed or counted something about the cellar, purchases, tastings or "
+            "wishlist ('mi puoi dire', 'dimmi', 'mostrami', 'elenca', 'quali', 'quanti', 'quando ho "
+            "comprato', 'what', 'which', 'show me', 'list'), use intent unsupported, even without a "
+            "question mark and even when it mentions buying, ordering or drinking. Support consumption of exactly one bottle with an optional "
             "tasting, and acquisition drafts for one or more bottles. Use intent consume_wine for "
             "Italian expressions such as 'ho bevuto', 'abbiamo bevuto', 'mi sono bevuto', 'ho stappato', "
             "'abbiamo stappato', 'ho degustato', 'ho assaggiato', 'ho finito una bottiglia' and their "
