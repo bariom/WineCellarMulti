@@ -80,6 +80,8 @@ type CellarAssistantViewProps = {
   onOpenWishlist: () => void;
   /** A question asked elsewhere (the home ask bar), sent as soon as the view opens. */
   initialQuestion?: { id: number; text: string } | null;
+  /** Set (to a new value each time) to open the view straight into voice conversation. */
+  startVoice?: number | null;
 };
 
 export default function CellarAssistantView({
@@ -89,6 +91,7 @@ export default function CellarAssistantView({
   onPreparePurchase,
   onOpenWishlist,
   initialQuestion = null,
+  startVoice = null,
 }: CellarAssistantViewProps) {
   const [text, setText] = useState("");
   // One card per operation of the last message, each confirmed on its own.
@@ -122,6 +125,7 @@ export default function CellarAssistantView({
   // What the microphone heard in voice mode, handled in an effect with fresh state.
   const [heard, setHeard] = useState<{ id: number; text: string } | null>(null);
   const silentTurnsRef = useRef(0);
+  const voiceStartingRef = useRef(false);
   const startVoiceInputRef = useRef<() => Promise<void>>(async () => {});
   const voiceSupported = Boolean(browserVoiceRecognition());
   const isItalian = locale === "it";
@@ -355,6 +359,11 @@ export default function CellarAssistantView({
     if (heard) void handleVoiceTurn(heard.text);
   }, [heard?.id]);
 
+  // Opened from the home microphone: start talking right away.
+  useEffect(() => {
+    if (startVoice && !voiceModeRef.current) void startVoiceMode();
+  }, [startVoice]);
+
   function voiceErrorMessage(code: string) {
     if (code === "not-allowed" || code === "service-not-allowed") {
       return isItalian ? "Consenti l’accesso al microfono per usare la dettatura." : "Allow microphone access to use dictation.";
@@ -445,7 +454,9 @@ export default function CellarAssistantView({
 
   async function startVoiceInput() {
     const Recognition = browserVoiceRecognition();
-    if (!Recognition || disabled || busy || voicePreparing) return;
+    // One microphone at a time: a start already under way or listening wins.
+    if (!Recognition || disabled || busy || voicePreparing || voiceStartingRef.current || recognitionRef.current) return;
+    voiceStartingRef.current = true;
     setVoicePreparing(true);
     setError("");
     setVoiceMessage(isItalian ? "Preparo il microfono…" : "Preparing microphone…");
@@ -470,6 +481,7 @@ export default function CellarAssistantView({
       setListening(false);
       setVoiceMessage(isItalian ? "Il microfono non può essere avviato. Usa la tastiera." : "The microphone could not start. Use the keyboard.");
     } finally {
+      voiceStartingRef.current = false;
       setVoicePreparing(false);
     }
   }

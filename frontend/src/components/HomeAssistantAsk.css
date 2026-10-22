@@ -53,3 +53,9 @@
   translate: none;
 }
 .home-assistant-ask button:disabled { opacity: .45; }
+.home-assistant-ask .home-assistant-ask-voice {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, #e6c27a 70%, transparent);
+  color: #f6efe2;
+  font-size: 1.1rem;
+}

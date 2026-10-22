@@ -74,3 +74,40 @@ test("Moments and the assistant are one tap away in the mobile menu", async ({ p
   await sheet.getByRole("button", { name: "Momenti", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Momenti", exact: true })).toBeVisible();
 });
+
+test("the home microphone opens the assistant in voice conversation", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], true, memberships, [wine], subscribed);
+  await page.addInitScript(() => {
+    const win = window as unknown as Record<string, unknown>;
+    win.activeRecognitions = 0;
+    class FakeRecognition {
+      lang = ""; continuous = false; interimResults = false; maxAlternatives = 1;
+      onstart: (() => void) | null = null; onresult: ((event: unknown) => void) | null = null;
+      onerror: ((event: unknown) => void) | null = null; onend: (() => void) | null = null;
+      active = false;
+      start() { this.active = true; win.activeRecognitions = (win.activeRecognitions as number) + 1; window.setTimeout(() => this.onstart?.(), 20); }
+      end() { if (this.active) { this.active = false; win.activeRecognitions = (win.activeRecognitions as number) - 1; this.onend?.(); } }
+      stop() { this.end(); }
+      abort() { this.end(); }
+    }
+    Object.defineProperty(window, "SpeechRecognition", { value: FakeRecognition, configurable: true });
+    class Utterance { text: string; lang = ""; volume = 1; voice = null; onend: (() => void) | null = null; onerror: (() => void) | null = null; constructor(text: string) { this.text = text; } }
+    Object.defineProperty(window, "SpeechSynthesisUtterance", { value: Utterance, configurable: true });
+    Object.defineProperty(window, "speechSynthesis", { configurable: true, value: { speaking: false, getVoices: () => [], cancel: () => {}, speak: () => {} } });
+  });
+  await page.goto("/");
+  const ask = page.getByRole("search", { name: "Chiedi all'assistente della cantina" });
+  const microphone = ask.getByRole("button", { name: "Parla con l'assistente" });
+  await expect(microphone).toBeVisible({ timeout: 15_000 });
+  await ask.screenshot({ path: testInfo.outputPath("home-ask-voice-390.png") });
+  // Typing a question swaps the microphone for the send arrow.
+  await ask.getByRole("textbox", { name: "Chiedi alla tua cantina" }).fill("Quali vini");
+  await expect(microphone).toHaveCount(0);
+  await ask.getByRole("textbox", { name: "Chiedi alla tua cantina" }).fill("");
+  await microphone.click();
+  await expect(page.getByRole("heading", { name: "Assistente Cantina AI" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Termina la conversazione a voce" })).toHaveAttribute("aria-pressed", "true");
+  // Exactly one microphone listens (development remounts may restart it, never double it).
+  await expect.poll(() => page.evaluate(() => (window as unknown as { activeRecognitions: number }).activeRecognitions)).toBe(1);
+});

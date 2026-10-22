@@ -22,6 +22,7 @@ import { localizedNotification } from "./domain/notifications";
 import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isMissedDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { runWineShelfScan } from "./services/wineShelfScan";
+import { primeSpeech } from "./utils/speech";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
 import { wineToDraft, draftPayload, wishlistToDraft, wishlistPayload } from "./domain/drafts";
@@ -1238,6 +1239,7 @@ export function App() {
   const [memoryBookOpen, setMemoryBookOpen] = useState(false);
   // A question asked from the home ask bar, handed to the assistant view.
   const [assistantQuestion, setAssistantQuestion] = useState<{ id: number; text: string } | null>(null);
+  const [assistantVoiceStart, setAssistantVoiceStart] = useState<number | null>(null);
   const [tastingOrigin, setTastingOrigin] = useState<"" | "cellar" | "external">("");
   const [tastingArchivePage, setTastingArchivePage] = useState<TastingArchivePage | null>(null);
   const [tastingArchiveOverview, setTastingArchiveOverview] = useState<TastingArchivePage | null>(null);
@@ -9500,6 +9502,11 @@ export function App() {
         {authenticated && activeView === "home" && !isRestaurant && canAccessCellarAssistant && session?.cellar_ai_assistant_subscribed ? <Suspense fallback={null}><HomeAssistantAsk locale={locale} onAsk={(text) => {
           setAssistantQuestion({ id: Date.now(), text });
           leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant");
+        }} onVoice={() => {
+          // Inside the tap: lets the phone speak the answers of the voice conversation.
+          primeSpeech();
+          setAssistantVoiceStart(Date.now());
+          leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant");
         }} /></Suspense> : null}
       </header>
       ) : null}
@@ -11099,6 +11106,7 @@ export function App() {
               onPreparePurchase={prepareAssistantPurchaseDraft}
               onOpenWishlist={() => setActiveView("wishlist")}
               initialQuestion={assistantQuestion}
+              startVoice={assistantVoiceStart}
               onCellarChanged={async () => {
                 await Promise.all([loadWines(), loadWishlist(), loadWishlistLists()]);
                 if (!offlineMode && historySection === "tastings") await loadTastingArchive(0);
