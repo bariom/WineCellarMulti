@@ -31,6 +31,19 @@ test("the cellar assistant answers questions and keeps the conversation", async 
       return previous(input, init);
     };
   });
+  // The browser's speech synthesis, recording what would be read aloud.
+  await page.addInitScript(() => {
+    const spoken: string[] = [];
+    (window as unknown as { spoken: string[] }).spoken = spoken;
+    class Utterance { text: string; lang = ""; volume = 1; voice = null; onend: (() => void) | null = null; onerror: (() => void) | null = null; constructor(text: string) { this.text = text; } }
+    Object.defineProperty(window, "SpeechSynthesisUtterance", { value: Utterance, configurable: true });
+    Object.defineProperty(window, "speechSynthesis", { configurable: true, value: {
+      speaking: false,
+      getVoices: () => [],
+      cancel: () => {},
+      speak: (utterance: Utterance) => { if (utterance.text) spoken.push(`${utterance.lang}|${utterance.text}`); window.setTimeout(() => utterance.onend?.(), 20); },
+    } });
+  });
   const stored = (key: string) => page.evaluate((name) => JSON.parse(sessionStorage.getItem(name) || "[]"), key);
   await page.goto("/");
   await page.getByRole("button", { name: "Menu", exact: true }).click();
@@ -39,6 +52,7 @@ test("the cellar assistant answers questions and keeps the conversation", async 
   await expect(page.getByRole("heading", { name: "Assistente Cantina AI" })).toBeVisible();
 
   const field = page.getByLabel("Chiedi o racconta", { exact: true });
+  await page.getByRole("checkbox", { name: "Leggi le risposte ad alta voce" }).check();
   await field.fill("Quanti Nebbiolo ho?");
   await page.getByRole("button", { name: "Continua", exact: true }).click();
   const conversation = page.getByRole("region", { name: "Conversazione con l'assistente" });
@@ -47,6 +61,10 @@ test("the cellar assistant answers questions and keeps the conversation", async 
   await expect(conversation.locator(".assistant-answer strong")).toHaveText("4 bottiglie");
   await expect(conversation.locator(".assistant-answer ul li")).toHaveCount(2);
   await expect(conversation).not.toContainText("**");
+  // The answer is read aloud in Italian, without the formatting marks.
+  const spoken = () => page.evaluate(() => (window as unknown as { spoken: string[] }).spoken);
+  await expect.poll(spoken).toEqual(["it-IT|Hai 4 bottiglie di Nebbiolo di Test 2019: 2 in cantina. 2 nel frigo vini. Al picco fino al 2028."]);
+  expect(await page.evaluate(() => localStorage.getItem("vinaris.assistant.read-aloud"))).toBe("1");
   // A question with a question mark never goes through the command interpreter.
   expect(await stored("commands")).toEqual([]);
   await expect(field).toHaveValue("");
@@ -54,6 +72,10 @@ test("the cellar assistant answers questions and keeps the conversation", async 
   await field.fill("Mostrami anche quello del 2016");
   await page.getByRole("button", { name: "Continua", exact: true }).click();
   await expect(conversation).toContainText("Il 2016 non è in cantina.");
+  await expect.poll(async () => (await spoken()).length).toBe(2);
+  // Each answer can be listened to again.
+  await conversation.getByRole("button", { name: "Leggi ad alta voce" }).first().click();
+  await expect.poll(async () => (await spoken()).at(-1)).toContain("Hai 4 bottiglie");
   expect(await stored("commands")).toEqual(["Mostrami anche quello del 2016"]);
   expect((await stored("asked"))[1].history).toEqual([
     { role: "user", content: "Quanti Nebbiolo ho?" },

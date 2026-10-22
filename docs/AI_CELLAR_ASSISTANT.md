@@ -97,3 +97,12 @@ automatically. Recognition stops after one utterance or 45 seconds.
 Browsers without `SpeechRecognition` or `webkitSpeechRecognition` receive the unchanged keyboard
 experience and make no audio or transcription request. There is intentionally no paid transcription
 fallback.
+
+## Reading answers aloud
+
+Each assistant answer has a speaker button, and the option "Leggi le risposte ad alta voce" reads
+new answers and command outcomes automatically. Both use the browser's own speech synthesis
+(`speechSynthesis`) in the app language, preferring an on-device voice: there is no AI cost and no
+audio leaves the device. The option is remembered in this browser only. Mobile Safari speaks only
+after a tap, so sending a message with the option on unlocks speech for the answer. Browsers without
+speech synthesis show no speaker controls.

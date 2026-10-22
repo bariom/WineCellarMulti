@@ -12,6 +12,9 @@ import "./CellarAssistantView.css";
 import "./CellarAssistantVoice.css";
 import "./CellarAssistantStrategy.css";
 import { AssistantAnswer } from "../components/AssistantAnswer";
+import { primeSpeech, speak, speechSupported, stopSpeaking } from "../utils/speech";
+
+const READ_ALOUD_KEY = "vinaris.assistant.read-aloud";
 
 type VoiceRecognitionResult = {
   isFinal: boolean;
@@ -84,6 +87,13 @@ export default function CellarAssistantView({
   const resultRef = useRef<HTMLElement | null>(null);
   const errorRef = useRef<HTMLParagraphElement | null>(null);
   const latestQuestionRef = useRef<HTMLLIElement | null>(null);
+  const [canSpeak] = useState(() => speechSupported());
+  // A per-device convenience, so it is kept in this browser only.
+  const [readAloud, setReadAloud] = useState(() => {
+    try { return window.localStorage.getItem(READ_ALOUD_KEY) === "1"; } catch { return false; }
+  });
+  // Conversation turn being read aloud; -1 is the command result.
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
   const voiceSupported = Boolean(browserVoiceRecognition());
   const isItalian = locale === "it";
   const consumptionExample = isItalian
@@ -189,6 +199,38 @@ export default function CellarAssistantView({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [conversation.length]);
+
+  function toggleSpeech(index: number, content: string) {
+    if (speakingIndex === index) {
+      stopSpeaking();
+      setSpeakingIndex(null);
+      return;
+    }
+    if (speak(content, locale, () => setSpeakingIndex((current) => (current === index ? null : current)))) setSpeakingIndex(index);
+  }
+
+  function changeReadAloud(enabled: boolean) {
+    setReadAloud(enabled);
+    try { window.localStorage.setItem(READ_ALOUD_KEY, enabled ? "1" : "0"); } catch { /* the choice lasts this visit */ }
+    if (!enabled) {
+      stopSpeaking();
+      setSpeakingIndex(null);
+    }
+  }
+
+  // Read each new answer, or the outcome of a command, when the option is on. Only
+  // a newly added answer is read, not one already on screen when it is switched on.
+  const lastTurn = conversation[conversation.length - 1];
+  useEffect(() => {
+    if (!readAloud || lastTurn?.role !== "assistant") return;
+    const index = conversation.length - 1;
+    if (speak(lastTurn.content, locale, () => setSpeakingIndex((current) => (current === index ? null : current)))) setSpeakingIndex(index);
+  }, [conversation.length]);
+  useEffect(() => {
+    if (!readAloud || !result?.message) return;
+    if (speak(result.message, locale, () => setSpeakingIndex((current) => (current === -1 ? null : current)))) setSpeakingIndex(-1);
+  }, [result]);
+  useEffect(() => () => stopSpeaking(), []);
 
   function voiceErrorMessage(code: string) {
     if (code === "not-allowed" || code === "service-not-allowed") {
@@ -370,6 +412,8 @@ export default function CellarAssistantView({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!text.trim() || busy || disabled || listening) return;
+    // Still inside the tap: lets mobile Safari read the answer when it arrives.
+    if (readAloud) primeSpeech();
     setBusy(true);
     setError("");
     const question = text.trim();
@@ -555,12 +599,15 @@ export default function CellarAssistantView({
       {conversation.length ? <section className="cellar-assistant-conversation" aria-label={isItalian ? "Conversazione con l'assistente" : "Conversation with the assistant"}>
         <header>
           <strong>{isItalian ? "Conversazione" : "Conversation"}</strong>
-          <button type="button" className="secondary compact" onClick={() => setConversation([])} disabled={busy}>{isItalian ? "Nuova conversazione" : "New conversation"}</button>
+          <button type="button" className="secondary compact" onClick={() => { stopSpeaking(); setSpeakingIndex(null); setConversation([]); }} disabled={busy}>{isItalian ? "Nuova conversazione" : "New conversation"}</button>
         </header>
         <ol aria-live="polite">
           {conversation.map((turn, index) => <li key={index} className={`is-${turn.role}`} ref={turn.role === "user" && index === conversation.length - 2 ? latestQuestionRef : undefined}>
             {turn.role === "assistant" ? <AssistantAnswer text={turn.content} /> : <p>{turn.content}</p>}
-            {turn.meta ? <small>{turn.meta}</small> : null}
+            {turn.role === "assistant" && (turn.meta || canSpeak) ? <div className="cellar-assistant-turn-footer">
+              {turn.meta ? <small>{turn.meta}</small> : <span />}
+              {canSpeak ? <button type="button" className={`cellar-assistant-speak${speakingIndex === index ? " is-speaking" : ""}`} aria-pressed={speakingIndex === index} aria-label={speakingIndex === index ? (isItalian ? "Ferma la lettura" : "Stop reading") : (isItalian ? "Leggi ad alta voce" : "Read aloud")} title={speakingIndex === index ? (isItalian ? "Ferma la lettura" : "Stop reading") : (isItalian ? "Leggi ad alta voce" : "Read aloud")} onClick={() => toggleSpeech(index, turn.content)}><span aria-hidden="true">{speakingIndex === index ? "■" : "🔊"}</span></button> : null}
+            </div> : turn.meta ? <small>{turn.meta}</small> : null}
           </li>)}
         </ol>
         <small className="cellar-assistant-conversation-note">{isItalian ? "L'assistente legge la tua cantina per rispondere; per modificarla, racconta cosa è successo." : "The assistant reads your cellar to answer; to change it, describe what happened."}</small>
@@ -626,6 +673,7 @@ export default function CellarAssistantView({
             {busy ? (isItalian ? "Elaborazione…" : "Processing…") : (isItalian ? "Continua" : "Continue")}
           </button>
         </div>
+        {canSpeak ? <label className="cellar-assistant-read-aloud"><input type="checkbox" checked={readAloud} onChange={(event) => changeReadAloud(event.target.checked)} /><span>{isItalian ? "Leggi le risposte ad alta voce" : "Read answers aloud"}</span></label> : null}
         {voiceMessage ? <p className={`cellar-assistant-voice-status${listening ? " is-listening" : ""}`} aria-live="polite">{voiceMessage}</p> : null}
         <small>{isItalian
           ? voiceSupported

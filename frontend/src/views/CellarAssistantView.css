@@ -102,3 +102,15 @@
 @media (max-width: 820px) {
   .cellar-assistant-composer.has-conversation > .cellar-assistant-command-examples { display: none !important; }
 }
+
+/* Read aloud: a speaker on each answer and an option to read new answers automatically. */
+.cellar-assistant-turn-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cellar-assistant-speak {
+  display: inline-grid; place-items: center; flex: none;
+  width: 36px; height: 36px; min-height: 0; padding: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border)); border-radius: 50%;
+  background: var(--surface-raised); color: var(--text); font-size: .95rem; box-shadow: none;
+}
+.cellar-assistant-speak.is-speaking { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--surface-raised)); }
+.cellar-assistant-read-aloud { display: flex !important; align-items: center; gap: 10px; font-weight: 600 !important; }
+.cellar-assistant-read-aloud input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
