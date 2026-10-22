@@ -1213,7 +1213,14 @@ export function App() {
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>(emptyInviteDraft);
   const [pairingDish, setPairingDish] = useState("");
   const [pairingTargetWineId, setPairingTargetWineId] = useState<string | null>(null);
-  const [pairingMaxPrice, setPairingMaxPrice] = useState("");
+  // The Sommelier's budget, remembered on this device; the assistant's pairings use it too.
+  const [pairingMaxPrice, setPairingMaxPriceState] = useState(() => {
+    try { return window.localStorage.getItem("vinaris.pairing.max-price") || ""; } catch { return ""; }
+  });
+  const setPairingMaxPrice = (value: string) => {
+    setPairingMaxPriceState(value);
+    try { window.localStorage.setItem("vinaris.pairing.max-price", value); } catch { /* kept for this visit */ }
+  };
   const [pairingIncludeMarket, setPairingIncludeMarket] = useState(false);
   const [pairingMarketOnly, setPairingMarketOnly] = useState(false);
   const [pairingOnlyIdealDrinkWindow, setPairingOnlyIdealDrinkWindow] = useState(true);
@@ -11114,6 +11121,7 @@ export function App() {
               onOpenWishlist={() => setActiveView("wishlist")}
               initialQuestion={assistantQuestion}
               startVoice={assistantVoiceStart}
+              pairingMaxPrice={pairingMaxPrice}
               onOpenPairing={(dish, result) => {
                 setPairingTargetWineId(null);
                 setPairingMarketOnly(false);

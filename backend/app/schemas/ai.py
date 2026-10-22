@@ -557,6 +557,8 @@ class CellarAssistantQuestion(AiGenerationRequest):
     question: str = Field(min_length=2, max_length=1000)
     # The open conversation, so follow-ups such as "and the 2016?" keep their meaning.
     history: list[CellarAssistantTurn] = Field(default_factory=list, max_length=20)
+    # The budget set in the Sommelier AI, used for a pairing when the question names none.
+    pairing_max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
 
 
 class CellarAssistantAnswer(BaseModel):

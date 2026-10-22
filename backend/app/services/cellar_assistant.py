@@ -8,6 +8,7 @@ look things up but never change data or see another cellar.
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import date
@@ -169,7 +170,12 @@ def assistant_tools() -> list[dict[str, Any]]:
             "It uses the user's taste profile and drinking windows and returns the best matches "
             "with the reason and serving notes. Use it whenever the user asks what to open, drink "
             "or serve with a food.",
-            {"dish": {"type": "string", "description": "The dish or food, as the user said it"}},
+            {
+                "dish": {"type": "string", "description": "The dish or food, as the user said it"},
+                "max_price_chf": _nullable(
+                    "number", description="Budget per bottle when the user states one"
+                ),
+            },
         ),
         _tool(
             "purchases",
@@ -745,3 +751,57 @@ def _parse_date(value: object) -> date | None:
         return date.fromisoformat(str(value)) if value else None
     except ValueError:
         return None
+
+
+# "Cosa apro con una raclette?": a pairing question the Sommelier answers directly.
+_PAIRING_QUESTION = re.compile(
+    r"(?:\b(?:apro|apriamo|aprire|stappo|stappiamo|bevo|beviamo|bere|abbino|abbiniamo|abbinare|"
+    r"servo|serviamo|servire|porto|portiamo|open|drink|pour|serve|pair)\b.*?"
+    r"\b(?:con|insieme a|per accompagnare|al|allo|alla|ai|agli|alle|a|with|alongside|for)\b"
+    r"|\b(?:vino|vini|abbinamento|wine)\s+(?:per|con|da abbinare a|for|with)\b)\s+(?P<dish>.+)$",
+    re.IGNORECASE,
+)
+_BUDGET = re.compile(
+    r"(?:,\s*)?\b(?:sotto|entro|massimo|max|meno di|non oltre|under|below|up to|at most)\s+"
+    r"(?:i|ai|a|the|di)?\s*(?:chf|fr\.?|€|\$)?\s*(?P<amount>\d+(?:[.,]\d+)?)\s*"
+    r"(?:chf|franchi|fr\.?|euro|€|francs|dollars)?\b\.?",
+    re.IGNORECASE,
+)
+
+
+def pairing_question(text: str) -> tuple[str, Decimal | None] | None:
+    """The dish (and any budget) of a question asking which wine to open with a food."""
+    cleaned = " ".join(text.strip().split()).rstrip("?!. ")
+    budget: Decimal | None = None
+    budget_match = _BUDGET.search(cleaned)
+    if budget_match:
+        budget = Decimal(budget_match.group("amount").replace(",", "."))
+        cleaned = (cleaned[: budget_match.start()] + cleaned[budget_match.end() :]).strip(" ,")
+    match = _PAIRING_QUESTION.search(cleaned)
+    if match is None:
+        return None
+    dish = match.group("dish").strip(" ,.?!")
+    if len(dish) < 3:
+        return None
+    return dish[:240], budget if budget and budget > 0 else None
+
+
+def pairing_answer(summary: str, matches: list[dict[str, Any]], locale: str) -> str:
+    """The Sommelier's pairing as the assistant's answer, with no extra AI call."""
+    italian = locale == "it"
+    if not matches:
+        return summary.strip() or (
+            "Non trovo in cantina un vino adatto a questo piatto con i criteri indicati."
+            if italian
+            else "I find no wine in the cellar for this dish within these limits."
+        )
+    lines = [summary.strip()] if summary.strip() else []
+    for match in matches[:3]:
+        name = " ".join(part for part in (match.get("wine"), match.get("producer")) if part)
+        detail = " ".join(
+            part.strip()
+            for part in (match.get("reason") or "", match.get("serving_note") or "")
+            if part
+        )
+        lines.append(f"- **{name}**: {detail}" if detail else f"- **{name}**")
+    return "\n".join(lines)

@@ -136,7 +136,12 @@ from app.services.ai_credits import (
 )
 from app.services.ai_models import parameters_for_model
 from app.services.ambassador import is_ambassador
-from app.services.cellar_assistant import CellarAssistantTools, assistant_tools
+from app.services.cellar_assistant import (
+    CellarAssistantTools,
+    assistant_tools,
+    pairing_answer,
+    pairing_question,
+)
 from app.services.critic_scores import (
     score_has_weak_evidence,
     score_matches_page,
@@ -2629,19 +2634,37 @@ def ask_cellar_assistant(
     total_cost = Decimal("0")
     pairing_result: dict[str, Any] = {}
 
-    def run_pairing(arguments: str) -> dict[str, Any]:
-        """The Sommelier AI as the assistant's tool; the full result is kept for the app."""
-        try:
-            dish = str(json.loads(arguments or "{}").get("dish") or "").strip()[:240]
-        except (ValueError, AttributeError):
-            dish = ""
-        if len(dish) < 2:
-            return {"error": "Name the dish to pair."}
-        pairing = suggest_pairing(
-            PairingRequest(dish=dish, locale=payload.locale), db=db, context=context
+    def quick_pairing(dish: str, budget: Decimal | None) -> PairingResponse:
+        """The Sommelier AI on a short, in-budget candidate list, without reasoning."""
+        max_price = budget or payload.pairing_max_price_chf
+        pairing = pairing_for_request(
+            PairingRequest(
+                dish=dish,
+                locale=payload.locale,
+                model=settings.openai_economy_model if settings.openai_enable_gpt56 else None,
+                max_price_chf=max_price,
+            ),
+            db,
+            context,
+            candidate_limit=QUICK_PAIRING_CANDIDATES,
+            reasoning_effort="none",
         )
         pairing_result["dish"] = dish
         pairing_result["response"] = pairing
+        return pairing
+
+    def run_pairing(arguments: str) -> dict[str, Any]:
+        """The Sommelier AI as the assistant's tool; the full result is kept for the app."""
+        try:
+            parsed_arguments = json.loads(arguments or "{}")
+            dish = str(parsed_arguments.get("dish") or "").strip()[:240]
+            raw_budget = parsed_arguments.get("max_price_chf")
+            budget = Decimal(str(raw_budget)) if raw_budget else None
+        except (ValueError, AttributeError, InvalidOperation):
+            dish, budget = "", None
+        if len(dish) < 2:
+            return {"error": "Name the dish to pair."}
+        pairing = quick_pairing(dish, budget if budget and budget > 0 else None)
         return {
             "summary": pairing.summary,
             "cellar_matches": [
@@ -2655,6 +2678,36 @@ def ask_cellar_assistant(
                 for match in pairing.cellar_matches
             ],
         }
+
+    def composed_pairing_answer() -> str:
+        pairing = pairing_result["response"]
+        return pairing_answer(
+            pairing.summary,
+            [
+                {
+                    "wine": match.wine_name,
+                    "producer": match.producer,
+                    "reason": match.reason,
+                    "serving_note": match.serving_note,
+                }
+                for match in pairing.cellar_matches
+            ],
+            payload.locale,
+        )
+
+    # "Cosa apro con una raclette?" goes straight to the Sommelier: one quick call.
+    direct = pairing_question(payload.question)
+    if direct is not None:
+        pairing = quick_pairing(*direct)
+        return CellarAssistantAnswer(
+            answer=composed_pairing_answer()[:6000],
+            tools_used=["suggest_pairing"],
+            model=pairing.model,
+            reasoning_effort=pairing.reasoning_effort,
+            estimated_cost_usd=pairing.estimated_cost_usd,
+            pairing_dish=str(pairing_result["dish"]),
+            pairing=pairing,
+        )
 
     def attempt(model: str, effort: str) -> tuple[str, str, str]:
         """Run the tool loop with one model; return (answer, model used, effort)."""
@@ -2714,6 +2767,9 @@ def ask_cellar_assistant(
                             "output": json.dumps(result, ensure_ascii=False, default=str),
                         }
                     )
+                if pairing_result:
+                    # The Sommelier already answered: compose it instead of another call.
+                    return composed_pairing_answer(), effective_model, reasoning_effort
                 continue
             if not response.text.strip():
                 return "", effective_model, reasoning_effort
@@ -2748,9 +2804,8 @@ def ask_cellar_assistant(
         tools_used=tools_used,
         model=effective_model,
         reasoning_effort=reasoning_effort,
-        estimated_cost_usd=total_cost + (
-            pairing_result["response"].estimated_cost_usd if pairing_result else Decimal("0")
-        ),
+        estimated_cost_usd=total_cost
+        + (pairing_result["response"].estimated_cost_usd if pairing_result else Decimal("0")),
         escalated=escalated,
         pairing_dish=str(pairing_result.get("dish") or ""),
         pairing=pairing_result.get("response"),
@@ -4656,6 +4711,21 @@ def suggest_pairing(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> PairingResponse:
+    return pairing_for_request(payload, db, context)
+
+
+# Quick pairing for the assistant: a short candidate list and no reasoning.
+QUICK_PAIRING_CANDIDATES = 15
+
+
+def pairing_for_request(
+    payload: PairingRequest,
+    db: Session,
+    context: CurrentContext,
+    *,
+    candidate_limit: int | None = None,
+    reasoning_effort: str | None = None,
+) -> PairingResponse:
     if payload.target_wine_id is None and len(payload.dish.strip()) < 2:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Dish is required"
@@ -4697,7 +4767,7 @@ def suggest_pairing(
             wine for wine in cellar_wines if pairing_wine_is_in_ideal_window(wine, current_year)
         ]
     cellar_wines = select_pairing_candidates(
-        cellar_wines, limit=user_settings.pairing_candidate_limit
+        cellar_wines, limit=candidate_limit or user_settings.pairing_candidate_limit
     )
     wine_context_payload = (
         [pairing_wine_context(target_wine)]
@@ -4809,6 +4879,7 @@ def suggest_pairing(
         system_prompt=prompt.system,
         user_prompt=prompt.user,
         json_schema=schema,
+        reasoning_effort=reasoning_effort,
     )
     cleaned = clean_pairing_response(
         parse_json_response(response.text),

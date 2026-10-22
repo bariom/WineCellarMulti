@@ -90,6 +90,14 @@ with its matches instead of picking wines itself. The full pairing comes back in
 (`pairing_dish`, `pairing`, with its cost included in the request's), so "Vedi nel Sommelier AI"
 opens the pairing view on that result, at home and without a new call.
 
+Pairings are kept quick. A clear pairing question ("cosa apro / che vino bevo / abbino … con / al
+…", "vino per …", "what should I open with …") skips the assistant model and calls the Sommelier
+directly: one call to the economy model without reasoning, on at most 15 cellar candidates and with
+no market or dish suggestions; the answer is composed from its result. When the assistant itself
+calls `suggest_pairing`, the answer is likewise composed without another call. Only wines within the
+budget are sent: a budget in the question ("sotto i 40 franchi") wins, otherwise the one set in the
+Sommelier AI, which the app remembers on the device and sends as `pairing_max_price_chf`.
+
 ## Safety and behavior
 
 - Only active wines belonging to the current household and having available stock are candidates.

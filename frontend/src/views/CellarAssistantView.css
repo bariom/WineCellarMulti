@@ -124,3 +124,8 @@
   .cellar-assistant-confirm { display: grid; }
   .cellar-assistant-confirm > button { width: 100%; }
 }
+
+/* The answer on its way. */
+.cellar-assistant-conversation > ol > li.is-pending p { color: var(--text-muted); font-style: italic; animation: cellar-assistant-pending 1.4s ease-in-out infinite; }
+@keyframes cellar-assistant-pending { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .cellar-assistant-conversation > ol > li.is-pending p { animation: none; } }

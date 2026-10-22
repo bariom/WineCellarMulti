@@ -79,6 +79,8 @@ type CellarAssistantViewProps = {
   onCellarChanged: () => Promise<void> | void;
   onPreparePurchase: (draft: CellarCommandPurchaseDraft) => void;
   onOpenWishlist: () => void;
+  /** The budget set in the Sommelier AI, for pairings when the question names none. */
+  pairingMaxPrice?: string;
   /** Open a pairing the assistant obtained from the Sommelier AI, in full. */
   onOpenPairing?: (dish: string, result: PairingResult) => void;
   /** A question asked elsewhere (the home ask bar), sent as soon as the view opens. */
@@ -94,6 +96,7 @@ export default function CellarAssistantView({
   onPreparePurchase,
   onOpenWishlist,
   onOpenPairing,
+  pairingMaxPrice = "",
   initialQuestion = null,
   startVoice = null,
 }: CellarAssistantViewProps) {
@@ -109,6 +112,8 @@ export default function CellarAssistantView({
   const [voiceMessage, setVoiceMessage] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   // The open conversation with the assistant: questions and answers, newest last.
+  // The question being answered, shown at once while the answer is on its way.
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [conversation, setConversation] = useState<Array<{ role: "user" | "assistant"; content: string; meta?: string; pairing?: { dish: string; result: PairingResult } }>>([]);
   const recognitionRef = useRef<VoiceRecognition | null>(null);
   const voiceTimeoutRef = useRef<number | null>(null);
@@ -231,7 +236,7 @@ export default function CellarAssistantView({
   // On a phone the composer sits below the conversation: bring each new exchange,
   // from the question down to the answer, into view instead of staying on the composer.
   useEffect(() => {
-    if (!conversation.length || !window.matchMedia("(max-width: 820px)").matches) return;
+    if (!(conversation.length || pendingQuestion) || !window.matchMedia("(max-width: 820px)").matches) return;
     const target = latestQuestionRef.current;
     if (!target) return;
     const frame = window.requestAnimationFrame(() => {
@@ -239,7 +244,7 @@ export default function CellarAssistantView({
       target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [conversation.length]);
+  }, [conversation.length, pendingQuestion]);
 
   function toggleSpeech(index: number, content: string) {
     if (speakingIndex === index) {
@@ -551,12 +556,15 @@ export default function CellarAssistantView({
   }
 
   async function askAssistant(question: string) {
+    setPendingQuestion(question);
+    try {
     const answer = await api<{ answer: string; tools_used: string[]; model: string; estimated_cost_usd: string; pairing_dish?: string; pairing?: PairingResult | null }>("/api/v1/ai/cellar-assistant/ask", {
       method: "POST",
       body: JSON.stringify({
         question,
         locale,
         history: conversation.slice(-10).map(({ role, content }) => ({ role, content: content.slice(0, 4000) })),
+        pairing_max_price_chf: Number(pairingMaxPrice) > 0 ? Number(pairingMaxPrice) : null,
       }),
     });
     setConversation((current) => [
@@ -571,6 +579,9 @@ export default function CellarAssistantView({
     ]);
     setResults([]);
     setText("");
+    } finally {
+      setPendingQuestion(null);
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -601,6 +612,8 @@ export default function CellarAssistantView({
   async function send(message: string) {
     const question = message.trim();
     if (!question || busy || disabled || listening) return;
+    // The box shows what was asked, also when it came from the home ask bar.
+    setText(question);
     // Still inside the tap: lets mobile Safari read the answer when it arrives.
     if (readAloud) primeSpeech();
     setBusy(true);
@@ -787,7 +800,7 @@ export default function CellarAssistantView({
         </div>
       ) : null}
 
-      {conversation.length ? <section className="cellar-assistant-conversation" aria-label={isItalian ? "Conversazione con l'assistente" : "Conversation with the assistant"}>
+      {conversation.length || pendingQuestion ? <section className="cellar-assistant-conversation" aria-label={isItalian ? "Conversazione con l'assistente" : "Conversation with the assistant"}>
         <header>
           <strong>{isItalian ? "Conversazione" : "Conversation"}</strong>
           <button type="button" className="secondary compact" onClick={() => { stopSpeaking(); setSpeakingIndex(null); setConversation([]); }} disabled={busy}>{isItalian ? "Nuova conversazione" : "New conversation"}</button>
@@ -803,6 +816,10 @@ export default function CellarAssistantView({
               {canSpeak ? <button type="button" className={`cellar-assistant-speak${speakingIndex === index ? " is-speaking" : ""}`} aria-pressed={speakingIndex === index} aria-label={speakingIndex === index ? (isItalian ? "Ferma la lettura" : "Stop reading") : (isItalian ? "Leggi ad alta voce" : "Read aloud")} title={speakingIndex === index ? (isItalian ? "Ferma la lettura" : "Stop reading") : (isItalian ? "Leggi ad alta voce" : "Read aloud")} onClick={() => toggleSpeech(index, turn.content)}><span aria-hidden="true">{speakingIndex === index ? "■" : "🔊"}</span></button> : null}
             </div> : turn.meta ? <small>{turn.meta}</small> : null}
           </li>)}
+          {pendingQuestion ? <>
+            <li className="is-user" ref={latestQuestionRef}><p>{pendingQuestion}</p></li>
+            <li className="is-assistant is-pending"><p>{isItalian ? "Sto cercando nella tua cantina…" : "Looking through your cellar…"}</p></li>
+          </> : null}
         </ol>
         <small className="cellar-assistant-conversation-note">{isItalian ? "L'assistente legge la tua cantina per rispondere; per modificarla, racconta cosa è successo." : "The assistant reads your cellar to answer; to change it, describe what happened."}</small>
       </section> : null}

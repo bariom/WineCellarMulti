@@ -118,10 +118,15 @@ test("a food pairing question is answered in chat and opens in the Sommelier AI"
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, [], true, memberships, [wine], subscribed);
   await page.addInitScript((fixture) => {
+    // The budget set earlier in the Sommelier AI, remembered on this device.
+    localStorage.setItem("vinaris.pairing.max-price", "60");
     const previous = window.fetch;
     window.fetch = async (input, init) => {
       const path = new URL(String(input instanceof Request ? input.url : input), location.href).pathname;
       if (path === "/api/v1/ai/cellar-assistant/ask") {
+        sessionStorage.setItem("asked", String(init?.body));
+        // A moment of work, so the question is seen while the answer is on its way.
+        await new Promise((resolve) => window.setTimeout(resolve, 1200));
         return Response.json({
           answer: `Apri il **${fixture.name} ${fixture.vintage}**: tannini e acidità reggono il sugo di selvaggina.`,
           tools_used: ["suggest_pairing"], model: "gpt-6-luna", reasoning_effort: "none", estimated_cost_usd: "0.004",
@@ -144,7 +149,15 @@ test("a food pairing question is answered in chat and opens in the Sommelier AI"
   await ask.getByRole("textbox", { name: "Chiedi alla tua cantina" }).fill("Che cosa apro con un salmì di cervo?");
   await ask.getByRole("button", { name: "Chiedi" }).click();
   const conversation = page.getByRole("region", { name: "Conversazione con l'assistente" });
+  // The question is visible at once, in the box and in the chat, while the answer comes.
+  await expect(page.getByLabel("Chiedi o racconta", { exact: true })).toHaveValue("Che cosa apro con un salmì di cervo?");
+  await expect(conversation.locator("li.is-user")).toHaveText("Che cosa apro con un salmì di cervo?");
+  await expect(conversation.locator("li.is-pending")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("pending-question-390.png") });
+  expect(JSON.parse(await page.evaluate(() => sessionStorage.getItem("asked") || "{}")).pairing_max_price_chf).toBe(60);
   await expect(conversation).toContainText("tannini e acidità reggono il sugo");
+  await expect(conversation.locator("li.is-pending")).toHaveCount(0);
+  await expect(page.getByLabel("Chiedi o racconta", { exact: true })).toHaveValue("");
   await conversation.getByRole("button", { name: "Vedi nel Sommelier AI" }).screenshot({ path: testInfo.outputPath("open-pairing-button-390.png") });
   await conversation.getByRole("button", { name: "Vedi nel Sommelier AI" }).click();
 

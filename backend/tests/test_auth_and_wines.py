@@ -6085,63 +6085,129 @@ def test_monitor_activity_lists_more_than_a_hundred_actions_in_a_stable_order():
     assert client.get("/api/v1/admin/operations/activity", params={"limit": 501}).status_code == 422
 
 
+def pairing_cellar(client):
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    barolo = client.post(
+        "/api/v1/wines",
+        json={"name": "Barolo", "producer": "Vietti", "vintage": "2016", "quantity": 2, "price": 35, "status": "Delivered"},
+    ).json()
+    client.post(
+        "/api/v1/wines",
+        json={"name": "Masseto", "producer": "Ornellaia", "vintage": "2016", "quantity": 1, "price": 600, "status": "Delivered"},
+    )
+    return barolo
+
+
+def sommelier_pairing(barolo, calls):
+    def fake_create_response(*args, **kwargs):
+        calls.append(kwargs)
+        assert kwargs.get("agent_tools") is None
+        return OpenAIResponse(
+            text=json.dumps({
+                "summary": "Un rosso con acidità sgrassa il formaggio fuso.",
+                "cellar_matches": [{
+                    "wine_id": barolo["id"], "wine_name": "Barolo", "producer": "Vietti",
+                    "reason": "Acidità e tannino puliscono il palato.", "serving_note": "Servire a 16 gradi.",
+                }],
+                "market_recommendations": {"low": [], "medium": [], "high": []},
+                "dish_recommendations": [],
+            }),
+            usage=TokenUsage(input_tokens=800, output_tokens=200, total_tokens=1000),
+            model="gpt-5.5",
+        )
+
+    return fake_create_response
+
+
+def test_cellar_assistant_answers_a_pairing_question_with_one_quick_sommelier_call(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    barolo = pairing_cellar(client)
+    calls: list[dict] = []
+    monkeypatch.setattr(ai_routes, "create_response", sommelier_pairing(barolo, calls))
+
+    response = client.post(
+        "/api/v1/ai/cellar-assistant/ask",
+        json={"question": "Che cosa apro con una raclette di formaggio?", "locale": "it", "history": [], "pairing_max_price_chf": 50},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    # One call only: the Sommelier, without reasoning, on the in-budget wines.
+    assert len(calls) == 1
+    assert calls[0]["reasoning_effort"] == "none"
+    assert body["answer"] == (
+        "Un rosso con acidità sgrassa il formaggio fuso.\n"
+        "- **Barolo Vietti**: Acidità e tannino puliscono il palato. Servire a 16 gradi."
+    )
+    assert body["tools_used"] == ["suggest_pairing"]
+    assert body["pairing_dish"] == "una raclette di formaggio"
+    assert body["pairing"]["cellar_matches"][0]["wine_id"] == barolo["id"]
+    assert Decimal(body["estimated_cost_usd"]) == Decimal(body["pairing"]["estimated_cost_usd"])
+
+
+def test_cellar_assistant_pairing_keeps_the_cellar_within_the_budget(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    barolo = pairing_cellar(client)
+    prompts: list[str] = []
+
+    def fake_create_response(*args, **kwargs):
+        prompts.append(args[2])
+        return sommelier_pairing(barolo, [])(*args, **kwargs)
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    # The Sommelier's budget applies when the question names none...
+    client.post(
+        "/api/v1/ai/cellar-assistant/ask",
+        json={"question": "Cosa apro con il brasato?", "locale": "it", "history": [], "pairing_max_price_chf": 100},
+    )
+    assert "Barolo" in prompts[-1] and "Masseto" not in prompts[-1]
+    # ...and a budget in the question takes its place.
+    client.post(
+        "/api/v1/ai/cellar-assistant/ask",
+        json={"question": "Cosa apro con il brasato, sotto i 20 franchi?", "locale": "it", "history": [], "pairing_max_price_chf": 1000},
+    )
+    assert "Barolo" not in prompts[-1] and "Masseto" not in prompts[-1]
+
+
 def test_cellar_assistant_asks_the_sommelier_for_a_food_pairing(monkeypatch):
     from app.api.routes import ai as ai_routes
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
-    barolo = client.post(
-        "/api/v1/wines",
-        json={"name": "Barolo", "producer": "Vietti", "vintage": "2016", "quantity": 2, "status": "Delivered"},
-    ).json()
+    barolo = pairing_cellar(client)
+    calls: list[str] = []
 
     def fake_create_response(*args, **kwargs):
         if kwargs.get("agent_tools") is None:
-            # The Sommelier AI's own pairing call, with the cellar's candidates.
-            assert "salmì di cervo" in args[2]
-            return OpenAIResponse(
-                text=json.dumps({
-                    "summary": "Un rosso strutturato regge il salmì.",
-                    "cellar_matches": [{
-                        "wine_id": barolo["id"], "wine_name": "Barolo", "producer": "Vietti",
-                        "reason": "Tannini e acidità per il sugo di selvaggina.", "serving_note": "Aprire un'ora prima.",
-                    }],
-                    "market_recommendations": {"low": [], "medium": [], "high": []},
-                    "dish_recommendations": [],
-                }),
-                usage=TokenUsage(input_tokens=800, output_tokens=200, total_tokens=1000),
-                model="gpt-5.5",
-            )
-        assert "suggest_pairing" in [tool["name"] for tool in kwargs["agent_tools"]]
-        outputs = [item for item in kwargs["agent_history"] if item.get("type") == "function_call_output"]
-        if not outputs:
-            return OpenAIResponse(
-                text="",
-                usage=TokenUsage(input_tokens=300, output_tokens=40, total_tokens=340),
-                model="gpt-5.5",
-                agent_output=({"type": "function_call", "name": "suggest_pairing", "call_id": "call-1", "arguments": json.dumps({"dish": "salmì di cervo"})},),
-            )
-        matches = json.loads(outputs[0]["output"])["cellar_matches"]
-        assert matches[0]["wine"] == "Barolo"
-        assert "wine_id" not in matches[0]
+            calls.append("sommelier")
+            assert "raclette" in args[2]
+            return sommelier_pairing(barolo, [])(*args, **kwargs)
+        calls.append("assistant")
         return OpenAIResponse(
-            text='{"answer":"Apri il Barolo 2016 di Vietti: tannini e acidità per il sugo.","complete":true}',
-            usage=TokenUsage(input_tokens=500, output_tokens=60, total_tokens=560),
+            text="",
+            usage=TokenUsage(input_tokens=300, output_tokens=40, total_tokens=340),
             model="gpt-5.5",
+            agent_output=({"type": "function_call", "name": "suggest_pairing", "call_id": "call-1", "arguments": json.dumps({"dish": "raclette", "max_price_chf": None})},),
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    # Not a recognised pairing question: the assistant decides to ask the Sommelier.
     response = client.post(
         "/api/v1/ai/cellar-assistant/ask",
-        json={"question": "Che cosa apro con un salmì di cervo?", "locale": "it", "history": []},
+        json={"question": "Stasera raclette con gli amici: tu che dici?", "locale": "it", "history": []},
     )
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["answer"].startswith("Apri il Barolo 2016")
+    # Two calls, not three: the answer is composed from the Sommelier's result.
+    assert calls == ["assistant", "sommelier"]
+    assert body["answer"].startswith("Un rosso con acidità")
     assert body["tools_used"] == ["suggest_pairing"]
-    # The full Sommelier result comes back so the app can open it without a new call.
-    assert body["pairing_dish"] == "salmì di cervo"
+    assert body["pairing_dish"] == "raclette"
     assert body["pairing"]["cellar_matches"][0]["wine_id"] == barolo["id"]
     assert Decimal(body["estimated_cost_usd"]) > Decimal(body["pairing"]["estimated_cost_usd"])
 
