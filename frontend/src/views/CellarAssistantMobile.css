@@ -1,0 +1,87 @@
+/*
+ * The assistant on a phone works like a chat: a compact title, the conversation and
+ * the cards in the middle, and the composer, with the activity panel, kept at the
+ * bottom above the navigation bar, so what the AI is doing is always in view.
+ */
+@media (max-width: 820px) {
+  .cellar-assistant-view .cellar-assistant-main {
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* A compact title: the description is in the quick guide ("?"). */
+  .cellar-assistant-view .cellar-assistant-main > .cellar-assistant-hero {
+    order: 0;
+    padding: 10px 14px;
+    gap: 10px;
+    border-radius: 16px;
+  }
+  .cellar-assistant-view .cellar-assistant-hero > div > span { display: none; }
+  .cellar-assistant-view .cellar-assistant-hero h1 { margin: 0; font-size: 1.3rem; line-height: 1.15; }
+  .cellar-assistant-view .cellar-assistant-hero p { margin-bottom: 2px; }
+  .cellar-assistant-view .cellar-assistant-hero .cellar-assistant-icon { flex-basis: 2.3rem; }
+
+  .cellar-assistant-view .cellar-assistant-main > .cellar-assistant-conversation { order: 1; }
+  .cellar-assistant-view .cellar-assistant-main > .cellar-assistant-result { order: 2; }
+  .cellar-assistant-view .cellar-assistant-main > .cellar-assistant-error { order: 3; }
+
+  /* The composer stays at the bottom of the screen, above the navigation bar. */
+  .cellar-assistant-view .cellar-assistant-main > .cellar-assistant-composer {
+    order: 10;
+    position: sticky;
+    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+    gap: 8px !important;
+    padding: 10px !important;
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)) !important;
+    border-radius: 20px !important;
+    background: var(--surface-raised) !important;
+    box-shadow: 0 -12px 28px color-mix(in srgb, var(--collector-depth, black) 18%, transparent);
+  }
+  .cellar-assistant-view .cellar-assistant-composer > label[for="cellar-assistant-command"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  /* Examples only on an empty screen; afterwards the conversation needs the room. */
+  .cellar-assistant-view .cellar-assistant-composer.has-results > .cellar-assistant-examples {
+    display: none !important;
+  }
+  .cellar-assistant-view .cellar-assistant-composer textarea {
+    min-height: 3.4rem !important;
+    height: 3.4rem !important;
+    padding: 0.7rem 0.85rem !important;
+    resize: none;
+  }
+  .cellar-assistant-view #cellar-assistant-continue-help,
+  .cellar-assistant-view .cellar-assistant-voice-note,
+  .cellar-assistant-view .cellar-assistant-voice-mode-row small {
+    display: none;
+  }
+  .cellar-assistant-view .cellar-assistant-composer-footer { gap: 8px !important; }
+  .cellar-assistant-view .cellar-assistant-voice-mode { min-height: 40px; }
+  .cellar-assistant-view .cellar-assistant-read-aloud { font-size: 0.78rem; }
+  .cellar-assistant-view .cellar-assistant-composer .assistant-activity { min-height: 56px; padding: 9px 12px; }
+
+  /* Voice conversation and read-aloud share one row. */
+  .cellar-assistant-view .cellar-assistant-main > .cellar-assistant-composer {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+  }
+  .cellar-assistant-view .cellar-assistant-composer > * { grid-column: 1 / -1; }
+  .cellar-assistant-view .cellar-assistant-composer > .cellar-assistant-voice-mode-row { grid-column: 1; }
+  .cellar-assistant-view .cellar-assistant-composer > .cellar-assistant-read-aloud {
+    grid-column: 2;
+    align-self: center;
+    white-space: nowrap;
+  }
+}
+
+.cellar-assistant-read-aloud-short { display: none; }
+@media (max-width: 820px) {
+  .cellar-assistant-view .cellar-assistant-read-aloud-long { display: none; }
+  .cellar-assistant-view .cellar-assistant-read-aloud-short { display: inline; text-transform: none; letter-spacing: 0; }
+}

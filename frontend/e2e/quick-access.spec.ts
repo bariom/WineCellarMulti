@@ -161,7 +161,9 @@ test("a food pairing question is answered in chat and opens in the Sommelier AI"
   const working = page.locator(".assistant-activity.is-thinking");
   await expect(working).toContainText("Chiedo al Sommelier il vino giusto…");
   await expect(page.locator(".cellar-assistant-send-actions")).toBeHidden();
-  await working.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  // On a phone the panel is in view without scrolling, with the question above it.
+  await expect(working).toBeInViewport({ ratio: 1 });
+  await expect(conversation.locator("li.is-user")).toBeInViewport();
   await working.screenshot({ path: testInfo.outputPath("activity-thinking-390.png") });
   await page.screenshot({ path: testInfo.outputPath("pending-question-390.png") });
   expect(JSON.parse(await page.evaluate(() => sessionStorage.getItem("asked") || "{}")).pairing_max_price_chf).toBe(60);

@@ -100,7 +100,7 @@
    example chips step aside once a conversation is open so it stays close to the composer. */
 .cellar-assistant-conversation > ol > li { scroll-margin-top: 84px; }
 @media (max-width: 820px) {
-  .cellar-assistant-composer.has-conversation > .cellar-assistant-command-examples { display: none !important; }
+  .cellar-assistant-composer.has-conversation > .cellar-assistant-examples { display: none !important; }
 }
 
 /* Read aloud: a speaker on each answer and an option to read new answers automatically. */
@@ -129,3 +129,26 @@
 .cellar-assistant-conversation > ol > li.is-pending p { color: var(--text-muted); font-style: italic; animation: cellar-assistant-pending 1.4s ease-in-out infinite; }
 @keyframes cellar-assistant-pending { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .cellar-assistant-conversation > ol > li.is-pending p { animation: none; } }
+
+/* Examples on demand: one quiet line that opens the questions and commands. */
+.cellar-assistant-examples { display: grid; gap: 10px; }
+.cellar-assistant-examples > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  color: var(--text);
+  font-size: .84rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+.cellar-assistant-examples > summary::-webkit-details-marker { display: none; }
+.cellar-assistant-examples > summary::after { content: "+"; margin-left: 2px; color: var(--accent); font-weight: 800; }
+.cellar-assistant-examples[open] > summary::after { content: "−"; }
+.cellar-assistant-examples[open] { padding-bottom: 4px; }

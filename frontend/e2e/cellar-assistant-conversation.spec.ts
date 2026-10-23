@@ -52,6 +52,18 @@ test("the cellar assistant answers questions and keeps the conversation", async 
   await expect(page.getByRole("heading", { name: "Assistente Cantina AI" })).toBeVisible();
 
   const field = page.getByLabel("Chiedi o racconta", { exact: true });
+  await page.screenshot({ path: testInfo.outputPath("assistant-empty-390.png") });
+  // Examples are on demand: closed at first, and picking one fills the box and closes them.
+  const examples = page.locator(".cellar-assistant-examples");
+  await expect(examples.getByRole("button", { name: "Quali vini sono al picco?" })).toBeHidden();
+  await examples.locator("summary").click();
+  await examples.getByRole("button", { name: "Quali vini sono al picco?" }).click();
+  await expect(field).toHaveValue("Quali vini sono al picco?");
+  await expect(examples).not.toHaveAttribute("open", "");
+  await field.fill("");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.screenshot({ path: testInfo.outputPath("assistant-empty-1440.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("checkbox", { name: "Leggi le risposte ad alta voce" }).check();
   await field.fill("Quanti Nebbiolo ho?");
   await page.getByRole("button", { name: "Continua", exact: true }).click();
@@ -156,8 +168,10 @@ test("several actions in one message become cards confirmed one by one", async (
   await expect(cards.nth(1)).toContainText("Sassicaia");
   await expect(cards.nth(1).getByRole("button", { name: "Apri la scheda del vino" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  await page.locator(".cellar-assistant-result").first().scrollIntoViewIfNeeded();
-  await page.screenshot({ path: testInfo.outputPath("assistant-two-actions-390.png"), fullPage: true });
+  // The first card to confirm and the composer are both on screen, no scrolling needed.
+  await expect(cards.nth(0).getByRole("button", { name: "Conferma", exact: true })).toBeInViewport();
+  await expect(page.locator(".cellar-assistant-composer")).toBeInViewport({ ratio: 1 });
+  await page.screenshot({ path: testInfo.outputPath("assistant-two-actions-390.png") });
 
   await cards.nth(0).getByRole("button", { name: "Conferma", exact: true }).click();
   await expect(cards.nth(0)).toContainText("Fatto. Bevuta registrata.");

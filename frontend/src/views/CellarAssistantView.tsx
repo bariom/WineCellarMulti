@@ -12,6 +12,7 @@ import type {
 import "./CellarAssistantView.css";
 import "./CellarAssistantVoice.css";
 import "./CellarAssistantStrategy.css";
+import "./CellarAssistantMobile.css";
 import { AssistantAnswer } from "../components/AssistantAnswer";
 import { AssistantActivity } from "../components/AssistantActivity";
 import { primeSpeech, speak, speechSupported, stopSpeaking } from "../utils/speech";
@@ -114,6 +115,7 @@ export default function CellarAssistantView({
   const [voicePreparing, setVoicePreparing] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [examplesOpen, setExamplesOpen] = useState(false);
   // The open conversation with the assistant: questions and answers, newest last.
   // The question being answered, shown at once while the answer is on its way.
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
@@ -206,6 +208,7 @@ export default function CellarAssistantView({
     undecided: isItalian ? "Da decidere" : "Undecided",
   }[purpose] || purpose);
   const applyExample = (example: string) => {
+    setExamplesOpen(false);
     setText(example);
     setError("");
     setResults([]);
@@ -845,28 +848,32 @@ export default function CellarAssistantView({
         <small className="cellar-assistant-conversation-note">{isItalian ? "L'assistente legge la tua cantina per rispondere; per modificarla, racconta cosa è successo." : "The assistant reads your cellar to answer; to change it, describe what happened."}</small>
       </section> : null}
 
-      <form className={`cellar-assistant-composer${conversation.length ? " has-conversation" : ""}`} onSubmit={submit}>
+      <form className={`cellar-assistant-composer${conversation.length || pendingQuestion ? " has-conversation" : ""}${conversation.length || pendingQuestion || results.length ? " has-results" : ""}`} onSubmit={submit}>
         <label htmlFor="cellar-assistant-command">{isItalian ? "Chiedi o racconta" : "Ask or tell"}</label>
-        <div className="cellar-assistant-command-examples" aria-label={isItalian ? "Esempi di domande" : "Question examples"}>
-          <span>{isItalian ? "Chiedi:" : "Ask:"}</span>
-          <div>
-            {questionExamples.map((example) => (
-              <button type="button" key={example} className="secondary compact" onClick={() => applyExample(example)} disabled={disabled || busy}>
-                {example}
-              </button>
-            ))}
+        {/* Examples on demand: closed by default so the composer stays clear. */}
+        <details className="cellar-assistant-examples" open={examplesOpen} onToggle={(event) => setExamplesOpen(event.currentTarget.open)}>
+          <summary><span aria-hidden="true">💡</span>{isItalian ? "Esempi di domande e comandi" : "Question and command examples"}</summary>
+          <div className="cellar-assistant-command-examples" aria-label={isItalian ? "Esempi di domande" : "Question examples"}>
+            <span>{isItalian ? "Chiedi:" : "Ask:"}</span>
+            <div>
+              {questionExamples.map((example) => (
+                <button type="button" key={example} className="secondary compact" onClick={() => applyExample(example)} disabled={disabled || busy}>
+                  {example}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="cellar-assistant-command-examples" aria-label={isItalian ? "Esempi di comandi" : "Command examples"}>
-          <span>{isItalian ? "Prova un comando:" : "Try a command:"}</span>
-          <div>
-            {helpExamples.map((item) => (
-              <button type="button" key={item.label} className="secondary compact" onClick={() => applyExample(item.example)} disabled={disabled || busy} title={item.description}>
-                {item.label}
-              </button>
-            ))}
+          <div className="cellar-assistant-command-examples" aria-label={isItalian ? "Esempi di comandi" : "Command examples"}>
+            <span>{isItalian ? "Prova un comando:" : "Try a command:"}</span>
+            <div>
+              {helpExamples.map((item) => (
+                <button type="button" key={item.label} className="secondary compact" onClick={() => applyExample(item.example)} disabled={disabled || busy} title={item.description}>
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        </details>
         <div className={`cellar-assistant-voice-input${listening ? " is-listening" : ""}`}>
           <textarea
             id="cellar-assistant-command"
@@ -935,9 +942,9 @@ export default function CellarAssistantView({
           </button>
           <small>{isItalian ? "Parla liberamente: ti rispondo a voce. Di' «sì» per confermare, «no» per lasciar stare, «basta» per finire." : "Just talk: I answer aloud. Say “yes” to confirm, “no” to skip, “stop” to finish."}</small>
         </div> : null}
-        {canSpeak ? <label className="cellar-assistant-read-aloud"><input type="checkbox" checked={readAloud} onChange={(event) => changeReadAloud(event.target.checked)} /><span>{isItalian ? "Leggi le risposte ad alta voce" : "Read answers aloud"}</span></label> : null}
+        {canSpeak ? <label className="cellar-assistant-read-aloud"><input type="checkbox" checked={readAloud} onChange={(event) => changeReadAloud(event.target.checked)} aria-label={isItalian ? "Leggi le risposte ad alta voce" : "Read answers aloud"} /><span className="cellar-assistant-read-aloud-long">{isItalian ? "Leggi le risposte ad alta voce" : "Read answers aloud"}</span><span className="cellar-assistant-read-aloud-short" aria-hidden="true">🔊 {isItalian ? "Leggi" : "Read"}</span></label> : null}
         {voiceMessage && !activityPhase ? <p className={`cellar-assistant-voice-status${listening ? " is-listening" : ""}`} aria-live="polite">{voiceMessage}</p> : null}
-        <small>{isItalian
+        <small className="cellar-assistant-voice-note">{isItalian
           ? voiceSupported
             ? "Puoi parlare o scrivere. Il browser gestisce la dettatura; Vinaris riceve soltanto il testo e non conserva audio. Controlla sempre la trascrizione."
             : "La dettatura non è disponibile in questo browser. Inserisci il comando con la tastiera."
