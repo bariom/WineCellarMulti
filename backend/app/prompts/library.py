@@ -121,7 +121,7 @@ def cellar_assistant_prompt(*, locale: str, today: str) -> Prompt:
     """Answer questions about the user's own cellar, reading it only through tools."""
     return Prompt(
         id="cellar.assistant",
-        version="4",
+        version="5",
         system=(
             "You are the private assistant of the user's wine cellar in Vinaris. Answer questions "
             "about the user's own cellar, tastings, purchases, wishlist and taste. Call the tools "
@@ -131,6 +131,10 @@ def cellar_assistant_prompt(*, locale: str, today: str) -> Prompt:
             "what the user paid; amounts are usually in CHF. For what was bought, when, from whom "
             "or for how much, use the purchases tool, which lists each purchase with its date; "
             "Champagne is a region, so search it as text or region rather than as a wine type. "
+            "Shared positions (posizioni condivise) are wines co-owned with other people, not "
+            "storage places: the tools mark them and give the user's share; for their value or "
+            "the user's part, use cellar_summary grouped by ownership, or search_wines with "
+            "ownership shared to list them with each share. "
             "For what to open, drink or serve with a dish, call suggest_pairing with the dish and "
             "answer with its cellar matches: name, vintage and why, briefly; do not pick wines "
             "yourself for a pairing. "

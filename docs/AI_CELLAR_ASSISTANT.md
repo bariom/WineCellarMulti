@@ -77,7 +77,9 @@ The model never reads the database directly: it calls read-only tools in
 `deliveries`, `tasting_history`, `taste_profile`, `wishlist` and `purchases` — that read only the
 active household, apply the user's wine visibility, omit database IDs and return at most 25 rows.
 They include purchase prices, personal notes, cellar locations and tasting companions, as agreed
-with the product owner. Nothing is written: asked to change the cellar, the assistant explains how
+with the product owner. Shared positions (co-owned wines) carry the user's share and bottles,
+computed as in the cellar list's ownership filter: `search_wines` filters them with `ownership`,
+and `cellar_summary` groups by `ownership` and totals the user's own bottles and value. Nothing is written: asked to change the cellar, the assistant explains how
 to describe the action instead. The client sends the last ten turns of the open conversation so
 follow-up questions keep their meaning; nothing is stored server side beyond the AI audit entries.
 

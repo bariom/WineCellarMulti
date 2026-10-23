@@ -74,7 +74,8 @@ def assistant_tools() -> list[dict[str, Any]]:
             "search_wines",
             "Find wines in the cellar. Text matches name, producer, appellation, region, grapes, "
             "tags and notes. Returns bottles, status, location, drinking window and phase, "
-            "value, purchase price, personal rating and notes.",
+            "value, purchase price, personal rating and notes; for shared positions (wines "
+            "co-owned with other people) also the user's share and bottles.",
             {
                 "text": _nullable("string"),
                 "wine_type": _nullable("string", enum=[*WINE_TYPES, None]),
@@ -89,6 +90,12 @@ def assistant_tools() -> list[dict[str, Any]]:
                 },
                 "drink_phase": _nullable("string", enum=["young", "ready", "peak", "past", None]),
                 "location": _nullable("string"),
+                "ownership": {
+                    "type": "string",
+                    "enum": ["any", "mine", "shared"],
+                    "description": "mine: wines the user owns at least in part; shared: wines "
+                    "co-owned with other people (shared positions)",
+                },
                 "max_value": _nullable("number", description="Highest value per bottle"),
                 "include_finished": {
                     "type": "boolean",
@@ -98,7 +105,9 @@ def assistant_tools() -> list[dict[str, Any]]:
         ),
         _tool(
             "cellar_summary",
-            "Bottle counts and value of the cellar, grouped by one dimension.",
+            "Bottle counts and value of the cellar, grouped by one dimension, with the user's own "
+            "part of them: on shared positions the user owns only a share of the bottles and "
+            "value. Group by ownership to split shared positions from wines owned outright.",
             {
                 "group_by": {
                     "type": "string",
@@ -110,6 +119,7 @@ def assistant_tools() -> list[dict[str, Any]]:
                         "vintage",
                         "status",
                         "location",
+                        "ownership",
                     ],
                 },
                 "in_cellar_only": {"type": "boolean"},
@@ -227,6 +237,36 @@ def _status_key(wine: Wine) -> str:
     return status or "unknown"
 
 
+def share_pct(wine: Wine, user: Any) -> Decimal:
+    """The user's share of a wine, as the cellar list shows it.
+
+    With named owners the share is the user's own entry (none if not listed);
+    otherwise the household's owner share applies.
+    """
+    fallback = Decimal(wine.owner_share_pct if wine.owner_share_pct is not None else 100)
+    owners = [item for item in (wine.owners or []) if isinstance(item, dict)]
+    email = (getattr(user, "email", "") or "").strip().lower()
+    if not owners or not email:
+        return min(max(fallback, Decimal(0)), Decimal(100))
+    name = (getattr(user, "display_name", "") or "").strip().lower()
+    for owner in owners:
+        owner_email = str(owner.get("email") or "").strip().lower()
+        owner_name = str(owner.get("name") or "").strip().lower()
+        if (owner_email and owner_email == email) or (
+            not owner_email and owner_name and owner_name in {name, email}
+        ):
+            try:
+                share = Decimal(str(owner.get("share_pct") or 0))
+            except ArithmeticError:
+                return Decimal(0)
+            return min(max(share, Decimal(0)), Decimal(100))
+    return Decimal(0)
+
+
+def is_shared(wine: Wine, user: Any) -> bool:
+    return bool(wine.owners) or share_pct(wine, user) < 100
+
+
 def drink_phase(wine: Wine, year: int) -> str:
     start, end = wine.drink_from, wine.drink_to
     # Without peak years a drinkable wine is only "ready", never assumed at its peak.
@@ -333,8 +373,17 @@ class CellarAssistantTools:
             "order_date": wine.order_date.isoformat() if wine.order_date else None,
             "notes": (wine.notes or "")[:300],
         }
-        if wine.owner_share_pct is not None and Decimal(wine.owner_share_pct) < 100:
-            row["your_share_pct"] = float(wine.owner_share_pct)
+        if is_shared(wine, self.context.user):
+            share = share_pct(wine, self.context.user)
+            row["shared_position"] = True
+            row["your_share_pct"] = float(share)
+            row["your_bottles"] = round(wine.quantity * float(share) / 100, 2)
+            co_owners = [
+                str(owner.get("name") or owner.get("email") or "").strip()
+                for owner in (wine.owners or [])
+                if isinstance(owner, dict)
+            ]
+            row["owners"] = [owner for owner in co_owners if owner]
         return {key: value for key, value in row.items() if value not in ("", None, [], "?-?")}
 
     # -- tools -------------------------------------------------------------
@@ -387,6 +436,11 @@ class CellarAssistantTools:
                 args["location"], self.locations().get(wine.id, "")
             ):
                 continue
+            ownership = args.get("ownership") or "any"
+            if ownership == "shared" and not is_shared(wine, self.context.user):
+                continue
+            if ownership == "mine" and share_pct(wine, self.context.user) <= 0:
+                continue
             unit = wine.current_value if wine.current_value is not None else wine.price
             if args.get("max_value") is not None and (
                 unit is None or float(unit) > float(args["max_value"])
@@ -403,7 +457,7 @@ class CellarAssistantTools:
     def cellar_summary(self, args: dict[str, Any]) -> dict[str, Any]:
         group_by = args.get("group_by") or "type"
         groups: dict[str, dict[str, float]] = defaultdict(
-            lambda: {"bottles": 0, "wines": 0, "value": 0.0}
+            lambda: {"bottles": 0, "wines": 0, "value": 0.0, "your_bottles": 0.0, "your_value": 0.0}
         )
         for wine in self.wines():
             if wine.quantity <= 0 or (args.get("in_cellar_only") and not _in_cellar(wine)):
@@ -416,22 +470,31 @@ class CellarAssistantTools:
                 "vintage": wine.vintage,
                 "status": _status_key(wine),
                 "location": self.locations().get(wine.id, ""),
+                "ownership": "shared" if is_shared(wine, self.context.user) else "owned_outright",
             }.get(group_by) or "—"
             unit = wine.current_value if wine.current_value is not None else wine.price
+            value = float(unit or 0) * wine.quantity
+            share = float(share_pct(wine, self.context.user)) / 100
             groups[key]["bottles"] += wine.quantity
             groups[key]["wines"] += 1
-            groups[key]["value"] += float(unit or 0) * wine.quantity
+            groups[key]["value"] += value
+            groups[key]["your_bottles"] += wine.quantity * share
+            groups[key]["your_value"] += value * share
         ordered = sorted(groups.items(), key=lambda item: item[1]["bottles"], reverse=True)
         return {
             "group_by": group_by,
             "total_bottles": sum(group["bottles"] for group in groups.values()),
             "total_value": round(sum(group["value"] for group in groups.values()), 2),
+            "your_bottles": round(sum(group["your_bottles"] for group in groups.values()), 2),
+            "your_value": round(sum(group["your_value"] for group in groups.values()), 2),
             "groups": [
                 {
                     "group": key,
                     "bottles": int(group["bottles"]),
                     "wines": int(group["wines"]),
                     "value": round(group["value"], 2),
+                    "your_bottles": round(group["your_bottles"], 2),
+                    "your_value": round(group["your_value"], 2),
                 }
                 for key, group in ordered[:MAX_ROWS]
             ],

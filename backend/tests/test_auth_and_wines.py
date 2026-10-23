@@ -6426,6 +6426,54 @@ def test_cellar_assistant_tools_read_only_the_active_cellar():
         assert tools.invoke("drop_table", "{}") == {"error": "Unknown tool drop_table"}
 
 
+def test_cellar_assistant_tools_know_shared_positions_and_the_users_share():
+    from types import SimpleNamespace
+
+    from app.services.cellar_assistant import CellarAssistantTools
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with TestingSessionLocal() as db:
+        owner = db.query(User).filter(User.email == "owner@example.com").one()
+        household = db.query(Household).filter(Household.name == "Main Cellar").one()
+
+        def wine(name, quantity, value, **values):
+            item = Wine(household_id=household.id, created_by_user_id=owner.id, name=name,
+                        producer="Producer", vintage="2025", quantity=quantity, status="Delivered",
+                        current_value=value, **values)
+            db.add(item)
+            return item
+
+        # Two of six bottles are the user's, as the cellar list says "2 bottiglie di 6 condivise".
+        wine("Cos d'Estournel", 6, 100, owners=[
+            {"name": "Owner", "email": "OWNER@example.com", "share_pct": 33.3333},
+            {"name": "Luca", "email": "luca@example.com", "share_pct": 66.6667},
+        ])
+        wine("Phelan Segur", 24, 40, owner_share_pct=25)
+        wine("Barolo", 3, 50)
+        db.commit()
+        tools = CellarAssistantTools(db, SimpleNamespace(household=household, user=owner),
+                                     can_see=lambda _wine: True, today=date(2026, 10, 23))
+
+        summary = tools.invoke("cellar_summary", json.dumps({"group_by": "ownership", "in_cellar_only": True}))
+        groups = {group["group"]: group for group in summary["groups"]}
+        # Shared positions are told apart from the wines owned outright, with the user's part.
+        assert (groups["shared"]["bottles"], groups["shared"]["value"]) == (30, 1560.0)
+        assert (groups["shared"]["your_bottles"], groups["shared"]["your_value"]) == (8.0, 440.0)
+        assert (groups["owned_outright"]["your_bottles"], groups["owned_outright"]["your_value"]) == (3.0, 150.0)
+        assert (summary["total_value"], summary["your_value"]) == (1710.0, 590.0)
+
+        shared = tools.invoke("search_wines", json.dumps({
+            "text": None, "wine_type": None, "region": None, "producer": None, "grape": None,
+            "vintage_from": None, "vintage_to": None, "status": "any", "drink_phase": None,
+            "location": None, "ownership": "shared", "max_value": None, "include_finished": False,
+        }))
+        rows = {row["name"]: row for row in shared["wines"]}
+        assert set(rows) == {"Cos d'Estournel", "Phelan Segur"}
+        assert (rows["Cos d'Estournel"]["your_bottles"], rows["Cos d'Estournel"]["owners"]) == (2.0, ["Owner", "Luca"])
+        assert (rows["Phelan Segur"]["your_share_pct"], rows["Phelan Segur"]["your_bottles"]) == (25.0, 6.0)
+
+
 def test_cellar_assistant_is_reserved_for_subscribers(monkeypatch):
     from app.api.routes import ai as ai_routes
 
