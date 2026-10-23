@@ -13,9 +13,12 @@ import "./CellarAssistantView.css";
 import "./CellarAssistantVoice.css";
 import "./CellarAssistantStrategy.css";
 import { AssistantAnswer } from "../components/AssistantAnswer";
+import { AssistantActivity } from "../components/AssistantActivity";
 import { primeSpeech, speak, speechSupported, stopSpeaking } from "../utils/speech";
 
 const READ_ALOUD_KEY = "vinaris.assistant.read-aloud";
+// Only for the activity label: a question about which wine goes with a dish.
+const PAIRING_HINT = /\b(apro|apriamo|stappo|bevo|beviamo|abbino|abbinare|servo|open|drink|pair|serve)\b.*\b(con|al|alla|ai|alle|per|with|for)\b|\bvino per\b|\bwine for\b/i;
 
 // Voice conversation replies. The lookahead replaces \b, which fails after "ì".
 const VOICE_YES = /^(s[iì]|conferma|confermo|confermato|ok|okay|va bene|vai|procedi|certo|esatto|yes|yeah|confirm|go ahead|sure)(?=[\s,.!]|$)/;
@@ -114,6 +117,8 @@ export default function CellarAssistantView({
   // The open conversation with the assistant: questions and answers, newest last.
   // The question being answered, shown at once while the answer is on its way.
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  // What the assistant is doing while busy, shown in the activity panel.
+  const [workLabel, setWorkLabel] = useState("");
   const [conversation, setConversation] = useState<Array<{ role: "user" | "assistant"; content: string; meta?: string; pairing?: { dish: string; result: PairingResult } }>>([]);
   const recognitionRef = useRef<VoiceRecognition | null>(null);
   const voiceTimeoutRef = useRef<number | null>(null);
@@ -138,6 +143,8 @@ export default function CellarAssistantView({
   const startVoiceInputRef = useRef<() => Promise<void>>(async () => {});
   const voiceSupported = Boolean(browserVoiceRecognition());
   const isItalian = locale === "it";
+  const listeningPrefix = isItalian ? "Ti ascolto: " : "Listening: ";
+  const heardSoFar = voiceMessage.startsWith(listeningPrefix) ? voiceMessage.slice(listeningPrefix.length) : "";
   const consumptionExample = isItalian
     ? "Ieri a cena ho bevuto una bottiglia di Ornellaia 2015 ed era eccellente, 9 su 10! Aggiorna la cantina."
     : "Yesterday at dinner I drank a bottle of Ornellaia 2015. It was excellent, 9 out of 10. Update my cellar.";
@@ -283,6 +290,13 @@ export default function CellarAssistantView({
       : "";
     if (speak(fresh.map((item) => item.message).join(" ") + hint, locale, () => setSpeakingIndex((current) => (current === -1 ? null : current)))) setSpeakingIndex(-1);
   }, [results]);
+  // Clear the label when the work ends, not on mount (a question from the home is
+  // sent in the same render and would lose its label).
+  const wasBusyRef = useRef(false);
+  useEffect(() => {
+    if (wasBusyRef.current && !busy) setWorkLabel("");
+    wasBusyRef.current = busy;
+  }, [busy]);
   useEffect(() => () => {
     voiceModeRef.current = false;
     stopSpeaking();
@@ -614,6 +628,11 @@ export default function CellarAssistantView({
     if (!question || busy || disabled || listening) return;
     // The box shows what was asked, also when it came from the home ask bar.
     setText(question);
+    setWorkLabel(isQuestion(question)
+      ? (PAIRING_HINT.test(question)
+        ? (isItalian ? "Chiedo al Sommelier il vino giusto…" : "Asking the Sommelier for the right wine…")
+        : (isItalian ? "Sto cercando nella tua cantina…" : "Looking through your cellar…"))
+      : (isItalian ? "Preparo l’aggiornamento della cantina…" : "Preparing the cellar update…"));
     // Still inside the tap: lets mobile Safari read the answer when it arrives.
     if (readAloud) primeSpeech();
     setBusy(true);
@@ -755,6 +774,8 @@ export default function CellarAssistantView({
     }
   }
 
+  const activityPhase = listening ? "listening" as const : busy ? "thinking" as const : speakingIndex !== null ? "speaking" as const : null;
+
   return (
     <section className="cellar-assistant-view" aria-labelledby="cellar-assistant-title">
       <div className="cellar-assistant-card">
@@ -818,7 +839,7 @@ export default function CellarAssistantView({
           </li>)}
           {pendingQuestion ? <>
             <li className="is-user" ref={latestQuestionRef}><p>{pendingQuestion}</p></li>
-            <li className="is-assistant is-pending"><p>{isItalian ? "Sto cercando nella tua cantina…" : "Looking through your cellar…"}</p></li>
+            <li className="is-assistant is-pending"><p>{workLabel || (isItalian ? "Sto cercando nella tua cantina…" : "Looking through your cellar…")}</p></li>
           </> : null}
         </ol>
         <small className="cellar-assistant-conversation-note">{isItalian ? "L'assistente legge la tua cantina per rispondere; per modificarla, racconta cosa è successo." : "The assistant reads your cellar to answer; to change it, describe what happened."}</small>
@@ -857,12 +878,32 @@ export default function CellarAssistantView({
             placeholder={purchaseExample}
           />
         </div>
+        {activityPhase ? <AssistantActivity
+          phase={activityPhase}
+          locale={locale}
+          label={activityPhase === "listening"
+            ? (isItalian ? "Ti ascolto…" : "Listening…")
+            : activityPhase === "thinking"
+              ? (workLabel || (isItalian ? "Aggiorno la cantina…" : "Updating the cellar…"))
+              : (isItalian ? "Ti rispondo a voce…" : "Answering aloud…")}
+          detail={activityPhase === "listening"
+            ? (heardSoFar || (voiceMode ? (isItalian ? "Parla pure: invio io quando hai finito." : "Go ahead: I send it when you finish.") : (isItalian ? "Il testo comparirà nella casella." : "The text will appear in the box.")))
+            : activityPhase === "thinking"
+              ? (pendingQuestion ? `«${pendingQuestion}»` : undefined)
+              : undefined}
+          onStop={activityPhase === "listening"
+            ? (voiceMode ? () => stopVoiceMode(isItalian ? "Conversazione a voce terminata." : "Voice conversation ended.") : stopVoiceInput)
+            : activityPhase === "speaking"
+              ? () => { stopSpeaking(); setSpeakingIndex(null); }
+              : undefined}
+        /> : null}
         <div className="cellar-assistant-composer-footer">
           <small id="cellar-assistant-continue-help">
             {isItalian ? "Risponde alle domande sulla cantina o prepara il prossimo aggiornamento." : "Answers cellar questions or prepares the next cellar update."}
           </small>
-          {/* Speak and send side by side, so dictating and sending are one thumb apart. */}
-          <div className="cellar-assistant-send-actions">
+          {/* Speak and send side by side, so dictating and sending are one thumb apart;
+              they step aside for the activity panel while the assistant listens or works. */}
+          <div className="cellar-assistant-send-actions" hidden={activityPhase === "listening" || activityPhase === "thinking"}>
               {voiceSupported ? (
                 <button
                   type="button"
@@ -895,7 +936,7 @@ export default function CellarAssistantView({
           <small>{isItalian ? "Parla liberamente: ti rispondo a voce. Di' «sì» per confermare, «no» per lasciar stare, «basta» per finire." : "Just talk: I answer aloud. Say “yes” to confirm, “no” to skip, “stop” to finish."}</small>
         </div> : null}
         {canSpeak ? <label className="cellar-assistant-read-aloud"><input type="checkbox" checked={readAloud} onChange={(event) => changeReadAloud(event.target.checked)} /><span>{isItalian ? "Leggi le risposte ad alta voce" : "Read answers aloud"}</span></label> : null}
-        {voiceMessage ? <p className={`cellar-assistant-voice-status${listening ? " is-listening" : ""}`} aria-live="polite">{voiceMessage}</p> : null}
+        {voiceMessage && !activityPhase ? <p className={`cellar-assistant-voice-status${listening ? " is-listening" : ""}`} aria-live="polite">{voiceMessage}</p> : null}
         <small>{isItalian
           ? voiceSupported
             ? "Puoi parlare o scrivere. Il browser gestisce la dettatura; Vinaris riceve soltanto il testo e non conserva audio. Controlla sempre la trascrizione."

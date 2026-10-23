@@ -110,6 +110,10 @@ test("the home microphone opens the assistant in voice conversation", async ({ p
   await microphone.click();
   await expect(page.getByRole("heading", { name: "Assistente Cantina AI" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Termina la conversazione a voce" })).toHaveAttribute("aria-pressed", "true");
+  const listening = page.locator(".assistant-activity.is-listening");
+  await expect(listening).toContainText("Ti ascolto…");
+  await expect(listening.getByRole("button", { name: "Ferma" })).toBeVisible();
+  await listening.screenshot({ path: testInfo.outputPath("activity-listening-390.png") });
   // Exactly one microphone listens (development remounts may restart it, never double it).
   await expect.poll(() => page.evaluate(() => (window as unknown as { activeRecognitions: number }).activeRecognitions)).toBe(1);
 });
@@ -126,7 +130,7 @@ test("a food pairing question is answered in chat and opens in the Sommelier AI"
       if (path === "/api/v1/ai/cellar-assistant/ask") {
         sessionStorage.setItem("asked", String(init?.body));
         // A moment of work, so the question is seen while the answer is on its way.
-        await new Promise((resolve) => window.setTimeout(resolve, 1200));
+        await new Promise((resolve) => window.setTimeout(resolve, 1500));
         return Response.json({
           answer: `Apri il **${fixture.name} ${fixture.vintage}**: tannini e acidità reggono il sugo di selvaggina.`,
           tools_used: ["suggest_pairing"], model: "gpt-6-luna", reasoning_effort: "none", estimated_cost_usd: "0.004",
@@ -153,6 +157,12 @@ test("a food pairing question is answered in chat and opens in the Sommelier AI"
   await expect(page.getByLabel("Chiedi o racconta", { exact: true })).toHaveValue("Che cosa apro con un salmì di cervo?");
   await expect(conversation.locator("li.is-user")).toHaveText("Che cosa apro con un salmì di cervo?");
   await expect(conversation.locator("li.is-pending")).toBeVisible();
+  // The work shows in the activity panel, in place of greyed-out buttons.
+  const working = page.locator(".assistant-activity.is-thinking");
+  await expect(working).toContainText("Chiedo al Sommelier il vino giusto…");
+  await expect(page.locator(".cellar-assistant-send-actions")).toBeHidden();
+  await working.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await working.screenshot({ path: testInfo.outputPath("activity-thinking-390.png") });
   await page.screenshot({ path: testInfo.outputPath("pending-question-390.png") });
   expect(JSON.parse(await page.evaluate(() => sessionStorage.getItem("asked") || "{}")).pairing_max_price_chf).toBe(60);
   await expect(conversation).toContainText("tannini e acidità reggono il sugo");
@@ -170,4 +180,36 @@ test("a food pairing question is answered in chat and opens in the Sommelier AI"
   expect(await page.evaluate(() => sessionStorage.getItem("pairing-called"))).toBeNull();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("pairing-from-assistant-390.png"), fullPage: true });
+});
+
+test("an answer read aloud shows the speaking panel and can be interrupted", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], true, memberships, [wine], subscribed);
+  await answerAssistantQuestions(page);
+  await page.addInitScript(() => {
+    localStorage.setItem("vinaris.assistant.read-aloud", "1");
+    const win = window as unknown as Record<string, unknown>;
+    win.cancelled = 0;
+    class Utterance { text: string; lang = ""; volume = 1; voice = null; onend: (() => void) | null = null; onerror: (() => void) | null = null; constructor(text: string) { this.text = text; } }
+    Object.defineProperty(window, "SpeechSynthesisUtterance", { value: Utterance, configurable: true });
+    let current: Utterance | null = null;
+    Object.defineProperty(window, "speechSynthesis", { configurable: true, value: {
+      get speaking() { return current !== null; },
+      getVoices: () => [],
+      cancel: () => { win.cancelled = (win.cancelled as number) + 1; const ending = current; current = null; ending?.onend?.(); },
+      // A long answer: it keeps speaking until interrupted.
+      speak: (utterance: Utterance) => { if (utterance.text) current = utterance; },
+    } });
+  });
+  await page.goto("/");
+  const ask = page.getByRole("search", { name: "Chiedi all'assistente della cantina" });
+  await ask.getByRole("textbox", { name: "Chiedi alla tua cantina" }).fill("Quali vini sono al picco");
+  await ask.getByRole("button", { name: "Chiedi" }).click();
+  const speaking = page.locator(".assistant-activity.is-speaking");
+  await expect(speaking).toContainText("Ti rispondo a voce…");
+  // While it speaks the user can still type: the send controls stay.
+  await expect(page.locator(".cellar-assistant-send-actions")).toBeVisible();
+  await speaking.screenshot({ path: testInfo.outputPath("activity-speaking-390.png") });
+  await speaking.getByRole("button", { name: "Interrompi" }).click();
+  await expect(speaking).toHaveCount(0);
 });

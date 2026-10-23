@@ -107,3 +107,15 @@
 .cellar-assistant-voice-mode { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 8%, var(--surface-raised)); color: var(--text); font-weight: 750; }
 .cellar-assistant-voice-mode.is-active { border-color: var(--accent); background: linear-gradient(135deg, #e6c27a, #b88a3a); color: #1b1310; box-shadow: 0 0 0 4px color-mix(in srgb, #e6c27a 25%, transparent); }
 .cellar-assistant-voice-mode-row small { color: var(--text-muted); text-align: center; line-height: 1.4; }
+
+/* Unavailable send controls keep the brand colours, softened, instead of a grey block. */
+.cellar-assistant-send-actions > button:disabled,
+.cellar-assistant-send-actions .cellar-assistant-microphone:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-raised));
+  color: color-mix(in srgb, var(--text) 55%, transparent);
+  box-shadow: none;
+}
+.cellar-assistant-send-actions[hidden] { display: none !important; }
