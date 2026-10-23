@@ -2,34 +2,59 @@
  * Updates panel: emerges over the page instead of sitting in it. Bottom-left
  * on wide screens, a bottom sheet on phones, always dismissible.
  */
-.landing-news-tab, .landing-news {
+.landing-news-dock, .landing-news {
   /* The same palette inside the app, where the landing page variables are not set. */
   --mk-ink: #183c31;
   --mk-muted: #586159;
   --mk-line: #d5c9aa;
 }
-.landing-news-tab {
+.landing-news-dock {
   position: fixed;
   z-index: 150;
   bottom: max(16px, env(safe-area-inset-bottom));
   left: max(16px, env(safe-area-inset-left));
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 16px 0 14px;
   border: 1px solid var(--mk-line);
   border-radius: 999px;
   background: rgba(255, 253, 249, .94);
   box-shadow: 0 10px 28px -10px rgba(16, 35, 29, .35);
+  backdrop-filter: blur(10px);
+}
+.landing-news-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 8px 0 14px;
+  border: 0;
+  border-radius: 999px 0 0 999px;
+  background: transparent;
+  box-shadow: none;
   color: var(--mk-ink);
   font: 600 .92rem/1 var(--font-ui);
   cursor: pointer;
-  backdrop-filter: blur(10px);
 }
+.landing-news-hide {
+  display: grid;
+  width: 36px;
+  height: 44px;
+  min-height: 0;
+  padding: 0 4px 0 0;
+  place-items: center;
+  border: 0;
+  border-radius: 0 999px 999px 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--mk-muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.landing-news-hide:hover { color: var(--mk-ink); }
 .landing-news-tab i { width: 8px; height: 8px; border-radius: 50%; background: var(--mk-line); }
 .landing-news-tab i.is-new { background: #b8964c; box-shadow: 0 0 0 4px rgba(184, 150, 76, .22); }
-.landing-news-tab:focus-visible, .landing-news :is(button, [tabindex]):focus-visible { outline: 3px solid #b8964c; outline-offset: 2px; }
+.landing-news-dock button:focus-visible, .landing-news :is(button, [tabindex]):focus-visible { outline: 3px solid #b8964c; outline-offset: 2px; }
 
 .landing-news {
   position: fixed;
@@ -88,7 +113,7 @@
 
 /* Inside the app it sits above the bottom navigation and the add button. */
 .landing-news.is-in-app { z-index: 190; }
-@media (max-width: 999px) { .landing-news-tab.is-in-app { display: none; } }
+@media (max-width: 999px) { .landing-news-dock.is-in-app { display: none; } }
 .landing-news.is-in-app :is(button) { box-shadow: none; }
 .landing-news.is-in-app .marketing-button { display: inline-flex; align-items: center; justify-content: center; padding: 0 20px; border: 1px solid transparent; border-radius: 5px; background: #934b30; color: #fffaf1; font: 850 .82rem/1.2 var(--font-ui); }
 .landing-news.is-in-app .landing-news-card.is-featured .marketing-button { background: #f6e6c9; color: #183c31; }

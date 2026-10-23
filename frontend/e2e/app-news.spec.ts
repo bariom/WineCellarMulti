@@ -70,3 +70,36 @@ test("the shelf scanner update opens the buying view on the shelf", async ({ pag
   await expect(page.locator(".buying-view")).toBeVisible();
   await expect(page.locator(".buying-place-switch button").nth(1)).toHaveAttribute("aria-pressed", "true");
 });
+
+test("the updates tab can be hidden for a week, and returns with something new", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await setup(page);
+  await page.goto("/");
+  const tab = page.getByRole("button", { name: "Novità", exact: true });
+  // Read first, so the panel does not emerge by itself in the middle of the test.
+  await tab.click();
+  await page.getByRole("button", { name: "Chiudi le novità" }).click();
+  await expect(tab).toBeVisible();
+  await page.getByRole("button", { name: "Nascondi Novità per 7 giorni" }).click();
+  await expect(tab).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(".authenticated-app-shell")).toBeVisible();
+  await expect(tab).toHaveCount(0);
+
+  // A week later it is back.
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem("vinaris.app-news") || "{}");
+    localStorage.setItem("vinaris.app-news", JSON.stringify({ ...stored, tabHiddenUntil: Date.now() - 1000 }));
+  });
+  await page.reload();
+  await expect(tab).toBeVisible();
+
+  // Hidden again, it also returns as soon as a newer update is published.
+  await page.getByRole("button", { name: "Nascondi Novità per 7 giorni" }).click();
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem("vinaris.app-news") || "{}");
+    localStorage.setItem("vinaris.app-news", JSON.stringify({ ...stored, tabHiddenFor: "2000-01-01" }));
+  });
+  await page.reload();
+  await expect(tab).toBeVisible();
+});

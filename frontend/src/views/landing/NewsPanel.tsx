@@ -6,17 +6,32 @@ import "./NewsPanel.css";
 const STORAGE_KEY = "vinaris.landing-news";
 const AUTO_OPEN_DELAY_MS = 18_000;
 
-function readDismissedFor(storageKey: string): string {
+// A hidden tab comes back after a few days, or as soon as something newer is published.
+const TAB_HIDDEN_DAYS = 7;
+
+type NewsMemory = { dismissedFor?: unknown; tabHiddenUntil?: unknown; tabHiddenFor?: unknown };
+
+function readMemory(storageKey: string): NewsMemory {
   try {
-    const stored = JSON.parse(window.localStorage.getItem(storageKey) || "{}") as { dismissedFor?: unknown };
-    return typeof stored.dismissedFor === "string" ? stored.dismissedFor : "";
+    const stored = JSON.parse(window.localStorage.getItem(storageKey) || "{}") as unknown;
+    return stored && typeof stored === "object" ? stored as NewsMemory : {};
   } catch {
-    return "";
+    return {};
   }
 }
 
-function rememberDismissed(storageKey: string, latest: string) {
-  try { window.localStorage.setItem(storageKey, JSON.stringify({ dismissedFor: latest })); } catch { /* Storage may be unavailable; the panel simply returns next visit. */ }
+function readDismissedFor(storageKey: string): string {
+  const { dismissedFor } = readMemory(storageKey);
+  return typeof dismissedFor === "string" ? dismissedFor : "";
+}
+
+function remember(storageKey: string, patch: NewsMemory) {
+  try { window.localStorage.setItem(storageKey, JSON.stringify({ ...readMemory(storageKey), ...patch })); } catch { /* Storage may be unavailable; the panel simply returns next visit. */ }
+}
+
+function tabHidden(storageKey: string, latest: string) {
+  const { tabHiddenUntil, tabHiddenFor } = readMemory(storageKey);
+  return typeof tabHiddenUntil === "number" && tabHiddenUntil > Date.now() && typeof tabHiddenFor === "string" && tabHiddenFor >= latest;
 }
 
 /**
@@ -46,9 +61,14 @@ export default function NewsPanel({ copy, locale, open, focusToken, onOpenChange
   const latest = copy.entries.reduce((newest, item) => (item.date > newest ? item.date : newest), "");
   const storageKey = member?.storageKey ?? STORAGE_KEY;
   const [dismissed, setDismissed] = useState(() => readDismissedFor(storageKey) >= latest);
+  const [hideTab, setHideTab] = useState(() => tabHidden(storageKey, latest));
   const move = (offset: number) => setActive((current) => (current + offset + count) % count);
 
-  const close = () => { rememberDismissed(storageKey, latest); setDismissed(true); onOpenChange(false); };
+  const close = () => { remember(storageKey, { dismissedFor: latest }); setDismissed(true); onOpenChange(false); };
+  const hide = () => {
+    remember(storageKey, { tabHiddenUntil: Date.now() + TAB_HIDDEN_DAYS * 86_400_000, tabHiddenFor: latest });
+    setHideTab(true);
+  };
 
   useEffect(() => { onUnreadChange?.(!dismissed); }, [dismissed, onUnreadChange]);
 
@@ -73,9 +93,12 @@ export default function NewsPanel({ copy, locale, open, focusToken, onOpenChange
     if (open && focusToken !== focusedToken.current) { focusedToken.current = focusToken; panel.current?.focus({ preventScroll: true }); }
   }, [open, focusToken]);
 
-  const tab = <button type="button" className={`landing-news-tab${member ? " is-in-app" : ""}`} aria-expanded={open} aria-controls="news" onClick={() => onOpenChange(true, true)}>
-    <i aria-hidden="true" className={dismissed ? "" : "is-new"} />{italian ? "Novità" : "What’s new"}
-  </button>;
+  const tab = hideTab ? null : <div className={`landing-news-dock${member ? " is-in-app" : ""}`}>
+    <button type="button" className="landing-news-tab" aria-expanded={open} aria-controls="news" onClick={() => onOpenChange(true, true)}>
+      <i aria-hidden="true" className={dismissed ? "" : "is-new"} />{italian ? "Novità" : "What’s new"}
+    </button>
+    <button type="button" className="landing-news-hide" aria-label={italian ? `Nascondi Novità per ${TAB_HIDDEN_DAYS} giorni` : `Hide What’s new for ${TAB_HIDDEN_DAYS} days`} title={italian ? `Nascondi per ${TAB_HIDDEN_DAYS} giorni` : `Hide for ${TAB_HIDDEN_DAYS} days`} onClick={hide}><span aria-hidden="true">×</span></button>
+  </div>;
 
   if (!open) return tab;
 
