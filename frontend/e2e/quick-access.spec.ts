@@ -29,8 +29,20 @@ test("a question asked on the home goes straight to the assistant", async ({ pag
     await page.setViewportSize(viewport);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   }
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.screenshot({ path: testInfo.outputPath("home-1440.png") });
+  for (const width of [1100, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    // On desktop the bar sits right under the search field, aligned with it.
+    const search = (await page.locator(".desktop-topbar-search").boundingBox())!;
+    const bar = (await ask.boundingBox())!;
+    expect(Math.abs(bar.x - search.x)).toBeLessThan(2);
+    expect(Math.abs(bar.width - search.width)).toBeLessThan(2);
+    // ...and as tall, so the header stays balanced.
+    expect(Math.abs(bar.height - search.height)).toBeLessThan(4);
+    expect(bar.y).toBeGreaterThan(search.y + search.height);
+    expect(bar.y - (search.y + search.height)).toBeLessThan(40);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.locator(".topbar").screenshot({ path: testInfo.outputPath(`home-header-${width}.png`) });
+  }
   await page.setViewportSize({ width: 390, height: 844 });
   // The bar spans the header, not just one of its columns.
   expect((await ask.boundingBox())!.width).toBeGreaterThan(330);

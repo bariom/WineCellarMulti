@@ -59,3 +59,26 @@
   color: #f6efe2;
   font-size: 1.1rem;
 }
+
+/* Desktop: under the search field, as wide as it; the title and figures keep the left column. */
+@media (min-width: 901px) {
+  :root .cellar-home-edition .topbar > .home-assistant-ask {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    max-width: none;
+    margin: 0;
+    /* The same size as the search field above it, so the two read as a pair. */
+    min-height: 40px;
+    gap: 8px;
+    padding: 3px 4px 3px 12px;
+    box-shadow: 0 6px 16px color-mix(in srgb, black 22%, transparent), inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+  }
+  :root .cellar-home-edition .topbar > .home-assistant-ask > .app-icon { width: 1.05rem; height: 1.05rem; }
+  :root .cellar-home-edition .topbar > .home-assistant-ask input { min-height: 30px; font-size: 0.84rem; }
+  :root .cellar-home-edition .topbar > .home-assistant-ask button { width: 32px; height: 32px; font-size: 1rem; }
+  :root .cellar-home-edition .topbar:has(> .home-assistant-ask) > .cellar-home-hero {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}
