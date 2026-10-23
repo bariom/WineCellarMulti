@@ -1,0 +1,85 @@
+/* Below the market report, which opens on top of it from "Dettagli". */
+.batch-ai-report-overlay { z-index: 350; }
+
+.batch-ai-report {
+  --modal-max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: min(88dvh, 820px);
+  overflow: hidden;
+}
+.batch-ai-report > :not(.auth-modal-head) { margin-inline: 22px; }
+.batch-ai-report .auth-modal-head > button { align-self: flex-start; height: auto; min-height: 40px; }
+
+.batch-ai-report-progress { display: grid; gap: 8px; }
+.batch-ai-report-bar { height: 8px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--surface-muted) 80%, var(--surface)); }
+.batch-ai-report-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width .4s ease; }
+.batch-ai-report-progress p { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; color: var(--text-muted); font-size: .86rem; }
+.batch-ai-report-progress strong { color: var(--text); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.batch-ai-report-progress b { color: var(--text); }
+
+.batch-ai-report-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.batch-ai-report-stats > div { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--vinaris-hairline); border-radius: var(--radius-card); background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface)); }
+.batch-ai-report-stats > div.has-failures { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
+.batch-ai-report-stats > div.has-no-results { border-color: color-mix(in srgb, var(--vinaris-ai) 40%, var(--border)); background: color-mix(in srgb, var(--vinaris-ai-surface) 72%, var(--surface)); }
+.batch-ai-report-stats dt { color: var(--text-muted); font-size: .7rem; font-weight: 800; }
+.batch-ai-report-stats dd { margin: 0; color: var(--text); font-size: 1.2rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+
+.batch-ai-report-rows { display: grid; flex: 1 1 auto; align-content: start; gap: 6px; min-height: 0; margin: 0; padding: 0 4px 0 0; overflow: auto; list-style: none; }
+.batch-ai-report-rows > li { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--vinaris-hairline); border-radius: var(--radius-control); background: var(--surface); }
+.batch-ai-report-rows > li > div { display: grid; gap: 2px; min-width: 0; }
+.batch-ai-report-rows strong { overflow: hidden; color: var(--text); font-size: .92rem; text-overflow: ellipsis; white-space: nowrap; }
+.batch-ai-report-rows strong small { color: var(--text-muted); font-weight: 650; }
+.batch-ai-report-rows > li span:not(.batch-ai-report-state) { color: var(--text-soft); font-size: .8rem; line-height: 1.4; overflow-wrap: anywhere; }
+.batch-ai-report-rows > li.is-pending { opacity: .6; }
+.batch-ai-report-rows > li.is-running { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.batch-ai-report-rows > li.is-no_result { border-color: color-mix(in srgb, var(--vinaris-ai) 30%, var(--border)); }
+.batch-ai-report-rows > li.is-failed { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
+.batch-ai-report-rows > li.is-failed span:not(.batch-ai-report-state) { color: var(--danger-text, var(--danger)); }
+
+.batch-ai-report-state { width: 12px; height: 12px; border-radius: 50%; background: var(--vinaris-hairline); }
+.is-running > .batch-ai-report-state { border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); border-top-color: var(--accent); background: transparent; animation: batch-ai-spin .8s linear infinite; }
+.is-done > .batch-ai-report-state { background: var(--success, #2e7d4f); }
+.is-no_result > .batch-ai-report-state { background: var(--vinaris-ai); }
+.is-failed > .batch-ai-report-state { background: var(--danger); }
+@keyframes batch-ai-spin { to { transform: rotate(360deg); } }
+
+.batch-ai-report-footer { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; }
+
+.batch-ai-chip {
+  position: fixed;
+  z-index: 190;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 16px 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 999px;
+  background: var(--surface-raised);
+  box-shadow: 0 14px 34px color-mix(in srgb, black 22%, transparent);
+  color: var(--text);
+  text-align: left;
+}
+.batch-ai-chip > span:last-child { display: grid; gap: 1px; }
+.batch-ai-chip strong { font-size: .84rem; }
+.batch-ai-chip small { color: var(--text-muted); font-size: .76rem; font-variant-numeric: tabular-nums; }
+.batch-ai-chip-ring { width: 32px; height: 32px; border-radius: 50%; background: conic-gradient(var(--accent) var(--batch-progress, 0%), color-mix(in srgb, var(--surface-muted) 80%, var(--surface)) 0); mask: radial-gradient(circle, transparent 9px, black 10px); }
+.batch-ai-chip.is-finished .batch-ai-chip-ring { background: var(--success, #2e7d4f); }
+
+@media (max-width: 820px) {
+  .batch-ai-report > :not(.auth-modal-head) { margin-inline: 16px; }
+  .batch-ai-report-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .batch-ai-report-footer { flex-direction: column-reverse; }
+  .batch-ai-report-footer > button { width: 100%; }
+  /* Above the bottom navigation and its add button. */
+  .batch-ai-chip { bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-running > .batch-ai-report-state { animation: none; }
+  .batch-ai-report-bar span { transition: none; }
+}

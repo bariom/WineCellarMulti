@@ -35,6 +35,7 @@
     "test:e2e:cellar-management": "playwright test e2e/cellar-management.spec.ts",
     "test:e2e:bottle-photo-import": "playwright test e2e/bottle-photo-import.spec.ts",
     "test:e2e:app-news": "playwright test e2e/app-news.spec.ts",
+    "test:e2e:batch-ai-report": "playwright test e2e/batch-ai-report.spec.ts",
     "test:e2e:ambassador": "playwright test e2e/ambassador.spec.ts",
     "test:e2e:purchase-import": "playwright test e2e/purchase-import.spec.ts e2e/purchase-documents.spec.ts",
     "test:e2e:data-import": "playwright test e2e/data-import.spec.ts",

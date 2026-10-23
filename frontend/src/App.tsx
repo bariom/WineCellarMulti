@@ -22,6 +22,7 @@ import { localizedNotification } from "./domain/notifications";
 import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isMissedDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { runWineShelfScan } from "./services/wineShelfScan";
+import type { BatchAiItem, BatchAiRun } from "./components/BatchAiReport";
 import { primeSpeech } from "./utils/speech";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
@@ -84,13 +85,10 @@ type AiModelAdviceState = {
   resolve: (model: string | null) => void;
 };
 
-type BatchAiRunSummary = {
-  feature: WineAiFeature;
-  total: number;
-  succeeded: number;
-  noResults: Wine[];
-  failures: Array<{ wine: Wine; reason: string }>;
-};
+/** The audit entry with the market sources, as the single-wine report opens it. */
+function batchValueEntry(item: BatchAiItem) {
+  return item.entries.find((entry) => ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature) && (entry.sources || []).some((source) => source?.kind === "market_source"));
+}
 
 function hasUsefulBatchAiResult(feature: WineAiFeature, wine: Wine) {
   if (feature === "value") return wine.current_value !== null && !wine.value_not_found;
@@ -128,6 +126,7 @@ const PurchaseImportDialog = lazy(() => import("./components/PurchaseImportDialo
 const BottlePhotoImport = lazy(() => import("./components/BottlePhotoImport"));
 const AddWineChooser = lazy(() => import("./components/AddWineChooser"));
 const AppNewsPanel = lazy(() => import("./components/AppNewsPanel"));
+const BatchAiReport = lazy(() => import("./components/BatchAiReport"));
 const WishlistLiveTasteScanner = lazy(() => import("./components/WishlistLiveTasteScanner"));
 const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView"));
 const AI_PACK_ENHANCEMENT_DISMISS_KEY = "vinaris.ai-pack-enhancement-dismissed-until";
@@ -1192,7 +1191,9 @@ export function App() {
   const regionalGapChartRef = useRef<HTMLDivElement | null>(null);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [aiPackEnhancementDismissed, setAiPackEnhancementDismissed] = useState(() => Number(window.localStorage.getItem(AI_PACK_ENHANCEMENT_DISMISS_KEY) || 0) > Date.now());
-  const [batchAiRunSummary, setBatchAiRunSummary] = useState<BatchAiRunSummary | null>(null);
+  const [batchAiRun, setBatchAiRun] = useState<BatchAiRun | null>(null);
+  const [batchAiMinimized, setBatchAiMinimized] = useState(false);
+  const batchAiStopRef = useRef(false);
   const [aiAuditLimit, setAiAuditLimit] = useState("10");
   const [aiAuditDateFrom, setAiAuditDateFrom] = useState("");
   const [aiAuditDateTo, setAiAuditDateTo] = useState("");
@@ -1558,7 +1559,8 @@ export function App() {
   const freeTierLimitErrorMessage = locale === "it"
     ? "Hai raggiunto il limite di 15 etichette attive del piano gratuito. Acquista un abbonamento per aggiungerne altre."
     : "You reached the free plan's 15 active-label limit. Purchase a subscription to add more.";
-  const aiOverlayMode = generatingAi || (compareAiLoading ? "compare" : "");
+  // A batch shows its own live report instead of covering the app.
+  const aiOverlayMode = (generatingAi.startsWith("batch-") ? "" : generatingAi) || (compareAiLoading ? "compare" : "");
   const [aiOverlayRenderMode, setAiOverlayRenderMode] = useState("");
   const [aiOverlayVisible, setAiOverlayVisible] = useState(false);
   const landing = landingContent[locale];
@@ -4835,7 +4837,7 @@ export function App() {
   }
 
   async function generateMissingWineAi(feature: WineAiFeature, items: Wine[]) {
-    if (!items.length) return;
+    if (!items.length || generatingAi.startsWith("batch-")) return;
     const generationItems = feature === "scores" ? items.filter((wine) => !wine.scores_not_applicable) : items;
     if (!generationItems.length) return;
     const featureAdvice = wineFeatureModelAdvice(feature);
@@ -4843,42 +4845,47 @@ export function App() {
     if (!model) return;
     setGeneratingAi(`batch-${feature}`);
     setError("");
-    setBatchAiRunSummary(null);
-    const failures: BatchAiRunSummary["failures"] = [];
-    const noResults: Wine[] = [];
-    let succeeded = 0;
+    batchAiStopRef.current = false;
+    setBatchAiMinimized(false);
+    setBatchAiRun({ feature, label: featureAdvice.label, items: generationItems.map((wine) => ({ wine, status: "pending", entries: [] })), finished: false, stopping: false });
+    const updateItem = (wineId: string, patch: Partial<BatchAiItem>) => setBatchAiRun((current) => current && {
+      ...current,
+      items: current.items.map((item) => (item.wine.id === wineId ? { ...item, ...patch } : item)),
+    });
+    // Audit entries already there before the run; each wine's new ones are its cost and sources.
+    const seenAudit = new Set((await loadAiAudit().catch(() => [] as AiAuditLog[])).map((entry) => entry.id));
     try {
-      for (const [index, wine] of generationItems.entries()) {
-        setAiOverlayProgress({ itemName: wineProgressName(wine), current: index + 1, total: generationItems.length });
+      for (const wine of generationItems) {
+        if (batchAiStopRef.current) break;
+        updateItem(wine.id, { status: "running" });
+        let patch: Partial<BatchAiItem>;
         try {
           const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
             method: "POST",
             body: JSON.stringify({ locale, model }),
           });
           setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-          setSelectedWineId(updated.id);
-          if (hasUsefulBatchAiResult(feature, updated)) {
-            succeeded += 1;
-          } else {
-            noResults.push(updated);
-          }
+          patch = { status: hasUsefulBatchAiResult(feature, updated) ? "done" : "no_result", updated };
         } catch (nextError) {
           const message = nextError instanceof Error ? extractApiErrorText(nextError.message) : "";
           if (feature === "value" && message.toLowerCase().includes("no verified live market price sources found")) {
-            noResults.push(wine);
             setWines((current) => current.map((item) => (item.id === wine.id ? { ...item, value_not_found: true } : item)));
+            patch = { status: "no_result" };
           } else {
-            failures.push({ wine, reason: message || t("unknownError") });
+            patch = { status: "failed", reason: message || t("unknownError") };
           }
         }
+        const audit = await loadAiAudit().catch(() => [] as AiAuditLog[]);
+        const entries = audit.filter((entry) => !seenAudit.has(entry.id) && entry.entity_id === wine.id);
+        audit.forEach((entry) => seenAudit.add(entry.id));
+        updateItem(wine.id, { ...patch, entries });
       }
-      await Promise.all([loadAiAudit(), loadAiUsage()]).catch(() => undefined);
-      setBatchAiRunSummary({ feature, total: generationItems.length, succeeded, noResults, failures });
+      await loadAiUsage().catch(() => undefined);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
     } finally {
+      setBatchAiRun((current) => current && { ...current, finished: true, stopping: false });
       setGeneratingAi("");
-      setAiOverlayProgress(null);
     }
   }
 
@@ -14962,57 +14969,19 @@ export function App() {
           </section>
         </div>
       ) : null}
-      {batchAiRunSummary ? (
-        <div className="auth-modal-overlay batch-ai-summary-overlay" onClick={() => setBatchAiRunSummary(null)}>
-          <section className="auth-modal-card batch-ai-summary-modal" role="dialog" aria-modal="true" aria-labelledby="batch-ai-summary-title" onClick={(event) => event.stopPropagation()}>
-            <div className="auth-modal-head">
-              <div>
-                <span>{t("batchAiCompleted")}</span>
-                <h2 id="batch-ai-summary-title">{wineFeatureModelAdvice(batchAiRunSummary.feature).label}</h2>
-              </div>
-              <button type="button" className="secondary compact" onClick={() => setBatchAiRunSummary(null)}>{t("close")}</button>
-            </div>
-            <div className="batch-ai-summary-stats">
-              <div>
-                <span>{t("batchAiSucceeded")}</span>
-                <strong>{batchAiRunSummary.succeeded}/{batchAiRunSummary.total}</strong>
-              </div>
-              <div className={batchAiRunSummary.noResults.length ? "has-no-results" : ""}>
-                <span>{t("batchAiNoResult")}</span>
-                <strong>{batchAiRunSummary.noResults.length}</strong>
-              </div>
-              <div className={batchAiRunSummary.failures.length ? "has-failures" : ""}>
-                <span>{t("batchAiFailed")}</span>
-                <strong>{batchAiRunSummary.failures.length}</strong>
-              </div>
-            </div>
-            {batchAiRunSummary.noResults.length ? (
-              <div className="batch-ai-no-result-list">
-                <p>{t(batchAiRunSummary.feature === "value" ? "batchAiNoResultHint" : "batchAiNoResultHintGeneric")}</p>
-                {batchAiRunSummary.noResults.map((wine) => (
-                  <article key={wine.id}>
-                    <strong>{wine.name}</strong>
-                    <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
-                  </article>
-                ))}
-              </div>
-            ) : null}
-            {batchAiRunSummary.failures.length ? (
-              <div className="batch-ai-failure-list">
-                {batchAiRunSummary.failures.map(({ wine, reason }) => (
-                  <article key={wine.id}>
-                    <div>
-                      <strong>{wine.name}</strong>
-                      <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
-                    </div>
-                    <p>{reason}</p>
-                  </article>
-                ))}
-              </div>
-            ) : batchAiRunSummary.noResults.length ? null : <p className="batch-ai-summary-success">{t("batchAiNoFailures")}</p>}
-          </section>
-        </div>
-      ) : null}
+      {batchAiRun ? <Suspense fallback={null}><BatchAiReport
+        run={batchAiRun}
+        locale={locale}
+        minimized={batchAiMinimized}
+        onMinimize={() => setBatchAiMinimized(true)}
+        onRestore={() => setBatchAiMinimized(false)}
+        onClose={() => { setBatchAiRun(null); setBatchAiMinimized(false); }}
+        onStop={() => { batchAiStopRef.current = true; setBatchAiRun((current) => current && { ...current, stopping: true }); }}
+        onDetails={(item) => {
+          const entry = batchValueEntry(item);
+          if (entry) setMarketViewContext({ kind: "wine", wine: item.updated || item.wine, entry });
+        }}
+      /></Suspense> : null}
       {loading ? <GlobalLoadingOverlay label={t("loadingData")} /> : null}
       {aiOverlayRenderMode ? <AiGenerationOverlay mode={aiOverlayVisible ? aiOverlayRenderMode : ""} t={t} locale={locale} progress={aiOverlayProgress} /> : null}
       {canWriteWine ? (
