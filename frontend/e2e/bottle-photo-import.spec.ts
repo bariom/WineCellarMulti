@@ -68,7 +68,7 @@ test("adding a wine offers the quick photo path or the detailed form", async ({ 
   await setup(page);
   const chooser = await openChooser(page);
   await expect(chooser.getByRole("button", { name: /^Inserimento veloce/ })).toBeVisible();
-  await expect(chooser.getByRole("button", { name: "Importa l'acquisto", exact: true })).toBeVisible();
+  await expect(chooser.getByRole("button", { name: /^Da scontrino o fattura/ })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: test.info().outputPath("add-wine-chooser-390.png") });
   await chooser.getByRole("button", { name: /^Inserimento dettagliato/ }).click();
@@ -89,6 +89,8 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 360, height: 800 }
     await dialog.getByRole("button", { name: "Riconosci le bottiglie", exact: true }).click();
 
     await expect(dialog.getByText("Ho trovato 3 vini.", { exact: false })).toBeVisible();
+    // The total of the recognition call, as for the other AI features.
+    await expect(dialog.locator(".bottle-photo-ai-cost")).toContainText("Costo AI 0.0200");
     expect(await page.evaluate(() => sessionStorage.getItem("bottle-photo-upload"))).toBe("1");
     const rows = dialog.locator(".bottle-photo-rows > li");
     await expect(rows).toHaveCount(3);
@@ -102,6 +104,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 360, height: 800 }
 
     await dialog.getByRole("button", { name: "Aggiungi 3 vini · 5 bottiglie", exact: true }).click();
     await expect(dialog.getByRole("heading", { name: "5 bottiglie aggiunte" })).toBeVisible();
+    await expect(dialog.locator(".bottle-photo-ai-cost")).toContainText("Costo AI del riconoscimento 0.0200");
     const payload = JSON.parse(await page.evaluate(() => sessionStorage.getItem("bottle-photo-confirm") || "{}"));
     expect(payload.rows).toEqual([
       expect.objectContaining({ name: wine.name, quantity: 3, existing_wine_id: wine.id }),
@@ -123,4 +126,13 @@ test("without AI credit the quick path explains how to activate it", async ({ pa
   const dialog = page.getByRole("dialog", { name: "Fotografa le tue bottiglie" });
   await expect(dialog.getByText("Il riconoscimento usa il credito AI.", { exact: false })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Scatta una foto" })).toHaveCount(0);
+});
+
+test("the receipt path opens the purchase import", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await setup(page);
+  const chooser = await openChooser(page);
+  await chooser.getByRole("button", { name: /^Da scontrino o fattura/ }).click();
+  await expect(chooser).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Aggiungi un acquisto", exact: true })).toBeVisible();
 });

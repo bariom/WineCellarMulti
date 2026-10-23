@@ -9864,6 +9864,51 @@ def test_bottle_photos_are_read_counted_matched_and_added_to_the_cellar(monkeypa
     assert sum(item["quantity_remaining"] for item in lots) == 5
 
 
+def test_bottle_photos_debit_ai_credits_by_the_cost_shown(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        db.add(
+            UserAiCreditTransaction(
+                user_id=user.id, amount_usd=Decimal("1.000000"), source="purchase", note="Seed AI budget"
+            )
+        )
+        db.commit()
+    monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
+    assert client.patch("/api/v1/ai/settings", json={"provider_mode": "credits"}).status_code == 200
+    run_bottle_photos_inline(monkeypatch)
+
+    def fake_create_response(*_args, **_kwargs):
+        wine = {
+            "name": "Barolo", "producer": "Vietti", "vintage": "2019", "format": "", "style": "Red",
+            "region": "", "bottle_count": 1, "confidence": "high", "center_x": 300, "center_y": 400,
+            "label_width": 80, "label_height": 120,
+        }
+        return OpenAIResponse(
+            text=json.dumps({"wines": [wine]}),
+            usage=TokenUsage(input_tokens=1200, output_tokens=300, total_tokens=1500),
+            model="gpt-5.5",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    starting_balance = Decimal(client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"])
+    started = client.post(
+        "/api/v1/bottle-photos/scans",
+        files=[("images", ("one.jpg", b"one", "image/jpeg")), ("images", ("two.jpg", b"two", "image/jpeg"))],
+    )
+    assert started.status_code == 202, started.text
+    job = client.get(f"/api/v1/bottle-photos/scans/{started.json()['id']}").json()
+    shown_cost = Decimal(job["result"]["estimated_cost_usd"])
+    ending_balance = Decimal(client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"])
+    # Both photos are paid from the balance, exactly the total the app shows.
+    assert shown_cost > 0
+    assert starting_balance - ending_balance == shown_cost
+
+
 def test_bottle_photos_need_ai_credit_on_the_free_tier(monkeypatch):
     from app.api.routes import ai as ai_routes
 

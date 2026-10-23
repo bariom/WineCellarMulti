@@ -10248,7 +10248,7 @@ export function App() {
             onClose={() => setAddWineChooserOpen(false)}
             onQuick={() => { setAddWineChooserOpen(false); setBottlePhotoImportOpen(true); }}
             onDetailed={() => { setAddWineChooserOpen(false); startAddWine(); }}
-            onReceipt={canAnalyzePurchase ? () => { setAddWineChooserOpen(false); setPurchaseImportOpen(true); } : undefined}
+            onReceipt={() => { setAddWineChooserOpen(false); setPurchaseImportOpen(true); }}
           /></Suspense> : null}
           {bottlePhotoImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><BottlePhotoImport
             key={session?.active_household_id}

@@ -5,6 +5,7 @@ import { api } from "../services/api";
 import { runBottlePhotoScan } from "../services/bottlePhotoScan";
 import { AppIcon } from "./AppIcon";
 import { AssistantActivity } from "./AssistantActivity";
+import { formatAiBudget } from "./panelSupport";
 import "./BottlePhotoImport.css";
 
 const MAX_PHOTOS = 3;
@@ -59,6 +60,8 @@ export default function BottlePhotoImport({ locale, canAnalyze, onActivate, onCl
   const [step, setStep] = useState<"pick" | "reading" | "review" | "done">("pick");
   const [progress, setProgress] = useState("");
   const [rows, setRows] = useState<ReviewRow[]>([]);
+  // What the last recognition cost, all its photos together.
+  const [aiCost, setAiCost] = useState<{ usd: number; model: string } | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<(BottlePhotoConfirmResult & { aiWineIds: string[] }) | null>(null);
@@ -83,6 +86,7 @@ export default function BottlePhotoImport({ locale, canAnalyze, onActivate, onCl
     photos.forEach((photo) => formData.append("images", photo));
     try {
       const result = await runBottlePhotoScan(formData, locale, setProgress);
+      setAiCost({ usd: Number(result.estimated_cost_usd || 0), model: result.model });
       setRows(result.rows.map((row, index) => ({
         ...row,
         key: `${index}-${row.name}`,
@@ -194,6 +198,7 @@ export default function BottlePhotoImport({ locale, canAnalyze, onActivate, onCl
         <p className="bottle-photo-summary">{rows.length
           ? (it ? `Ho trovato ${rows.length} ${rows.length === 1 ? "vino" : "vini"}. Controlla annata e numero di bottiglie, poi aggiungi.` : `I found ${rows.length} ${rows.length === 1 ? "wine" : "wines"}. Check vintage and bottle count, then add.`)
           : (it ? "Non ho riconosciuto etichette leggibili. Riprova con più luce, più vicino alle bottiglie." : "No legible label was recognised. Try again with more light, closer to the bottles.")}</p>
+        {aiCost ? <p className="bottle-photo-ai-cost"><span>{it ? "Costo AI" : "AI cost"} {formatAiBudget(aiCost.usd)}</span><small>{aiCost.model}</small></p> : null}
         <ol className="bottle-photo-rows">
           {rows.map((row) => <li key={row.key} className={row.confidence === "low" ? "is-uncertain" : ""}>
             <LabelThumb file={photos[row.image_index]} row={row} />
@@ -234,6 +239,7 @@ export default function BottlePhotoImport({ locale, canAnalyze, onActivate, onCl
         <p>{it
           ? `${done.created_wine_ids.length} ${done.created_wine_ids.length === 1 ? "vino nuovo" : "vini nuovi"}${done.updated_wine_ids.length ? `, ${done.updated_wine_ids.length} ${done.updated_wine_ids.length === 1 ? "vino aggiornato" : "vini aggiornati"}` : ""}. I dati del catalogo sono già compilati.`
           : `${done.created_wine_ids.length} new ${done.created_wine_ids.length === 1 ? "wine" : "wines"}${done.updated_wine_ids.length ? `, ${done.updated_wine_ids.length} updated` : ""}. Catalog data is already filled in.`}</p>
+        {aiCost ? <p className="bottle-photo-ai-cost"><span>{it ? "Costo AI del riconoscimento" : "Recognition AI cost"} {formatAiBudget(aiCost.usd)}</span><small>{aiCost.model}</small></p> : null}
         {done.aiWineIds.length ? <button type="button" onClick={() => { onCompleteWithAi(done.aiWineIds); onClose(); }}>
           <AppIcon name="glass-sparkle" variant="ai" />{it ? (done.aiWineIds.length === 1 ? "Completa con AI il vino non trovato nel catalogo" : `Completa con AI i ${done.aiWineIds.length} vini non trovati nel catalogo`) : (done.aiWineIds.length === 1 ? "Complete with AI the wine not in the catalog" : `Complete with AI the ${done.aiWineIds.length} wines not in the catalog`)}
         </button> : null}

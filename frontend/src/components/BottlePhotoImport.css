@@ -57,6 +57,9 @@
 .bottle-photo-error { margin: 0; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border)); border-radius: var(--radius-card); background: color-mix(in srgb, var(--danger) 7%, var(--surface)); color: var(--danger-text); }
 
 .bottle-photo-summary { margin: 0; color: var(--text-muted); }
+.bottle-photo-ai-cost { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; color: var(--text-muted); font-size: .82rem; }
+.bottle-photo-ai-cost span { padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--text); font-weight: 750; font-variant-numeric: tabular-nums; }
+.bottle-photo-done .bottle-photo-ai-cost { justify-content: center; }
 .bottle-photo-rows { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
 .bottle-photo-rows > li {
   display: grid;
@@ -122,7 +125,7 @@
 }
 
 .bottle-photo-import.add-wine-chooser { width: min(620px, calc(100vw - 24px)); }
-.add-wine-paths { display: grid; gap: 12px; padding: 18px 20px 6px; }
+.add-wine-paths { display: grid; gap: 12px; padding: 18px 20px 20px; }
 .add-wine-path {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr);
@@ -147,12 +150,11 @@
 }
 .add-wine-path-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, #0f1c17, #2a3b30); color: #e6c27a; font-size: 1.5rem; }
 .add-wine-path-icon .app-icon { color: #e6c27a; }
+.add-wine-path.is-receipt { background: color-mix(in srgb, var(--accent) 5%, var(--surface)); border-style: dashed; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 .add-wine-path-text { display: grid; gap: 4px; min-width: 0; }
 .add-wine-path-text strong { font-family: var(--font-display); font-size: 1.15rem; }
 .add-wine-path-text > span { color: var(--text-muted); font-size: .9rem; font-weight: 500; line-height: 1.4; }
 .add-wine-path-text em { color: var(--accent); font-size: .78rem; font-style: normal; font-weight: 750; }
-.add-wine-receipt { margin: 0; padding: 8px 20px 20px; color: var(--text-muted); font-size: .9rem; }
-.add-wine-receipt .link-button { padding: 0; min-height: 0; border: 0; background: none; color: var(--accent); font-weight: 750; text-decoration: underline; }
 @media (max-width: 620px) {
   .bottle-photo-import.add-wine-chooser { width: 100vw; height: fit-content; max-height: 100dvh; margin: auto 0 0; border-radius: 22px 22px 0 0; }
 }

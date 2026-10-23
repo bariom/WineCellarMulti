@@ -4,13 +4,12 @@ import type { Locale } from "../types";
 import { AppIcon } from "./AppIcon";
 import "./BottlePhotoImport.css";
 
-/** The two ways into the cellar: from a photo of the bottles, or the full form. */
+/** The ways into the cellar: a photo of the bottles, the full form, or a receipt. */
 export default function AddWineChooser({ locale, onQuick, onDetailed, onReceipt, onClose }: {
   locale: Locale;
   onQuick: () => void;
   onDetailed: () => void;
-  /** Absent when the purchase import is not available to this user. */
-  onReceipt?: () => void;
+  onReceipt: () => void;
   onClose: () => void;
 }) {
   const it = locale === "it";
@@ -44,11 +43,15 @@ export default function AddWineChooser({ locale, onQuick, onDetailed, onReceipt,
             <span>{it ? "Una bottiglia alla volta con tutti i dati: acquisto, prezzo, fornitore, posizione, foto e note." : "One wine at a time with every detail: purchase, price, supplier, location, photo and notes."}</span>
           </span>
         </button>
+        <button type="button" className="add-wine-path is-receipt" onClick={onReceipt}>
+          <span className="add-wine-path-icon"><AppIcon name="import" /></span>
+          <span className="add-wine-path-text">
+            <strong>{it ? "Da scontrino o fattura" : "From a receipt or invoice"}</strong>
+            <span>{it ? "Hai appena comprato? Fotografa lo scontrino o carica la fattura PDF: Vinaris prepara vini, quantità e prezzi pagati." : "Just bought some wine? Photograph the receipt or upload the PDF invoice: Vinaris prepares wines, quantities and prices paid."}</span>
+            <em>{it ? "Con abbonamento o credito AI" : "With a subscription or AI credit"}</em>
+          </span>
+        </button>
       </div>
-      {onReceipt ? <p className="add-wine-receipt">
-        {it ? "Hai una ricevuta o una fattura? " : "Have a receipt or an invoice? "}
-        <button type="button" className="link-button" onClick={onReceipt}>{it ? "Importa l'acquisto" : "Import the purchase"}</button>
-      </p> : null}
     </dialog>,
     document.body,
   );
