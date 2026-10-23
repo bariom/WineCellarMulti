@@ -108,6 +108,22 @@ def shelf_photo_sections(
     return sections
 
 
+def model_view_image(content: bytes) -> tuple[bytes, tuple[int, int]]:
+    """An upright JPEG at the size a vision model sees it (high detail: short side
+    768 px, long side 2048 px), with that size, so label points map back exactly."""
+    image = load_upright_rgb_image(content)
+    quality = min(max(settings.wine_recognition_jpeg_quality, 50), 95)
+    scale = min(1.0, 768 / min(image.size), 2048 / max(image.size))
+    if scale < 1:
+        image = image.resize(
+            (max(round(image.width * scale), 1), max(round(image.height * scale), 1)),
+            Image.Resampling.LANCZOS,
+        )
+    buffer = BytesIO()
+    image.save(buffer, "JPEG", quality=quality, optimize=True)
+    return buffer.getvalue(), image.size
+
+
 def _smoothed(values: list[float], radius: int) -> list[float]:
     radius = max(radius, 1)
     prefix = [0.0]

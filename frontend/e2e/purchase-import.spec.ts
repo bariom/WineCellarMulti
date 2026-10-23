@@ -50,6 +50,7 @@ async function openPurchase(page: Page, locale: "it" | "en" = "it", empty = fals
     await page.getByRole("button", { name: it ? /^Cantina \(/ : /^Cellar \(/ }).click();
     await page.getByRole("button", { name: it ? "Aggiungi vino" : "Add wine", exact: true }).click();
   } else await page.getByRole("button", { name: it ? "Aggiungi un vino" : "Add a wine", exact: true }).click();
+  await page.getByRole("dialog", { name: it ? "Come vuoi inserire i vini?" : "How do you want to add wines?" }).getByRole("button", { name: it ? /^Inserimento dettagliato/ : /^Detailed entry/ }).click();
   await page.getByRole("button", { name: it ? "Aggiungi un acquisto da ricevuta o fattura" : "Add a purchase from receipt or invoice", exact: true }).click();
   return page.getByRole("dialog", { name: it ? "Aggiungi un acquisto" : "Add a purchase", exact: true });
 }

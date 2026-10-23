@@ -14,6 +14,8 @@ export type LandingCopy = {
       id: string; date: string; dateLabel: string; label: string; title: string; tab: string;
       body: string; availability: string; featured: boolean;
       action: string;
+      /** The button for signed-in users, who go straight to the feature. */
+      memberAction: string;
     }>;
   };
   dashboard: {
@@ -144,17 +146,26 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     news: {
       eyebrow: "Novità in Vinaris",
       title: "Meno gestione. Più piacere di collezionare.",
-      body: "Quattro novità per vivere la tua cantina, a modo tuo.",
+      body: "Cinque novità per vivere la tua cantina, a modo tuo.",
       order: "Le ultime novità, dalla più recente",
       action: "Registrati gratis",
       note: "Inizia gratis con fino a 15 etichette. Scegli poi le funzioni che fanno per te.",
       entries: [
         {
-          id: "shelf-scan", date: "2026-10-19", dateLabel: "Ottobre 2026", label: "La grande novità · Scaffale AI", tab: "Scaffale AI", featured: true,
+          id: "bottle-photo", date: "2026-10-23", dateLabel: "Ottobre 2026", label: "La grande novità · Inserimento veloce", tab: "Inserimento veloce", featured: true,
+          title: "Una foto. Tutta la cantina dentro.",
+          body: "Metti le bottiglie sul tavolo e scatta: Vinaris riconosce i vini, conta le bottiglie uguali e li compila dal catalogo. Tu controlli annata e quantità, poi aggiungi tutto in un tocco.",
+          availability: "Inserimento veloce per tutti, con credito AI.",
+          action: "Crea il tuo account gratis",
+          memberAction: "Prova l'inserimento veloce",
+        },
+        {
+          id: "shelf-scan", date: "2026-10-19", dateLabel: "Ottobre 2026", label: "Scaffale AI", tab: "Scaffale AI", featured: false,
           title: "Davanti allo scaffale. Quale compro?",
           body: "Fotografa la parete dell'enoteca: Vinaris legge le etichette, le mette in classifica per il tuo gusto, il budget e la tua cantina, e ti indica sulla foto la prima, la seconda e la terza scelta.",
           availability: "Scaffale AI riservato agli abbonati Vinaris Riserva.",
           action: "Crea il tuo account gratis",
+          memberAction: "Apri lo Scaffale AI",
         },
         {
           id: "purchase-scan", date: "2026-10", dateLabel: "Ottobre 2026", label: "Scansione acquisti", tab: "Scansione acquisti", featured: false,
@@ -162,6 +173,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
           body: "Fotografa una fattura o uno scontrino, oppure carica un PDF: Vinaris prepara vini, annate, quantità e prezzi. Tu verifichi e confermi.",
           availability: "Scansione acquisti con abbonamento o credito AI.",
           action: "Crea il tuo account gratis",
+          memberAction: "Scansiona un acquisto",
         },
         {
           id: "photo-memories", date: "2026-10", dateLabel: "Ottobre 2026", label: "Ricordi fotografici", tab: "Ricordi fotografici", featured: false,
@@ -169,6 +181,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
           body: "Aggiungi una foto alla bevuta e ritrova i tuoi brindisi in un album di ricordi. Il vino finisce. La serata resta.",
           availability: "Ricordi fotografici disponibili con abbonamento.",
           action: "Crea il tuo account gratis",
+          memberAction: "Apri i ricordi",
         },
         {
           id: "personal-dashboard", date: "2026-10", dateLabel: "Ottobre 2026", label: "Dashboard personalizzabile", tab: "La tua dashboard", featured: false,
@@ -176,6 +189,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
           body: "Vini da aprire, valore della collezione o ricordi: scegli i riquadri che ti interessano, spostali e ridimensionali. Ritrova ciò che conta per te, appena entri in Vinaris.",
           availability: "Scegli, disponi e salva la tua dashboard personale.",
           action: "Crea il tuo account gratis",
+          memberAction: "Personalizza la dashboard",
         },
       ],
     },
@@ -334,17 +348,26 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     news: {
       eyebrow: "What’s new in Vinaris",
       title: "Less admin. More joy in collecting.",
-      body: "Four new ways to enjoy your cellar, your way.",
+      body: "Five new ways to enjoy your cellar, your way.",
       order: "Latest additions first",
       action: "Sign up for free",
       note: "Start free with up to 15 labels. Then choose the features that suit you.",
       entries: [
         {
-          id: "shelf-scan", date: "2026-10-19", dateLabel: "October 2026", label: "Our big new arrival · Shelf scanner", tab: "Shelf scanner", featured: true,
+          id: "bottle-photo", date: "2026-10-23", dateLabel: "October 2026", label: "Our big new arrival · Quick add", tab: "Quick add", featured: true,
+          title: "One photo. Your whole cellar in.",
+          body: "Put the bottles on the table and take a picture: Vinaris recognises the wines, counts identical bottles and fills them in from the catalog. You check vintage and quantity, then add everything in one tap.",
+          availability: "Quick add for everyone, with AI credit.",
+          action: "Create your free account",
+          memberAction: "Try quick add",
+        },
+        {
+          id: "shelf-scan", date: "2026-10-19", dateLabel: "October 2026", label: "Shelf scanner", tab: "Shelf scanner", featured: false,
           title: "In front of the shelf. Which one to buy?",
           body: "Photograph the wall of the wine shop: Vinaris reads the labels, ranks them for your taste, budget and cellar, and marks your first, second and third choice on the photo.",
           availability: "Shelf scanner reserved for Vinaris Riserva subscribers.",
           action: "Create your free account",
+          memberAction: "Open the shelf scanner",
         },
         {
           id: "purchase-scan", date: "2026-10", dateLabel: "October 2026", label: "Purchase scanning", tab: "Purchase scanning", featured: false,
@@ -352,6 +375,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
           body: "Photograph an invoice or receipt, or upload a PDF: Vinaris prepares wines, vintages, quantities and prices. You review and confirm.",
           availability: "Purchase scanning with a subscription or AI credit.",
           action: "Create your free account",
+          memberAction: "Scan a purchase",
         },
         {
           id: "photo-memories", date: "2026-10", dateLabel: "October 2026", label: "Photo memories", tab: "Photo memories", featured: false,
@@ -359,6 +383,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
           body: "Add a photo to your tasting and revisit your toasts in a memory album. The wine is finished. The evening stays.",
           availability: "Photo memories available with a subscription.",
           action: "Create your free account",
+          memberAction: "Open your memories",
         },
         {
           id: "personal-dashboard", date: "2026-10", dateLabel: "October 2026", label: "Customisable dashboard", tab: "Your dashboard", featured: false,
@@ -366,6 +391,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
           body: "Wines to open, collection value or memories: choose the widgets you care about, move and resize them. Find what matters to you as soon as you open Vinaris.",
           availability: "Choose, arrange and save your personal dashboard.",
           action: "Create your free account",
+          memberAction: "Customise your dashboard",
         },
       ],
     },

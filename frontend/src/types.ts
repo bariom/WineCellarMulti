@@ -1876,3 +1876,40 @@ export type PendingPurchase = { id: string; supplier: string; reference: string;
 export type PurchasePhotoSuggestion = { id: string; thumbnail_url: string };
 export type PurchaseDocument = { id: string; filename: string; mime: string; size: number; supplier: string; reference: string; status: string; wine_count: number; url: string };
 export type PurchaseImportResult = { id: string; status: "received" | "pending"; wine_ids: string[]; bottles: number; unavailable_photo_wine_ids?: string[] };
+
+export type BottlePhotoRow = {
+  name: string;
+  producer: string;
+  vintage: string;
+  format: string;
+  style: string;
+  region: string;
+  quantity: number;
+  confidence: "high" | "medium" | "low";
+  image_index: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  existing_wine: { wine_id: string; name: string; producer: string; vintage: string; quantity: number } | null;
+  catalog: { catalog_entry_id: string; name: string; producer: string; region: string; appellation: string; type: string; format: string; country: string; grapes_text: string } | null;
+};
+
+export type BottlePhotoScanStatus = {
+  id: string;
+  status: "running" | "done" | "failed";
+  stage: "reading" | "matching" | "done";
+  photos_total: number;
+  photos_done: number;
+  wines_found: number;
+  error: string;
+  result: { rows: BottlePhotoRow[]; photo_count: number; model: string; estimated_cost_usd: string } | null;
+};
+
+export type BottlePhotoConfirmResult = {
+  created_wine_ids: string[];
+  updated_wine_ids: string[];
+  bottles: number;
+  saved_rows: number;
+  limit_reached: boolean;
+};

@@ -9779,6 +9779,117 @@ def test_shelf_label_points_snap_onto_the_nearest_label():
     assert label_snapper(b"not an image")(0.3, 0.4, 0.1, 0.1) == (0.3, 0.4)
 
 
+def run_bottle_photos_inline(monkeypatch):
+    from app.api.routes import bottle_photos as bottle_routes
+    from app.services import bottle_photo_import
+
+    monkeypatch.setattr(bottle_photo_import, "submit", lambda task, *args: task(*args))
+    monkeypatch.setattr(bottle_photo_import, "SessionLocal", TestingSessionLocal)
+    monkeypatch.setattr(bottle_photo_import, "MAX_PARALLEL_PHOTOS", 1)
+    monkeypatch.setattr(bottle_routes, "model_view_image", lambda content: (b"photo-" + content, (1000, 800)))
+
+
+def test_bottle_photos_are_read_counted_matched_and_added_to_the_cellar(monkeypatch):
+    from app.api.routes import ai as ai_routes
+    from app.models import WineCatalogEntry
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    barolo = client.post(
+        "/api/v1/wines",
+        json={"name": "Barolo", "producer": "Vietti", "vintage": "2019", "quantity": 2, "status": "Delivered"},
+    ).json()
+    with TestingSessionLocal() as db:
+        db.add(WineCatalogEntry(name="Sassicaia", producer="Tenuta San Guido", region="Bolgheri", type="Red", country="Italia", search_text="sassicaia tenuta san guido"))
+        db.commit()
+    run_bottle_photos_inline(monkeypatch)
+
+    def wine(name, producer, vintage, count, confidence="high"):
+        return {
+            "name": name, "producer": producer, "vintage": vintage, "format": "", "style": "Red", "region": "",
+            "bottle_count": count, "confidence": confidence, "center_x": 300, "center_y": 400,
+            "label_width": 80, "label_height": 120,
+        }
+
+    readings = {
+        b"photo-one": [wine("Barolo", "Vietti", "2019", 2), wine("Sassicaia", "Tenuta San Guido", "2019", 1)],
+        # The other photo shows one more Barolo, and something unreadable.
+        b"photo-two": [wine("Barolo", "Vietti", "2019", 1, "medium"), wine("", "", "", 1, "low")],
+    }
+
+    def fake_create_response(*args, **kwargs):
+        image = kwargs["input_images"][0][1]
+        assert "1000 pixels wide and 800 pixels high" in args[2]
+        return OpenAIResponse(
+            text=json.dumps({"wines": readings[image]}),
+            usage=TokenUsage(input_tokens=1200, output_tokens=300, total_tokens=1500),
+            model="gpt-5.5",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    started = client.post(
+        "/api/v1/bottle-photos/scans",
+        files=[("images", ("one.jpg", b"one", "image/jpeg")), ("images", ("two.jpg", b"two", "image/jpeg"))],
+    )
+    assert started.status_code == 202, started.text
+    job = client.get(f"/api/v1/bottle-photos/scans/{started.json()['id']}").json()
+    assert (job["status"], job["photos_total"], job["photos_done"], job["wines_found"]) == ("done", 2, 2, 2)
+    rows = {row["name"]: row for row in job["result"]["rows"]}
+    # Identical bottles are counted, also across photos; unreadable labels are left out.
+    assert set(rows) == {"Barolo", "Sassicaia"}
+    assert rows["Barolo"]["quantity"] == 3
+    assert rows["Barolo"]["existing_wine"]["wine_id"] == barolo["id"]
+    assert rows["Sassicaia"]["existing_wine"] is None
+    assert rows["Sassicaia"]["catalog"]["region"] == "Bolgheri"
+    audit = client.get("/api/v1/ai/audit").json()
+    assert [entry["feature"] for entry in audit].count("bottle_photo_import") == 2
+
+    confirmed = client.post(
+        "/api/v1/bottle-photos/confirm",
+        json={"rows": [
+            {"name": "Barolo", "producer": "Vietti", "vintage": "2019", "quantity": 3, "existing_wine_id": barolo["id"]},
+            {"name": "Sassicaia", "producer": "Tenuta San Guido", "vintage": "2019", "quantity": 1, "region": "Bolgheri", "type": "Red", "price": 180},
+        ]},
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    result = confirmed.json()
+    assert (result["bottles"], result["saved_rows"], result["limit_reached"]) == (4, 2, False)
+    assert result["updated_wine_ids"] == [barolo["id"]]
+    assert client.get(f"/api/v1/wines/{barolo['id']}").json()["quantity"] == 5
+    created = client.get(f"/api/v1/wines/{result['created_wine_ids'][0]}").json()
+    # Bottles on the table are already at home: the new wine is in the cellar.
+    assert (created["name"], created["quantity"], created["status"], created["region"]) == ("Sassicaia", 1, "Delivered", "Bolgheri")
+    lots = client.get(f"/api/v1/inventory/lots?wine_id={barolo['id']}").json()
+    assert sum(item["quantity_remaining"] for item in lots) == 5
+
+
+def test_bottle_photos_need_ai_credit_on_the_free_tier(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    admin_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+    user_client = TestClient(app)
+    assert register(user_client, email="free@example.com", password="strong-password-2").status_code == 201
+    pending_user = next(
+        user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "free@example.com"
+    )
+    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
+    assert user_client.post("/api/v1/auth/login", json={"email": "free@example.com", "password": "strong-password-2"}).status_code == 200
+    run_bottle_photos_inline(monkeypatch)
+
+    def unexpected_ai_call(*args, **kwargs):
+        raise AssertionError("A free-tier request without credit must not reach the AI provider")
+
+    monkeypatch.setattr(ai_routes, "create_response", unexpected_ai_call)
+    # The welcome credit allows it; once the credit is spent, the free tier is stopped first.
+    from app.api.routes import bottle_photos as bottle_routes
+
+    monkeypatch.setattr(bottle_routes, "ai_credit_balance", lambda db, user: Decimal("0"))
+    response = user_client.post("/api/v1/bottle-photos/scans", files=[("images", ("one.jpg", b"one", "image/jpeg"))])
+    assert response.status_code == 402
+
+
 def test_shelf_photos_are_split_into_overlapping_sections():
     from PIL import Image
 

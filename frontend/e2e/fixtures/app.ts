@@ -302,6 +302,8 @@ export async function mockApi(
     if (scene && !sessionStorage.getItem("vinaris.home-backdrop.v1")) sessionStorage.setItem("vinaris.home-backdrop.v1", scene);
   }, heroScene);
   await page.addInitScript(() => {
+    // The updates panel would emerge over what the tests click; its own spec clears this.
+    if (!sessionStorage.getItem("vinaris.e2e-show-news")) window.localStorage.setItem("vinaris.app-news", JSON.stringify({ dismissedFor: "9999-12" }));
     window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, analytics: false, updatedAt: "2026-01-01T00:00:00Z" }));
   });
   await page.addInitScript(({ fixtureWine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureNotificationCenter, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive, tasteProfileCollection }) => {

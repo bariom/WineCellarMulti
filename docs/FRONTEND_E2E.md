@@ -114,6 +114,8 @@ light/dark themes and desktop in the private-cellar theme.
 | Notifications and administrator announcements | `npm run test:e2e:notifications` |
 | Other Home editions, themes and contextual indicators | `npm run test:e2e:home-dashboard` |
 | Cellar editors, merchants and management flows | `npm run test:e2e:cellar-management` |
+| Add-wine chooser (quick from photo / detailed form) and bottle-photo review, 360/390/430 px and desktop | `npm run test:e2e:bottle-photo-import` |
+| In-app “Novità” panel for signed-in users: shown once per new update, reopened from the menu, each update opens its feature | `npm run test:e2e:app-news` |
 | Taste-profile layout within the application | `npm run test:e2e:taste-profile-layout` |
 | All suites extracted from the former monolith | `npm run test:e2e:app` |
 | Every E2E spec, including existing independent feature suites | `npm run test:e2e` |

@@ -57,6 +57,8 @@ type BuyingAdviceViewProps = {
   onScanWineShelf: (formData: FormData) => Promise<WineShelfScanResult>;
   onAskWineShelf: (payload: RestaurantWineListQuestionPayload) => Promise<RestaurantWineListQuestionResult>;
   shelfScanAvailable: boolean;
+  /** Where the view opens, e.g. straight on the shelf scanner from the updates. */
+  initialPlace?: "advice" | "shelf";
   onExploreRiserva: () => void;
   setBuyingPurpose: (value: "drink_now" | "cellar" | "pairing") => void;
   setBuyingPairingWith: (value: string) => void;
@@ -97,6 +99,7 @@ export default function BuyingAdviceView({
   onScanWineShelf,
   onAskWineShelf,
   shelfScanAvailable,
+  initialPlace = "advice",
   onExploreRiserva,
   setBuyingPurpose,
   setBuyingPairingWith,
@@ -115,7 +118,7 @@ export default function BuyingAdviceView({
   const [savingRecommendationKey, setSavingRecommendationKey] = useState("");
   const [savedRecommendationKeys, setSavedRecommendationKeys] = useState<Set<string>>(() => new Set());
   const [wishlistError, setWishlistError] = useState("");
-  const [buyingPlace, setBuyingPlace] = useState<"advice" | "shelf">("advice");
+  const [buyingPlace, setBuyingPlace] = useState<"advice" | "shelf">(initialPlace);
   // Keep the handles useful for the normal CHF 20–50 buying range. The
   // explicit "No limit" action still allows searches without a ceiling.
   const priceRangeMax = 200;

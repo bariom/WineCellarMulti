@@ -96,6 +96,7 @@ test.describe("Wine Detail compact/mobile", () => {
       } else {
         await page.getByRole("button", { name: "Aggiungi un vino", exact: true }).click();
       }
+      await page.getByRole("dialog", { name: "Come vuoi inserire i vini?" }).getByRole("button", { name: /^Inserimento dettagliato/ }).click();
       const editor = page.locator(".wine-editor-form");
       await editor.getByRole("button", { name: "Aggiungi vino da foto", exact: true }).click();
       const capture = page.getByRole("dialog", { name: "Fotografa bottiglia" });

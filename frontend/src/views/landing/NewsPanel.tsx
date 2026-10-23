@@ -6,29 +6,34 @@ import "./NewsPanel.css";
 const STORAGE_KEY = "vinaris.landing-news";
 const AUTO_OPEN_DELAY_MS = 18_000;
 
-function readDismissedFor(): string {
+function readDismissedFor(storageKey: string): string {
   try {
-    const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "{}") as { dismissedFor?: unknown };
+    const stored = JSON.parse(window.localStorage.getItem(storageKey) || "{}") as { dismissedFor?: unknown };
     return typeof stored.dismissedFor === "string" ? stored.dismissedFor : "";
   } catch {
     return "";
   }
 }
 
-function rememberDismissed(latest: string) {
-  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ dismissedFor: latest })); } catch { /* Storage may be unavailable; the panel simply returns next visit. */ }
+function rememberDismissed(storageKey: string, latest: string) {
+  try { window.localStorage.setItem(storageKey, JSON.stringify({ dismissedFor: latest })); } catch { /* Storage may be unavailable; the panel simply returns next visit. */ }
 }
 
 /**
  * Updates live outside the page flow: a panel that emerges once the visitor
  * starts reading, can be closed, and stays closed until something newer is
  * published. A small tab keeps it one tap away.
+ *
+ * Signed-in users see it too, inside the app: each update then leads to the
+ * feature itself; on phones the app menu replaces the tab.
  */
-export default function NewsPanel({ copy, locale, open, focusToken, onOpenChange, onRegister }: {
+export default function NewsPanel({ copy, locale, open, focusToken, onOpenChange, onRegister, member, onUnreadChange }: {
   copy: LandingCopy["news"]; locale: Locale; open: boolean;
   /** Changes when the visitor opens the panel on purpose, so focus follows. */
   focusToken: number;
   onOpenChange: (open: boolean, userInitiated?: boolean) => void; onRegister: () => void;
+  member?: { storageKey: string; autoOpenDelayMs: number; onAction: (id: string) => void };
+  onUnreadChange?: (unread: boolean) => void;
 }) {
   const [active, setActive] = useState(0);
   const panel = useRef<HTMLElement>(null);
@@ -39,10 +44,13 @@ export default function NewsPanel({ copy, locale, open, focusToken, onOpenChange
   const entry = copy.entries[active];
   const italian = locale === "it";
   const latest = copy.entries.reduce((newest, item) => (item.date > newest ? item.date : newest), "");
-  const [dismissed, setDismissed] = useState(() => readDismissedFor() >= latest);
+  const storageKey = member?.storageKey ?? STORAGE_KEY;
+  const [dismissed, setDismissed] = useState(() => readDismissedFor(storageKey) >= latest);
   const move = (offset: number) => setActive((current) => (current + offset + count) % count);
 
-  const close = () => { rememberDismissed(latest); setDismissed(true); onOpenChange(false); };
+  const close = () => { rememberDismissed(storageKey, latest); setDismissed(true); onOpenChange(false); };
+
+  useEffect(() => { onUnreadChange?.(!dismissed); }, [dismissed, onUnreadChange]);
 
   // Emerge once the visitor has started reading, unless something else is asking for attention.
   useEffect(() => {
@@ -51,28 +59,28 @@ export default function NewsPanel({ copy, locale, open, focusToken, onOpenChange
     let done = false;
     const tryOpen = () => {
       if (done) return;
-      if (document.querySelector(".cookie-consent-banner, .auth-modal-overlay")) { timer = window.setTimeout(tryOpen, 2000); return; }
+      if (document.querySelector(".cookie-consent-banner, .auth-modal-overlay, dialog[open]")) { timer = window.setTimeout(tryOpen, 2000); return; }
       done = true;
       onOpenChange(true);
     };
     const onScroll = () => { if (window.scrollY > window.innerHeight * 0.8) { window.removeEventListener("scroll", onScroll); tryOpen(); } };
     window.addEventListener("scroll", onScroll, { passive: true });
-    timer = window.setTimeout(tryOpen, AUTO_OPEN_DELAY_MS);
+    timer = window.setTimeout(tryOpen, member?.autoOpenDelayMs ?? AUTO_OPEN_DELAY_MS);
     return () => { done = true; window.clearTimeout(timer); window.removeEventListener("scroll", onScroll); };
-  }, [dismissed, open, onOpenChange]);
+  }, [dismissed, open, onOpenChange, member?.autoOpenDelayMs]);
 
   useEffect(() => {
     if (open && focusToken !== focusedToken.current) { focusedToken.current = focusToken; panel.current?.focus({ preventScroll: true }); }
   }, [open, focusToken]);
 
-  const tab = <button type="button" className="landing-news-tab" aria-expanded={open} aria-controls="news" onClick={() => onOpenChange(true, true)}>
+  const tab = <button type="button" className={`landing-news-tab${member ? " is-in-app" : ""}`} aria-expanded={open} aria-controls="news" onClick={() => onOpenChange(true, true)}>
     <i aria-hidden="true" className={dismissed ? "" : "is-new"} />{italian ? "Novità" : "What’s new"}
   </button>;
 
   if (!open) return tab;
 
   return <>
-    <section id="news" ref={panel} tabIndex={-1} className="landing-news" aria-labelledby="news-title" aria-roledescription={italian ? "carosello" : "carousel"}
+    <section id="news" ref={panel} tabIndex={-1} className={`landing-news${member ? " is-in-app" : ""}`} aria-labelledby="news-title" aria-roledescription={italian ? "carosello" : "carousel"}
       onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
       <header>
         <p className="landing-news-kicker">{copy.eyebrow}</p>
@@ -98,10 +106,10 @@ export default function NewsPanel({ copy, locale, open, focusToken, onOpenChange
         }}>
         <div className="landing-news-meta"><span>{entry.label}</span><time dateTime={entry.date}>{entry.dateLabel}</time></div>
         <div className="landing-news-copy"><h3 id={`news-${entry.id}`}>{entry.title}</h3><p>{entry.body}</p></div>
-        <div className="landing-news-action"><button type="button" className="marketing-button primary" onClick={onRegister}>{entry.action}<span aria-hidden="true"> →</span></button><small>{entry.availability}</small></div>
+        <div className="landing-news-action"><button type="button" className="marketing-button primary" onClick={member ? () => { close(); member.onAction(entry.id); } : onRegister}>{member ? entry.memberAction : entry.action}<span aria-hidden="true"> →</span></button><small>{entry.availability}</small></div>
       </article>
       <footer>
-        <p id="news-signup-note">{copy.note}</p>
+        {member ? <span /> : <p id="news-signup-note">{copy.note}</p>}
         <div className="landing-news-arrows">
           <button type="button" aria-label={italian ? "Novità precedente" : "Previous update"} aria-controls="news-slide" onClick={() => move(-1)}>←</button>
           <span aria-live="polite" aria-atomic="true"><span className="sr-only">{entry.tab}, </span>{active + 1} / {count}</span>

@@ -5,6 +5,7 @@ from app.api.routes import (
     announcements,
     auth,
     billing,
+    bottle_photos,
     catalog,
     coownership,
     households,
@@ -39,6 +40,7 @@ api_router.include_router(ai.router, tags=["ai"])
 api_router.include_router(households.router, tags=["household"])
 api_router.include_router(imports.router, tags=["imports"])
 api_router.include_router(purchase_imports.router, tags=["imports"])
+api_router.include_router(bottle_photos.router, tags=["imports"])
 api_router.include_router(intelligence.router, tags=["intelligence"])
 api_router.include_router(inventory.router, tags=["inventory"])
 api_router.include_router(merchants.router, tags=["merchants"])

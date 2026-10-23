@@ -41,7 +41,7 @@ for (const locale of ["it", "en"] as const) {
 
     const selectors = news.getByRole("group").getByRole("button");
     const article = news.getByRole("article");
-    const titles = locale === "it" ? ["Davanti allo scaffale. Quale compro?", "Dalla fattura alla cantina. In pochi tocchi.", "Certi vini meritano più di una nota.", "La tua cantina. Le tue priorità."] : ["In front of the shelf. Which one to buy?", "From invoice to cellar. In a few taps.", "Some wines deserve more than a tasting note.", "Your cellar. Your priorities."];
+    const titles = locale === "it" ? ["Una foto. Tutta la cantina dentro.", "Davanti allo scaffale. Quale compro?", "Dalla fattura alla cantina. In pochi tocchi.", "Certi vini meritano più di una nota.", "La tua cantina. Le tue priorità."] : ["One photo. Your whole cellar in.", "In front of the shelf. Which one to buy?", "From invoice to cellar. In a few taps.", "Some wines deserve more than a tasting note.", "Your cellar. Your priorities."];
     for (const width of [360, 390, 430, 1200, 1440]) {
       await page.setViewportSize({ width, height: width >= 1200 ? 1000 : 844 });
       await page.evaluate(() => window.scrollTo(0, 0));

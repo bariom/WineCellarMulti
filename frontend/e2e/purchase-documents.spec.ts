@@ -88,6 +88,7 @@ test("purchase archive retains unlinked documents and allows explicit removal", 
   await page.goto("/");
   await page.getByRole("button", { name: /^Cantina/ }).first().click();
   await page.getByRole("button", { name: "Aggiungi vino", exact: true }).click();
+  await page.getByRole("dialog", { name: "Come vuoi inserire i vini?" }).getByRole("button", { name: /^Inserimento dettagliato/ }).click();
   await page.getByRole("button", { name: "Aggiungi un acquisto da ricevuta o fattura", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Aggiungi un acquisto", exact: true });
   await dialog.locator("summary").filter({ hasText: "Documenti archiviati" }).click();

@@ -380,3 +380,15 @@ def test_sensory_metadata_prompt_requires_verified_vintage_or_non_vintage_marker
     assert "return MV" in prompt.system
     assert "Never treat an absent year as proof" in prompt.system
     assert "four-digit year, NV, MV, or empty" in prompt.user
+
+
+def test_wine_bottles_prompt_counts_identical_bottles_and_points_at_labels():
+    from app.prompts.bottle_photos import wine_bottles_recognition_prompt
+
+    prompt = wine_bottles_recognition_prompt(width=1024, height=768)
+    assert (prompt.id, prompt.version) == ("wine_bottles.recognition", "1")
+    assert "bottle_count" in prompt.system
+    assert "never invent a producer" in prompt.system
+    assert "Different vintages of the same wine are different entries" in prompt.system
+    assert "1024 pixels wide and 768 pixels high" in prompt.user
+    assert "untrusted reference material" in prompt.user

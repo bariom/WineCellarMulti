@@ -1,6 +1,6 @@
 import { CellarEmptyImage } from "./components/CellarEmptyImage";
 import { tastingRequest } from "./domain/tasting";
-import { CSSProperties, ChangeEvent, Children, ComponentProps, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
+import { CSSProperties, ChangeEvent, Children, ComponentProps, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import PremiumMemoriesNotice from "./components/PremiumMemoriesNotice";
@@ -125,6 +125,9 @@ const WinePulsePreview = lazy(() => import("./views/WinePulseView").then(module 
 const CellarAssistantView = lazy(() => import("./views/CellarAssistantView"));
 const RecordTastingDialog = lazy(() => import("./components/RecordTastingDialog"));
 const PurchaseImportDialog = lazy(() => import("./components/PurchaseImportDialog"));
+const BottlePhotoImport = lazy(() => import("./components/BottlePhotoImport"));
+const AddWineChooser = lazy(() => import("./components/AddWineChooser"));
+const AppNewsPanel = lazy(() => import("./components/AppNewsPanel"));
 const WishlistLiveTasteScanner = lazy(() => import("./components/WishlistLiveTasteScanner"));
 const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView"));
 const AI_PACK_ENHANCEMENT_DISMISS_KEY = "vinaris.ai-pack-enhancement-dismissed-until";
@@ -1385,6 +1388,16 @@ export function App() {
   const [wineDetailExpanded, setWineDetailExpanded] = useState(false);
   const [wineEditorExpanded, setWineEditorExpanded] = useState(false);
   const [purchaseImportOpen, setPurchaseImportOpen] = useState(false);
+  const [addWineChooserOpen, setAddWineChooserOpen] = useState(false);
+  const [bottlePhotoImportOpen, setBottlePhotoImportOpen] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
+  const [newsFocusToken, setNewsFocusToken] = useState(0);
+  const [newsUnread, setNewsUnread] = useState(false);
+  const [buyingStartPlace, setBuyingStartPlace] = useState<"advice" | "shelf">("advice");
+  const openNews = useCallback((open: boolean, userInitiated = false) => {
+    setNewsOpen(open);
+    if (open && userInitiated) setNewsFocusToken((token) => token + 1);
+  }, []);
   const [pairingWineDetailId, setPairingWineDetailId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [wishlistConversionItem, setWishlistConversionItem] = useState<WishlistItem | null>(null);
@@ -5393,7 +5406,28 @@ export function App() {
   useEffect(() => {
     // Only the visit that comes from the assistant skips "Dove sei?".
     if (activeView !== "pairing") setPairingFromAssistant(false);
+    // Likewise only the visit from the updates opens straight on the shelf scanner.
+    if (activeView !== "buying") setBuyingStartPlace("advice");
   }, [activeView]);
+
+  /** Each update in the news panel leads to its feature. */
+  function openNewsFeature(id: string) {
+    if (id === "bottle-photo") {
+      leaveHelpFor("cellar");
+      if (canWriteWine) setBottlePhotoImportOpen(true);
+    } else if (id === "shelf-scan") {
+      setBuyingStartPlace("shelf");
+      leaveHelpFor("buying");
+    } else if (id === "purchase-scan") {
+      leaveHelpFor("cellar");
+      if (canWriteWine) setPurchaseImportOpen(true);
+    } else if (id === "photo-memories") {
+      openMemoryBook();
+    } else if (id === "personal-dashboard") {
+      leaveHelpFor("home");
+      setDashboardFocus("personal");
+    }
+  }
 
   function openMemoryBook() {
     if (canAccessMemories) setMemoryBookOpen(true);
@@ -7371,7 +7405,13 @@ export function App() {
     setWishlistFormOpen(false);
     setSelectedWineId(null);
     clearFilters("cellar");
-    startAddWine();
+    chooseAddWine();
+  }
+
+  /** Offer the quick photo path or the detailed form; offline only the form works. */
+  function chooseAddWine() {
+    if (offlineMode) startAddWine();
+    else setAddWineChooserOpen(true);
   }
 
   function prepareAssistantPurchaseDraft(purchase: CellarCommandPurchaseDraft) {
@@ -9444,7 +9484,7 @@ export function App() {
             </button>
             <button
               type="button"
-              className={`secondary compact topbar-icon-button mobile-account-menu-toggle${mobileAccountMenuOpen ? " active" : ""}`}
+              className={`secondary compact topbar-icon-button mobile-account-menu-toggle${mobileAccountMenuOpen ? " active" : ""}${newsUnread && !offlineMode ? " has-news" : ""}`}
               aria-label={locale === "it" ? "Apri menu account" : "Open account menu"}
               aria-expanded={mobileAccountMenuOpen}
               aria-controls="mobile-account-menu"
@@ -9462,6 +9502,10 @@ export function App() {
                   <AppIcon name="grapes" variant="premium" detailLevel="compact" />
                   {t("help")}
                 </button>
+                {!offlineMode ? <button type="button" role="menuitem" className={newsUnread ? "has-news" : undefined} onClick={() => { setMobileAccountMenuOpen(false); openNews(true, true); }}>
+                  <AppIcon name="glass-sparkle" variant="premium" detailLevel="compact" />
+                  {locale === "it" ? "Novità" : "What’s new"}
+                </button> : null}
                 <button type="button" role="menuitem" className="mobile-account-menu-logout" onClick={() => { setMobileAccountMenuOpen(false); void logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout")); }}>
                   <AppIcon name="logout" variant="action" detailLevel="compact" />
                   {t("logout")}
@@ -10198,6 +10242,28 @@ export function App() {
               </nav>
             </>
           ) : null}
+          {!offlineMode ? <Suspense fallback={null}><AppNewsPanel locale={locale} open={newsOpen} focusToken={newsFocusToken} onOpenChange={openNews} onAction={openNewsFeature} onUnreadChange={setNewsUnread} /></Suspense> : null}
+          {addWineChooserOpen && canWriteWine ? <Suspense fallback={null}><AddWineChooser
+            locale={locale}
+            onClose={() => setAddWineChooserOpen(false)}
+            onQuick={() => { setAddWineChooserOpen(false); setBottlePhotoImportOpen(true); }}
+            onDetailed={() => { setAddWineChooserOpen(false); startAddWine(); }}
+            onReceipt={canAnalyzePurchase ? () => { setAddWineChooserOpen(false); setPurchaseImportOpen(true); } : undefined}
+          /></Suspense> : null}
+          {bottlePhotoImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><BottlePhotoImport
+            key={session?.active_household_id}
+            locale={locale}
+            canAnalyze={canGenerateAi}
+            onActivate={() => { setBottlePhotoImportOpen(false); openSubscriptionSettings(); }}
+            onClose={() => setBottlePhotoImportOpen(false)}
+            onImported={async () => { await Promise.all([loadWines(), loadAiSettings(), loadBilling()]); }}
+            onCompleteWithAi={(wineIds) => {
+              void api<Wine[]>("/api/v1/wines").then((nextWines) => {
+                setWines(nextWines);
+                return generateMissingWineAi("all", nextWines.filter((wine) => wineIds.includes(wine.id)));
+              });
+            }}
+          /></Suspense> : null}
           {purchaseImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><PurchaseImportDialog locale={locale} canAnalyze={canAnalyzePurchase} included={purchaseImportIncluded} isAdmin={Boolean(session?.is_app_admin)} onActivate={() => { setPurchaseImportOpen(false); setWineFormOpen(false); openSubscriptionSettings(); }} onAnalyzed={async () => { await Promise.all([loadAiSettings(), loadBilling()]); }} onClose={() => setPurchaseImportOpen(false)} onImported={async () => { await loadWines(); await loadMerchants(); setWineFormOpen(false); }} /></Suspense> : null}
           {memoryBookOpen ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><MemoryBook key={session?.active_household_id} locale={locale} onClose={() => setMemoryBookOpen(false)} /></Suspense> : null}
           {recordTastingOpen && canWriteWine && !offlineMode ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><RecordTastingDialog
@@ -11194,6 +11260,8 @@ export function App() {
               {aiPackUpgradeNotice}
               <Suspense fallback={<LoadingState label={t("loadingData")} />}>
                 <BuyingAdviceView
+                  key={buyingStartPlace}
+                  initialPlace={buyingStartPlace}
                   canGenerateAi={canGenerateAi}
                   canWriteWishlist={canWriteWine}
                   generatingAi={generatingAi}
@@ -11270,7 +11338,7 @@ export function App() {
               <div className="side-panel-actions">
                 <div className="side-panel-action-buttons">
                   {activeView === "cellar" && !wineFormOpen ? (
-                    <button type="button" className="side-panel-add-button mobile-redundant-add-wine" onClick={startAddWine} disabled={!canWriteWine}>
+                    <button type="button" className="side-panel-add-button mobile-redundant-add-wine" onClick={chooseAddWine} disabled={!canWriteWine}>
                       {t("addWine")}
                     </button>
                   ) : null}
@@ -12769,7 +12837,7 @@ export function App() {
                 </button>
               ) : null}
               {activeView === "cellar" ? (
-                <button type="button" className="desktop-cellar-add-button" onClick={startAddWine} disabled={!canWriteWine}>
+                <button type="button" className="desktop-cellar-add-button" onClick={chooseAddWine} disabled={!canWriteWine}>
                   {t("addWine")}<span aria-hidden="true">+</span>
                 </button>
               ) : null}
@@ -12811,7 +12879,7 @@ export function App() {
                 helpSlug="cellar-filters"
                 actions={activeCollectionFilterChips.length
                   ? <button type="button" onClick={() => clearFilters("cellar")}>{t("clearFilters")}</button>
-                  : canWriteWine ? <button type="button" onClick={startAddWine}>{t("addWine")}</button> : null}
+                  : canWriteWine ? <button type="button" onClick={chooseAddWine}>{t("addWine")}</button> : null}
               >
                 {activeCollectionFilterChips.length
                   ? (locale === "it" ? "Modifica o azzera i filtri per ampliare i risultati." : "Adjust or clear filters to broaden the results.")
