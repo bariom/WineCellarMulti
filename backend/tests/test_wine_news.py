@@ -22,7 +22,6 @@ from app.services import wine_news as wine_news_service
 from app.services.wine_news import (
     FeedEntry,
     collect_wine_news,
-    notify_wine_pulse_edition,
     parse_feed,
     refresh_publication_selection,
 )
@@ -192,6 +191,25 @@ def test_collector_publishes_curated_article(monkeypatch):
             "published": 1,
             "error": "",
         }
+
+
+def test_a_new_wine_pulse_edition_sends_no_notifications(monkeypatch):
+    with TestingSessionLocal() as db:
+        db.add(
+            User(
+                email="pulse-reader@example.com",
+                display_name="Lettore",
+                password_hash="hash",
+                locale="it",
+                is_approved=True,
+                is_blocked=False,
+            )
+        )
+        db.commit()
+    test_collector_publishes_curated_article(monkeypatch)
+    # A reader away for a while would find one per edition: Wine Pulse speaks for itself.
+    with TestingSessionLocal() as db:
+        assert db.scalars(select(UserNotification)).all() == []
 
 
 def test_collector_records_partial_success_when_a_source_fails(monkeypatch):
@@ -370,53 +388,6 @@ def test_publication_selection_collapses_cross_source_rewrites_of_the_same_story
 
         assert refresh_publication_selection(db) == [articles[0]]
         assert [article.status for article in articles] == ["published", "candidate", "candidate"]
-
-
-def test_wine_pulse_notifications_are_localized_and_rate_limited():
-    with TestingSessionLocal() as db:
-        italian_user = User(
-            email="pulse-it@example.com",
-            display_name="Lettore italiano",
-            password_hash="hash",
-            locale="it",
-            is_approved=True,
-            is_blocked=False,
-        )
-        english_user = User(
-            email="pulse-en@example.com",
-            display_name="English reader",
-            password_hash="hash",
-            locale="en",
-            is_approved=True,
-            is_blocked=False,
-        )
-        blocked_user = User(
-            email="pulse-blocked@example.com",
-            display_name="Blocked reader",
-            password_hash="hash",
-            locale="it",
-            is_approved=True,
-            is_blocked=True,
-        )
-        run = WineNewsCollectionRun(started_at=datetime.now(UTC), status="completed", stats={})
-        db.add_all([italian_user, english_user, blocked_user, run])
-        db.commit()
-
-        assert notify_wine_pulse_edition(db, run, published_count=3) == 2
-        db.commit()
-        notifications = db.scalars(select(UserNotification).order_by(UserNotification.title)).all()
-        assert len(notifications) == 2
-        assert {notification.action_url for notification in notifications} == {"/pulse"}
-        assert any(
-            notification.title == "Wine Pulse \u00e8 aggiornato" for notification in notifications
-        )
-        assert any(notification.title == "Wine Pulse is updated" for notification in notifications)
-        assert all("3" in notification.message for notification in notifications)
-
-        next_run = WineNewsCollectionRun(started_at=datetime.now(UTC), status="completed", stats={})
-        db.add(next_run)
-        db.commit()
-        assert notify_wine_pulse_edition(db, next_run, published_count=2) == 0
 
 
 def test_authenticated_feed_returns_localized_editorial_copy(monkeypatch):

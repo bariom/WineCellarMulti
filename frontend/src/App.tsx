@@ -1001,14 +1001,6 @@ function notificationSvgIcon(kind: string) {
   if (kind === "smart_future_deliveries" || kind === "smart_missed_deliveries") return dashboardStatSvgIcon("future_deliveries");
   if (kind === "smart_to_collect") return dashboardStatSvgIcon("to_collect");
   if (kind === "smart_entitlement_expiring") return dashboardStatSvgIcon("missing_data");
-  if (kind === "wine_pulse_edition") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M5 5.5h14v13H5z" />
-        <path d="M8 9h8M8 12h8M8 15h5" />
-      </svg>
-    );
-  }
   if (kind === "pending_users") return dashboardStatSvgIcon("shared");
   if (kind === "invite") return dashboardStatSvgIcon("shared");
   if (kind === "share_offer") return dashboardStatSvgIcon("shared");

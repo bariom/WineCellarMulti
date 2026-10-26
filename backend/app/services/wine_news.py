@@ -21,13 +21,10 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models import (
-    User,
-    UserNotification,
     WineNewsArticle,
     WineNewsCollectionRun,
     WineNewsSource,
 )
-from app.services.notifications import create_user_notification
 from app.services.openai_client import create_response, parse_json_response
 
 logger = logging.getLogger(__name__)
@@ -723,63 +720,6 @@ def refresh_publication_selection(db: Session) -> list[WineNewsArticle]:
     return [article for article in selected_articles if article.id not in previously_published_ids]
 
 
-def notify_wine_pulse_edition(
-    db: Session,
-    run: WineNewsCollectionRun,
-    *,
-    published_count: int,
-) -> int:
-    """Create one in-app notification per eligible user for a new edition.
-
-    A collection can run three times per day, while an edition might evolve more
-    often than a reader needs. Keep the signal deliberate: no more than one Wine
-    Pulse alert per user in a twelve-hour period and never re-send the same run.
-    """
-    if published_count <= 0:
-        return 0
-
-    cutoff = datetime.now(UTC) - timedelta(hours=12)
-    users = db.scalars(
-        select(User).where(User.is_approved.is_(True), User.is_blocked.is_(False))
-    ).all()
-    created = 0
-    for user in users:
-        recently_notified = db.scalar(
-            select(UserNotification.id)
-            .where(
-                UserNotification.user_id == user.id,
-                UserNotification.kind == "wine_pulse_edition",
-                UserNotification.created_at >= cutoff,
-            )
-            .limit(1)
-        )
-        if recently_notified is not None:
-            continue
-        italian = user.locale.lower().startswith("it")
-        title = "Wine Pulse \u00e8 aggiornato" if italian else "Wine Pulse is updated"
-        if italian:
-            message = (
-                f"{published_count} nuova storia dal mondo del vino, selezionata da Vinaris."
-                if published_count == 1
-                else f"{published_count} nuove storie dal mondo del vino, selezionate da Vinaris."
-            )
-        else:
-            noun = "story" if published_count == 1 else "stories"
-            message = f"{published_count} new wine-world {noun}, selected by Vinaris."
-        notification = create_user_notification(
-            db,
-            user,
-            kind="wine_pulse_edition",
-            title=title,
-            message=message,
-            action_url="/pulse",
-            fingerprint=f"wine_pulse:run:{run.id}",
-        )
-        if notification is not None:
-            created += 1
-    return created
-
-
 def collect_wine_news(
     db: Session,
     *,
@@ -801,7 +741,6 @@ def collect_wine_news(
         "ai_input_tokens": 0,
         "ai_output_tokens": 0,
         "published": 0,
-        "notifications_created": 0,
     }
     try:
         if not settings.wine_pulse_enabled:
@@ -921,9 +860,6 @@ def collect_wine_news(
         for article in newly_published:
             if article.source_id in source_stats:
                 source_stats[article.source_id]["published"] += 1
-        stats["notifications_created"] = notify_wine_pulse_edition(
-            db, run, published_count=len(newly_published)
-        )
         run.status = "completed" if not stats["source_errors"] else "completed_with_errors"
         run.stats = stats
         run.completed_at = datetime.now(UTC)

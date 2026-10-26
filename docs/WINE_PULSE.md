@@ -79,9 +79,9 @@ custom registry are disabled, not deleted.
   empty while it waits for fresh stories.
 - Earlier selected stories remain available in the authenticated Wine Pulse
   archive until the configured retention period expires (180 days by default).
-- When a collection adds stories to the edition, Vinaris creates one in-app
-  Wine Pulse notification for each active user. Alerts open Wine Pulse directly,
-  are limited to one every twelve hours per user, and never send email or push.
+- New editions send no notifications (in-app, email or push): a user away for a
+  while would otherwise find one per edition. Migration `0124` removed the ones
+  sent before.
 - A source must be reviewed for syndication and attribution terms before it is
   added or retained in production. Availability of an RSS endpoint alone is
   not a blanket republication licence.

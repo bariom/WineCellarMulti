@@ -18,26 +18,9 @@ function notificationSubject(title: string, prefix: string): string {
 export function localizedNotification(notification: UserNotification, locale: Locale): NotificationCopy {
   const count = firstNumber(notification.message);
 
-  if (locale === "it") {
-    if (notification.kind === "wine_pulse_edition" && count) {
-      const singular = count === "1";
-      const noun = singular ? "nuova storia" : "nuove storie";
-      return {
-        title: notification.title,
-        message: `${count} ${noun} dal mondo del vino, ${singular ? "selezionata" : "selezionate"} da Vinaris.`,
-      };
-    }
-    return notification;
-  }
+  if (locale === "it") return notification;
 
   switch (notification.kind) {
-    case "wine_pulse_edition":
-      return {
-        title: "Wine Pulse is updated",
-        message: count
-          ? `${count} new wine-world ${count === "1" ? "story" : "stories"}, selected by Vinaris.`
-          : "New wine-world stories, selected by Vinaris.",
-      };
     case "smart_drink_now":
       return { title: "Cellar reminder", message: count ? `${count} wines are ready to drink in your cellar.` : "Some wines are ready to drink in your cellar." };
     case "smart_past_window":
