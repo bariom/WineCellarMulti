@@ -126,3 +126,13 @@
 .cellar-assistant-ai-voice span { display: grid; gap: 2px; min-width: 0; }
 .cellar-assistant-ai-voice strong { font-size: .88rem; }
 .cellar-assistant-ai-voice small { color: var(--text-muted); font-size: .78rem; line-height: 1.4; }
+
+/* With the label camera, the three actions share the row: a square camera, then speak and send. */
+@media (max-width: 620px) {
+  .cellar-assistant-send-actions:has(> .cellar-assistant-photo) { grid-template-columns: 48px minmax(0, 1fr) minmax(0, 1.4fr); }
+  .cellar-assistant-send-actions > button.cellar-assistant-photo { width: 48px !important; min-width: 48px !important; }
+}
+/* The voice choice reads as a sentence, not as a field label. */
+.cellar-assistant-view .cellar-assistant-composer .cellar-assistant-ai-voice,
+.cellar-assistant-view .cellar-assistant-composer .cellar-assistant-ai-voice * { text-transform: none; letter-spacing: normal; }
+.cellar-assistant-view .cellar-assistant-composer .cellar-assistant-ai-voice small { font-weight: 500; }

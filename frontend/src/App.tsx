@@ -11242,6 +11242,7 @@ export function App() {
             ) : <>{aiPackUpgradeNotice}<Suspense fallback={<LoadingState label={t("loadingData")} />}><CellarAssistantView
               locale={locale}
               disabled={!canGenerateAi || !canWriteWine}
+              canRecognize={canRecognizeBottlePhoto}
               onPreparePurchase={prepareAssistantPurchaseDraft}
               onOpenWishlist={() => setActiveView("wishlist")}
               initialQuestion={assistantQuestion}

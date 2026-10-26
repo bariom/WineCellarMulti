@@ -200,3 +200,11 @@
 .cellar-assistant-critique textarea { min-height: 0; resize: vertical; }
 .cellar-assistant-critique > div { display: flex; justify-content: flex-end; gap: 8px; }
 .cellar-assistant-rated { display: block; margin-top: 6px; color: var(--text-muted); font-size: .76rem; }
+
+/* A question asked with a label photo: the label beside the question. */
+.cellar-assistant-photo-question { display: flex; align-items: center; gap: 10px; }
+.cellar-assistant-photo-question img { flex: none; width: 52px; height: 52px; border-radius: 10px; object-fit: cover; }
+.cellar-assistant-photo-question p { display: grid; gap: 2px; margin: 0; }
+.cellar-assistant-photo-question strong { font-size: .82rem; }
+.cellar-assistant-conversation li.is-user > small { display: block; margin-top: 6px; color: color-mix(in srgb, var(--primary-contrast) 75%, transparent); font-size: .72rem; }
+.cellar-assistant-send-actions .cellar-assistant-photo { flex: none; display: grid; place-items: center; width: 48px; min-width: 48px; padding: 0; font-size: 1.2rem; }

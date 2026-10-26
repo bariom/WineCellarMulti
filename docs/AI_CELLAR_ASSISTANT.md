@@ -90,6 +90,14 @@ Each answer can be rated 👍 or 👎 once (a 👎 may add what was wrong). Only
 the answer stored, in `assistant_feedback` (migration `0125`), and the app says so; app admins read
 them in Settings → Operatività → Assistente AI, the 👎 first, to improve the prompt on real questions.
 
+## Label photos in the chat
+
+Where label recognition is available, a camera button beside "Parla" lets the user photograph a
+label: the app recognises it (`/api/v1/wines/catalog/recognize-bottle`, charged as usual) and asks
+the assistant about the wine named, with the typed question or "Ce l'ho in cantina? Quanto vale e
+quando aprirlo?". The conversation shows a small thumbnail (kept only in the browser session), the
+wine recognised and the recognition cost. An unreadable label asks for a new photo.
+
 ## Natural AI voice
 
 By default answers are read by the browser's own voice (free, nothing leaves the device). In the

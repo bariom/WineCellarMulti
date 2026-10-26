@@ -155,3 +155,60 @@ for (const outcome of ["ai voice", "fallback"] as const) {
     await expect(page.getByLabel(/Voce naturale AI/)).toBeChecked();
   });
 }
+
+// A real 16×24 PNG, so the conversation can draw its thumbnail.
+const labelPhoto = {
+  name: "etichetta.png",
+  mimeType: "image/png",
+  buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAABAAAAAYCAIAAAB8wupbAAAALElEQVR4nGOskDNiIAUwkaSaYVQDcYCJSHVwMKqBGMBElCokMKqBGED7UAIACIoA+CCd1KEAAAAASUVORK5CYII=", "base64"),
+};
+
+for (const recognized of [true, false]) {
+  test(`a photographed label is asked about with the wine named (${recognized ? "recognised" : "unreadable"})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockApi(page, [], true, memberships, [wine], { ...session, cellar_ai_assistant_available: true, cellar_ai_assistant_subscribed: true, can_use_label_recognition: true });
+    await page.addInitScript(({ wine, recognized }) => {
+      const previous = window.fetch;
+      window.fetch = async (input, init) => {
+        const path = new URL(String(input instanceof Request ? input.url : input), location.href).pathname;
+        if (path === "/api/v1/wines/catalog/recognize-bottle") {
+          return Response.json({
+            recognition_id: "rec-1", status: recognized ? "recognized" : "not_recognized", producer: recognized ? wine.producer : "", estate: "", wine_name: recognized ? wine.name : "", cuvee: "",
+            vintage: recognized ? wine.vintage : "", appellation: "", region: "", country: "", label_text: [], alternative_candidates: [], needs_user_confirmation: false,
+            recognition_notes: [], provider: "luna", matches: [], estimated_cost_usd: "0.0040",
+          });
+        }
+        if (path === "/api/v1/ai/cellar-assistant/ask") {
+          sessionStorage.setItem("asked", String(JSON.parse(String(init?.body)).question));
+          return Response.json({ answer: "Sì: ne hai 4 bottiglie, pronte da bere.", wines: [{ id: wine.id, name: wine.name, producer: wine.producer, vintage: wine.vintage }], follow_ups: [], tools_used: ["search_wines"], model: "test-model", reasoning_effort: "", estimated_cost_usd: "0.0002" });
+        }
+        return previous(input, init);
+      };
+    }, { wine, recognized });
+    await page.goto("/");
+    await openSommelierFeature(page, /^Chiedi alla tua cantina/);
+    const camera = page.getByRole("button", { name: "Chiedi di un'etichetta fotografata" });
+    await expect(camera).toBeVisible();
+    // Camera, speak and send stay on one row at phone width.
+    const [cameraBox, sendBox] = await Promise.all([camera.boundingBox(), page.getByRole("button", { name: "Continua", exact: true }).boundingBox()]);
+    expect(Math.abs(cameraBox!.y - sendBox!.y)).toBeLessThan(4);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.locator(".cellar-assistant-send-actions input[type=file]").setInputFiles(labelPhoto);
+    const conversation = page.getByRole("region", { name: "Conversazione con l'assistente" });
+    if (recognized) {
+      await expect(conversation).toContainText("ne hai 4 bottiglie");
+      const label = `${wine.producer} · ${wine.name} · ${wine.vintage}`;
+      await expect(conversation.locator(".cellar-assistant-photo-question")).toContainText(label);
+      await expect(conversation.locator(".cellar-assistant-photo-question")).toContainText("Ce l'ho in cantina? Quanto vale e quando aprirlo?");
+      await expect(conversation.getByRole("img", { name: `Etichetta: ${label}` })).toBeVisible();
+      // The recognition's cost is said once, under the question.
+      await expect(conversation.locator("li.is-user > small")).toHaveCount(1);
+      await expect(conversation.locator("li.is-user > small")).toContainText("Riconoscimento etichetta");
+      expect(await page.evaluate(() => sessionStorage.getItem("asked"))).toBe(`Vino nella foto dell'etichetta: ${label}. Ce l'ho in cantina? Quanto vale e quando aprirlo?`);
+      await page.screenshot({ path: testInfo.outputPath("assistant-photo-390.png") });
+    } else {
+      await expect(page.getByText("Non riesco a leggere l'etichetta", { exact: false })).toBeVisible();
+      expect(await page.evaluate(() => sessionStorage.getItem("asked"))).toBeNull();
+    }
+  });
+}

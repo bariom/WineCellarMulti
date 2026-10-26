@@ -7,6 +7,7 @@ import type {
   CellarCommandResult,
   Locale,
   WineLabelEnrichment,
+  WineImageRecognitionResult,
   PairingResult,
 } from "../types";
 import "./CellarAssistantView.css";
@@ -34,7 +35,28 @@ type ConversationTurn = {
   model?: string;
   tools?: string[];
   rating?: "up" | "down";
+  /** A label photographed with the question: a small thumbnail and the wine recognised. */
+  photo?: string;
+  label?: string;
+  /** The question as the user put it, when the message sent says more (the label). */
+  shown?: string;
 };
+
+/** A small JPEG of the photo, light enough to keep with the conversation. */
+async function thumbnailOf(file: File) {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, 160 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    return canvas.toDataURL("image/jpeg", 0.7);
+  } catch {
+    return "";
+  }
+}
 
 function loadConversation(key: string | undefined): ConversationTurn[] {
   if (!key) return [];
@@ -122,6 +144,8 @@ type CellarAssistantViewProps = {
   onOpenWine?: (wineId: string) => void;
   /** Where this user's conversation in this cellar is kept for the session. */
   conversationKey?: string;
+  /** Labels can be photographed and recognised for this user. */
+  canRecognize?: boolean;
 };
 
 export default function CellarAssistantView({
@@ -136,6 +160,7 @@ export default function CellarAssistantView({
   startVoice = null,
   onOpenWine,
   conversationKey,
+  canRecognize = false,
 }: CellarAssistantViewProps) {
   const [text, setText] = useState("");
   // One card per operation of the last message, each confirmed on its own.
@@ -658,8 +683,8 @@ export default function CellarAssistantView({
     }
   }
 
-  async function askAssistant(question: string) {
-    setPendingQuestion(question);
+  async function askAssistant(question: string, asked: Partial<ConversationTurn> = {}) {
+    setPendingQuestion(asked.label ? `📷 ${asked.label} · ${question}` : question);
     try {
     const answer = await api<{ answer: string; wines?: AssistantWineLink[]; follow_ups?: string[]; tools_used: string[]; model: string; estimated_cost_usd: string; pairing_dish?: string; pairing?: PairingResult | null }>("/api/v1/ai/cellar-assistant/ask", {
       method: "POST",
@@ -672,7 +697,7 @@ export default function CellarAssistantView({
     });
     setConversation((current) => [
       ...current,
-      { role: "user", content: question },
+      { role: "user", content: question, ...asked },
       {
         role: "assistant",
         content: answer.answer,
@@ -688,6 +713,44 @@ export default function CellarAssistantView({
     setText("");
     } finally {
       setPendingQuestion(null);
+    }
+  }
+
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+
+  /** Ask about a photographed label: recognise the wine, then ask with it named. */
+  async function askAboutPhoto(file: File) {
+    if (busy || disabled) return;
+    const typed = text.trim();
+    setBusy(true);
+    setError("");
+    setWorkLabel(isItalian ? "Riconosco l'etichetta…" : "Reading the label…");
+    if (readAloud) primeSpeech();
+    try {
+      const data = new FormData();
+      data.append("image", file);
+      data.append("locale", locale);
+      const [recognition, photo] = await Promise.all([
+        api<WineImageRecognitionResult>("/api/v1/wines/catalog/recognize-bottle", { method: "POST", body: data }),
+        thumbnailOf(file),
+      ]);
+      if (recognition.status !== "recognized" && recognition.status !== "ambiguous") {
+        setError(isItalian ? "Non riesco a leggere l'etichetta: riprova con più luce, più vicino." : "I cannot read the label: try again with more light, closer.");
+        return;
+      }
+      const label = [recognition.producer, recognition.wine_name || recognition.cuvee, recognition.vintage].filter(Boolean).join(" · ");
+      const question = typed || (isItalian ? "Ce l'ho in cantina? Quanto vale e quando aprirlo?" : "Do I have it in my cellar? What is it worth and when to open it?");
+      setWorkLabel(isItalian ? "Cerco questo vino nella tua cantina…" : "Looking for this wine in your cellar…");
+      const recognitionCost = Number(recognition.estimated_cost_usd || 0);
+      await askAssistant(
+        `${isItalian ? "Vino nella foto dell'etichetta" : "Wine in the label photo"}: ${label}. ${question}`,
+        { photo, label, shown: question, meta: recognitionCost > 0 ? `${isItalian ? "Riconoscimento etichetta" : "Label recognition"} · ${requestCostLabel(recognition.estimated_cost_usd)}` : undefined },
+      );
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : (isItalian ? "Riconoscimento non riuscito." : "Recognition failed."));
+    } finally {
+      setBusy(false);
+      setWorkLabel("");
     }
   }
 
@@ -921,7 +984,10 @@ export default function CellarAssistantView({
         </header>
         <ol aria-live="polite">
           {conversation.map((turn, index) => <li key={index} className={`is-${turn.role}`} ref={turn.role === "user" && index === conversation.length - 2 ? latestQuestionRef : undefined}>
-            {turn.role === "assistant" ? <AssistantAnswer text={turn.content} /> : <p>{turn.content}</p>}
+            {turn.role === "assistant" ? <AssistantAnswer text={turn.content} /> : turn.label ? <div className="cellar-assistant-photo-question">
+              {turn.photo ? <img src={turn.photo} alt={isItalian ? `Etichetta: ${turn.label}` : `Label: ${turn.label}`} /> : null}
+              <p><strong>{turn.label}</strong><span>{turn.shown || turn.content}</span></p>
+            </div> : <p>{turn.content}</p>}
             {turn.wines?.length && onOpenWine ? <div className="cellar-assistant-wine-links" aria-label={isItalian ? "Vini citati" : "Wines mentioned"}>
               {turn.wines.map((wine) => <button key={wine.id} type="button" className="secondary compact" onClick={() => onOpenWine(wine.id)}>
                 <AppIcon name="bottle" variant="navigation" />
@@ -1026,6 +1092,19 @@ export default function CellarAssistantView({
           {/* Speak and send side by side, so dictating and sending are one thumb apart;
               they step aside for the activity panel while the assistant listens or works. */}
           <div className="cellar-assistant-send-actions" hidden={activityPhase === "listening" || activityPhase === "thinking"}>
+              {canRecognize ? <>
+                <button
+                  type="button"
+                  className="secondary cellar-assistant-photo"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={disabled || busy || listening}
+                  aria-label={isItalian ? "Chiedi di un'etichetta fotografata" : "Ask about a photographed label"}
+                  title={isItalian ? "Fotografa un'etichetta: ce l'ho? quanto vale?" : "Photograph a label: do I have it? what is it worth?"}
+                >
+                  <AppIcon name="camera" />
+                </button>
+                <input ref={photoInputRef} type="file" accept="image/*" capture="environment" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void askAboutPhoto(file); event.target.value = ""; }} />
+              </> : null}
               {voiceSupported ? (
                 <button
                   type="button"
