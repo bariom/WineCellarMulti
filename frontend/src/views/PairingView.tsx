@@ -60,6 +60,8 @@ type PairingViewProps = {
   pairingResult: PairingResult | null;
   /** Opened from the assistant with a cellar pairing ready: skip "Dove sei?". */
   startAtHome?: boolean;
+  /** Skip "Dove sei?" when the user already chose, e.g. on the Sommelier AI page. */
+  startPlace?: "choose" | "home" | "restaurant";
   saving: boolean;
   savedPairingPreferences: string;
   wines: WineLike[];
@@ -148,6 +150,7 @@ export default function PairingView({
   pairingPreferLocal,
   pairingResult,
   startAtHome = false,
+  startPlace = "choose",
   saving,
   savedPairingPreferences,
   setAiSettingsDraft,
@@ -174,7 +177,7 @@ export default function PairingView({
   const [restaurantScanKey, setRestaurantScanKey] = useState(0);
   const [restaurantScanError, setRestaurantScanError] = useState("");
   const [restaurantFlow, setRestaurantFlow] = useState<"choose" | "scan" | "without-list" | "result">("choose");
-  const [selectedPairingLocation, setPairingLocation] = useState<"choose" | "home" | "restaurant">(startAtHome ? "home" : "choose");
+  const [selectedPairingLocation, setPairingLocation] = useState<"choose" | "home" | "restaurant">(startAtHome ? "home" : startPlace);
   const restaurantResultRef = useRef<HTMLDivElement>(null);
   const pairingResultRef = useRef<HTMLDivElement>(null);
   // From the assistant the pairing is already there: show it, not the empty form above.

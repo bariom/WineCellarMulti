@@ -1,67 +1,56 @@
 import { expect, test } from "@playwright/test";
-import { wine, session, memberships, multiCellarMemberships, mockApi, openRecordTasting } from "./fixtures/app";
+import { wine, session, memberships, multiCellarMemberships, mockApi, openRecordTasting, openSommelierFeature } from "./fixtures/app";
 
 
 for (const locale of ["it", "en"] as const) {
-  test(`AI tools menu closes after selecting each destination (${locale})`, async ({ page }, testInfo) => {
+  test(`the Sommelier AI page leads to every AI feature (${locale})`, async ({ page }, testInfo) => {
     const it = locale === "it";
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockApi(page, [], false, memberships, [wine], { ...session, locale, cellar_ai_assistant_available: true });
     await page.goto("/");
-    const menu = page.locator(".view-tabs-ai-group");
-    const summary = menu.locator("summary");
+    const navigation = page.locator(".view-tabs-navigation");
     const destinations = [
-      [it ? "Sommelier AI (Abbinamenti)" : "AI Sommelier (Pairings)", it ? "Trova abbinamento" : "Find pairing"],
-      [it ? "Sommelier acquisti" : "Buying sommelier", it ? "Sommelier acquisti" : "AI buying sommelier"],
-      ["Intelligence", it ? "Piano cantina" : "Cellar plan"],
-      [it ? "Assistente AI" : "AI Assistant", it ? "Assistente Cantina AI" : "AI Cellar Assistant"],
-    ];
-    for (const [label, heading] of destinations) {
-      for (const repeat of [false, true]) {
-        await summary.click();
-        await expect(menu).toHaveAttribute("open", "");
-        const action = menu.getByRole("button", { name: label, exact: true });
-        if (repeat) { await action.focus(); await page.keyboard.press("Enter"); }
-        else await action.click();
-        await expect(menu).not.toHaveAttribute("open", "");
-        await expect(action).toBeHidden();
-        await expect(summary).toBeFocused();
-        await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+      [it ? /^Chiedi alla tua cantina/ : /^Ask your cellar/, it ? "Assistente Cantina AI" : "AI Cellar Assistant"],
+      [it ? /^Abbinamento a casa/ : /^Pairing at home/, it ? "Trova abbinamento" : "Find pairing"],
+      [it ? /^Al ristorante/ : /^At the restaurant/, it ? "Come vuoi scegliere il vino?" : "How would you like to choose a wine?"],
+      [it ? /^In enoteca: Scaffale AI/ : /^At the wine shop: Shelf scanner/, ""],
+      [it ? /^Cosa comprare/ : /^What to buy/, it ? "Sommelier acquisti" : "AI buying sommelier"],
+      [it ? /^Strategia della cantina/ : /^Cellar strategy/, it ? "Piano cantina" : "Cellar plan"],
+    ] as const;
+    for (const [card, heading] of destinations) {
+      await navigation.getByRole("button", { name: "Sommelier AI", exact: true }).click();
+      const hub = page.locator(".sommelier-hub");
+      await expect(hub.getByRole("heading", { name: "Sommelier AI", exact: true })).toBeVisible();
+      if (card === destinations[0][0]) {
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+        await page.screenshot({ path: testInfo.outputPath(`sommelier-hub-${locale}.png`) });
       }
-      if (label === "Intelligence") await page.screenshot({ path: testInfo.outputPath(`ai-menu-closed-${locale}.png`) });
+      await hub.getByRole("button", { name: card }).click();
+      // The shelf scanner opens on its own tab of the buying page.
+      if (heading) await expect(page.getByRole("heading", { name: heading }).first()).toBeVisible();
+      else await expect(page.locator(".buying-place-switch button").nth(1)).toHaveAttribute("aria-pressed", "true");
+      // The tab stays lit on every AI feature, so the way back is obvious.
+      await expect(navigation.getByRole("button", { name: "Sommelier AI", exact: true })).not.toHaveClass(/secondary/);
     }
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 }
 
 for (const width of [1200, 1440]) {
-  test(`Home AI navigation overlays without shifting content ${width}`, async ({ page }, testInfo) => {
+  test(`desktop bar keeps every section and the add button on one row ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await mockApi(page);
     await page.goto("/");
     const navigation = page.locator(".view-tabs-navigation");
-    const group = navigation.locator(".view-tabs-ai-group");
-    const after = navigation.getByRole("button", { name: "Wine Pulse", exact: true });
-    const dashboard = page.locator(".dashboard-focus-navigation");
-    const before = await Promise.all([navigation, after, dashboard].map(el => el.boundingBox()));
-    await group.locator("summary").click();
-    const afterOpen = await Promise.all([navigation, after, dashboard].map(el => el.boundingBox()));
-    for (let index = 0; index < before.length; index++) {
-      expect(afterOpen[index]!.x).toBeCloseTo(before[index]!.x, 0);
-      expect(afterOpen[index]!.y).toBeCloseTo(before[index]!.y, 0);
-      expect(afterOpen[index]!.height).toBeCloseTo(before[index]!.height, 0);
-    }
-    const options = group.locator(".view-tabs-ai-options");
-    await expect(options.getByRole("button", { name: "Intelligence", exact: true })).toBeVisible();
-    const box = (await options.boundingBox())!;
-    expect(box.x + box.width).toBeLessThanOrEqual(width);
-    expect(box.y).toBeGreaterThanOrEqual((await group.locator("summary").boundingBox())!.y);
-    const hit = await options.evaluate(el => { const b = el.getBoundingClientRect(); const point = document.elementFromPoint(b.x + b.width / 2, b.y + 18); return { inside: el.contains(point), element: point?.outerHTML.slice(0, 220), navOverflow: getComputedStyle(el.closest(".view-tabs-navigation")!).overflow, tabsOverflow: getComputedStyle(el.closest(".view-tabs")!).overflow }; });
-    expect(hit, JSON.stringify(hit)).toMatchObject({ inside: true });
+    const home = (await navigation.getByRole("button", { name: "Home", exact: true }).boundingBox())!;
+    const sommelier = (await navigation.getByRole("button", { name: "Sommelier AI", exact: true }).boundingBox())!;
+    const add = (await navigation.getByRole("button", { name: "Aggiungi", exact: true }).boundingBox())!;
+    expect(Math.abs(home.y + home.height / 2 - (sommelier.y + sommelier.height / 2))).toBeLessThan(2);
+    expect(Math.abs(home.y + home.height / 2 - (add.y + add.height / 2))).toBeLessThan(2);
+    expect(add.x + add.width).toBeLessThanOrEqual(width);
+    // The old tasting tab lives in the "+" sheet now.
+    await expect(navigation.getByRole("button", { name: "Registra bevuta", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath(`home-ai-menu-${width}.png`) });
-    await options.getByRole("button", { name: "Intelligence", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Piano cantina", exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`desktop-bar-${width}.png`) });
   });
 }
 
@@ -93,14 +82,8 @@ for (const width of [1100, 1440, 1920]) {
       if (width === 1440 && view !== "cellar") await page.screenshot({ path: testInfo.outputPath(`${view}-horizontal.png`) });
     }
     const nav = page.locator(".view-tabs-navigation");
-    const pulse = nav.getByRole("button", { name: "Wine Pulse", exact: true });
-    const pulseBefore = (await pulse.boundingBox())!;
-    await nav.locator(".view-tabs-ai-group > summary").click();
-    const options = nav.locator(".view-tabs-ai-options");
-    await expect(options.getByRole("button", { name: "Intelligence", exact: true })).toBeVisible();
-    expect((await pulse.boundingBox())!.y).toBeCloseTo(pulseBefore.y, 0);
-    expect(await options.evaluate(el => { const b = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(b.x + b.width / 2, b.y + 18)); })).toBe(true);
-    await options.getByRole("button", { name: "Intelligence", exact: true }).click();
+    await nav.getByRole("button", { name: "Sommelier AI", exact: true }).click();
+    await page.locator(".sommelier-hub").getByRole("button", { name: /^Strategia della cantina/ }).click();
     await expect(page.getByRole("heading", { name: "Piano cantina", exact: true })).toBeVisible();
     await nav.getByRole("button", { name: "Home", exact: true }).click();
     await expect(page.locator(".cellar-home-hero")).toBeVisible();
@@ -332,9 +315,7 @@ test("secondary tools load only when opened", async ({ page }) => {
   await expect(page.getByRole("dialog", { name: "Registra bevuta" })).toBeVisible();
   expect(requestedModules.some(url => url.includes("RecordTastingDialog"))).toBe(true);
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Menu", exact: true }).click();
-  await page.locator(".mobile-navigation-sheet summary").filter({ hasText: "Strumenti AI" }).click();
-  await page.getByRole("button", { name: "Assistente AI", exact: true }).click();
+  await openSommelierFeature(page, /^Chiedi alla tua cantina/);
   await expect(page.getByRole("heading", { name: "Assistente Cantina AI" })).toBeVisible();
   expect(requestedModules.some(url => url.includes("CellarAssistantView"))).toBe(true);
   expect(requestedModules.some(url => url.includes("WishlistLiveTasteScanner"))).toBe(false);
@@ -350,7 +331,7 @@ test("opens the buying sommelier from desktop and mobile navigation", async ({ p
     page.getByRole("button", { name: /^Cantina/ }).first(),
     page.getByRole("button", { name: /^Wishlist/ }).first(),
     page.getByRole("button", { name: "Storico", exact: true }),
-    page.locator(".view-tabs-ai-group > summary"),
+    page.locator(".view-tabs-navigation").getByRole("button", { name: "Sommelier AI", exact: true }),
   ];
   const primaryNavigationBoxes = await Promise.all(primaryNavigation.map((item) => item.boundingBox()));
   primaryNavigationBoxes.forEach((box, index) => {
@@ -361,17 +342,15 @@ test("opens the buying sommelier from desktop and mobile navigation", async ({ p
     }
   });
 
-  await page.locator(".view-tabs-ai-group > summary").click();
-  await page.getByRole("button", { name: "Sommelier acquisti", exact: true }).click();
+  await openSommelierFeature(page, /^Cosa comprare/);
   await expect(page.getByRole("heading", { name: "Sommelier acquisti", exact: true })).toBeVisible();
 
+  // On the phone the same page sits in the bottom bar: two taps, no menu.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await page.getByRole("button", { name: "Menu", exact: true }).click();
-  await page.locator(".mobile-navigation-ai-group > summary").click();
-  await page.getByRole("button", { name: "Sommelier acquisti", exact: true }).click();
+  await page.getByRole("navigation", { name: "Navigazione principale" }).getByRole("button", { name: "Sommelier AI", exact: true }).click();
+  await page.locator(".sommelier-hub").getByRole("button", { name: /^Cosa comprare/ }).click();
   await expect(page.getByRole("heading", { name: "Sommelier acquisti", exact: true })).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Menu di navigazione" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
@@ -393,7 +372,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(page.locator(".view-tabs")).toBeHidden();
     await expect(page.locator(".desktop-topbar-search")).toBeHidden();
     const bottomNavigation = page.getByRole("navigation", { name: "Navigazione principale" });
-    const addWine = bottomNavigation.getByRole("button", { name: "Aggiungi un vino", exact: true });
+    const addWine = bottomNavigation.getByRole("button", { name: "Aggiungi", exact: true });
     await expect(bottomNavigation).toBeVisible();
     await expect(addWine).toBeVisible();
     const insights = page.locator(".dashboard-analysis-switcher");

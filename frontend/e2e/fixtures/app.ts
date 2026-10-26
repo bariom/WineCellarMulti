@@ -303,7 +303,8 @@ export async function mockApi(
   }, heroScene);
   await page.addInitScript(() => {
     // The updates panel would emerge over what the tests click; its own spec clears this.
-    if (!sessionStorage.getItem("vinaris.e2e-show-news")) window.localStorage.setItem("vinaris.app-news", JSON.stringify({ dismissedFor: "9999-12" }));
+    // Its tab is hidden too, so it never floats over the reference screenshots.
+    if (!sessionStorage.getItem("vinaris.e2e-show-news")) window.localStorage.setItem("vinaris.app-news", JSON.stringify({ dismissedFor: "9999-12", tabHiddenUntil: 8.64e15, tabHiddenFor: "9999-12" }));
     window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, analytics: false, updatedAt: "2026-01-01T00:00:00Z" }));
   });
   await page.addInitScript(({ fixtureWine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureNotificationCenter, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive, tasteProfileCollection }) => {
@@ -407,9 +408,22 @@ export async function openWineDetail(page: Page, strategyAllocations: unknown[] 
   await expect(page.locator(".wine-detail:visible").first()).toBeVisible();
 }
 
+/** The one "+" button, in the desktop bar or the phone's bottom bar, and its sheet. */
+export async function openAddSheet(page: Page, locale: "it" | "en" = "it") {
+  await expect(page.getByRole("button", { name: "Home", exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: locale === "it" ? "Aggiungi" : "Add", exact: true }).filter({ visible: true }).first().click();
+  const sheet = page.getByRole("dialog", { name: locale === "it" ? "Cosa vuoi aggiungere?" : "What do you want to add?" });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
 export async function openRecordTasting(page: Page) {
-  await expect(page.getByRole("button", { name: "Home", exact: true })).toBeVisible();
-  const menu = page.getByRole("navigation", { name: "Navigazione principale" }).getByRole("button", { name: "Menu", exact: true });
-  if (await menu.isVisible()) await menu.click();
-  await page.getByRole("button", { name: "Registra bevuta", exact: true }).click();
+  const sheet = await openAddSheet(page);
+  await sheet.getByRole("button", { name: /^Registra una bevuta/ }).click();
+}
+
+/** A feature from the Sommelier AI page, reached the same way on desktop and phone. */
+export async function openSommelierFeature(page: Page, card: RegExp) {
+  await page.getByRole("button", { name: "Sommelier AI", exact: true }).filter({ visible: true }).first().click();
+  await page.locator(".sommelier-hub").getByRole("button", { name: card }).click();
 }

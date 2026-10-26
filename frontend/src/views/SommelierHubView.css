@@ -1,0 +1,61 @@
+.sommelier-hub { display: grid; gap: 20px; padding-block: 8px 24px; }
+
+.sommelier-hub-header {
+  display: grid;
+  gap: 6px;
+  padding: 26px 28px;
+  border: 1px solid color-mix(in srgb, #e6c27a 30%, transparent);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, #e6c27a 24%, transparent), transparent 55%),
+    linear-gradient(135deg, #0f1c17, #1f3128);
+  color: #f6efe2;
+}
+.sommelier-hub-header p { margin: 0; color: #e6c27a; font-size: .74rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.sommelier-hub-header h1 { margin: 0; font-family: var(--font-display); font-size: clamp(1.8rem, 4vw, 2.4rem); font-weight: 500; }
+.sommelier-hub-header span { max-width: 60ch; color: #d9e4da; line-height: 1.5; }
+
+.sommelier-hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 14px; }
+
+.sommelier-hub-card {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--text);
+  text-align: left;
+  white-space: normal;
+  transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+.sommelier-hub-card:hover, .sommelier-hub-card:focus-visible {
+  border-color: color-mix(in srgb, #e6c27a 65%, var(--border));
+  box-shadow: 0 14px 30px -18px color-mix(in srgb, #0f1c17 60%, transparent);
+  transform: translateY(-2px);
+}
+.sommelier-hub-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, #0f1c17, #2a3b30); color: #e6c27a; font-size: 1.45rem; }
+.sommelier-hub-icon .app-icon { color: #e6c27a; }
+.sommelier-hub-text { display: grid; gap: 4px; min-width: 0; }
+.sommelier-hub-text strong { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; }
+.sommelier-hub-text strong em { padding: 2px 8px; border: 1px solid color-mix(in srgb, #b8964c 60%, transparent); border-radius: 999px; color: #8a6a2c; font-family: var(--font-ui); font-size: .66rem; font-style: normal; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.sommelier-hub-text > span { color: var(--text-muted); font-size: .9rem; line-height: 1.45; }
+.sommelier-hub-go { color: var(--accent); font-size: 1.2rem; }
+
+@media (max-width: 620px) {
+  .sommelier-hub { gap: 14px; }
+  .sommelier-hub-header { padding: 20px; border-radius: 18px; }
+  .sommelier-hub-card { grid-template-columns: 46px minmax(0, 1fr); gap: 12px; padding: 14px; }
+  .sommelier-hub-icon { width: 46px; height: 46px; border-radius: 14px; }
+  .sommelier-hub-go { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sommelier-hub-card { transition: none; }
+  .sommelier-hub-card:hover { transform: none; }
+}

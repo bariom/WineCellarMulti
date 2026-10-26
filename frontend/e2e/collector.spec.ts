@@ -80,8 +80,8 @@ for (const theme of ["atelier", "midnight-ledger"]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`desktop-empty-${theme}.png`) });
     const navigation = page.locator(".view-tabs-navigation");
-    await navigation.locator("summary").click();
-    await navigation.getByRole("button", { name: "Intelligence", exact: true }).click();
+    await navigation.getByRole("button", { name: "Sommelier AI", exact: true }).click();
+    await page.locator(".sommelier-hub").getByRole("button", { name: /^(Strategia della cantina|Cellar strategy)/ }).click();
     await expect(page.locator(".home-dashboard")).toHaveCount(0);
   });
 }
@@ -358,7 +358,7 @@ test("collector premium Home keeps multiple cellars and read-only navigation usa
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await page.locator(".topbar").screenshot({ path: testInfo.outputPath(`cellar-selector-${width}.png`) });
   }
-  await expect(page.getByRole("navigation", { name: "Navigazione principale" }).getByRole("button", { name: "Aggiungi un vino" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Navigazione principale" }).getByRole("button", { name: "Aggiungi", exact: true })).toHaveCount(0);
   await page.getByRole("navigation", { name: "Navigazione principale" }).getByRole("button", { name: "Cantina", exact: true }).click();
   await expect(page.locator(".cellar-list-header")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

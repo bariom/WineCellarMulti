@@ -23,6 +23,7 @@ import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineU
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { runWineShelfScan } from "./services/wineShelfScan";
 import type { BatchAiItem, BatchAiRun } from "./components/BatchAiReport";
+import type { SommelierDestination } from "./views/SommelierHubView";
 import { primeSpeech } from "./utils/speech";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
@@ -127,6 +128,7 @@ const BottlePhotoImport = lazy(() => import("./components/BottlePhotoImport"));
 const AddWineChooser = lazy(() => import("./components/AddWineChooser"));
 const AppNewsPanel = lazy(() => import("./components/AppNewsPanel"));
 const BatchAiReport = lazy(() => import("./components/BatchAiReport"));
+const SommelierHubView = lazy(() => import("./views/SommelierHubView"));
 const WishlistLiveTasteScanner = lazy(() => import("./components/WishlistLiveTasteScanner"));
 const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView"));
 const AI_PACK_ENHANCEMENT_DISMISS_KEY = "vinaris.ai-pack-enhancement-dismissed-until";
@@ -1245,6 +1247,8 @@ export function App() {
   const [assistantVoiceStart, setAssistantVoiceStart] = useState<number | null>(null);
   // A pairing the assistant got from the Sommelier AI, opened in the pairing view.
   const [pairingFromAssistant, setPairingFromAssistant] = useState(false);
+  // Where a pairing visit starts when it comes from the Sommelier AI page.
+  const [pairingStartPlace, setPairingStartPlace] = useState<"choose" | "home" | "restaurant">("choose");
   const [tastingOrigin, setTastingOrigin] = useState<"" | "cellar" | "external">("");
   const [tastingArchivePage, setTastingArchivePage] = useState<TastingArchivePage | null>(null);
   const [tastingArchiveOverview, setTastingArchiveOverview] = useState<TastingArchivePage | null>(null);
@@ -1383,6 +1387,8 @@ export function App() {
   const [purchaseImportOpen, setPurchaseImportOpen] = useState(false);
   const [addWineChooserOpen, setAddWineChooserOpen] = useState(false);
   const [bottlePhotoImportOpen, setBottlePhotoImportOpen] = useState(false);
+  // The button that opened the "+" sheet, where focus returns from what it opens.
+  const addTriggerRef = useRef<HTMLElement | null>(null);
   const [newsOpen, setNewsOpen] = useState(false);
   const [newsFocusToken, setNewsFocusToken] = useState(0);
   const [newsUnread, setNewsUnread] = useState(false);
@@ -5247,7 +5253,7 @@ export function App() {
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
   const restaurantModeAvailable = Boolean(session?.restaurant_mode_available || session?.is_app_admin);
   const isRestaurant = restaurantModeAvailable && session?.active_household_mode === "restaurant";
-  const aiNavigationActive = ["intelligence", "assistant", "pairing", "buying"].includes(activeView);
+  const aiNavigationActive = ["sommelier", "intelligence", "assistant", "pairing", "buying"].includes(activeView);
   const activeTier = session?.is_demo
     ? {
         name: locale === "it" ? "Demo" : "Demo",
@@ -5404,7 +5410,10 @@ export function App() {
   ));
   useEffect(() => {
     // Only the visit that comes from the assistant skips "Dove sei?".
-    if (activeView !== "pairing") setPairingFromAssistant(false);
+    if (activeView !== "pairing") {
+      setPairingFromAssistant(false);
+      setPairingStartPlace("choose");
+    }
     // Likewise only the visit from the updates opens straight on the shelf scanner.
     if (activeView !== "buying") setBuyingStartPlace("advice");
   }, [activeView]);
@@ -5444,7 +5453,7 @@ export function App() {
     : "viewer";
   const contextualHelpArticle = selectedWineId
     ? "wine-detail"
-    : ({ home: "dashboard", cellar: "cellar-filters", history: "consumption", wishlist: "wishlist", assistant: "consumption", pairing: "pairing", pulse: "wine-pulse", buying: "buying-advice", settings: "roles-cellars" } as Partial<Record<ViewName, string>>)[activeView] || "onboarding";
+    : ({ home: "dashboard", cellar: "cellar-filters", history: "consumption", wishlist: "wishlist", assistant: "consumption", pairing: "pairing", sommelier: "pairing", pulse: "wine-pulse", buying: "buying-advice", settings: "roles-cellars" } as Partial<Record<ViewName, string>>)[activeView] || "onboarding";
 
   function updateHelpLocation(slug: string | null, replace = false) {
     const path = slug ? `/help/${encodeURIComponent(slug)}` : "/help";
@@ -7400,17 +7409,49 @@ export function App() {
   }
 
   function startAddWineFromAnywhere() {
+    chooseAddWine();
+  }
+
+  /** The "+" sheet with everything to add; offline only the wine form works. */
+  function chooseAddWine() {
+    if (offlineMode) {
+      startDetailedWine();
+      return;
+    }
+    addTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setAddWineChooserOpen(true);
+  }
+
+  /** The full wine form, which lives in the cellar view. */
+  function startDetailedWine() {
     leaveHelpFor("cellar");
     setWishlistFormOpen(false);
     setSelectedWineId(null);
     clearFilters("cellar");
-    chooseAddWine();
+    startAddWine();
   }
 
-  /** Offer the quick photo path or the detailed form; offline only the form works. */
-  function chooseAddWine() {
-    if (offlineMode) startAddWine();
-    else setAddWineChooserOpen(true);
+  /** Switch to a main view, closing what belongs to the previous one. */
+  function openView(view: ViewName) {
+    leaveHelpFor(view);
+    setWineFormOpen(false);
+    setWishlistFormOpen(false);
+    setSelectedWineId(null);
+    clearFilters(view);
+  }
+
+  /** The Sommelier AI page leads to each AI feature, already on the right path. */
+  function openSommelierFeature(destination: SommelierDestination) {
+    if (destination === "assistant") openView("assistant");
+    else if (destination === "strategy") openView("intelligence");
+    else if (destination === "shelf" || destination === "buying") {
+      setBuyingStartPlace(destination === "shelf" ? "shelf" : "advice");
+      openView("buying");
+    } else {
+      setPairingTargetWineId(null);
+      setPairingStartPlace(destination === "pairing-restaurant" ? "restaurant" : "home");
+      openView("pairing");
+    }
   }
 
   function prepareAssistantPurchaseDraft(purchase: CellarCommandPurchaseDraft) {
@@ -10092,7 +10133,7 @@ export function App() {
           className={`workspace ${
             activeView === "settings"
               ? "settings-workspace"
-              : activeView === "home" || activeView === "intelligence" || activeView === "assistant" || activeView === "pairing" || activeView === "pulse" || activeView === "buying" || activeView === "help"
+              : activeView === "home" || activeView === "sommelier" || activeView === "intelligence" || activeView === "assistant" || activeView === "pairing" || activeView === "pulse" || activeView === "buying" || activeView === "help"
                 ? "home-workspace"
                 : "content-workspace"
           } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""} ${activeView === "cellar" ? "cellar-workspace" : ""} ${activeView === "history" ? "history-workspace" : ""} ${wineDetailExpanded && isWineCollectionView && selectedVisibleWine ? "wine-detail-expanded" : ""}`}
@@ -10116,42 +10157,14 @@ export function App() {
               <AppIcon name="calendar" variant="navigation" />
               {t("history")}
             </button> : null}
-            {canWriteWine && !offlineMode ? <button type="button" className="secondary" aria-haspopup="dialog" onClick={() => setRecordTastingOpen(true)}>
-              <AppIcon name="tasting" variant="navigation" detailLevel="rich" />
-              {locale === "it" ? "Registra bevuta" : "Record a tasting"}
-            </button> : null}
             {!isRestaurant && !offlineMode ? <button type="button" className="secondary" aria-haspopup="dialog" onClick={openMemoryBook}>
               <AppIcon name="camera" variant="navigation" detailLevel="rich" />
               {locale === "it" ? "Momenti" : "Moments"}
             </button> : null}
-            <details className={`view-tabs-ai-group${aiNavigationActive ? " is-active" : ""}`}>
-              <summary><AppIcon name="assistant" variant="ai" detailLevel="rich" />{t("aiTools")}</summary>
-              <div className="view-tabs-ai-options" onClick={(event) => {
-                if (!(event.target as Element).closest("button")) return;
-                const menu = event.currentTarget.closest("details");
-                if (menu) {
-                  menu.open = false;
-                  menu.querySelector("summary")?.focus();
-                }
-              }}>
-              <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
-                <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
-                {t("pairingMenu")}
-              </button>
-              <button type="button" className={activeView === "buying" ? "" : "secondary"} onClick={() => { leaveHelpFor("buying"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("buying"); }}>
-                <AppIcon name="buying" variant="ai" detailLevel="rich" />
-                {t("buyingSommelier")}
-              </button>
-              {!isRestaurant ? <button type="button" className={activeView === "intelligence" ? "" : "secondary"} onClick={() => { leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}>
-                <AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />
-                Intelligence
-              </button> : null}
-              {!isRestaurant && canAccessCellarAssistant ? <button type="button" className={activeView === "assistant" ? "" : "secondary"} onClick={() => { leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}>
-                <AppIcon name="assistant" variant="ai" detailLevel="rich" />
-                {locale === "it" ? "Assistente AI" : "AI Assistant"}
-              </button> : null}
-              </div>
-            </details>
+            <button type="button" className={aiNavigationActive ? "" : "secondary"} onClick={() => openView("sommelier")}>
+              <AppIcon name="assistant" variant="ai" detailLevel="rich" />
+              Sommelier AI
+            </button>
             <button type="button" className={activeView === "pulse" ? "" : "secondary"} onClick={() => { leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}>
               <AppIcon name="pulse" variant="premium" detailLevel="rich" />
               Wine Pulse
@@ -10160,6 +10173,9 @@ export function App() {
               <AppIcon name="grapes" variant="premium" detailLevel="rich" />
               {t("help")}
             </button>
+            {canWriteWine ? <button type="button" className="secondary view-tabs-add" aria-haspopup="dialog" onClick={startAddWineFromAnywhere}>
+              <span aria-hidden="true">+</span>{locale === "it" ? "Aggiungi" : "Add"}
+            </button> : null}
             <button type="button" className="secondary compact help-context-trigger" aria-label={locale === "it" ? "Apri assistenza contestuale" : "Open contextual help"} title={locale === "it" ? "Assistenza per questa vista" : "Help for this view"} onClick={() => openHelp(contextualHelpArticle)}>?</button>
             </div>
             <div className="view-tabs-quick-actions">
@@ -10212,21 +10228,7 @@ export function App() {
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); setMobileSearchOpen(true); }}><AppIcon name="search" variant="action" />{t("search")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}><AppIcon name="wishlist" variant="navigation" detailLevel="rich" />{t("wishlist")}</button>
                 {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("history"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}><AppIcon name="calendar" variant="navigation" />{t("history")}</button> : null}
-                {canWriteWine && !offlineMode ? <button type="button" aria-haspopup="dialog" onClick={() => {
-                  mobileMenuButtonRef.current?.focus();
-                  setMobileNavigationOpen(false);
-                  setRecordTastingOpen(true);
-                }}><AppIcon name="tasting" variant="navigation" detailLevel="rich" />{locale === "it" ? "Registra bevuta" : "Record a tasting"}</button> : null}
                 {!isRestaurant && !offlineMode ? <button type="button" aria-haspopup="dialog" onClick={() => { setMobileNavigationOpen(false); openMemoryBook(); }}><AppIcon name="camera" variant="navigation" detailLevel="rich" />{locale === "it" ? "Momenti" : "Moments"}</button> : null}
-                {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="assistant" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
-                <details className="mobile-navigation-ai-group">
-                  <summary><AppIcon name="assistant" variant="ai" detailLevel="rich" />{t("aiTools")}</summary>
-                  <div>
-                    <button type="button" onClick={() => { setMobileNavigationOpen(false); setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />{t("pairingMenu")}</button>
-                    <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("buying"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("buying"); }}><AppIcon name="buying" variant="ai" detailLevel="rich" />{t("buyingSommelier")}</button>
-                    {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}><AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />Intelligence</button> : null}
-                  </div>
-                </details>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}><AppIcon name="pulse" variant="premium" detailLevel="rich" />Wine Pulse</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); openHelp(); }}><AppIcon name="grapes" variant="premium" detailLevel="rich" />{t("help")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); toggleSettingsView(); }}><AppIcon name="settings" variant="action" detailLevel="rich" />{t("settings")}</button>
@@ -10235,8 +10237,8 @@ export function App() {
               <nav className="mobile-bottom-navigation" aria-label={locale === "it" ? "Navigazione principale" : "Main navigation"}>
                 <button type="button" className={activeView === "home" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}><AppIcon name="dashboard" variant="navigation" detailLevel="rich" /><span>{t("home")}</span></button>
                 <button type="button" className={activeView === "cellar" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("cellar"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("cellar"); }}><AppIcon name="cellar" variant="navigation" detailLevel="rich" /><span>{t("cellar")}</span></button>
-                {canWriteWine ? <button type="button" className="mobile-bottom-navigation-add" aria-label={locale === "it" ? "Aggiungi un vino" : "Add a wine"} onClick={() => { setMobileNavigationOpen(false); startAddWineFromAnywhere(); }}><span>+</span></button> : <span aria-hidden="true" />}
-                <button type="button" aria-label={t("pairingMenu")} className={activeView === "pairing" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{t("pairingMenuShort")}</span></button>
+                {canWriteWine ? <button type="button" className="mobile-bottom-navigation-add" aria-haspopup="dialog" aria-label={locale === "it" ? "Aggiungi" : "Add"} onClick={() => { setMobileNavigationOpen(false); startAddWineFromAnywhere(); }}><span>+</span></button> : <span aria-hidden="true" />}
+                <button type="button" className={aiNavigationActive ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); openView("sommelier"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{t("pairingMenuShort")}</span></button>
                 <button ref={mobileMenuButtonRef} type="button" className={mobileNavigationOpen ? "active" : ""} aria-expanded={mobileNavigationOpen} onClick={() => setMobileNavigationOpen((open) => !open)}><AppIcon name="settings" variant="action" detailLevel="rich" /><span>{locale === "it" ? "Menu" : "Menu"}</span></button>
               </nav>
             </>
@@ -10246,7 +10248,16 @@ export function App() {
             locale={locale}
             onClose={() => setAddWineChooserOpen(false)}
             onQuick={() => { setAddWineChooserOpen(false); setBottlePhotoImportOpen(true); }}
-            onDetailed={() => { setAddWineChooserOpen(false); startAddWine(); }}
+            onDetailed={() => { setAddWineChooserOpen(false); startDetailedWine(); }}
+            onTasting={!offlineMode ? () => {
+              setAddWineChooserOpen(false);
+              // Once the sheet is gone, so the tasting dialog returns focus to the "+".
+              window.setTimeout(() => {
+                addTriggerRef.current?.focus();
+                setRecordTastingOpen(true);
+              }, 0);
+            } : undefined}
+            onWishlist={() => { setAddWineChooserOpen(false); openView("wishlist"); startAddWishlistItem(); }}
             onReceipt={() => { setAddWineChooserOpen(false); setPurchaseImportOpen(true); }}
           /></Suspense> : null}
           {bottlePhotoImportOpen && canWriteWine ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><BottlePhotoImport
@@ -11202,11 +11213,22 @@ export function App() {
             /></Suspense></>
           ) : null}
 
+          {activeView === "sommelier" ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><SommelierHubView
+            locale={locale}
+            showAssistant={!isRestaurant && canAccessCellarAssistant}
+            assistantLocked={!session?.cellar_ai_assistant_subscribed}
+            showStrategy={!isRestaurant}
+            shelfLocked={!session?.wine_shelf_scan_available}
+            onOpen={openSommelierFeature}
+          /></Suspense> : null}
+
           {activeView === "pairing" ? (
             <section className="pairing-view">
               {aiPackUpgradeNotice}
               <Suspense fallback={<LoadingState label={t("loadingData")} />}>
                 <PairingView
+                  key={pairingStartPlace}
+                  startPlace={pairingStartPlace}
                   activePairingBudget={activePairingBudget}
                   aiSettingsDraft={aiSettingsDraft}
                   canGenerateAi={canGenerateAi}

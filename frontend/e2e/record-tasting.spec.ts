@@ -1,41 +1,27 @@
 import { expect, test } from "@playwright/test";
-import { wine, session, memberships, tastingArchive, mockApi, openRecordTasting } from "./fixtures/app";
+import { wine, session, memberships, tastingArchive, mockApi, openAddSheet, openRecordTasting } from "./fixtures/app";
 
 for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 1000 }]) {
-  test(`tasting navigation belongs in the menu at ${viewport.width}`, async ({ page }, testInfo) => {
+  test(`recording a tasting starts from the "+" at ${viewport.width}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
     await mockApi(page, [], false, memberships, [wine], { ...session, theme_preference: viewport.width === 360 || viewport.width === 430 ? "private-cellar" : "light" });
     await page.goto("/");
     await expect(page.locator(".record-tasting-entry")).toHaveCount(0);
-    const mobile = viewport.width < 900;
-    if (mobile) {
-      await expect(page.getByRole("button", { name: "Registra bevuta", exact: true })).toHaveCount(0);
-      await page.getByRole("button", { name: "Menu", exact: true }).click();
-    }
-    const navigation = mobile ? page.getByRole("dialog", { name: "Menu di navigazione" }) : page.locator(".view-tabs-navigation");
-    const action = navigation.getByRole("button", { name: "Registra bevuta", exact: true });
+    // One "+" for everything to add, in the desktop bar and in the phone's bottom bar.
+    const sheet = await openAddSheet(page);
+    const action = sheet.getByRole("button", { name: /^Registra una bevuta/ });
     await expect(action).toBeVisible();
-    await expect(action).toHaveAttribute("aria-haspopup", "dialog");
-    const [history, tasting] = await Promise.all([
-      navigation.getByRole("button", { name: "Storico", exact: true }).boundingBox(),
-      action.boundingBox(),
-    ]);
-    if (mobile) expect(history!.y + history!.height).toBeLessThanOrEqual(tasting!.y);
-    else {
-      expect(history!.x + history!.width).toBeLessThanOrEqual(tasting!.x);
-      expect(Math.abs(history!.y - tasting!.y)).toBeLessThan(1);
-    }
-    expect(tasting!.height).toBeGreaterThanOrEqual(44);
-    expect(tasting!.x).toBeGreaterThanOrEqual(0);
-    expect(tasting!.x + tasting!.width).toBeLessThanOrEqual(viewport.width);
-    expect(tasting!.y + tasting!.height).toBeLessThanOrEqual(viewport.height);
+    const box = (await action.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath(`tasting-menu-${viewport.width}.png`) });
+    await page.screenshot({ path: testInfo.outputPath(`add-sheet-${viewport.width}.png`) });
     await action.click();
-    if (mobile) await expect(navigation).toBeHidden();
+    await expect(sheet).toBeHidden();
     await expect(page.getByRole("dialog", { name: "Registra bevuta" })).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("button", { name: mobile ? "Menu" : "Registra bevuta", exact: true })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Aggiungi", exact: true }).filter({ visible: true }).first()).toBeFocused();
   });
 }
 
@@ -193,7 +179,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     if (viewport.width === 390) await page.screenshot({ path: testInfo.outputPath("record-tasting-form-bottom.png") });
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
-    await expect(page.getByRole("button", { name: viewport.width < 900 ? "Menu" : "Registra bevuta", exact: true })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Aggiungi", exact: true }).filter({ visible: true }).first()).toBeFocused();
   });
 }
 

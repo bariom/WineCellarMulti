@@ -50,9 +50,9 @@ async function openChooser(page: Page) {
     await page.getByRole("button", { name: /^Cantina \(/ }).click();
     await page.getByRole("button", { name: "Aggiungi vino", exact: true }).click();
   } else {
-    await page.getByRole("button", { name: "Aggiungi un vino", exact: true }).first().click();
+    await page.getByRole("button", { name: "Aggiungi", exact: true }).first().click();
   }
-  const chooser = page.getByRole("dialog", { name: "Come vuoi inserire i vini?" });
+  const chooser = page.getByRole("dialog", { name: "Cosa vuoi aggiungere?" });
   await expect(chooser).toBeVisible();
   return chooser;
 }

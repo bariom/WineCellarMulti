@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { memberships, mockApi, session, wine } from "./fixtures/app";
+import { memberships, mockApi, session, wine, openSommelierFeature } from "./fixtures/app";
 
 test("the cellar assistant answers questions and keeps the conversation", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -46,9 +46,7 @@ test("the cellar assistant answers questions and keeps the conversation", async 
   });
   const stored = (key: string) => page.evaluate((name) => JSON.parse(sessionStorage.getItem(name) || "[]"), key);
   await page.goto("/");
-  await page.getByRole("button", { name: "Menu", exact: true }).click();
-  await page.locator(".mobile-navigation-sheet summary").filter({ hasText: "Strumenti AI" }).click();
-  await page.getByRole("button", { name: "Assistente AI", exact: true }).click();
+  await openSommelierFeature(page, /^Chiedi alla tua cantina/);
   await expect(page.getByRole("heading", { name: "Assistente Cantina AI" })).toBeVisible();
 
   const field = page.getByLabel("Chiedi o racconta", { exact: true });
@@ -115,9 +113,7 @@ test("the cellar assistant is offered to subscribers only", async ({ page }) => 
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, [], true, memberships, [wine], { ...session, cellar_ai_assistant_available: true, cellar_ai_assistant_subscribed: false });
   await page.goto("/");
-  await page.getByRole("button", { name: "Menu", exact: true }).click();
-  await page.locator(".mobile-navigation-sheet summary").filter({ hasText: "Strumenti AI" }).click();
-  await page.getByRole("button", { name: "Assistente AI", exact: true }).click();
+  await openSommelierFeature(page, /^Chiedi alla tua cantina/);
   const locked = page.locator(".cellar-assistant-locked");
   await expect(locked).toContainText("riservato agli abbonati Vinaris Riserva");
   await expect(page.getByLabel("Chiedi o racconta", { exact: true })).toHaveCount(0);
@@ -154,8 +150,7 @@ test("several actions in one message become cards confirmed one by one", async (
   }, wine);
   const stored = (key: string) => page.evaluate((name) => JSON.parse(sessionStorage.getItem(name) || "[]"), key);
   await page.goto("/");
-  await page.getByRole("button", { name: "Menu", exact: true }).click();
-  await page.getByRole("button", { name: "Assistente AI", exact: true }).click();
+  await openSommelierFeature(page, /^Chiedi alla tua cantina/);
   await page.getByLabel("Chiedi o racconta", { exact: true }).fill("Ho bevuto il Nebbiolo e ho ordinato 6 Sassicaia 2021 da Arvi");
   await page.getByRole("button", { name: "Continua", exact: true }).click();
 
@@ -239,8 +234,7 @@ test("a voice conversation answers, confirms by voice and ends on request", asyn
   const stored = (key: string) => page.evaluate((name) => JSON.parse(sessionStorage.getItem(name) || "[]"), key);
   const spoken = () => page.evaluate(() => (window as unknown as { spoken: string[] }).spoken);
   await page.goto("/");
-  await page.getByRole("button", { name: "Menu", exact: true }).click();
-  await page.getByRole("button", { name: "Assistente AI", exact: true }).click();
+  await openSommelierFeature(page, /^Chiedi alla tua cantina/);
   const toggle = page.getByRole("button", { name: "Conversazione a voce" });
   await expect(toggle).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("voice-mode-off-390.png"), fullPage: true });

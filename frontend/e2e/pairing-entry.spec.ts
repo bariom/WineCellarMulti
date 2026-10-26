@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { memberships, mockApi, session, wine } from "./fixtures/app";
+import { memberships, mockApi, session, wine, openSommelierFeature } from "./fixtures/app";
 
 for (const entry of ["cellar row", "wine detail"] as const) {
   test(`a selected wine from ${entry} skips location even after restaurant pairing`, async ({ page }, testInfo) => {
@@ -20,10 +20,8 @@ for (const entry of ["cellar row", "wine detail"] as const) {
       };
     });
     await page.goto("/");
-    await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
-    await page.getByRole("button", { name: "Sommelier AI (Abbinamenti)", exact: true }).first().click();
-    await expect(page.getByRole("heading", { name: "Dove sei?", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: /^Al ristorante/ }).click();
+    // The Sommelier AI page starts the restaurant path directly.
+    await openSommelierFeature(page, /^Al ristorante/);
     await expect(page.getByRole("heading", { name: "Come vuoi scegliere il vino?" })).toBeVisible();
     await page.getByRole("button", { name: /^Cantina/ }).first().click();
     const row = page.locator(`[data-wine-row-id="${wine.id}"]`);
@@ -89,9 +87,7 @@ test("a multi-page restaurant wine list can be scanned and questioned", async ({
     };
   });
   await page.goto("/");
-  await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
-  await page.getByRole("button", { name: "Sommelier AI (Abbinamenti)", exact: true }).first().click();
-  await page.getByRole("button", { name: /^Al ristorante/ }).click();
+  await openSommelierFeature(page, /^Al ristorante/);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: /^Analizza una carta vini/ }).click();
   const photo = { mimeType: "image/jpeg", buffer: Buffer.from("jpeg") };

@@ -125,7 +125,15 @@
 }
 
 .bottle-photo-import.add-wine-chooser { width: min(620px, calc(100vw - 24px)); }
-.add-wine-paths { display: grid; gap: 12px; padding: 18px 20px 20px; }
+.add-wine-section { margin: 0; padding: 16px 20px 0; color: var(--text-muted); font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.add-wine-paths { display: grid; gap: 12px; padding: 10px 20px 4px; }
+.add-wine-more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 10px 20px 20px; }
+.add-wine-more-item { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 10px; width: 100%; min-height: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: none; color: var(--text); text-align: left; white-space: normal; }
+.add-wine-more-item:hover, .add-wine-more-item:focus-visible { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); }
+.add-wine-more-item .app-icon { margin-top: 2px; color: var(--accent); font-size: 1.15rem; }
+.add-wine-more-item span { display: grid; gap: 2px; min-width: 0; }
+.add-wine-more-item strong { font-size: .92rem; }
+.add-wine-more-item small { color: var(--text-muted); font-size: .8rem; line-height: 1.35; }
 .add-wine-path {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr);
@@ -156,5 +164,8 @@
 .add-wine-path-text > span { color: var(--text-muted); font-size: .9rem; font-weight: 500; line-height: 1.4; }
 .add-wine-path-text em { color: var(--accent); font-size: .78rem; font-style: normal; font-weight: 750; }
 @media (max-width: 620px) {
+  .add-wine-more { grid-template-columns: minmax(0, 1fr); }
+  .add-wine-path { padding: 14px; }
+  .add-wine-path-text > span { font-size: .86rem; }
   .bottle-photo-import.add-wine-chooser { width: 100vw; height: fit-content; max-height: 100dvh; margin: auto 0 0; border-radius: 22px 22px 0 0; }
 }

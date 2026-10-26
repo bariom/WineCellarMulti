@@ -20,8 +20,8 @@ async function startAnalysis(page: Page, locale: "it" | "en", fail = false) {
     };
   }, { plan: intelligencePlan, fail });
   await page.goto("/");
-  await page.locator("summary").filter({ hasText: locale === "it" ? "Strumenti AI" : "AI tools" }).click();
-  await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
+  await page.getByRole("button", { name: "Sommelier AI", exact: true }).filter({ visible: true }).first().click();
+  await page.locator(".sommelier-hub").getByRole("button", { name: locale === "it" ? /^Strategia della cantina/ : /^Cellar strategy/ }).click();
   await page.getByRole("button", { name: locale === "it" ? "Crea piano AI" : "Create AI plan", exact: true }).click();
   const overlay = page.locator(".ai-generation-overlay");
   await expect(overlay).toBeVisible();

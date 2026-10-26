@@ -141,3 +141,25 @@
     top: 88px;
   }
 }
+
+/* The one "+" for everything to add, always at hand on desktop. */
+:root .app-shell .view-tabs-navigation > button.view-tabs-add.view-tabs-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  margin-left: auto;
+  padding: 8px 16px 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 78%, var(--accent)));
+  box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--primary) 70%, transparent);
+  color: #fffaf1;
+  font: 700 .85rem/1 var(--font-ui);
+}
+:root .app-shell .view-tabs-navigation > button.view-tabs-add.view-tabs-add span { font-size: 1.15rem; font-weight: 500; line-height: 1; }
+:root .app-shell .view-tabs-navigation > button.view-tabs-add.view-tabs-add:hover { filter: brightness(1.08); }
+:root .app-shell .view-tabs-navigation > button.view-tabs-add.view-tabs-add + .help-context-trigger { margin-left: 0; }
+@media (max-width: 1099px) {
+  :root .app-shell .view-tabs-navigation > button.view-tabs-add.view-tabs-add { display: none; }
+}

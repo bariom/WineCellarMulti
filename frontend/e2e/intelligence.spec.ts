@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { intelligencePlan, intelligenceSnapshot, memberships, mockApi, session, snapshotChrome, wine } from "./fixtures/app";
+import { intelligencePlan, intelligenceSnapshot, memberships, mockApi, session, snapshotChrome, wine, openSommelierFeature } from "./fixtures/app";
 
 // Retain the original suite title and viewport for stable test identity.
 test.describe("Wine Detail compact/mobile", () => {
@@ -9,8 +9,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockApi(page);
     await page.goto("/");
-    await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
-    await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
+    await openSommelierFeature(page, /^(Strategia della cantina|Cellar strategy)/);
     await expect(page.getByRole("heading", { name: "Piano cantina", exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Come usare Intelligence", exact: true }).click();
@@ -45,8 +44,7 @@ test.describe("Wine Detail compact/mobile", () => {
       };
     });
     await page.goto("/");
-    await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
-    await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
+    await openSommelierFeature(page, /^(Strategia della cantina|Cellar strategy)/);
     await page.setViewportSize({ width: 390, height: 844 });
 
     await expect(page.getByRole("heading", { name: "Trasforma i segnali della cantina in un ordine d’azione" })).toBeVisible();
@@ -58,8 +56,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockApi(page);
     await page.goto("/");
-    await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
-    await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
+    await openSommelierFeature(page, /^(Strategia della cantina|Cellar strategy)/);
 
     await expect(page.getByText("Il piano riflette dati precedenti", { exact: true })).toBeVisible();
     await expect(page.getByText("Affidabilità 68%", { exact: true })).toBeVisible();
@@ -85,8 +82,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockApi(page, [], true);
     await page.goto("/");
-    await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
-    await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
+    await openSommelierFeature(page, /^(Strategia della cantina|Cellar strategy)/);
     await page.getByText("Seleziona e gestisci più vini", { exact: true }).click();
     await page.getByRole("button", { name: "Seleziona visibili", exact: true }).click();
     const moveAction = page.locator(".intelligence-group-action-move");
@@ -113,8 +109,7 @@ test.describe("Wine Detail compact/mobile", () => {
       };
     }, intelligencePlan);
     await page.goto("/");
-    await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
-    await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
+    await openSommelierFeature(page, /^(Strategia della cantina|Cellar strategy)/);
 
     await page.getByRole("button", { name: "Crea piano AI", exact: true }).click();
     const overlay = page.locator(".ai-generation-overlay");
@@ -130,8 +125,7 @@ test("Intelligence fills the desktop navigation width and stays within mobile bo
   await page.setViewportSize({ width: 1920, height: 1080 });
   await mockApi(page);
   await page.goto("/");
-  await page.locator(".view-tabs-ai-group > summary").click();
-  await page.getByRole("button", { name: "Intelligence", exact: true }).click();
+  await openSommelierFeature(page, /^(Strategia della cantina|Cellar strategy)/);
   const panel = page.locator(".cellar-intelligence");
   await expect(panel.getByRole("heading", { name: "Piano cantina", exact: true })).toBeVisible();
   for (const viewport of [
@@ -189,8 +183,7 @@ for (const locale of ["it", "en"] as const) {
       };
     }, { plan, snapshot });
     await page.goto("/");
-    await page.locator(".view-tabs-ai-group > summary").click();
-    await page.getByRole("button", { name: "Intelligence", exact: true }).click();
+    await openSommelierFeature(page, /^(Strategia della cantina|Cellar strategy)/);
     const cards = page.locator(".plan-recommendations");
     await expect(cards.locator(".plan-recommendation")).toHaveCount(4);
     await expect(cards).not.toContainText(consumedId);
