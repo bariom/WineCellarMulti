@@ -16,10 +16,9 @@ import "./CellarAssistantStrategy.css";
 import "./CellarAssistantMobile.css";
 import { AssistantAnswer } from "../components/AssistantAnswer";
 import { AssistantActivity } from "../components/AssistantActivity";
-import { isSpeaking, primeSpeech, setAiVoice, speak, speechSupported, stopSpeaking } from "../utils/speech";
+import { primeSpeech, speak, speechSupported, stopSpeaking } from "../utils/speech";
 
 const READ_ALOUD_KEY = "vinaris.assistant.read-aloud";
-const AI_VOICE_KEY = "vinaris.assistant.ai-voice";
 
 type AssistantWineLink = { id: string; name: string; producer: string; vintage: string };
 type ConversationTurn = {
@@ -333,27 +332,6 @@ export default function CellarAssistantView({
     if (speak(content, locale, () => setSpeakingIndex((current) => (current === index ? null : current)))) setSpeakingIndex(index);
   }
 
-  // The natural AI voice: off unless chosen on this device, since each reading costs credit.
-  const [aiVoice, setAiVoiceChoice] = useState(() => {
-    try { return window.localStorage.getItem(AI_VOICE_KEY) === "1"; } catch { return false; }
-  });
-  const [lastVoiceCost, setLastVoiceCost] = useState("");
-  useEffect(() => {
-    setAiVoice(aiVoice && !disabled);
-    return () => setAiVoice(false);
-  }, [aiVoice, disabled]);
-  useEffect(() => {
-    const onCost = (event: Event) => setLastVoiceCost(String((event as CustomEvent<string>).detail || ""));
-    window.addEventListener("vinaris:ai-voice-cost", onCost);
-    return () => window.removeEventListener("vinaris:ai-voice-cost", onCost);
-  }, []);
-  function changeAiVoice(enabled: boolean) {
-    setAiVoiceChoice(enabled);
-    try { window.localStorage.setItem(AI_VOICE_KEY, enabled ? "1" : "0"); } catch { /* the choice lasts this visit */ }
-    stopSpeaking();
-    setSpeakingIndex(null);
-  }
-
   function changeReadAloud(enabled: boolean) {
     setReadAloud(enabled);
     try { window.localStorage.setItem(READ_ALOUD_KEY, enabled ? "1" : "0"); } catch { /* the choice lasts this visit */ }
@@ -428,7 +406,7 @@ export default function CellarAssistantView({
   function resumeListening() {
     const check = () => {
       if (!voiceModeRef.current) return;
-      if (isSpeaking()) {
+      if (speechSupported() && window.speechSynthesis.speaking) {
         window.setTimeout(check, 300);
         return;
       }
@@ -1137,10 +1115,6 @@ export default function CellarAssistantView({
           <small>{isItalian ? "Parla liberamente: ti rispondo a voce. Di' «sì» per confermare, «no» per lasciar stare, «basta» per finire." : "Just talk: I answer aloud. Say “yes” to confirm, “no” to skip, “stop” to finish."}</small>
         </div> : null}
         {canSpeak ? <label className="cellar-assistant-read-aloud"><input type="checkbox" checked={readAloud} onChange={(event) => changeReadAloud(event.target.checked)} aria-label={isItalian ? "Leggi le risposte ad alta voce" : "Read answers aloud"} /><span className="cellar-assistant-read-aloud-long">{isItalian ? "Leggi le risposte ad alta voce" : "Read answers aloud"}</span><span className="cellar-assistant-read-aloud-short" aria-hidden="true">🔊 {isItalian ? "Leggi" : "Read"}</span></label> : null}
-        {!disabled ? <label className="cellar-assistant-ai-voice">
-          <input type="checkbox" checked={aiVoice} onChange={(event) => changeAiVoice(event.target.checked)} />
-          <span><strong>{isItalian ? "Voce naturale AI" : "Natural AI voice"}</strong><small>{isItalian ? "Una voce da sommelier al posto di quella del browser: circa $0.006 a risposta, dal credito AI." : "A sommelier's voice instead of the browser's: about $0.006 per answer, from AI credit."}{aiVoice && lastVoiceCost ? (isItalian ? ` Ultima lettura: $${Number(lastVoiceCost).toFixed(4)}.` : ` Last reading: $${Number(lastVoiceCost).toFixed(4)}.`) : ""}</small></span>
-        </label> : null}
         {voiceMessage && !activityPhase ? <p className={`cellar-assistant-voice-status${listening ? " is-listening" : ""}`} aria-live="polite">{voiceMessage}</p> : null}
         <small className="cellar-assistant-voice-note">{isItalian
           ? voiceSupported

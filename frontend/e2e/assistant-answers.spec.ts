@@ -97,65 +97,6 @@ test("each answer can be rated once, and a thumb down asks what was wrong", asyn
   ]);
 });
 
-for (const outcome of ["ai voice", "fallback"] as const) {
-  test(`the natural AI voice reads an answer, or the browser's voice when it cannot (${outcome})`, async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await setup(page);
-    await page.addInitScript((outcome) => {
-      const previous = window.fetch;
-      // A twentieth of a second of silent WAV, as the AI voice's audio.
-      const samples = 800;
-      const bytes = new Uint8Array(44 + samples);
-      const view = new DataView(bytes.buffer);
-      const text = (offset: number, value: string) => [...value].forEach((char, index) => view.setUint8(offset + index, char.charCodeAt(0)));
-      text(0, "RIFF"); view.setUint32(4, 36 + samples, true); text(8, "WAVE"); text(12, "fmt ");
-      view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-      view.setUint32(24, 16000, true); view.setUint32(28, 16000, true); view.setUint16(32, 1, true); view.setUint16(34, 8, true);
-      text(36, "data"); view.setUint32(40, samples, true); bytes.fill(128, 44);
-      window.fetch = async (input, init) => {
-        const path = new URL(String(input instanceof Request ? input.url : input), location.href).pathname;
-        if (path === "/api/v1/ai/cellar-assistant/speech") {
-          sessionStorage.setItem("speech", String(init?.body));
-          if (outcome === "fallback") return Response.json({ detail: "AI credits exhausted" }, { status: 402 });
-          return new Response(bytes, { headers: { "Content-Type": "audio/wav", "X-AI-Cost-USD": "0.006120" } });
-        }
-        return previous(input, init);
-      };
-      const spoken: string[] = [];
-      (window as unknown as { spoken: string[] }).spoken = spoken;
-      class Utterance { text: string; lang = ""; volume = 1; voice = null; onend: (() => void) | null = null; onerror: (() => void) | null = null; constructor(text: string) { this.text = text; } }
-      Object.defineProperty(window, "SpeechSynthesisUtterance", { value: Utterance, configurable: true });
-      Object.defineProperty(window, "speechSynthesis", { configurable: true, value: {
-        speaking: false, getVoices: () => [], cancel: () => {},
-        speak: (utterance: Utterance) => { if (utterance.text) spoken.push(utterance.text); window.setTimeout(() => utterance.onend?.(), 20); },
-      } });
-    }, outcome);
-    await page.goto("/");
-    await openSommelierFeature(page, /^Chiedi alla tua cantina/);
-    const toggle = page.getByLabel(/Voce naturale AI/);
-    await expect(toggle).not.toBeChecked();
-    await toggle.check();
-    await page.getByLabel("Chiedi o racconta", { exact: true }).fill("Quanti Nebbiolo ho?");
-    await page.getByRole("button", { name: "Continua", exact: true }).click();
-    const conversation = page.getByRole("region", { name: "Conversazione con l'assistente" });
-    await expect(conversation).toContainText("pronte da bere");
-    await conversation.getByRole("button", { name: "Leggi ad alta voce" }).first().click();
-    await expect.poll(() => page.evaluate(() => sessionStorage.getItem("speech"))).toContain("pronte da bere");
-    const sent = JSON.parse(await page.evaluate(() => sessionStorage.getItem("speech") || "{}"));
-    expect(sent.locale).toBe("it");
-    if (outcome === "ai voice") {
-      await expect(page.locator(".cellar-assistant-ai-voice")).toContainText("Ultima lettura: $0.0061");
-      expect(await page.evaluate(() => (window as unknown as { spoken: string[] }).spoken)).toEqual([]);
-    } else {
-      await expect.poll(() => page.evaluate(() => (window as unknown as { spoken: string[] }).spoken.join(" "))).toContain("pronte da bere");
-    }
-    // The choice is kept on this device.
-    await page.reload();
-    await openSommelierFeature(page, /^Chiedi alla tua cantina/);
-    await expect(page.getByLabel(/Voce naturale AI/)).toBeChecked();
-  });
-}
-
 // A real 16×24 PNG, so the conversation can draw its thumbnail.
 const labelPhoto = {
   name: "etichetta.png",
@@ -212,3 +153,33 @@ for (const recognized of [true, false]) {
     }
   });
 }
+
+test("answers are read with the most natural free voice the browser offers", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setup(page);
+  await page.addInitScript(() => {
+    const voices = [
+      { name: "Microsoft Cosimo - Italian (Italy)", lang: "it-IT", localService: true },
+      { name: "Google italiano", lang: "it-IT", localService: false },
+      { name: "Microsoft Elsa Online (Natural) - Italian (Italy)", lang: "it-IT", localService: false },
+      { name: "Microsoft Aria Online (Natural) - English (United States)", lang: "en-US", localService: false },
+    ];
+    const used: string[] = [];
+    (window as unknown as { voicesUsed: string[] }).voicesUsed = used;
+    class Utterance { text: string; lang = ""; volume = 1; voice: { name: string } | null = null; onend: (() => void) | null = null; onerror: (() => void) | null = null; constructor(text: string) { this.text = text; } }
+    Object.defineProperty(window, "SpeechSynthesisUtterance", { value: Utterance, configurable: true });
+    Object.defineProperty(window, "speechSynthesis", { configurable: true, value: {
+      speaking: false, getVoices: () => voices, cancel: () => {},
+      speak: (utterance: Utterance) => { if (utterance.text) used.push(utterance.voice?.name || "default"); window.setTimeout(() => utterance.onend?.(), 20); },
+    } });
+  });
+  await page.goto("/");
+  await openSommelierFeature(page, /^Chiedi alla tua cantina/);
+  await page.getByLabel("Chiedi o racconta", { exact: true }).fill("Quanti Nebbiolo ho?");
+  await page.getByRole("button", { name: "Continua", exact: true }).click();
+  const conversation = page.getByRole("region", { name: "Conversazione con l'assistente" });
+  await expect(conversation).toContainText("pronte da bere");
+  await conversation.getByRole("button", { name: "Leggi ad alta voce" }).first().click();
+  // Edge's neural Italian voice wins over the plain local one and over Google's.
+  await expect.poll(() => page.evaluate(() => (window as unknown as { voicesUsed: string[] }).voicesUsed)).toEqual(["Microsoft Elsa Online (Natural) - Italian (Italy)"]);
+});

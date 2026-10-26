@@ -98,18 +98,6 @@ the assistant about the wine named, with the typed question or "Ce l'ho in canti
 quando aprirlo?". The conversation shows a small thumbnail (kept only in the browser session), the
 wine recognised and the recognition cost. An unreadable label asks for a new photo.
 
-## Natural AI voice
-
-By default answers are read by the browser's own voice (free, nothing leaves the device). In the
-assistant a user can turn on "Voce naturale AI" on their device: answers are then read by
-`gpt-4o-mini-tts` (voice `OPENAI_TTS_VOICE`, a warm sommelier tone set by the prompt
-`cellar.assistant.speech`) through `POST /api/v1/ai/cellar-assistant/speech`, which returns MP3. The
-speech API's SSE format reports the text and audio tokens used, so the reading is billed exactly
-like any AI request: credit reserved before, settled after (any excess charged too, never less),
-AI Pack markup, audit entry; about $0.006 for a 25-second answer at $0.60/1M text and $12/1M audio
-tokens. Only the first 1500 characters are read. If the voice is not available (no credit,
-network, a blocked player), the browser's voice reads the answer instead.
-
 ## Food pairings
 
 "Che cosa apro con un salmì di cervo?" is answered in the conversation (and aloud in voice mode):
@@ -190,7 +178,9 @@ browsers may stop restarting the microphone without a tap; the toggle then simpl
 
 Each assistant answer has a speaker button, and the option "Leggi le risposte ad alta voce" reads
 new answers and command outcomes automatically. Both use the browser's own speech synthesis
-(`speechSynthesis`) in the app language, preferring an on-device voice: there is no AI cost and no
-audio leaves the device. The option is remembered in this browser only. Mobile Safari speaks only
+(`speechSynthesis`) in the app language, choosing the most natural voice the browser offers (Edge's
+neural "Natural"/"Online" voices, then Apple's enhanced voices, then Google's in Chrome, then the
+plain system voice): there is no AI cost. A paid OpenAI voice was tried and removed: it was slow to
+start and did not sound better enough to justify about $0.006 per answer. The option is remembered in this browser only. Mobile Safari speaks only
 after a tap, so sending a message with the option on unlocks speech for the answer. Browsers without
 speech synthesis show no speaker controls.

@@ -77,9 +77,7 @@ def extract_token_usage(payload: dict[str, Any]) -> TokenUsage:
         total_tokens = input_tokens + output_tokens
 
     input_details = usage.get("input_tokens_details") or usage.get("prompt_tokens_details") or {}
-    cached_input_tokens = int_from_payload(
-        input_details.get("cached_tokens") if isinstance(input_details, dict) else 0
-    )
+    cached_input_tokens = int_from_payload(input_details.get("cached_tokens") if isinstance(input_details, dict) else 0)
 
     return TokenUsage(
         input_tokens=input_tokens,
@@ -128,11 +126,7 @@ def extract_web_sources(payload: dict[str, Any]) -> tuple[dict[str, str], ...]:
 
 
 def count_web_search_calls(payload: dict[str, Any]) -> int:
-    return sum(
-        1
-        for item in payload.get("output", [])
-        if isinstance(item, dict) and item.get("type") == "web_search_call"
-    )
+    return sum(1 for item in payload.get("output", []) if isinstance(item, dict) and item.get("type") == "web_search_call")
 
 
 def parse_json_response(text: str) -> dict[str, Any]:
@@ -144,13 +138,9 @@ def parse_json_response(text: str) -> dict[str, Any]:
     try:
         parsed = json.loads(cleaned)
     except json.JSONDecodeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid JSON"
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid JSON") from exc
     if not isinstance(parsed, dict):
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned unexpected JSON"
-        )
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned unexpected JSON")
     return parsed
 
 
@@ -202,14 +192,10 @@ def response_body(
     parameters = parameters_for_model(model)
     if agent_history is not None:
         body["input"] = [{"role": "system", "content": system_prompt}, *agent_history]
-    effective_reasoning_effort = (
-        reasoning_effort if reasoning_effort is not None else parameters.reasoning_effort
-    )
+    effective_reasoning_effort = reasoning_effort if reasoning_effort is not None else parameters.reasoning_effort
     if effective_reasoning_effort is not None:
         body["reasoning"] = {"effort": effective_reasoning_effort}
-    effective_max_output_tokens = (
-        max_output_tokens if max_output_tokens is not None else parameters.max_output_tokens
-    )
+    effective_max_output_tokens = max_output_tokens if max_output_tokens is not None else parameters.max_output_tokens
     if effective_max_output_tokens is not None:
         body["max_output_tokens"] = min(max(int(effective_max_output_tokens), 1), 32768)
     if json_schema is not None:
@@ -229,16 +215,13 @@ def response_body(
         if web_search_context_size in {"low", "medium", "high"}:
             web_search_tool["search_context_size"] = web_search_context_size
         if web_search_country:
-            web_search_tool["user_location"] = {
-                "type": "approximate",
-                "country": web_search_country,
-            }
+            web_search_tool["user_location"] = {"type": "approximate", "country": web_search_country}
         elif web_search_use_default_location:
             web_search_tool["user_location"] = {
-                "type": "approximate",
-                "country": "CH",
-                "region": "Ticino",
-                "timezone": "Europe/Zurich",
+                    "type": "approximate",
+                    "country": "CH",
+                    "region": "Ticino",
+                    "timezone": "Europe/Zurich",
             }
         body["tools"] = [web_search_tool]
         body["tool_choice"] = "required"
@@ -267,12 +250,7 @@ def error_metadata(exc: urllib.error.HTTPError) -> tuple[str, bool]:
     except json.JSONDecodeError:
         pass
 
-    if code in {
-        "content_filter",
-        "content_policy_violation",
-        "policy_violation",
-        "safety_violation",
-    }:
+    if code in {"content_filter", "content_policy_violation", "policy_violation", "safety_violation"}:
         return "safety_or_policy_error", False
     if exc.code in {401, 403}:
         return "model_access_denied", True
@@ -282,16 +260,9 @@ def error_metadata(exc: urllib.error.HTTPError) -> tuple[str, bool]:
         return "rate_limit", True
     if exc.code in {408, 409} or exc.code >= 500:
         return "temporary_api_error", True
-    model_error_codes = {
-        "model_not_found",
-        "invalid_model",
-        "unsupported_model",
-        "permission_denied",
-    }
+    model_error_codes = {"model_not_found", "invalid_model", "unsupported_model", "permission_denied"}
     model_configuration_error = code in model_error_codes or (
-        exc.code == 400
-        and "model" in message
-        and any(term in message for term in {"not found", "does not exist", "access"})
+        exc.code == 400 and "model" in message and any(term in message for term in {"not found", "does not exist", "access"})
     )
     if model_configuration_error:
         return "model_configuration", True
@@ -391,10 +362,7 @@ def create_response(
 ) -> OpenAIResponse:
     active_api_key = settings.openai_api_key if api_key is None else api_key.strip()
     if not active_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="OPENAI_API_KEY is not configured",
-        )
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OPENAI_API_KEY is not configured")
 
     selection = select_ai_model(task_type, complexity, model or None)
     effective_model = selection.model
@@ -464,9 +432,7 @@ def create_response(
             if can_retry_legacy:
                 fallback_reason = exc.reason
                 continue
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY, detail="OpenAI request failed"
-            ) from exc
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="OpenAI request failed") from exc
 
     if payload.get("status") == "incomplete" and not agent_tools:
         incomplete_details = payload.get("incomplete_details")
@@ -484,15 +450,12 @@ def create_response(
     text = extract_response_text(payload)
     agent_output = tuple(item for item in payload.get("output", []) if isinstance(item, dict))
     if not text and not (
-        agent_tools
-        and (
+        agent_tools and (
             payload.get("status") == "incomplete"
             or any(item.get("type") == "function_call" for item in agent_output)
         )
     ):
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned an empty response"
-        )
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned an empty response")
     usage = extract_token_usage(payload)
     result = OpenAIResponse(
         text=text,
@@ -522,69 +485,3 @@ def create_response(
         reasoning_effort=effective_reasoning_effort,
     )
     return result
-
-
-def create_speech(
-    text: str,
-    instructions: str,
-    *,
-    api_key: str,
-    model: str,
-    voice: str,
-    timeout_seconds: float = 60,
-) -> tuple[bytes, TokenUsage]:
-    """Read text aloud with OpenAI's speech model; return MP3 audio and the tokens billed.
-
-    The SSE format reports the tokens used at the end, so the app charges exactly
-    what OpenAI charges instead of an estimate.
-    """
-    request = urllib.request.Request(
-        settings.openai_speech_url,
-        data=json.dumps(
-            {
-                "model": model,
-                "input": text,
-                "voice": voice,
-                "instructions": instructions,
-                "response_format": "mp3",
-                "stream_format": "sse",
-            }
-        ).encode("utf-8"),
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-            content_type = str(response.headers.get("Content-Type") or "")
-            body = response.read()
-    except urllib.error.HTTPError as exc:
-        reason, fallback_allowed = error_metadata(exc)
-        raise OpenAITransportError(reason, fallback_allowed) from exc
-    except (urllib.error.URLError, TimeoutError) as exc:
-        raise OpenAITransportError("network_or_timeout", True) from exc
-    if "text/event-stream" not in content_type:
-        # Plain audio: no usage reported, so count the text as input only.
-        return body, TokenUsage(
-            input_tokens=max(len(text) // 4, 1), total_tokens=max(len(text) // 4, 1)
-        )
-    audio = bytearray()
-    usage = TokenUsage()
-    for line in body.decode("utf-8", errors="replace").splitlines():
-        if not line.startswith("data:"):
-            continue
-        try:
-            event = json.loads(line[5:].strip())
-        except json.JSONDecodeError:
-            continue
-        if event.get("type") == "speech.audio.delta" and event.get("audio"):
-            audio.extend(base64.b64decode(event["audio"]))
-        elif event.get("type") == "speech.audio.done":
-            reported = event.get("usage") or {}
-            usage = TokenUsage(
-                input_tokens=int(reported.get("input_tokens") or 0),
-                output_tokens=int(reported.get("output_tokens") or 0),
-                total_tokens=int(reported.get("total_tokens") or 0),
-            )
-    if not audio:
-        raise OpenAITransportError("invalid_api_response", False)
-    return bytes(audio), usage

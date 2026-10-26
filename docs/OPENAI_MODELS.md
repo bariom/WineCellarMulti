@@ -16,11 +16,6 @@ single controlled fallback live in `app/services/openai_client.py`.
 `gpt-6-astra` is allowlisted for an explicit quality-first choice, but it is not
 the default for a role because its standard token price is substantially higher.
 
-The cellar assistant's optional natural voice uses the speech endpoint, not the
-Responses API: `OPENAI_TTS_MODEL` (default `gpt-4o-mini-tts`, priced in the default
-price book at $0.60/1M text and $12/1M audio tokens) with `OPENAI_TTS_VOICE`. See
-`docs/AI_CELLAR_ASSISTANT.md`.
-
 The role model IDs, reasoning effort, maximum output tokens, timeout and retry
 policy are configurable through the corresponding `OPENAI_*` variables shown in
 `.env.example`. A maximum-token value of `0` falls back to the safe default of

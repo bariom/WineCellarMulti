@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -63,7 +63,6 @@ from app.models import (
 )
 from app.prompts import (
     ai_notes_prompt,
-    assistant_speech_prompt,
     buying_advice_prompt,
     cellar_assistant_prompt,
     cellar_command_prompt,
@@ -95,7 +94,6 @@ from app.schemas.ai import (
     CellarAssistantFeedbackRequest,
     CellarAssistantFeedbackResponse,
     CellarAssistantQuestion,
-    CellarAssistantSpeechRequest,
     CellarAssistantWineLink,
     CellarCommandCatalogCandidate,
     CellarCommandEnjoyment,
@@ -161,13 +159,7 @@ from app.services.critic_scores import (
 from app.services.free_tier import ensure_free_tier_label_capacity, is_free_tier
 from app.services.grape_names import clean_grape_entries
 from app.services.merchants import get_or_create_merchant
-from app.services.openai_client import (
-    OpenAITransportError,
-    TokenUsage,
-    create_response,
-    create_speech,
-    parse_json_response,
-)
+from app.services.openai_client import TokenUsage, create_response, parse_json_response
 from app.services.score_sources import public_page_text
 from app.services.shared_wine_data import (
     SHARED_FEATURES,
@@ -224,12 +216,6 @@ WINE_SHELF_MAX_PHOTOS = 3
 PHOTO_SCAN_MAX_TIMEOUT_SECONDS = 170
 WINE_SHELF_MAX_OWNED_CONTEXT = 150
 DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS = {
-    # Speech: text input tokens, audio output tokens (OpenAI price list).
-    "gpt-4o-mini-tts": {
-        "input": Decimal("0.60"),
-        "cached_input": Decimal("0.60"),
-        "output": Decimal("12.00"),
-    },
     "gpt-5.4-nano": {
         "input": Decimal("0.20"),
         "cached_input": Decimal("0.02"),
@@ -2893,122 +2879,6 @@ def ask_cellar_assistant(
         escalated=escalated,
         pairing_dish=str(pairing_result.get("dish") or ""),
         pairing=pairing_result.get("response"),
-    )
-
-
-# A spoken answer is the start of what was written: long lists are better read on screen.
-CELLAR_ASSISTANT_SPEECH_CHARS = 1500
-# A generous bound of audio tokens per character (and a floor), for the credit
-# reservation only: what is not used goes back, and anything beyond is charged too.
-CELLAR_ASSISTANT_SPEECH_AUDIO_TOKENS_PER_CHAR = 8
-CELLAR_ASSISTANT_SPEECH_MIN_AUDIO_TOKENS = 400
-
-
-@router.post("/cellar-assistant/speech")
-def speak_cellar_assistant_answer(
-    payload: CellarAssistantSpeechRequest,
-    db: Session = Depends(get_db),
-    context: CurrentContext = Depends(get_current_context),
-) -> Response:
-    """Read one answer with the natural AI voice, billed like any other AI request."""
-    ensure_cellar_ai_assistant_available(context)
-    text = " ".join(payload.text.split())[:CELLAR_ASSISTANT_SPEECH_CHARS]
-    if not text:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nothing to read")
-    user_settings = get_or_create_user_ai_settings(db, context)
-    provider_source, api_key = select_ai_provider(db, context, user_settings)
-    prompt = assistant_speech_prompt(locale=payload.locale)
-    model = settings.openai_tts_model
-    reservation_id: UUID | None = None
-    reserved_cost = ZERO_USD
-    if provider_source == "credits":
-        reserved_cost = maximum_billable_cost_usd(
-            user_is_app_admin=context.user.is_app_admin,
-            user_has_active_entitlement=context.has_active_entitlement,
-            provider_source="credits",
-            model=model,
-            input_tokens=len(text) + len(prompt.system),
-            output_tokens=max(
-                len(text) * CELLAR_ASSISTANT_SPEECH_AUDIO_TOKENS_PER_CHAR,
-                CELLAR_ASSISTANT_SPEECH_MIN_AUDIO_TOKENS,
-            ),
-            web_search_calls=0,
-            db=db,
-        )
-        if ai_credit_balance(db, context.user) < reserved_cost:
-            raise HTTPException(
-                status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail="Insufficient AI credits for this request",
-            )
-        reservation_id = uuid4()
-        create_ai_usage_transaction(
-            db,
-            context.user,
-            amount_usd=-reserved_cost,
-            source="usage_reservation",
-            source_id=reservation_id,
-            note=f"Reserved {model} usage for {context.household.name}",
-        )
-        db.commit()
-    try:
-        audio, usage = create_speech(
-            text,
-            prompt.system,
-            api_key=api_key,
-            model=model,
-            voice=settings.openai_tts_voice,
-        )
-    except OpenAITransportError as exc:
-        if reservation_id is not None:
-            cancel_ai_credit_reservation(
-                db, context, reservation_id=reservation_id, reserved_cost=reserved_cost, model=model
-            )
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail="The AI voice is not available now"
-        ) from exc
-    charged = billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
-        user_has_active_entitlement=context.has_active_entitlement,
-        provider_source=provider_source,
-        model=model,
-        usage=usage,
-        db=db,
-    )
-    if reservation_id is not None:
-        reconcile_ai_credit_reservation(
-            db,
-            context,
-            reservation_id=reservation_id,
-            reserved_cost=reserved_cost,
-            actual_cost=min(charged, reserved_cost),
-            model=model,
-        )
-        if charged > reserved_cost:
-            # A longer reading than reserved for: charge the rest, never less than the cost.
-            create_ai_usage_transaction(
-                db,
-                context.user,
-                amount_usd=-(charged - reserved_cost),
-                source="usage_reservation",
-                source_id=reservation_id,
-                note=f"Additional {model} usage for {context.household.name}",
-            )
-    record_ai_audit(
-        db,
-        context,
-        entity_type="household",
-        entity_id=context.household.id,
-        feature=prompt.id,
-        model=model,
-        summary=f"Answer read aloud: {len(text)} characters.",
-        usage=usage,
-        provider_source=provider_source,
-    )
-    db.commit()
-    return Response(
-        content=audio,
-        media_type="audio/mpeg",
-        headers={"X-AI-Cost-USD": str(charged), "Cache-Control": "no-store"},
     )
 
 

@@ -117,24 +117,6 @@ def buying_advice_prompt(
     )
 
 
-def assistant_speech_prompt(*, locale: str) -> Prompt:
-    """How the assistant's natural voice should sound when it reads an answer."""
-    return Prompt(
-        id="cellar.assistant.speech",
-        version="1",
-        system=(
-            "Parla in italiano, con il tono caldo, calmo e competente di un sommelier che "
-            "consiglia un amico. Ritmo naturale, pause brevi tra un vino e l'altro; pronuncia "
-            "correttamente nomi di vini, produttori e denominazioni."
-            if locale == "it"
-            else "Speak in English with the warm, calm and knowledgeable tone of a sommelier "
-            "advising a friend. Natural pace, short pauses between wines; pronounce wine, "
-            "producer and appellation names correctly."
-        ),
-        user="",
-    )
-
-
 def cellar_assistant_prompt(*, locale: str, today: str) -> Prompt:
     """Answer questions about the user's own cellar, reading it only through tools."""
     return Prompt(
