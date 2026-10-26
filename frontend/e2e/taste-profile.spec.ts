@@ -54,7 +54,9 @@ test("taste preferences use an individual scale and expandable wine styles", asy
   await expect(page.locator(".taste-profile-hero-copy small")).toContainText("I valori non sono percentuali da sommare.");
   await expect(page.locator(".taste-profile-evidence-summary > div").nth(1).locator("strong")).toHaveText("3");
   await expect(page.locator(".taste-profile-evidence-summary > div").first().locator("strong")).toHaveText("14");
-  await expect(page.locator(".taste-profile-evidence-summary")).toContainText("copertura 100%");
+  // The badge counts the dimensions that say something clear; full sensory coverage is no longer shown.
+  await expect(page.locator(".taste-profile-evidence-summary")).toContainText("1 di 2 dimensioni chiare");
+  await expect(page.locator(".taste-profile-evidence-summary")).not.toContainText("copertura");
   await expect(page.locator(".taste-profile-hero-metrics")).toContainText("70/100");
   await expect(page.locator(".taste-profile-sensory-groups")).toContainText("Struttura");
   const red = page.locator(".taste-profile-category").filter({ hasText: "Rossi" });
@@ -85,10 +87,10 @@ test("taste preferences use an individual scale and expandable wine styles", asy
   await expect(diagnostics.getByText("Il V2 resta attivo. Il V3 è solo osservato e non modifica affinità o suggerimenti.", { exact: true })).toBeVisible();
   await expect(diagnostics.getByText("Affinità V2", { exact: true })).toBeVisible();
   await expect(diagnostics.getByText("Ideale V3", { exact: true })).toBeVisible();
-  await expect(diagnostics.getByText("Errore medio V2", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("Errore medio V2 (taratura)", { exact: true })).toBeVisible();
   await expect(diagnostics.getByText("24 pt", { exact: true })).toBeVisible();
   await expect(diagnostics.getByText("17 pt", { exact: true })).toBeVisible();
-  await expect(diagnostics.getByText(/Il V3 predice meglio/)).toBeVisible();
+  await expect(diagnostics.getByText(/Il V3 distingue meglio/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
