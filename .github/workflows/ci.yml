@@ -66,6 +66,11 @@ jobs:
     name: Frontend E2E (${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Chromium and its system libraries come ready in Playwright's image, at the
+    # version in package-lock.json: installing them on each runner took minutes.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --ipc=host
     strategy:
       # Let every shard finish, so one failure does not hide the others.
       fail-fast: false
@@ -83,8 +88,6 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
       # Suites that mount one view import React from Vite's dependency cache. A
       # server started with an empty cache serves it under a version that goes
       # stale, so build the cache first.
