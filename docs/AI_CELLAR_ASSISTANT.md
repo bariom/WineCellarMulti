@@ -82,6 +82,10 @@ computed as in the cellar list's ownership filter: `search_wines` filters them w
 and `cellar_summary` groups by `ownership` and totals the user's own bottles and value. Nothing is written: asked to change the cellar, the assistant explains how
 to describe the action instead. The client sends the last ten turns of the open conversation so
 follow-up questions keep their meaning; nothing is stored server side beyond the AI audit entries.
+The app keeps the conversation for the browser session (per user and cellar), so opening a wine
+and coming back does not lose it. Tool rows carry a short `ref` per wine (never its id): the answer
+returns the refs of the wines it names, which the server turns into links to their pages, and up to
+three follow-up questions shown as chips under the latest answer (prompt v6).
 
 ## Food pairings
 

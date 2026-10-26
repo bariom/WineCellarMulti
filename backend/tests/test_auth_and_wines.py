@@ -6144,6 +6144,8 @@ def test_cellar_assistant_answers_a_pairing_question_with_one_quick_sommelier_ca
     assert body["tools_used"] == ["suggest_pairing"]
     assert body["pairing_dish"] == "una raclette di formaggio"
     assert body["pairing"]["cellar_matches"][0]["wine_id"] == barolo["id"]
+    # The suggested bottle is linked under the answer, to open its page.
+    assert [wine["id"] for wine in body["wines"]] == [barolo["id"]]
     assert Decimal(body["estimated_cost_usd"]) == Decimal(body["pairing"]["estimated_cost_usd"])
 
 
@@ -6258,8 +6260,16 @@ def test_cellar_assistant_answers_questions_by_reading_the_cellar_with_tools(mon
         assert found["wines"][0]["purchase_price_per_bottle"] == 60.0
         assert found["wines"][0]["notes"] == "Comprato alla fiera di Alba"
         assert found["wines"][0]["phase"] == "ready"
+        # The model sees a short ref per wine, never its database id.
+        assert found["wines"][0]["ref"] == "w1"
+        assert barolo.json()["id"] not in outputs[0]["output"]
+        follow_ups = ["Quali sono al picco?", "  Mostra solo i Barolo  ", "x" * 200, "Un quarto di troppo"]
         return OpenAIResponse(
-            text='{"answer":"Hai 3 bottiglie di Barolo 2019 di Vietti, pronte da bere."}',
+            text=json.dumps({
+                "answer": "Hai 3 bottiglie di Barolo 2019 di Vietti, pronte da bere.",
+                # w9 was never shown: an invented ref links nothing.
+                "wine_refs": ["w1", "w9", "w1"], "follow_ups": follow_ups, "complete": True,
+            }),
             usage=TokenUsage(input_tokens=500, output_tokens=60, total_tokens=560),
             model="gpt-5.5",
         )
@@ -6281,6 +6291,10 @@ def test_cellar_assistant_answers_questions_by_reading_the_cellar_with_tools(mon
     body = response.json()
     assert body["answer"] == "Hai 3 bottiglie di Barolo 2019 di Vietti, pronte da bere."
     assert body["tools_used"] == ["search_wines"]
+    # The named wine comes back as a link to its page, once; follow-ups are short and at most three.
+    assert body["wines"] == [{"id": barolo.json()["id"], "name": "Barolo", "producer": "Vietti", "vintage": "2019"}]
+    assert body["follow_ups"][:2] == ["Quali sono al picco?", "Mostra solo i Barolo"]
+    assert len(body["follow_ups"]) == 3 and len(body["follow_ups"][2]) == 90
     assert len(calls) == 2
     # The open conversation reaches the model, followed by the new question.
     assert calls[0]["history"][:3] == [

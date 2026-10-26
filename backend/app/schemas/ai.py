@@ -561,8 +561,20 @@ class CellarAssistantQuestion(AiGenerationRequest):
     pairing_max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
 
 
+class CellarAssistantWineLink(BaseModel):
+    """A wine the answer names, for the app to open its page."""
+
+    id: UUID
+    name: str
+    producer: str = ""
+    vintage: str = ""
+
+
 class CellarAssistantAnswer(BaseModel):
     answer: str
+    wines: list[CellarAssistantWineLink] = Field(default_factory=list)
+    # Short questions the user may want to ask next, in their language.
+    follow_ups: list[str] = Field(default_factory=list)
     tools_used: list[str] = Field(default_factory=list)
     model: str
     reasoning_effort: str = ""

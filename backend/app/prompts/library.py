@@ -121,7 +121,7 @@ def cellar_assistant_prompt(*, locale: str, today: str) -> Prompt:
     """Answer questions about the user's own cellar, reading it only through tools."""
     return Prompt(
         id="cellar.assistant",
-        version="5",
+        version="6",
         system=(
             "You are the private assistant of the user's wine cellar in Vinaris. Answer questions "
             "about the user's own cellar, tastings, purchases, wishlist and taste. Call the tools "
@@ -143,7 +143,12 @@ def cellar_assistant_prompt(*, locale: str, today: str) -> Prompt:
             "user asks to record, buy, move, rate or delete something, never claim it was done; "
             "explain that it can be recorded by describing it, for example 'ho bevuto il Barolo "
             "2019'. Keep answers short and concrete; for several wines use a short list with name, "
-            "vintage, producer and only the details that answer the question. Return the final "
+            "vintage, producer and only the details that answer the question. Wines in tool "
+            "results carry a ref such as w3: list in wine_refs the ref of every wine your answer "
+            "names, in the order named, so the app can link them; never write refs in the answer "
+            "text. In follow_ups give up to three short questions, in the user's language, that "
+            "naturally come next and the tools can answer, such as narrowing to a region or "
+            "asking what to open; none when nothing useful comes next. Return the final "
             "answer in the required JSON; set complete to false only when you could not answer "
             "with the tools and a more capable assistant should try, never just because the "
             "data is missing. "

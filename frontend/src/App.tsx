@@ -11246,6 +11246,11 @@ export function App() {
               onOpenWishlist={() => setActiveView("wishlist")}
               initialQuestion={assistantQuestion}
               startVoice={assistantVoiceStart}
+              conversationKey={`vinaris.assistant.conversation:${session?.user_email || ""}:${session?.active_household_id || ""}`}
+              onOpenWine={(wineId) => {
+                const wine = wines.find((item) => item.id === wineId);
+                if (wine) openWineFromDashboard(wine);
+              }}
               pairingMaxPrice={pairingMaxPrice}
               onOpenPairing={(dish, result) => {
                 setPairingTargetWineId(null);

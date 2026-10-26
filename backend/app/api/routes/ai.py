@@ -86,6 +86,7 @@ from app.schemas.ai import (
     BuyingRecommendation,
     CellarAssistantAnswer,
     CellarAssistantQuestion,
+    CellarAssistantWineLink,
     CellarCommandCatalogCandidate,
     CellarCommandEnjoyment,
     CellarCommandExecuteRequest,
@@ -462,9 +463,12 @@ def ai_settings_response(
         else ZERO_USD,
         can_use_app_credits=can_use_app_credits,
         can_use_included_wine_search=bool(settings.openai_api_key.strip())
-        and not is_free_tier(context) and (not is_ambassador(context.user) or can_use_app_credits),
+        and not is_free_tier(context)
+        and (not is_ambassador(context.user) or can_use_app_credits),
         can_use_purchase_import=bool(settings.openai_api_key.strip())
-        and ((not is_free_tier(context) and not is_ambassador(context.user)) or can_use_app_credits),
+        and (
+            (not is_free_tier(context) and not is_ambassador(context.user)) or can_use_app_credits
+        ),
         purchase_import_included=not is_free_tier(context) and not is_ambassador(context.user),
         ai_notes_model=user_settings.ai_notes_model,
         drink_window_model=user_settings.drink_window_model,
@@ -831,7 +835,10 @@ def create_ai_response(
     agent_tools: list[dict[str, Any]] | None = None,
     agent_history: list[dict[str, Any]] | None = None,
 ) -> tuple[Any, str]:
-    if task_type in {"sensory_refinement", "sensory_autonomous"} and not settings.wine_sensory_research_enabled:
+    if (
+        task_type in {"sensory_refinement", "sensory_autonomous"}
+        and not settings.wine_sensory_research_enabled
+    ):
         raise HTTPException(503, "Paid sensory research is suspended")
     if app_funded and not is_free_tier(context) and not is_ambassador(context.user):
         api_key = settings.openai_api_key.strip()
@@ -1027,17 +1034,23 @@ def reuse_shared_wine_feature(
 ) -> bool:
     if force_refresh or feature not in SHARED_FEATURES:
         return False
-    fact = get_shared_fact(db, wine, feature, locale=locale, market_country=context.user.market_country)
+    fact = get_shared_fact(
+        db, wine, feature, locale=locale, market_country=context.user.market_country
+    )
     if fact is None:
         return False
     if feature == "scores" and any(
-        not isinstance(score, dict) or score.get("verification_method") != "page_evidence_v1" or score_has_weak_evidence(score)
+        not isinstance(score, dict)
+        or score.get("verification_method") != "page_evidence_v1"
+        or score_has_weak_evidence(score)
         for score in fact.payload.get("scores", [])
     ):
         return False
     if feature == "value" and contains_hospitality_market_sources(fact.sources):
         return False
-    hydrated = hydrate_wine_from_shared(db, wine, locale=locale, market_country=context.user.market_country)
+    hydrated = hydrate_wine_from_shared(
+        db, wine, locale=locale, market_country=context.user.market_country
+    )
     changed = apply_shared_fact(wine, fact, only_missing=False)
     if feature == "scores" and not changed and feature not in hydrated:
         return False
@@ -2341,7 +2354,9 @@ def execute_cellar_ai_command(
                 status_code=status.HTTP_409_CONFLICT, detail="The destination is missing"
             )
         count = (
-            wine_actions.action_quantity(parsed) if parsed.get("quantity_present") else wine.quantity
+            wine_actions.action_quantity(parsed)
+            if parsed.get("quantity_present")
+            else wine.quantity
         )
         if count < 1 or count > wine.quantity:
             raise HTTPException(
@@ -2406,7 +2421,9 @@ def execute_cellar_ai_command(
         )
     count = wine_actions.action_quantity(parsed)
     if count > wine.quantity:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Not enough bottles in stock")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Not enough bottles in stock"
+        )
     before = wine_actions.stock_movement_ids(db, wine)
     tasting = cellar_command_tasting(command.parsed_payload or {})
     try:
@@ -2438,7 +2455,9 @@ def execute_cellar_ai_command(
         note=tasting.note,
         user_id=context.user.id,
     )
-    parsed["_movement_ids"] = [str(item) for item in wine_actions.stock_movement_ids(db, wine) - before]
+    parsed["_movement_ids"] = [
+        str(item) for item in wine_actions.stock_movement_ids(db, wine) - before
+    ]
     parsed["_removed_quantity"] = count
     command.parsed_payload = parsed
     # Insert the tasting before storing its id on the AI command.  These two
@@ -2588,6 +2607,9 @@ def ensure_cellar_ai_assistant_available(context: CurrentContext) -> None:
 
 CELLAR_ASSISTANT_MAX_STEPS = 6
 CELLAR_ASSISTANT_HISTORY_TURNS = 10
+# Wines linked under one answer, and the length of a suggested follow-up question.
+CELLAR_ASSISTANT_MAX_WINE_LINKS = 8
+CELLAR_ASSISTANT_FOLLOW_UP_CHARS = 90
 
 
 @router.post("/cellar-assistant/ask", response_model=CellarAssistantAnswer)
@@ -2616,13 +2638,23 @@ def ask_cellar_assistant(
             "additionalProperties": False,
             "properties": {
                 "answer": {"type": "string"},
+                "wine_refs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Refs (such as w3) of the wines the answer names, in order.",
+                },
+                "follow_ups": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Up to three short questions the user may ask next.",
+                },
                 "complete": {
                     "type": "boolean",
                     "description": "False only when you could not answer the question with "
                     "the tools and a more capable assistant should try.",
                 },
             },
-            "required": ["answer", "complete"],
+            "required": ["answer", "wine_refs", "follow_ups", "complete"],
         },
     }
     conversation: list[dict[str, Any]] = [
@@ -2633,6 +2665,22 @@ def ask_cellar_assistant(
     tools_used: list[str] = []
     total_cost = Decimal("0")
     pairing_result: dict[str, Any] = {}
+    linked: dict[str, list[Any]] = {"refs": [], "follow_ups": []}
+
+    def wine_links(wines: list[Wine]) -> list[CellarAssistantWineLink]:
+        return [
+            CellarAssistantWineLink(
+                id=wine.id, name=wine.name, producer=wine.producer or "", vintage=wine.vintage or ""
+            )
+            for wine in wines[:CELLAR_ASSISTANT_MAX_WINE_LINKS]
+        ]
+
+    def pairing_wine_links(pairing: PairingResponse) -> list[CellarAssistantWineLink]:
+        """The Sommelier's cellar matches, checked against what this user can see."""
+        visible = {wine.id: wine for wine in tools.wines()}
+        return wine_links(
+            [visible[match.wine_id] for match in pairing.cellar_matches if match.wine_id in visible]
+        )
 
     def quick_pairing(dish: str, budget: Decimal | None) -> PairingResponse:
         """The Sommelier AI on a short, in-budget candidate list, without reasoning."""
@@ -2701,6 +2749,7 @@ def ask_cellar_assistant(
         pairing = quick_pairing(*direct)
         return CellarAssistantAnswer(
             answer=composed_pairing_answer()[:6000],
+            wines=pairing_wine_links(pairing),
             tools_used=["suggest_pairing"],
             model=pairing.model,
             reasoning_effort=pairing.reasoning_effort,
@@ -2732,9 +2781,7 @@ def ask_cellar_assistant(
             total_cost += response.charged_cost_usd
             effective_model = effective_response_model(response, model)
             reasoning_effort = response.reasoning_effort or ""
-            calls = [
-                item for item in response.agent_output if item.get("type") == "function_call"
-            ]
+            calls = [item for item in response.agent_output if item.get("type") == "function_call"]
             record_ai_audit(
                 db,
                 context,
@@ -2780,6 +2827,14 @@ def ask_cellar_assistant(
             answer = str(parsed.get("answer") or "").strip()
             if parsed.get("complete") is False:
                 return "", effective_model, reasoning_effort
+            linked["refs"] = [
+                str(ref) for ref in parsed.get("wine_refs") or [] if isinstance(ref, str)
+            ]
+            linked["follow_ups"] = [
+                " ".join(str(question).split())[:CELLAR_ASSISTANT_FOLLOW_UP_CHARS]
+                for question in parsed.get("follow_ups") or []
+                if isinstance(question, str) and question.strip()
+            ][:3]
             return answer, effective_model, reasoning_effort
         return "", effective_model, reasoning_effort
 
@@ -2799,8 +2854,15 @@ def ask_cellar_assistant(
             if payload.locale == "it"
             else "I could not complete the answer. Try making the question more specific."
         )
+    pairing_response = pairing_result.get("response")
     return CellarAssistantAnswer(
         answer=answer[:6000],
+        wines=(
+            pairing_wine_links(pairing_response)
+            if pairing_response is not None
+            else wine_links(tools.wines_for_refs(linked["refs"]))
+        ),
+        follow_ups=[] if pairing_response is not None else linked["follow_ups"],
         tools_used=tools_used,
         model=effective_model,
         reasoning_effort=reasoning_effort,
@@ -3248,35 +3310,59 @@ def create_cellar_ai_command(
                 command.status = "not_found"
                 db.commit()
                 return cellar_command_response(
-                    db, context, command,
-                    message=(f"Non trovo vini da ritirare presso {merchant}." if payload.locale == "it" else f"I found no wines to collect from {merchant}."),
+                    db,
+                    context,
+                    command,
+                    message=(
+                        f"Non trovo vini da ritirare presso {merchant}."
+                        if payload.locale == "it"
+                        else f"I found no wines to collect from {merchant}."
+                    ),
                 )
             parsed["_collection_wine_ids"] = [str(wine.id) for wine in collection_wines]
             command.parsed_payload = parsed
             command.status = "needs_confirmation"
             db.commit()
             return cellar_command_response(
-                db, context, command,
-                message=(f"Ho trovato {len(collection_wines)} vini da ritirare presso {merchant}. Controlla l’elenco e conferma il trasferimento in cantina." if payload.locale == "it" else f"I found {len(collection_wines)} wines to collect from {merchant}. Review the list and confirm moving them to the cellar."),
+                db,
+                context,
+                command,
+                message=(
+                    f"Ho trovato {len(collection_wines)} vini da ritirare presso {merchant}. Controlla l’elenco e conferma il trasferimento in cantina."
+                    if payload.locale == "it"
+                    else f"I found {len(collection_wines)} wines to collect from {merchant}. Review the list and confirm moving them to the cellar."
+                ),
             )
         ranked = matching_cellar_command_wines(db, context, parsed, required_status="To Collect")
         if not ranked:
             command.status = "not_found"
             db.commit()
             return cellar_command_response(
-                db, context, command,
-                message=("Non trovo un vino da ritirare che corrisponda alla richiesta." if payload.locale == "it" else "I cannot find a matching wine marked for collection."),
+                db,
+                context,
+                command,
+                message=(
+                    "Non trovo un vino da ritirare che corrisponda alla richiesta."
+                    if payload.locale == "it"
+                    else "I cannot find a matching wine marked for collection."
+                ),
             )
         command.status = "needs_confirmation"
         db.commit()
         return cellar_command_response(
-            db, context, command,
+            db,
+            context,
+            command,
             message=(
                 "Ho preparato il trasferimento in cantina: controlla il vino e conferma."
-                if len(ranked) == 1 else "Ho trovato più vini da ritirare possibili: scegli quello corretto."
-            ) if payload.locale == "it" else (
+                if len(ranked) == 1
+                else "Ho trovato più vini da ritirare possibili: scegli quello corretto."
+            )
+            if payload.locale == "it"
+            else (
                 "The move to the cellar is ready: review the wine and confirm."
-                if len(ranked) == 1 else "I found multiple wines marked for collection: choose the right one."
+                if len(ranked) == 1
+                else "I found multiple wines marked for collection: choose the right one."
             ),
         )
     if command.intent == "ship_wine":
@@ -3382,16 +3468,26 @@ def create_cellar_ai_command(
                 command,
                 message=(
                     f"Non trovo la posizione «{requested_place}». "
-                    + (f"Posizioni della cantina: {names}." if names else "Crea prima le posizioni in Cantina.")
+                    + (
+                        f"Posizioni della cantina: {names}."
+                        if names
+                        else "Crea prima le posizioni in Cantina."
+                    )
                     if italian
                     else f"I cannot find the place “{requested_place}”. "
-                    + (f"Cellar places: {names}." if names else "Create the places in the Cellar first.")
+                    + (
+                        f"Cellar places: {names}."
+                        if names
+                        else "Create the places in the Cellar first."
+                    )
                 ),
             )
         location, cellar_bin = destination
         parsed["_move_location_id"] = str(location.id)
         parsed["_move_bin_id"] = str(cellar_bin.id) if cellar_bin else None
-        parsed["_move_destination"] = location.name + (f" · {cellar_bin.name}" if cellar_bin else "")
+        parsed["_move_destination"] = location.name + (
+            f" · {cellar_bin.name}" if cellar_bin else ""
+        )
         command.parsed_payload = parsed
     if command.intent == "rate_wine" and not (
         parsed.get("score_present") or str(parsed.get("note") or "").strip()
@@ -3402,7 +3498,9 @@ def create_cellar_ai_command(
             db,
             context,
             command,
-            message="Indica un voto o una nota per il vino." if italian else "Give a rating or a note for the wine.",
+            message="Indica un voto o una nota per il vino."
+            if italian
+            else "Give a rating or a note for the wine.",
         )
     ranked = matching_cellar_command_wines(
         db, context, parsed, include_finished=command.intent == "rate_wine"
@@ -4820,9 +4918,19 @@ def pairing_for_request(
                                     "producer": {"type": "string"},
                                     "price_hint": {"type": "string"},
                                     "reason": {"type": "string"},
-                                    "taste_affinity": {"type": "integer", "minimum": 0, "maximum": 6},
+                                    "taste_affinity": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 6,
+                                    },
                                 },
-                                "required": ["name", "producer", "price_hint", "reason", "taste_affinity"],
+                                "required": [
+                                    "name",
+                                    "producer",
+                                    "price_hint",
+                                    "reason",
+                                    "taste_affinity",
+                                ],
                             },
                         }
                         for tier in ["low", "medium", "high"]
@@ -5359,9 +5467,13 @@ def get_wine_shelf_scan(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineShelfScanStatus:
     """Progress of a shelf scan started by this user in this cellar, with its result when done."""
-    job = wine_shelf_scan.get_job(job_id, household_id=context.household.id, user_id=context.user.id)
+    job = wine_shelf_scan.get_job(
+        job_id, household_id=context.household.id, user_id=context.user.id
+    )
     if job is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shelf analysis not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Shelf analysis not found"
+        )
     return job.snapshot()
 
 
@@ -5738,7 +5850,9 @@ def generate_all_wine_ai(
     wine = get_household_wine(db, context, wine_id)
     if not payload.force_refresh:
         cached_facts = {
-            feature: get_shared_fact(db, wine, feature, locale=payload.locale, market_country=context.user.market_country)
+            feature: get_shared_fact(
+                db, wine, feature, locale=payload.locale, market_country=context.user.market_country
+            )
             for feature in ("notes", "drink_window", "value", "grapes")
         }
         if all(cached_facts.values()):
@@ -6095,7 +6209,11 @@ def enrich_wine_label(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> WineLabelEnrichmentResponse:
-    if payload.source in {"label", "photo"} and not context.user.can_use_label_recognition and not is_ambassador(context.user):
+    if (
+        payload.source in {"label", "photo"}
+        and not context.user.can_use_label_recognition
+        and not is_ambassador(context.user)
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Wine label recognition is not enabled for this user",
@@ -6643,7 +6761,14 @@ def generate_scores(
                             "evidence_quote": {"type": "string"},
                             "note": {"type": "string"},
                         },
-                        "required": ["critic", "score", "note", "source_url", "exact_wine_and_vintage", "evidence_quote"],
+                        "required": [
+                            "critic",
+                            "score",
+                            "note",
+                            "source_url",
+                            "exact_wine_and_vintage",
+                            "evidence_quote",
+                        ],
                     },
                 },
             },
@@ -6674,9 +6799,17 @@ def generate_scores(
     source_texts = {score["source_url"]: "" for score in new_scores}
     for url in source_texts:
         source_texts[url] = public_page_text(url)
-    new_scores = [score for score in new_scores if score_matches_page(
-        score, source_texts[score["source_url"]], name=wine.name, producer=wine.producer, vintage=wine.vintage
-    )]
+    new_scores = [
+        score
+        for score in new_scores
+        if score_matches_page(
+            score,
+            source_texts[score["source_url"]],
+            name=wine.name,
+            producer=wine.producer,
+            vintage=wine.vintage,
+        )
+    ]
     for score in new_scores:
         score["verification_method"] = "page_evidence_v1"
     known_scores = {
@@ -6708,7 +6841,10 @@ def generate_scores(
         verified_scores: list[dict] = []
         verified_keys: set[tuple[str, str]] = set()
         for score in [*existing_shared_scores, *new_scores]:
-            if score_has_weak_evidence(score) or score.get("verification_method") != "page_evidence_v1":
+            if (
+                score_has_weak_evidence(score)
+                or score.get("verification_method") != "page_evidence_v1"
+            ):
                 continue
             key = (
                 str(score.get("critic") or "").strip().casefold(),

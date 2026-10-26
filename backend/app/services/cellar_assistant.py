@@ -299,6 +299,10 @@ class CellarAssistantTools:
         self.today = today
         self._wines: list[Wine] | None = None
         self._locations: dict[Any, str] | None = None
+        # "w1", "w2"… per wine shown to the model, so its answer can point at wines
+        # without ever seeing their database ids.
+        self._refs: dict[str, Wine] = {}
+        self._ref_by_wine: dict[Any, str] = {}
 
     # -- shared data -------------------------------------------------------
     def wines(self) -> list[Wine]:
@@ -345,9 +349,27 @@ class CellarAssistantTools:
             self._locations = {wine_id: ", ".join(places) for wine_id, places in by_wine.items()}
         return self._locations
 
+    def ref_for(self, wine: Wine) -> str:
+        ref = self._ref_by_wine.get(wine.id)
+        if ref is None:
+            ref = f"w{len(self._refs) + 1}"
+            self._refs[ref] = wine
+            self._ref_by_wine[wine.id] = ref
+        return ref
+
+    def wines_for_refs(self, refs: list[str]) -> list[Wine]:
+        """The wines an answer names, in its order, each once."""
+        found: list[Wine] = []
+        for ref in refs:
+            wine = self._refs.get(str(ref).strip())
+            if wine is not None and wine not in found:
+                found.append(wine)
+        return found
+
     def wine_row(self, wine: Wine) -> dict[str, Any]:
         value = wine.current_value if wine.current_value is not None else None
         row: dict[str, Any] = {
+            "ref": self.ref_for(wine),
             "name": wine.name,
             "producer": wine.producer,
             "vintage": wine.vintage,

@@ -18,6 +18,28 @@ import { AssistantActivity } from "../components/AssistantActivity";
 import { primeSpeech, speak, speechSupported, stopSpeaking } from "../utils/speech";
 
 const READ_ALOUD_KEY = "vinaris.assistant.read-aloud";
+
+type AssistantWineLink = { id: string; name: string; producer: string; vintage: string };
+type ConversationTurn = {
+  role: "user" | "assistant";
+  content: string;
+  meta?: string;
+  pairing?: { dish: string; result: PairingResult };
+  /** Wines the answer names, to open their page. */
+  wines?: AssistantWineLink[];
+  /** Questions the assistant suggests asking next. */
+  followUps?: string[];
+};
+
+function loadConversation(key: string | undefined): ConversationTurn[] {
+  if (!key) return [];
+  try {
+    const stored = JSON.parse(window.sessionStorage.getItem(key) || "[]") as unknown;
+    return Array.isArray(stored) ? stored.filter((turn): turn is ConversationTurn => Boolean(turn) && typeof turn === "object" && "role" in turn && "content" in turn) : [];
+  } catch {
+    return [];
+  }
+}
 // Only for the activity label: a question about which wine goes with a dish.
 const PAIRING_HINT = /\b(apro|apriamo|stappo|bevo|beviamo|abbino|abbinare|servo|open|drink|pair|serve)\b.*\b(con|al|alla|ai|alle|per|with|for)\b|\bvino per\b|\bwine for\b/i;
 
@@ -91,6 +113,10 @@ type CellarAssistantViewProps = {
   initialQuestion?: { id: number; text: string } | null;
   /** Set (to a new value each time) to open the view straight into voice conversation. */
   startVoice?: number | null;
+  /** Open the page of a wine an answer names. */
+  onOpenWine?: (wineId: string) => void;
+  /** Where this user's conversation in this cellar is kept for the session. */
+  conversationKey?: string;
 };
 
 export default function CellarAssistantView({
@@ -103,6 +129,8 @@ export default function CellarAssistantView({
   pairingMaxPrice = "",
   initialQuestion = null,
   startVoice = null,
+  onOpenWine,
+  conversationKey,
 }: CellarAssistantViewProps) {
   const [text, setText] = useState("");
   // One card per operation of the last message, each confirmed on its own.
@@ -121,7 +149,17 @@ export default function CellarAssistantView({
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   // What the assistant is doing while busy, shown in the activity panel.
   const [workLabel, setWorkLabel] = useState("");
-  const [conversation, setConversation] = useState<Array<{ role: "user" | "assistant"; content: string; meta?: string; pairing?: { dish: string; result: PairingResult } }>>([]);
+  // Kept for the session, so leaving the assistant to look at a wine does not lose it.
+  const [conversation, setConversation] = useState<ConversationTurn[]>(() => loadConversation(conversationKey));
+  useEffect(() => {
+    if (!conversationKey) return;
+    try {
+      if (conversation.length) window.sessionStorage.setItem(conversationKey, JSON.stringify(conversation.slice(-30)));
+      else window.sessionStorage.removeItem(conversationKey);
+    } catch {
+      // The conversation still lasts while the view is open.
+    }
+  }, [conversation, conversationKey]);
   const recognitionRef = useRef<VoiceRecognition | null>(null);
   const voiceTimeoutRef = useRef<number | null>(null);
   const finalTranscriptRef = useRef("");
@@ -575,7 +613,7 @@ export default function CellarAssistantView({
   async function askAssistant(question: string) {
     setPendingQuestion(question);
     try {
-    const answer = await api<{ answer: string; tools_used: string[]; model: string; estimated_cost_usd: string; pairing_dish?: string; pairing?: PairingResult | null }>("/api/v1/ai/cellar-assistant/ask", {
+    const answer = await api<{ answer: string; wines?: AssistantWineLink[]; follow_ups?: string[]; tools_used: string[]; model: string; estimated_cost_usd: string; pairing_dish?: string; pairing?: PairingResult | null }>("/api/v1/ai/cellar-assistant/ask", {
       method: "POST",
       body: JSON.stringify({
         question,
@@ -591,6 +629,8 @@ export default function CellarAssistantView({
         role: "assistant",
         content: answer.answer,
         meta: `${answer.model} · ${requestCostLabel(answer.estimated_cost_usd)}`,
+        ...(answer.wines?.length ? { wines: answer.wines } : {}),
+        ...(answer.follow_ups?.length ? { followUps: answer.follow_ups } : {}),
         ...(answer.pairing && answer.pairing_dish ? { pairing: { dish: answer.pairing_dish, result: answer.pairing } } : {}),
       },
     ]);
@@ -832,6 +872,16 @@ export default function CellarAssistantView({
         <ol aria-live="polite">
           {conversation.map((turn, index) => <li key={index} className={`is-${turn.role}`} ref={turn.role === "user" && index === conversation.length - 2 ? latestQuestionRef : undefined}>
             {turn.role === "assistant" ? <AssistantAnswer text={turn.content} /> : <p>{turn.content}</p>}
+            {turn.wines?.length && onOpenWine ? <div className="cellar-assistant-wine-links" aria-label={isItalian ? "Vini citati" : "Wines mentioned"}>
+              {turn.wines.map((wine) => <button key={wine.id} type="button" className="secondary compact" onClick={() => onOpenWine(wine.id)}>
+                <AppIcon name="bottle" variant="navigation" />
+                <span><strong>{wine.name}</strong>{wine.vintage || wine.producer ? <small>{[wine.vintage, wine.producer].filter(Boolean).join(" · ")}</small> : null}</span>
+              </button>)}
+            </div> : null}
+            {turn.followUps?.length && index === conversation.length - 1 && !pendingQuestion ? <div className="cellar-assistant-follow-ups" aria-label={isItalian ? "Puoi chiedere anche" : "You could also ask"}>
+              <small>{isItalian ? "Puoi chiedere anche" : "You could also ask"}</small>
+              {turn.followUps.map((question) => <button key={question} type="button" className="secondary compact" onClick={() => void send(question)} disabled={busy || disabled}>{question}</button>)}
+            </div> : null}
             {turn.pairing && onOpenPairing ? <button type="button" className="secondary compact cellar-assistant-open-pairing" onClick={() => onOpenPairing(turn.pairing!.dish, turn.pairing!.result)}>
               <AppIcon name="glass-sparkle" variant="ai" />{isItalian ? "Vedi nel Sommelier AI" : "Open in Sommelier AI"}
             </button> : null}
