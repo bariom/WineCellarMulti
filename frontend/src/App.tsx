@@ -1,6 +1,6 @@
 import { CellarEmptyImage } from "./components/CellarEmptyImage";
 import { tastingRequest } from "./domain/tasting";
-import { CSSProperties, ChangeEvent, Children, ComponentProps, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useCallback, useEffect, useId, useRef, useState } from "react";
+import { CSSProperties, ChangeEvent, Children, ComponentProps, Dispatch, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import PremiumMemoriesNotice from "./components/PremiumMemoriesNotice";
@@ -816,35 +816,34 @@ function regionalGapAiCommentary(suggestion: RegionalGapAiSuggestion, locale: Lo
     : "AI generated the regional targets shown here. Review the proposal before adopting it.";
 }
 
-const CELLAR_SOMMELIER_SESSION_ELIGIBILITY_KEY = "vinaris:cellar-sommelier-session-eligibility";
-const CELLAR_SOMMELIER_SESSION_PROMPT_KEY = "vinaris:cellar-sommelier-session-prompted";
+// The floating sommelier offers itself at most once a week, and keeps quiet for a
+// month once closed: the Sommelier AI tab and the row chips are always there.
+const CELLAR_SOMMELIER_NEXT_PROMPT_KEY = "vinaris:cellar-sommelier-next-prompt";
+const CELLAR_SOMMELIER_PROMPT_INTERVAL_MS = 7 * 86_400_000;
+const CELLAR_SOMMELIER_DISMISS_INTERVAL_MS = 30 * 86_400_000;
 
 function canShowAutomaticCellarSommelierPrompt() {
   try {
-    const eligibility = window.sessionStorage.getItem(CELLAR_SOMMELIER_SESSION_ELIGIBILITY_KEY);
-    if (eligibility) return eligibility === "eligible";
-    const isEligible = Math.random() < 0.25;
-    window.sessionStorage.setItem(CELLAR_SOMMELIER_SESSION_ELIGIBILITY_KEY, isEligible ? "eligible" : "not-eligible");
-    return isEligible;
-  } catch {
-    return Math.random() < 0.25;
-  }
-}
-
-function hasShownAutomaticCellarSommelierPrompt() {
-  try {
-    return window.sessionStorage.getItem(CELLAR_SOMMELIER_SESSION_PROMPT_KEY) === "shown";
+    return Date.now() >= Number(window.localStorage.getItem(CELLAR_SOMMELIER_NEXT_PROMPT_KEY) || 0);
   } catch {
     return false;
   }
 }
 
-function markAutomaticCellarSommelierPromptShown() {
+function hasShownAutomaticCellarSommelierPrompt() {
+  return !canShowAutomaticCellarSommelierPrompt();
+}
+
+function postponeCellarSommelierPrompt(intervalMs: number) {
   try {
-    window.sessionStorage.setItem(CELLAR_SOMMELIER_SESSION_PROMPT_KEY, "shown");
+    window.localStorage.setItem(CELLAR_SOMMELIER_NEXT_PROMPT_KEY, String(Date.now() + intervalMs));
   } catch {
     // The in-memory guard still prevents duplicates while this page remains open.
   }
+}
+
+function markAutomaticCellarSommelierPromptShown() {
+  postponeCellarSommelierPrompt(CELLAR_SOMMELIER_PROMPT_INTERVAL_MS);
 }
 
 const LazyCellarDonutAnalytics = lazy(() => import("./components/CellarAnalyticsCharts").then((module) => ({ default: module.CellarDonutAnalytics })));
@@ -7444,6 +7443,15 @@ export function App() {
     clearFilters(view);
   }
 
+  /** Arrow down from a search field moves into its feature shortcuts, if any. */
+  function focusFeatureSuggestion(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "ArrowDown") return;
+    const first = event.currentTarget.form?.querySelector<HTMLButtonElement>(".feature-suggestions button");
+    if (!first) return;
+    event.preventDefault();
+    first.focus();
+  }
+
   /** Features the search can open for this user: same rules as their usual entries. */
   function featureAvailable(id: FeatureId) {
     if (["add-quick", "add-receipt", "tasting"].includes(id)) return canWriteWine && !offlineMode;
@@ -9141,7 +9149,7 @@ export function App() {
             borderRadius: 20,
             background: "color-mix(in srgb, var(--surface-raised) 86%, transparent)",
             backdropFilter: "blur(14px) saturate(1.08)",
-            boxShadow: "0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 34px color-mix(in srgb, var(--accent) 42%, transparent), 0 20px 48px color-mix(in srgb, var(--collector-depth) 66%, transparent)",
+            boxShadow: "0 16px 36px color-mix(in srgb, var(--collector-depth) 40%, transparent)",
           }}
         >
           <header style={{ display: "grid", gridTemplateColumns: "58px minmax(0, 1fr) auto", alignItems: "center", gap: 10, padding: "10px 10px 10px 12px", background: "color-mix(in srgb, var(--surface-muted) 80%, transparent)" }}>
@@ -9165,7 +9173,7 @@ export function App() {
               type="button"
               aria-label={t("close")}
               title={t("close")}
-              onClick={() => setCellarSommelierVisible(false)}
+              onClick={() => { setCellarSommelierVisible(false); postponeCellarSommelierPrompt(CELLAR_SOMMELIER_DISMISS_INTERVAL_MS); }}
               style={{ display: "grid", placeItems: "center", width: 30, height: 30, padding: 0, border: "1px solid var(--border)", borderRadius: "50%", color: "var(--text-muted)", background: "var(--surface-raised)", boxShadow: "none", fontSize: "1.15rem" }}
             >
               ×
@@ -9247,6 +9255,7 @@ export function App() {
             <input
               value={searchQuery}
               onChange={(event) => openQuickWineSearch(event.target.value)}
+              onKeyDown={focusFeatureSuggestion}
               placeholder={t("searchPlaceholder")}
               aria-label={t("search")}
             />
@@ -9640,6 +9649,7 @@ export function App() {
               value={searchQuery}
               onChange={(event) => openQuickWineSearch(event.target.value)}
               onKeyDown={(event) => {
+                focusFeatureSuggestion(event);
                 if (event.key !== "Escape") return;
                 openQuickWineSearch("");
                 setMobileSearchOpen(false);
@@ -10253,19 +10263,6 @@ export function App() {
                 </button>
               ) : null}
             </form>
-              {canWriteWine ? (
-              <button
-                type="button"
-                className="quick-add-wine-button"
-                aria-label={locale === "it" ? "Aggiungi un vino" : "Add a wine"}
-                title={locale === "it" ? "Aggiungi un vino" : "Add a wine"}
-                onClick={startAddWineFromAnywhere}
-              >
-                  <span className="quick-add-wine-artwork" aria-hidden="true">
-                    <img src="/add-wine-action.png" alt="" />
-                  </span>
-              </button>
-            ) : null}
             </div>
           </div>
           ) : null}
@@ -10275,6 +10272,7 @@ export function App() {
                 {[
                   { key: "wishlist", icon: "wishlist" as const, label: t("wishlist"), description: locale === "it" ? "I vini da comprare, con il prezzo che vuoi pagare" : "Wines to buy, at the price you want to pay", open: () => openView("wishlist") },
                   ...(!isRestaurant ? [{ key: "history", icon: "calendar" as const, label: t("history"), description: locale === "it" ? "Bevute, Momenti e vini finiti" : "Tastings, Moments and finished wines", open: () => openView("history") }] : []),
+                  ...(!isRestaurant && !offlineMode ? [{ key: "moments", icon: "camera" as const, label: locale === "it" ? "Momenti" : "Moments", description: locale === "it" ? "I ricordi delle tue bevute, in polaroid" : "Memories of your tastings, as polaroids", open: () => { openView("history"); setHistorySection("moments"); } }] : []),
                   { key: "pulse", icon: "pulse" as const, label: "Wine Pulse", description: locale === "it" ? "Le notizie dal mondo del vino" : "News from the wine world", open: () => openView("pulse") },
                   { key: "search", icon: "search" as const, label: t("search"), description: locale === "it" ? "Un vino della tua cantina" : "A wine in your cellar", open: () => setMobileSearchOpen(true) },
                   { key: "help", icon: "grapes" as const, label: t("help"), description: locale === "it" ? "Come funziona ogni pagina" : "How each page works", open: () => openHelp() },
@@ -10435,7 +10433,7 @@ export function App() {
                     bottom: isMobileViewport ? "max(76px, calc(env(safe-area-inset-bottom, 0px) + 68px))" : 24,
                     zIndex: 75,
                     width: isMobileViewport ? "min(320px, calc(100vw - 24px))" : "min(360px, calc(100vw - 24px))",
-                    filter: "drop-shadow(0 0 20px color-mix(in srgb, var(--accent) 38%, transparent))",
+                    filter: "drop-shadow(0 10px 22px color-mix(in srgb, var(--collector-depth) 30%, transparent))",
                   }}
                 >
                   <div
@@ -10484,7 +10482,7 @@ export function App() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCellarSommelierVisible(false)}
+                      onClick={() => { setCellarSommelierVisible(false); postponeCellarSommelierPrompt(CELLAR_SOMMELIER_DISMISS_INTERVAL_MS); }}
                       aria-label={t("close")}
                       title={t("close")}
                       style={{
@@ -15063,19 +15061,6 @@ export function App() {
       /></Suspense> : null}
       {loading ? <GlobalLoadingOverlay label={t("loadingData")} /> : null}
       {aiOverlayRenderMode ? <AiGenerationOverlay mode={aiOverlayVisible ? aiOverlayRenderMode : ""} t={t} locale={locale} progress={aiOverlayProgress} /> : null}
-      {canWriteWine ? (
-        <button
-          type="button"
-          className="quick-add-wine-button quick-add-wine-mobile-fab"
-          aria-label={locale === "it" ? "Aggiungi un vino" : "Add a wine"}
-          title={locale === "it" ? "Aggiungi un vino" : "Add a wine"}
-          onClick={startAddWineFromAnywhere}
-        >
-          <span className="quick-add-wine-artwork" aria-hidden="true">
-            <img src="/add-wine-action.png" alt="" />
-          </span>
-        </button>
-      ) : null}
       {showBackToTop ? (
         <button
           type="button"

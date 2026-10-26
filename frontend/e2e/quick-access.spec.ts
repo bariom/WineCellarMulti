@@ -87,10 +87,10 @@ test("Moments and the assistant are a few taps away on the phone", async ({ page
   await expect(page.locator(".sommelier-hub").getByRole("button", { name: /^Chiedi alla tua cantina/ })).toBeVisible();
   await bar.getByRole("button", { name: "Menu", exact: true }).click();
   const sheet = page.locator(".mobile-navigation-sheet");
-  // The menu says where Momenti live.
-  await expect(sheet.getByRole("button", { name: "Diario", exact: true })).toHaveAccessibleDescription("Bevute, Momenti e vini finiti");
-  await sheet.getByRole("button", { name: "Diario", exact: true }).click();
-  await page.getByRole("tab", { name: "Momenti", exact: true }).click();
+  // Momenti has its own item in the menu, and opens the Diario on its tab.
+  await expect(sheet.getByRole("button", { name: "Momenti", exact: true })).toHaveAccessibleDescription("I ricordi delle tue bevute, in polaroid");
+  await sheet.getByRole("button", { name: "Momenti", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Momenti", exact: true })).toHaveAttribute("aria-selected", "true");
   await page.getByRole("region", { name: "Momenti", exact: true }).getByRole("button", { name: "Sfoglia i ricordi", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Momenti", exact: true })).toBeVisible();
 });

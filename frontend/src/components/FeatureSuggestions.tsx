@@ -1,3 +1,4 @@
+import type React from "react";
 import type { Locale } from "../types";
 import { AppIcon, type AppIconName } from "./AppIcon";
 import "./FeatureSuggestions.css";
@@ -79,7 +80,18 @@ export default function FeatureSuggestions({ query, locale, available, onOpen }:
   const it = locale === "it";
   const features = matchingFeatures(query, available, locale);
   if (!features.length) return null;
-  return <section className="feature-suggestions" aria-label={it ? "Funzioni" : "Features"}>
+  // Arrows move between the shortcuts; up from the first, or Escape, goes back to the field.
+  const onKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+    const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const field = event.currentTarget.closest("form")?.querySelector<HTMLInputElement>("input");
+    if (event.key === "ArrowDown") buttons[Math.min(index + 1, buttons.length - 1)]?.focus();
+    else if (event.key === "ArrowUp") (index > 0 ? buttons[index - 1] : field)?.focus();
+    else if (event.key === "Escape") field?.focus();
+    else return;
+    event.preventDefault();
+  };
+  return <section className="feature-suggestions" aria-label={it ? "Funzioni" : "Features"} onKeyDown={onKeyDown}>
     <p>{it ? "Funzioni" : "Features"}</p>
     {features.map((feature) => {
       const [title, description] = feature[it ? "it" : "en"];

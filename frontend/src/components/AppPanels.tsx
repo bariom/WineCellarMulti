@@ -1441,7 +1441,7 @@ export function WineDetail({
         </Suspense>
 
         <details className="wine-ai-tools" open={aiToolsOpen} onToggle={(event) => setAiToolsOpen(event.currentTarget.open)}>
-          <summary>{restaurantMode ? (locale === "it" ? "Completa i dati del vino con l’AI" : "Complete wine data with AI") : (locale === "it" ? "Strumenti AI" : "AI tools")}</summary>
+          <summary>{restaurantMode ? (locale === "it" ? "Completa i dati del vino con l’AI" : "Complete wine data with AI") : (locale === "it" ? "Sommelier AI per questo vino" : "Sommelier AI for this wine")}</summary>
           {wine.shared_data_features.length ? (
             <div className="shared-wine-data-notice">
               <strong>{locale === "it" ? "Dati Vinaris riutilizzati gratuitamente" : "Vinaris data reused at no cost"}</strong>

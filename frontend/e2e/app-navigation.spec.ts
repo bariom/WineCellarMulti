@@ -480,3 +480,20 @@ test("the Diario's Vendite and Momenti tabs never list wishlist wines", async ({
     await expect(page.locator(".wishlist-row")).toHaveCount(0);
   }
 });
+
+test("the cellar sommelier stays quiet: no halo, and a month of silence once closed", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page);
+  await page.goto("/");
+  await page.locator(".view-tabs-navigation").getByRole("button", { name: /^Cantina/ }).click();
+  // The row chip still opens it whenever the user wants.
+  await page.getByRole("button", { name: "Consiglio disponibile" }).first().click();
+  const sommelier = page.getByRole("complementary", { name: "Sommelier della cantina" });
+  await expect(sommelier).toBeVisible();
+  const shadow = await sommelier.locator("section").first().evaluate((element) => getComputedStyle(element).boxShadow);
+  expect(shadow).not.toContain("0px 0px 0px 6px");
+  await sommelier.getByRole("button", { name: "Chiudi" }).click();
+  await expect(sommelier).toHaveCount(0);
+  const nextPrompt = await page.evaluate(() => Number(localStorage.getItem("vinaris:cellar-sommelier-next-prompt")));
+  expect(nextPrompt - Date.now()).toBeGreaterThan(29 * 86_400_000);
+});

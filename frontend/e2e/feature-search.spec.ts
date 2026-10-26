@@ -42,3 +42,20 @@ test("the phone search finds settings by what they do", async ({ page }, testInf
   await expect(page.locator(".settings-workspace")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Dati", exact: true })).toHaveAttribute("aria-selected", "true");
 });
+
+test("the feature shortcuts can be reached and opened with the keyboard", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page);
+  await page.goto("/");
+  const field = page.locator(".desktop-topbar-search").getByRole("textbox");
+  await field.fill("diario");
+  await field.press("ArrowDown");
+  const shortcuts = page.locator(".desktop-topbar-search").getByRole("region", { name: "Funzioni" }).getByRole("button");
+  await expect(shortcuts.first()).toBeFocused();
+  // Up from the first shortcut goes back to the field.
+  await page.keyboard.press("ArrowUp");
+  await expect(field).toBeFocused();
+  await field.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("tab", { name: "Bottiglie bevute", exact: true })).toHaveAttribute("aria-selected", "true");
+});
