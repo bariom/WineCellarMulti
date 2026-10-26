@@ -18,7 +18,12 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentContext, get_current_context, require_write_context
+from app.api.deps import (
+    CurrentContext,
+    get_current_context,
+    require_app_admin_context,
+    require_write_context,
+)
 from app.api.routes.billing import stripe_ai_credit_amount
 from app.api.routes.catalog import search_catalog_entries
 from app.api.routes.intelligence import build_cellar_intelligence_snapshot
@@ -45,6 +50,7 @@ from app.db.session import get_db
 from app.models import (
     AiAuditLog,
     AppAiPricing,
+    AssistantFeedback,
     CellarAiCommand,
     User,
     UserAiCreditTransaction,
@@ -85,6 +91,8 @@ from app.schemas.ai import (
     BuyingAdviceResponse,
     BuyingRecommendation,
     CellarAssistantAnswer,
+    CellarAssistantFeedbackRequest,
+    CellarAssistantFeedbackResponse,
     CellarAssistantQuestion,
     CellarAssistantWineLink,
     CellarCommandCatalogCandidate,
@@ -2872,6 +2880,42 @@ def ask_cellar_assistant(
         pairing_dish=str(pairing_result.get("dish") or ""),
         pairing=pairing_result.get("response"),
     )
+
+
+@router.post("/cellar-assistant/feedback", status_code=status.HTTP_204_NO_CONTENT)
+def rate_cellar_assistant_answer(
+    payload: CellarAssistantFeedbackRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> None:
+    """Keep a thumb on one answer, with what was asked and answered, to improve them."""
+    ensure_cellar_ai_assistant_available(context)
+    db.add(
+        AssistantFeedback(
+            household_id=context.household.id,
+            user_id=context.user.id,
+            rating=payload.rating,
+            question=payload.question.strip(),
+            answer=payload.answer.strip(),
+            comment=payload.comment.strip(),
+            model=payload.model.strip(),
+            tools_used=[str(tool)[:60] for tool in payload.tools_used],
+        )
+    )
+    db.commit()
+
+
+@router.get("/cellar-assistant/feedback", response_model=list[CellarAssistantFeedbackResponse])
+def list_cellar_assistant_feedback(
+    rating: Literal["up", "down"] | None = None,
+    db: Session = Depends(get_db),
+    _context: CurrentContext = Depends(require_app_admin_context),
+) -> list[AssistantFeedback]:
+    """The latest thumbs, for the app administrator reviewing the assistant."""
+    query = select(AssistantFeedback).order_by(AssistantFeedback.created_at.desc()).limit(200)
+    if rating:
+        query = query.where(AssistantFeedback.rating == rating)
+    return list(db.scalars(query))
 
 
 @router.post("/cellar-commands", response_model=CellarCommandResponse)

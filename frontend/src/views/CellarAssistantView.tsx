@@ -29,6 +29,10 @@ type ConversationTurn = {
   wines?: AssistantWineLink[];
   /** Questions the assistant suggests asking next. */
   followUps?: string[];
+  /** For a thumb: which model answered with which tools, and the user's verdict. */
+  model?: string;
+  tools?: string[];
+  rating?: "up" | "down";
 };
 
 function loadConversation(key: string | undefined): ConversationTurn[] {
@@ -610,6 +614,28 @@ export default function CellarAssistantView({
     });
   }
 
+  // The answer whose thumb down is asking what went wrong.
+  const [critiqueIndex, setCritiqueIndex] = useState<number | null>(null);
+  const [critique, setCritique] = useState("");
+
+  /** Rate one answer: with the question asked and the answer given, to improve them. */
+  async function rate(index: number, rating: "up" | "down", comment = "") {
+    const turn = conversation[index];
+    const question = conversation.slice(0, index).reverse().find((item) => item.role === "user")?.content || "";
+    setConversation((current) => current.map((item, position) => (position === index ? { ...item, rating } : item)));
+    setCritiqueIndex(null);
+    setCritique("");
+    try {
+      await api("/api/v1/ai/cellar-assistant/feedback", {
+        method: "POST",
+        body: JSON.stringify({ rating, question: question.slice(0, 2000), answer: turn.content.slice(0, 6000), comment: comment.slice(0, 500), model: turn.model || "", tools_used: (turn.tools || []).slice(0, 20) }),
+      });
+    } catch {
+      // A lost thumb is not worth an error message; the user can rate again.
+      setConversation((current) => current.map((item, position) => (position === index ? { ...item, rating: undefined } : item)));
+    }
+  }
+
   async function askAssistant(question: string) {
     setPendingQuestion(question);
     try {
@@ -631,6 +657,8 @@ export default function CellarAssistantView({
         meta: `${answer.model} · ${requestCostLabel(answer.estimated_cost_usd)}`,
         ...(answer.wines?.length ? { wines: answer.wines } : {}),
         ...(answer.follow_ups?.length ? { followUps: answer.follow_ups } : {}),
+        model: answer.model,
+        tools: answer.tools_used,
         ...(answer.pairing && answer.pairing_dish ? { pairing: { dish: answer.pairing_dish, result: answer.pairing } } : {}),
       },
     ]);
@@ -887,8 +915,23 @@ export default function CellarAssistantView({
             </button> : null}
             {turn.role === "assistant" && (turn.meta || canSpeak) ? <div className="cellar-assistant-turn-footer">
               {turn.meta ? <small>{turn.meta}</small> : <span />}
+              {turn.model ? <span className="cellar-assistant-rating" role="group" aria-label={isItalian ? "Valuta la risposta" : "Rate the answer"}>
+                <button type="button" aria-pressed={turn.rating === "up"} aria-label={isItalian ? "Risposta utile" : "Helpful answer"} title={isItalian ? "Risposta utile" : "Helpful answer"} onClick={() => void rate(index, "up")} disabled={Boolean(turn.rating)}>👍</button>
+                <button type="button" aria-pressed={turn.rating === "down"} aria-label={isItalian ? "Risposta da migliorare" : "Answer to improve"} title={isItalian ? "Risposta da migliorare" : "Answer to improve"} onClick={() => { setCritiqueIndex(index); setCritique(""); }} disabled={Boolean(turn.rating)}>👎</button>
+              </span> : null}
               {canSpeak ? <button type="button" className={`cellar-assistant-speak${speakingIndex === index ? " is-speaking" : ""}`} aria-pressed={speakingIndex === index} aria-label={speakingIndex === index ? (isItalian ? "Ferma la lettura" : "Stop reading") : (isItalian ? "Leggi ad alta voce" : "Read aloud")} title={speakingIndex === index ? (isItalian ? "Ferma la lettura" : "Stop reading") : (isItalian ? "Leggi ad alta voce" : "Read aloud")} onClick={() => toggleSpeech(index, turn.content)}><span aria-hidden="true">{speakingIndex === index ? "■" : "🔊"}</span></button> : null}
             </div> : turn.meta ? <small>{turn.meta}</small> : null}
+            {critiqueIndex === index && !turn.rating ? <form className="cellar-assistant-critique" onSubmit={(event) => { event.preventDefault(); void rate(index, "down", critique.trim()); }}>
+              <label>
+                <span>{isItalian ? "Cosa non andava? (facoltativo)" : "What was wrong? (optional)"}</span>
+                <textarea rows={2} maxLength={500} value={critique} onChange={(event) => setCritique(event.target.value)} placeholder={isItalian ? "Es. ho tre Barolo, non due" : "E.g. I have three Barolo, not two"} />
+              </label>
+              <div>
+                <button type="button" className="secondary compact" onClick={() => setCritiqueIndex(null)}>{isItalian ? "Annulla" : "Cancel"}</button>
+                <button type="submit" className="compact">{isItalian ? "Invia" : "Send"}</button>
+              </div>
+            </form> : null}
+            {turn.rating ? <small className="cellar-assistant-rated" role="status">{isItalian ? "Grazie: domanda e risposta sono state salvate per migliorare l'assistente." : "Thank you: question and answer were saved to improve the assistant."}</small> : null}
           </li>)}
           {pendingQuestion ? <>
             <li className="is-user" ref={latestQuestionRef}><p>{pendingQuestion}</p></li>

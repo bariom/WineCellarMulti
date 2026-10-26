@@ -7,6 +7,11 @@ async function setup(page: Page) {
     const previous = window.fetch;
     window.fetch = async (input, init) => {
       const path = new URL(String(input instanceof Request ? input.url : input), location.href).pathname;
+      if (path === "/api/v1/ai/cellar-assistant/feedback") {
+        const rated = JSON.parse(sessionStorage.getItem("rated") || "[]");
+        sessionStorage.setItem("rated", JSON.stringify([...rated, JSON.parse(String(init?.body))]));
+        return new Response(null, { status: 204 });
+      }
       if (path === "/api/v1/ai/cellar-assistant/ask") {
         const body = JSON.parse(String(init?.body));
         const asked = JSON.parse(sessionStorage.getItem("asked") || "[]");
@@ -62,3 +67,32 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 
     await expect(conversation).toContainText("Al picco c'è solo questo vino.");
   });
 }
+
+test("each answer can be rated once, and a thumb down asks what was wrong", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setup(page);
+  await page.goto("/");
+  await openSommelierFeature(page, /^Chiedi alla tua cantina/);
+  await page.getByLabel("Chiedi o racconta", { exact: true }).fill("Quanti Nebbiolo ho?");
+  await page.getByRole("button", { name: "Continua", exact: true }).click();
+  const conversation = page.getByRole("region", { name: "Conversazione con l'assistente" });
+  await conversation.locator(".cellar-assistant-follow-ups").getByRole("button", { name: "Quali sono al picco?" }).click();
+  await expect(conversation).toContainText("Al picco c'è solo questo vino.");
+  const answers = conversation.locator("li.is-assistant");
+
+  await answers.nth(0).getByRole("button", { name: "Risposta utile" }).click();
+  await expect(answers.nth(0).getByRole("status")).toContainText("Grazie");
+  await expect(answers.nth(0).getByRole("button", { name: "Risposta da migliorare" })).toBeDisabled();
+
+  await answers.nth(1).getByRole("button", { name: "Risposta da migliorare" }).click();
+  await answers.nth(1).getByLabel("Cosa non andava? (facoltativo)").fill("Ne ho due al picco");
+  await answers.nth(1).getByRole("button", { name: "Invia", exact: true }).click();
+  await expect(answers.nth(1).getByRole("status")).toContainText("Grazie");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+
+  const rated = await page.evaluate(() => JSON.parse(sessionStorage.getItem("rated") || "[]"));
+  expect(rated).toEqual([
+    expect.objectContaining({ rating: "up", question: "Quanti Nebbiolo ho?", model: "test-model", tools_used: ["search_wines"] }),
+    expect.objectContaining({ rating: "down", question: "Quali sono al picco?", answer: "Al picco c'è solo questo vino.", comment: "Ne ho due al picco" }),
+  ]);
+});

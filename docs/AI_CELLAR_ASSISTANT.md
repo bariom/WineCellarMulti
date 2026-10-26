@@ -86,6 +86,9 @@ The app keeps the conversation for the browser session (per user and cellar), so
 and coming back does not lose it. Tool rows carry a short `ref` per wine (never its id): the answer
 returns the refs of the wines it names, which the server turns into links to their pages, and up to
 three follow-up questions shown as chips under the latest answer (prompt v6).
+Each answer can be rated 👍 or 👎 once (a 👎 may add what was wrong). Only then are the question and
+the answer stored, in `assistant_feedback` (migration `0125`), and the app says so; app admins read
+them in Settings → Operatività → Assistente AI, the 👎 first, to improve the prompt on real questions.
 
 ## Food pairings
 

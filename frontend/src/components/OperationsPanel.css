@@ -165,3 +165,14 @@
   .operations-area .operations-ai-pricing-heading > div:last-child { justify-content: start; }
   .operations-area .operations-ai-pricing-heading button { flex: 1 1 130px; min-height: 44px; white-space: normal; }
 }
+
+/* Feedback on the cellar assistant: the answers to improve first. */
+.assistant-feedback-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.assistant-feedback-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.assistant-feedback-list > li { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.assistant-feedback-list > li.is-down { border-left: 3px solid var(--danger); }
+.assistant-feedback-list > li.is-up { border-left: 3px solid var(--success, #2e7d4f); }
+.assistant-feedback-list header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: baseline; }
+.assistant-feedback-list header small { grid-column: 2; color: var(--text-muted); font-size: .75rem; }
+.assistant-feedback-comment { margin: 0; font-style: italic; }
+.assistant-feedback-list details p { margin: 6px 0 0; color: var(--text-muted); white-space: pre-wrap; }

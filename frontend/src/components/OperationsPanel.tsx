@@ -118,6 +118,7 @@ type VineyardResearchResult = {
 };
 type VineyardFeedback = VineyardResearchResult & Pick<VineyardCandidate, "name" | "producer" | "vintage"> & { mode: "research" | "manual" };
 const VineyardLocationEditor = lazy(() => import("./VineyardLocationEditor"));
+const AssistantFeedbackReview = lazy(() => import("./AssistantFeedbackReview"));
 const VINEYARD_PAGE_SIZE = 8;
 
 function usd(value: number, locale: Locale) {
@@ -456,6 +457,7 @@ export function OperationsPanel({ locale, overview, activity, onRefresh, sensory
           ["pulse", "Wine Pulse", isItalian ? "Notizie e fonti" : "News and sources"],
           ["costs", isItalian ? "Costi AI" : "AI costs", isItalian ? "Spesa e listino" : "Spending and pricing"],
           ["devices", isItalian ? "Dispositivi" : "Devices", isItalian ? "Accessi a Monitor" : "Monitor access"],
+          ["assistant", isItalian ? "Assistente AI" : "AI assistant", isItalian ? "Giudizi sulle risposte" : "Feedback on answers"],
         ].map(([id, title, description], index) => <button type="button" key={id} aria-pressed={area === id} aria-controls={`operations-area-${id}`} onClick={() => setArea(id)}>
           <span className="operations-area-number">0{index + 1}</span><strong>{title}</strong>{id === "catalog" && catalogPendingCount > 0 ? <span className="operations-pending">{catalogPendingCount} {isItalian ? "da approvare" : "pending"}</span> : null}<small>{description}</small>
         </button>)}
@@ -745,6 +747,10 @@ export function OperationsPanel({ locale, overview, activity, onRefresh, sensory
         {vineyardError ? <p role="alert">{vineyardError}</p> : null}
       </section>
         </details>
+      </section>
+      <section id="operations-area-assistant" className="operations-area" hidden={area !== "assistant"} aria-label={isItalian ? "Assistente AI" : "AI assistant"}>
+        <div className="operations-area-intro"><h4>{isItalian ? "Le risposte da migliorare" : "Answers to improve"}</h4><p>{isItalian ? "I 👍 e 👎 dati alle risposte di «Chiedi alla tua cantina», con la domanda e il commento: la base per migliorare le istruzioni dell’assistente." : "The 👍 and 👎 given to “Ask your cellar” answers, with the question and comment: the basis for improving the assistant’s instructions."}</p></div>
+        {area === "assistant" ? <Suspense fallback={<LoadingState label={isItalian ? "Caricamento…" : "Loading…"} />}><AssistantFeedbackReview locale={locale} /></Suspense> : null}
       </section>
       <section id="operations-area-pulse" className="operations-area" hidden={area !== "pulse"} aria-label={isItalian ? "Wine Pulse" : "Wine Pulse"}>
       <section className="operations-wine-pulse" aria-label="Vinaris Wine Pulse">

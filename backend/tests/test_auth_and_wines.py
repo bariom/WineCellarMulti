@@ -10857,3 +10857,38 @@ def test_wine_list_and_detail_carry_the_same_tasting_summary():
         "last_consumed_at": None,
     }
     assert client.get(f"/api/v1/wines/{wine_id}").json()["tasting_summary"] == expected
+
+
+def test_cellar_assistant_feedback_is_kept_for_the_app_admin_only(monkeypatch):
+    monkeypatch.setattr(settings, "cellar_ai_assistant_enabled", True)
+    admin_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+    rated = admin_client.post(
+        "/api/v1/ai/cellar-assistant/feedback",
+        json={
+            "rating": "down", "question": "  Quanti Barolo ho?  ", "answer": "Non lo so.",
+            "comment": "Ne ho tre in cantina", "model": "gpt-6-luna", "tools_used": ["search_wines"],
+        },
+    )
+    assert rated.status_code == 204, rated.text
+    assert admin_client.post(
+        "/api/v1/ai/cellar-assistant/feedback", json={"rating": "maybe", "question": "?"}
+    ).status_code == 422
+    feedback = admin_client.get("/api/v1/ai/cellar-assistant/feedback").json()
+    assert [(item["rating"], item["question"], item["comment"]) for item in feedback] == [
+        ("down", "Quanti Barolo ho?", "Ne ho tre in cantina")
+    ]
+    assert admin_client.get("/api/v1/ai/cellar-assistant/feedback?rating=up").json() == []
+
+    # Another user rates only if the assistant is theirs, and never reads others' thumbs.
+    user_client = TestClient(app)
+    assert register(user_client, email="rater@example.com", password="strong-password-2").status_code == 201
+    pending_user = next(
+        user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "rater@example.com"
+    )
+    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
+    assert user_client.post("/api/v1/auth/login", json={"email": "rater@example.com", "password": "strong-password-2"}).status_code == 200
+    assert user_client.get("/api/v1/ai/cellar-assistant/feedback").status_code == 403
+    assert user_client.post(
+        "/api/v1/ai/cellar-assistant/feedback", json={"rating": "up", "question": "?", "answer": "!"}
+    ).status_code == 402

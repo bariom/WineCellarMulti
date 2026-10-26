@@ -1,6 +1,7 @@
 from app.models.ai_audit import AiAuditLog
 from app.models.announcement import AdminAnnouncement
 from app.models.app_ai_pricing import AppAiPricing
+from app.models.assistant_feedback import AssistantFeedback
 from app.models.billing import (
     RedeemCode,
     RedeemRedemption,
@@ -62,6 +63,7 @@ from app.models.wine_share import WineShareOffer
 from app.models.wishlist import ExternalWineTasting, WishlistItem, WishlistList
 
 __all__ = [
+    "AssistantFeedback",
     "PurchaseImport",
     "PurchaseDocumentWine",
     "SensoryRefinementRun",

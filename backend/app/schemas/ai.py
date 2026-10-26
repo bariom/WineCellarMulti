@@ -561,6 +561,30 @@ class CellarAssistantQuestion(AiGenerationRequest):
     pairing_max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
 
 
+class CellarAssistantFeedbackRequest(BaseModel):
+    """A thumb on one answer; question and answer are kept only because the user rated them."""
+
+    rating: Literal["up", "down"]
+    question: str = Field(default="", max_length=2000)
+    answer: str = Field(default="", max_length=6000)
+    comment: str = Field(default="", max_length=500)
+    model: str = Field(default="", max_length=80)
+    tools_used: list[str] = Field(default_factory=list, max_length=20)
+
+
+class CellarAssistantFeedbackResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    rating: str
+    question: str
+    answer: str
+    comment: str
+    model: str
+    tools_used: list[str]
+    created_at: datetime
+
+
 class CellarAssistantWineLink(BaseModel):
     """A wine the answer names, for the app to open its page."""
 

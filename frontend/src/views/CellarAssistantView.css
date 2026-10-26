@@ -175,3 +175,28 @@
 .cellar-assistant-follow-ups { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
 .cellar-assistant-follow-ups > small { flex-basis: 100%; color: var(--text-muted); font-size: .72rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .cellar-assistant-follow-ups button { min-height: 36px; padding: 6px 12px; border-radius: 999px; font-size: .82rem; text-align: left; white-space: normal; }
+
+/* A thumb on each answer, beside the read-aloud button. */
+.cellar-assistant-rating { display: inline-flex; gap: 4px; margin-left: auto; }
+.cellar-assistant-rating button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: none;
+  font-size: .95rem;
+  filter: grayscale(.6);
+}
+.cellar-assistant-rating button:hover:not(:disabled), .cellar-assistant-rating button[aria-pressed="true"] { filter: none; border-color: color-mix(in srgb, #b8964c 60%, var(--border)); }
+.cellar-assistant-rating button:disabled:not([aria-pressed="true"]) { opacity: .35; }
+.cellar-assistant-critique { display: grid; gap: 8px; margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 14px; background: color-mix(in srgb, var(--surface-muted) 60%, var(--surface)); }
+.cellar-assistant-critique label { display: grid; gap: 6px; }
+.cellar-assistant-critique label > span { color: var(--text-muted); font-size: .8rem; font-weight: 700; }
+.cellar-assistant-critique textarea { min-height: 0; resize: vertical; }
+.cellar-assistant-critique > div { display: flex; justify-content: flex-end; gap: 8px; }
+.cellar-assistant-rated { display: block; margin-top: 6px; color: var(--text-muted); font-size: .76rem; }
