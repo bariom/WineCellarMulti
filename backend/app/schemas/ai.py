@@ -561,6 +561,11 @@ class CellarAssistantQuestion(AiGenerationRequest):
     pairing_max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
 
 
+class CellarAssistantSpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=6000)
+    locale: Literal["it", "en"] = "it"
+
+
 class CellarAssistantFeedbackRequest(BaseModel):
     """A thumb on one answer; question and answer are kept only because the user rated them."""
 

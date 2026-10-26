@@ -3,6 +3,7 @@
 from app.prompts.library import (
     Prompt,
     ai_notes_prompt,
+    assistant_speech_prompt,
     buying_advice_prompt,
     cellar_assistant_prompt,
     cellar_command_prompt,
@@ -28,6 +29,7 @@ from app.prompts.library import (
 
 __all__ = [
     "Prompt",
+    "assistant_speech_prompt",
     "ai_notes_prompt",
     "buying_advice_prompt",
     "cellar_assistant_prompt",

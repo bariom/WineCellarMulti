@@ -90,6 +90,18 @@ Each answer can be rated 👍 or 👎 once (a 👎 may add what was wrong). Only
 the answer stored, in `assistant_feedback` (migration `0125`), and the app says so; app admins read
 them in Settings → Operatività → Assistente AI, the 👎 first, to improve the prompt on real questions.
 
+## Natural AI voice
+
+By default answers are read by the browser's own voice (free, nothing leaves the device). In the
+assistant a user can turn on "Voce naturale AI" on their device: answers are then read by
+`gpt-4o-mini-tts` (voice `OPENAI_TTS_VOICE`, a warm sommelier tone set by the prompt
+`cellar.assistant.speech`) through `POST /api/v1/ai/cellar-assistant/speech`, which returns MP3. The
+speech API's SSE format reports the text and audio tokens used, so the reading is billed exactly
+like any AI request: credit reserved before, settled after (any excess charged too, never less),
+AI Pack markup, audit entry; about $0.006 for a 25-second answer at $0.60/1M text and $12/1M audio
+tokens. Only the first 1500 characters are read. If the voice is not available (no credit,
+network, a blocked player), the browser's voice reads the answer instead.
+
 ## Food pairings
 
 "Che cosa apro con un salmì di cervo?" is answered in the conversation (and aloud in voice mode):

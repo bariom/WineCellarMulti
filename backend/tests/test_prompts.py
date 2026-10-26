@@ -1,4 +1,5 @@
 from app.prompts import (
+    assistant_speech_prompt,
     ai_notes_prompt,
     buying_advice_prompt,
     cellar_command_prompt,
@@ -392,3 +393,11 @@ def test_wine_bottles_prompt_counts_identical_bottles_and_points_at_labels():
     assert "Different vintages of the same wine are different entries" in prompt.system
     assert "1024 pixels wide and 768 pixels high" in prompt.user
     assert "untrusted reference material" in prompt.user
+
+
+def test_assistant_speech_prompt_sets_a_sommelier_voice_in_the_user_language():
+    italian = assistant_speech_prompt(locale="it")
+    english = assistant_speech_prompt(locale="en")
+    assert (italian.id, italian.version) == ("cellar.assistant.speech", "1")
+    assert "italiano" in italian.system and "sommelier" in italian.system
+    assert "English" in english.system and "sommelier" in english.system

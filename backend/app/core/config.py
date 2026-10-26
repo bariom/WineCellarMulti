@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     openai_costs_url: str = "https://api.openai.com/v1/organization/costs"
     openai_costs_cache_seconds: int = 300
     openai_responses_url: str = "https://api.openai.com/v1/responses"
+    # The assistant's natural voice (Riserva): a steerable TTS model, billed per token.
+    openai_speech_url: str = "https://api.openai.com/v1/audio/speech"
+    openai_tts_model: str = "gpt-4o-mini-tts"
+    openai_tts_voice: str = "coral"
     # OPENAI_MODEL and the feature-specific variables remain as compatibility
     # aliases for existing deployments. Model selection is centralized in
     # app.services.ai_models and defaults to GPT-5.5 while the rollout flag is disabled.
