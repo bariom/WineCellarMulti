@@ -1,4 +1,5 @@
 import type { Locale } from "../types";
+import { pronounceForItalianVoice } from "./pronunciation";
 
 /**
  * Read text aloud with the browser's own speech synthesis: no AI cost and no
@@ -25,6 +26,8 @@ export function spokenText(text: string) {
  */
 export function voiceQuality(voice: Pick<SpeechSynthesisVoice, "name" | "localService">) {
   const name = voice.name.toLowerCase();
+  // One speaker for every language: names keep their own pronunciation, in the same voice.
+  if (name.includes("multilingual")) return 5;
   if (/natural|online/.test(name)) return 4;
   if (/premium|enhanced|neural/.test(name)) return 3;
   if (name.includes("google")) return 2;
@@ -41,12 +44,26 @@ export function stopSpeaking() {
   if (speechSupported()) window.speechSynthesis.cancel();
 }
 
+// French names of this cellar, respelled for an Italian voice so they are not read letter by letter.
+let frenchNames: string[] = [];
+
+export function setFrenchNames(names: string[]) {
+  frenchNames = names;
+}
+
+/** What the voice is given to read: names respelled for an Italian voice that is not multilingual. */
+export function textForVoice(text: string, locale: Locale, voice: Pick<SpeechSynthesisVoice, "name"> | null) {
+  const spoken = spokenText(text);
+  if (locale !== "it" || voice?.name.toLowerCase().includes("multilingual")) return spoken;
+  return pronounceForItalianVoice(spoken, frenchNames);
+}
+
 /** Speak the text, replacing anything already being read. Returns false when unsupported. */
 export function speak(text: string, locale: Locale, onEnd?: () => void) {
   if (!speechSupported()) return false;
-  const utterance = new window.SpeechSynthesisUtterance(spokenText(text));
-  utterance.lang = locale === "it" ? "it-IT" : "en-US";
   const voice = voiceFor(locale);
+  const utterance = new window.SpeechSynthesisUtterance(textForVoice(text, locale, voice));
+  utterance.lang = locale === "it" ? "it-IT" : "en-US";
   if (voice) utterance.voice = voice;
   utterance.onend = () => onEnd?.();
   utterance.onerror = () => onEnd?.();

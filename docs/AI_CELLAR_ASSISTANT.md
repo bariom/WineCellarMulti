@@ -180,7 +180,12 @@ Each assistant answer has a speaker button, and the option "Leggi le risposte ad
 new answers and command outcomes automatically. Both use the browser's own speech synthesis
 (`speechSynthesis`) in the app language, choosing the most natural voice the browser offers (Edge's
 neural "Natural"/"Online" voices, then Apple's enhanced voices, then Google's in Chrome, then the
-plain system voice): there is no AI cost. A paid OpenAI voice was tried and removed: it was slow to
+plain system voice): there is no AI cost. Edge's "Multilingual" neural voices come first: one
+speaker for every language, so French names keep their own pronunciation in the same voice. With an
+Italian voice that is not multilingual, the French names of the cellar (name, producer and
+appellation of wines from France or a French region) and the typical words of French labels are
+respelled for it before reading (`utils/pronunciation.ts`: "Château Pontet-Canet" is read as
+"Sciatò Pontè-Canè"); the screen keeps the names as written. A paid OpenAI voice was tried and removed: it was slow to
 start and did not sound better enough to justify about $0.006 per answer. The option is remembered in this browser only. Mobile Safari speaks only
 after a tap, so sending a message with the option on unlocks speech for the answer. Browsers without
 speech synthesis show no speaker controls.

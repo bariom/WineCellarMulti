@@ -25,7 +25,8 @@ import { runWineShelfScan } from "./services/wineShelfScan";
 import type { BatchAiItem, BatchAiRun } from "./components/BatchAiReport";
 import type { SommelierDestination } from "./views/SommelierHubView";
 import type { FeatureId } from "./components/FeatureSuggestions";
-import { primeSpeech } from "./utils/speech";
+import { primeSpeech, setFrenchNames } from "./utils/speech";
+import { isFrenchWine } from "./utils/pronunciation";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
 import { wineToDraft, draftPayload, wishlistToDraft, wishlistPayload } from "./domain/drafts";
@@ -1248,6 +1249,10 @@ export function App() {
   const [assistantVoiceStart, setAssistantVoiceStart] = useState<number | null>(null);
   // A pairing the assistant got from the Sommelier AI, opened in the pairing view.
   const [pairingFromAssistant, setPairingFromAssistant] = useState(false);
+  // The voice reads the French names of this cellar as an Italian speaker would say them.
+  useEffect(() => {
+    setFrenchNames(wines.filter(isFrenchWine).flatMap((wine) => [wine.name, wine.producer, wine.appellation]));
+  }, [wines]);
   // Where a pairing visit starts when it comes from the Sommelier AI page.
   const [pairingStartPlace, setPairingStartPlace] = useState<"choose" | "home" | "restaurant">("choose");
   const [tastingOrigin, setTastingOrigin] = useState<"" | "cellar" | "external">("");
