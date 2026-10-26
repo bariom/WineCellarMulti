@@ -393,8 +393,8 @@ for (const width of [360, 390, 430]) {
       await expect(featured).toBeVisible();
       expect(await navigation.evaluate(element => element.getBoundingClientRect().top + window.scrollY)).toBeCloseTo(navigationTop, 1);
     }
-    await navigation.getByText("Approfondimenti", { exact: true }).click();
-    await expect(navigation.getByRole("tablist", { name: "Approfondimenti", exact: true })).toBeVisible();
+    await navigation.getByText("Analisi", { exact: true }).click();
+    await expect(navigation.getByRole("tablist", { name: "Analisi", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 }

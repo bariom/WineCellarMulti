@@ -1,0 +1,51 @@
+/* Shortcuts to features under the search field, above the page. */
+.feature-suggestions {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, #b8964c 40%, var(--border));
+  border-radius: 16px;
+  background: var(--surface-raised);
+  box-shadow: 0 18px 40px -16px color-mix(in srgb, #0f1c17 55%, transparent);
+  color: var(--text);
+  text-align: left;
+}
+.feature-suggestions > p {
+  margin: 2px 8px 4px;
+  color: var(--text-muted);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.feature-suggestions > button {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  text-align: left;
+}
+.feature-suggestions > button:hover,
+.feature-suggestions > button:focus-visible { background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
+.feature-suggestions > button .app-icon { color: #b8964c; font-size: 1.1rem; }
+.feature-suggestions > button > span:nth-child(2) { display: grid; gap: 1px; min-width: 0; }
+.feature-suggestions strong { font-size: .9rem; }
+.feature-suggestions small { overflow: hidden; color: var(--text-muted); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.feature-suggestions > button > span:last-child { color: var(--accent); }
+
+/* The search forms anchor the panel. */
+.desktop-topbar-search,
+.mobile-topbar-search { position: relative; }

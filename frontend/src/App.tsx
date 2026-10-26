@@ -24,6 +24,7 @@ import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError }
 import { runWineShelfScan } from "./services/wineShelfScan";
 import type { BatchAiItem, BatchAiRun } from "./components/BatchAiReport";
 import type { SommelierDestination } from "./views/SommelierHubView";
+import type { FeatureId } from "./components/FeatureSuggestions";
 import { primeSpeech } from "./utils/speech";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
@@ -129,6 +130,7 @@ const AddWineChooser = lazy(() => import("./components/AddWineChooser"));
 const AppNewsPanel = lazy(() => import("./components/AppNewsPanel"));
 const BatchAiReport = lazy(() => import("./components/BatchAiReport"));
 const SommelierHubView = lazy(() => import("./views/SommelierHubView"));
+const FeatureSuggestions = lazy(() => import("./components/FeatureSuggestions"));
 const WishlistLiveTasteScanner = lazy(() => import("./components/WishlistLiveTasteScanner"));
 const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView"));
 const AI_PACK_ENHANCEMENT_DISMISS_KEY = "vinaris.ai-pack-enhancement-dismissed-until";
@@ -7442,6 +7444,55 @@ export function App() {
     clearFilters(view);
   }
 
+  /** Features the search can open for this user: same rules as their usual entries. */
+  function featureAvailable(id: FeatureId) {
+    if (["add-quick", "add-receipt", "tasting"].includes(id)) return canWriteWine && !offlineMode;
+    if (["add-detailed", "wishlist-add"].includes(id)) return canWriteWine;
+    if (id === "assistant") return !isRestaurant && canAccessCellarAssistant;
+    if (["strategy", "moments", "tastings", "archived"].includes(id)) return !isRestaurant && (id !== "moments" || !offlineMode);
+    if (["news", "pulse"].includes(id)) return !offlineMode;
+    if (["value", "readiness", "timeline", "data-quality", "taste", "personal-dashboard"].includes(id)) return !isRestaurant;
+    if (["tags", "settings-ai"].includes(id)) return canWriteWine;
+    return true;
+  }
+
+  /** Open a feature picked from the search, leaving the search empty behind it. */
+  function openFeature(id: FeatureId) {
+    setSearchQuery("");
+    setMobileSearchOpen(false);
+    const settings = (tab: SettingsTab) => { setActiveView("settings"); setSettingsTab(tab); loadSettingsTabData(tab); };
+    const home = (focus: DashboardFocus) => { openView("home"); setDashboardFocus(focus); };
+    const diary = (section: HistorySection) => { openView("history"); setHistorySection(section); };
+    switch (id) {
+      case "add-quick": setBottlePhotoImportOpen(true); break;
+      case "add-detailed": startDetailedWine(); break;
+      case "add-receipt": setPurchaseImportOpen(true); break;
+      case "tasting": setRecordTastingOpen(true); break;
+      case "wishlist-add": openView("wishlist"); startAddWishlistItem(); break;
+      case "assistant": openSommelierFeature("assistant"); break;
+      case "pairing-home": case "pairing-restaurant": case "shelf": case "buying": case "strategy": openSommelierFeature(id); break;
+      case "moments": diary("moments"); break;
+      case "tastings": diary("tastings"); break;
+      case "archived": diary("wines"); break;
+      case "sales": diary("sales"); break;
+      case "pulse": openView("pulse"); break;
+      case "value": home("value"); break;
+      case "readiness": home("readiness"); break;
+      case "timeline": home("timeline"); break;
+      case "data-quality": home("data"); break;
+      case "taste": home("taste"); break;
+      case "personal-dashboard": home("personal"); break;
+      case "subscription": openSubscriptionSettings(); break;
+      case "settings-ai": settings("ai"); break;
+      case "storage": settings("storage"); break;
+      case "tags": settings("tags"); break;
+      case "cellars": settings("sharing"); break;
+      case "data": settings("data"); break;
+      case "help": openHelp(); break;
+      case "news": openNews(true, true); break;
+    }
+  }
+
   /** The Sommelier AI page leads to each AI feature, already on the right path. */
   function openSommelierFeature(destination: SommelierDestination) {
     if (destination === "assistant") openView("assistant");
@@ -9210,6 +9261,7 @@ export function App() {
                 ×
               </button>
             ) : null}
+            {searchQuery ? <Suspense fallback={null}><FeatureSuggestions query={searchQuery} locale={locale} available={featureAvailable} onOpen={openFeature} /></Suspense> : null}
           </form>
         ) : null}
         {authenticated ? (
@@ -9333,7 +9385,7 @@ export function App() {
                           : category === "action"
                           ? (locale === "it" ? "Da fare" : "To do")
                           : category === "update"
-                            ? (locale === "it" ? "Novità" : "Updates")
+                            ? (locale === "it" ? "Aggiornamenti" : "Updates")
                             : (locale === "it" ? "Sistema" : "System");
                         return (
                           <button
@@ -9596,6 +9648,7 @@ export function App() {
               aria-label={t("search")}
             />
             <button type="button" onClick={() => { openQuickWineSearch(""); setMobileSearchOpen(false); }} aria-label={locale === "it" ? "Chiudi ricerca" : "Close search"}>×</button>
+            {searchQuery ? <Suspense fallback={null}><FeatureSuggestions query={searchQuery} locale={locale} available={featureAvailable} onOpen={openFeature} /></Suspense> : null}
           </form>
         ) : null}
         {authenticated && activeView === "home" && !isRestaurant ? <CellarHomeHero wines={cellarWines} locale={locale} stats={homeHeroStats} /> : null}
@@ -10751,7 +10804,7 @@ export function App() {
                       className="secondary"
                       onClick={() => setDashboardFocus("data")}
                     >
-                      {t("dashboardInsights")}
+                      {locale === "it" ? "Completa i dati" : "Complete the data"}
                     </button>
                   </article>
                 </DashboardCarousel>
@@ -13253,7 +13306,7 @@ export function App() {
                 ))}
               </div>
             ) : null}
-            {!isWineCollectionView ? filteredWishlist.map((item) => {
+            {activeView === "wishlist" ? filteredWishlist.map((item) => {
               const targetPriceValue = formatMoney(item.target_price, item.currency, locale);
               const offerPriceValue = item.offer_price ? formatMoney(item.offer_price, item.currency, locale) : "";
               const aiMarketPriceValue = item.ai_market_price ? formatMoney(item.ai_market_price, item.ai_market_price_currency || item.currency, locale) : "";

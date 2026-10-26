@@ -18,7 +18,8 @@ export default class ProgressReporter implements Reporter {
     mkdirSync(dirname(this.file), { recursive: true });
     this.total = suite.allTests().length;
     this.started = Date.now();
-    writeFileSync(this.file, `${new Date().toLocaleString("it-CH")} · ${this.total} test, ${config.workers} in parallelo\n`);
+    // The BOM tells VS Code and Windows PowerShell the file is UTF-8, so ✓ and › show as such.
+    writeFileSync(this.file, `﻿${new Date().toLocaleString("it-CH")} · ${this.total} test, ${config.workers} in parallelo\n`);
   }
 
   onTestEnd(test: TestCase, result: TestResult) {

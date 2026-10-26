@@ -455,3 +455,28 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 
     await expect(page.getByRole("dialog", { name: "Momenti", exact: true })).toBeVisible();
   });
 }
+
+test("the Diario's Vendite and Momenti tabs never list wishlist wines", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page, [], true, memberships, [wine], { ...session, has_active_entitlement: true, is_free_tier: false });
+  await page.addInitScript(() => {
+    const original = window.fetch.bind(window);
+    const item = { id: "wish-1", household_id: "household-e2e", wishlist_list_id: "list-1", name: "Barolo da scoprire", producer: "Produttore Test", vintage: "2020", format: "0.75 L", type: "Red", region: "Piemonte", appellation: "Barolo", target_price: "50", offer_price: "45", investment_amount: null, ai_market_price: "", ai_market_price_currency: "CHF", currency: "CHF", merchant: "Enoteca", priority: "High", purpose: "Drink", status: "Wishlist", notes: "", ai_context_note: "", ai_strategy: "", ai_purpose_advice: "" };
+    window.fetch = async (input, init) => {
+      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url, location.origin);
+      if (url.pathname === "/api/v1/wishlist/lists") return new Response(JSON.stringify([{ id: "list-1", household_id: "household-e2e", name: "Da scoprire", item_count: 1, description: "", portfolio_strategy: null }]));
+      if (url.pathname === "/api/v1/wishlist") return new Response(JSON.stringify([item]));
+      return original(input, init);
+    };
+  });
+  await page.goto("/");
+  const navigation = page.locator(".view-tabs-navigation");
+  await navigation.getByRole("button", { name: /^Wishlist/ }).click();
+  await expect(page.locator(".wishlist-row")).toHaveCount(1);
+  await navigation.getByRole("button", { name: "Diario", exact: true }).click();
+  for (const tab of ["Vendite", "Momenti"]) {
+    await page.getByRole("tab", { name: tab, exact: true }).click();
+    await expect(page.getByRole("tab", { name: tab, exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(".wishlist-row")).toHaveCount(0);
+  }
+});

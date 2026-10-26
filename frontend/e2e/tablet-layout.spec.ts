@@ -135,7 +135,7 @@ test.describe("tablet insights menu", () => {
       const navigation = page.locator(".dashboard-focus-navigation");
       const insights = navigation.locator(".dashboard-analysis-switcher");
       await insights.locator("summary").click();
-      const options = insights.getByRole("tablist", { name: "Approfondimenti" });
+      const options = insights.getByRole("tablist", { name: "Analisi" });
       await expect(options).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`tablet-insights-${viewport.width}.png`), animations: "disabled" });
       const menu = (await options.boundingBox())!;
