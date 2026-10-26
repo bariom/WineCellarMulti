@@ -209,7 +209,7 @@ for (const origin of ["cellar", "external"] as const) {
       };
     }, { origin, fixture: wine });
     await dialog.getByRole("button", { name: "Salva bevuta" }).click();
-    await expect(dialog.getByText("Bevuta salvata nello Storico", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Bevuta salvata nel Diario", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => (window as any).memoryTastingPayload.memory_photo)).toBe(compressed);
   });
 }
@@ -271,7 +271,7 @@ for (const origin of ["cellar", "external"] as const) {
       };
     }, { origin, fixture: wine });
     await dialog.getByRole("button", { name: "Salva bevuta" }).click();
-    await expect(dialog.getByText("Bevuta salvata nello Storico", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Bevuta salvata nel Diario", { exact: true })).toBeVisible();
     const payload = await page.evaluate(() => (window as any).memoryTastingPayload);
     expect(String(payload.memory_photo)).toMatch(/^data:image\/jpeg;base64,/);
     expect(payload).not.toHaveProperty("memory_photo_processing");
@@ -298,7 +298,7 @@ test("history displays a memory and lets the user remove it", async ({ page }, t
     };
   }, { archive: tastingArchive, fixture: wine });
   await page.getByRole("button", { name: "Menu", exact: true }).click();
-  await page.getByRole("button", { name: "Storico", exact: true }).click();
+  await page.getByRole("button", { name: "Diario", exact: true }).click();
   const entry = page.locator(".tasting-archive-entry").first();
   await entry.locator("summary").first().click();
   await expect(entry.getByRole("img", { name: "Foto ricordo della bevuta" })).toBeVisible();

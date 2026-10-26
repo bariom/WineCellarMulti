@@ -57,10 +57,10 @@ export const helpGuideContentV2: Record<Locale, HelpGuide> = {
       },
       {
         title: "5. Record consumption and preserve tasting memory",
-        body: "When a bottle is consumed, Vinaris reduces the cellar quantity and stores the tasting information in History.",
+        body: "When a bottle is consumed, Vinaris reduces the cellar quantity and stores the tasting information in your Journal.",
         bullets: [
           "Use Bottle consumed from the wine detail to register date, note, occasion, pairing, companions, and tasting rating.",
-          "Once the last bottle is gone, the wine moves out of the active cellar and remains available in History.",
+          "Once the last bottle is gone, the wine moves out of the active cellar and remains available in your Journal.",
           "History is your long-term tasting archive, not just a deleted-bottles list.",
           "Consumed entries can be edited later if you want to add details you forgot during the first tasting registration.",
         ],
@@ -165,11 +165,11 @@ export const helpGuideContentV2: Record<Locale, HelpGuide> = {
       },
       {
         title: "5. Registra il consumo e conserva la memoria degustativa",
-        body: "Quando una bottiglia viene bevuta, Vinaris scala la quantità in cantina e salva i dati della degustazione nello Storico.",
+        body: "Quando una bottiglia viene bevuta, Vinaris scala la quantità in cantina e salva i dati della degustazione nel Diario.",
         bullets: [
           "Usa Bevuta 1 dal dettaglio vino per registrare data, nota, occasione, abbinamento, compagni e voto degustativo.",
-          "Quando finisce l'ultima bottiglia, il vino esce dalla cantina attiva ma resta consultabile nello Storico.",
-          "Lo Storico è il tuo archivio degustativo di lungo periodo, non solo una lista di bottiglie eliminate.",
+          "Quando finisce l'ultima bottiglia, il vino esce dalla cantina attiva ma resta consultabile nel Diario.",
+          "Il Diario è il tuo archivio degustativo di lungo periodo, non solo una lista di bottiglie eliminate.",
           "Le bevute registrate possono essere modificate in un secondo momento se vuoi completare note o dettagli dimenticati.",
         ],
       },

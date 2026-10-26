@@ -46,10 +46,11 @@ for (const pack of [false, true]) {
     await expect(page.getByRole("dialog", { name: "Registra bevuta", exact: true })).toBeVisible();
     await page.getByRole("dialog").getByRole("button", { name: "Chiudi", exact: true }).click();
     await page.getByRole("button", { name: "Menu", exact: true }).click();
-    await page.getByRole("button", { name: "Storico", exact: true }).click();
+    await page.getByRole("button", { name: "Diario", exact: true }).click();
+    await page.getByRole("tab", { name: "Momenti", exact: true }).click();
     const locked = page.getByRole("region", { name: "Ricordi Premium", exact: true });
     await expect(locked).toBeVisible();
-    await expect(page.getByRole("button", { name: "Momenti · Sfoglia i ricordi", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Sfoglia i ricordi", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => (window as any).premiumMemoryRequests)).toBe(0);
     await locked.getByRole("button", { name: "Scopri l’abbonamento", exact: true }).click();
     await expect(page.getByRole("button", { name: "Acquista abbonamento mensile", exact: true })).toBeVisible();
@@ -76,8 +77,9 @@ for (const admin of [false, true]) {
     await expect(book.getByRole("heading", { name: "Ricordo premium", exact: true })).toBeVisible();
     await book.getByRole("button", { name: "Chiudi", exact: true }).click();
     await page.getByRole("button", { name: "Menu", exact: true }).click();
-    await page.getByRole("button", { name: "Storico", exact: true }).click();
-    await page.getByRole("button", { name: "Momenti · Sfoglia i ricordi", exact: true }).click();
+    await page.getByRole("button", { name: "Diario", exact: true }).click();
+    await page.getByRole("tab", { name: "Momenti", exact: true }).click();
+    await page.getByRole("button", { name: "Sfoglia i ricordi", exact: true }).click();
     await expect(book).toBeVisible();
   });
 }

@@ -126,8 +126,8 @@ export default function RecordTastingDialog({ locale, wines, canRecognize, onClo
     <header><h2 id="record-tasting-title">{title}</h2><button type="button" className="secondary" aria-label={t("close")} disabled={busy} onClick={onClose}>×</button></header>
     {error ? <p role="alert" className="error">{error}</p> : null}
     {saved ? <section className="record-tasting-success">
-      <h3>{it ? "Bevuta salvata nello Storico" : "Tasting saved in History"}</h3>
-      <p>{selected ? (it ? "La quantità in cantina è stata aggiornata." : "Your cellar quantity has been updated.") : (it ? "Il tuo ricordo è al sicuro. Puoi completarlo nello Storico quando vuoi." : "Your memory is saved. You can add details in History any time.")}</p>
+      <h3>{it ? "Bevuta salvata nel Diario" : "Tasting saved in your Journal"}</h3>
+      <p>{selected ? (it ? "La quantità in cantina è stata aggiornata." : "Your cellar quantity has been updated.") : (it ? "Il tuo ricordo è al sicuro. Puoi completarlo nel Diario quando vuoi." : "Your memory is saved. You can add details in your Journal any time.")}</p>
       {mode === "external" && !identity.wishlist_item_id ? <><p>{it ? "Vuoi ricordarti di acquistare questo vino?" : "Want to remember to buy this wine?"}</p><button type="button" onClick={() => onWishlist(identity)}>{it ? "Aggiungi alla wishlist" : "Add to wishlist"}</button></> : null}
       <button type="button" className="secondary" onClick={onClose}>{it ? "Fatto" : "Done"}</button>
     </section> : mode === "choice" ? <section className="record-tasting-choices">

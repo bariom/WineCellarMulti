@@ -47,8 +47,11 @@ for (const width of [1200, 1440]) {
     expect(Math.abs(home.y + home.height / 2 - (sommelier.y + sommelier.height / 2))).toBeLessThan(2);
     expect(Math.abs(home.y + home.height / 2 - (add.y + add.height / 2))).toBeLessThan(2);
     expect(add.x + add.width).toBeLessThanOrEqual(width);
-    // The old tasting tab lives in the "+" sheet now.
-    await expect(navigation.getByRole("button", { name: "Registra bevuta", exact: true })).toHaveCount(0);
+    // The old tasting tab lives in the "+" sheet now, Momenti in the Diario, the guide in "? Guida".
+    for (const gone of ["Registra bevuta", "Momenti"]) await expect(navigation.getByRole("button", { name: gone, exact: true })).toHaveCount(0);
+    const guide = navigation.getByRole("button", { name: "Guida", exact: true });
+    await expect(guide).toHaveCount(1);
+    expect(Math.abs(home.y + home.height / 2 - ((await guide.boundingBox())!.y + (await guide.boundingBox())!.height / 2))).toBeLessThan(2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`desktop-bar-${width}.png`) });
   });
@@ -59,7 +62,7 @@ for (const width of [1100, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     await mockApi(page);
     await page.goto("/");
-    for (const [label, view] of [[/^Cantina/, "cellar"], [/^Wishlist/, "wishlist"], [/^Storico$/, "history"]] as const) {
+    for (const [label, view] of [[/^Cantina/, "cellar"], [/^Wishlist/, "wishlist"], [/^Diario$/, "history"]] as const) {
       await page.getByRole("button", { name: label }).first().click();
       const navigation = page.locator(".view-tabs-navigation");
       const nav = (await navigation.boundingBox())!;
@@ -330,7 +333,7 @@ test("opens the buying sommelier from desktop and mobile navigation", async ({ p
     page.getByRole("button", { name: "Home", exact: true }),
     page.getByRole("button", { name: /^Cantina/ }).first(),
     page.getByRole("button", { name: /^Wishlist/ }).first(),
-    page.getByRole("button", { name: "Storico", exact: true }),
+    page.getByRole("button", { name: "Diario", exact: true }),
     page.locator(".view-tabs-navigation").getByRole("button", { name: "Sommelier AI", exact: true }),
   ];
   const primaryNavigationBoxes = await Promise.all(primaryNavigation.map((item) => item.boundingBox()));
@@ -418,7 +421,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await tabletWineDetail.getByRole("button", { name: "Chiudi", exact: true }).click();
     await expect(tabletWineDetail).toBeHidden();
     await page.getByRole("button", { name: "Menu", exact: true }).click();
-    await page.getByRole("button", { name: "Storico", exact: true }).click();
+    await page.getByRole("button", { name: "Diario", exact: true }).click();
     const historyList = page.locator(".content-workspace .wine-list");
     await expect(historyList).toBeVisible();
     await expect(page.locator(".content-workspace .wine-side-panel")).toBeHidden();
@@ -426,3 +429,29 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.screenshot({ path: testInfo.outputPath("tablet-topbar.png") });
   });
 });
+
+for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+  test(`the Diario keeps Momenti as a tab, full width, at ${viewport.width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize(viewport);
+    await mockApi(page, [], true, memberships, [wine], { ...session, has_active_entitlement: true, is_free_tier: false });
+    await page.goto("/");
+    if (viewport.width < 1000) {
+      await page.getByRole("navigation", { name: "Navigazione principale" }).getByRole("button", { name: "Menu", exact: true }).click();
+      await page.getByRole("dialog", { name: "Menu di navigazione" }).getByRole("button", { name: "Diario", exact: true }).click();
+    } else {
+      await page.locator(".view-tabs-navigation").getByRole("button", { name: "Diario", exact: true }).click();
+    }
+    await page.getByRole("tab", { name: "Momenti", exact: true }).click();
+    const moments = page.locator(".diary-moments");
+    await expect(moments.getByRole("button", { name: "Registra una bevuta", exact: true })).toBeVisible();
+    await expect(moments.getByRole("button", { name: "Sfoglia i ricordi", exact: true })).toBeVisible();
+    // No wine list or empty wine panel beside it: the tab uses the whole width.
+    await expect(page.locator(".wine-side-panel")).toHaveCount(0);
+    const box = (await moments.boundingBox())!;
+    expect(box.width).toBeGreaterThan(viewport.width * 0.8);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`diary-moments-${viewport.width}.png`) });
+    await moments.getByRole("button", { name: "Sfoglia i ricordi", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Momenti", exact: true })).toBeVisible();
+  });
+}

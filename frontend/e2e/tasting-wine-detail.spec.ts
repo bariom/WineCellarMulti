@@ -9,7 +9,7 @@ for (const [width, locale] of [[390, "it"], [1440, "en"]] as const) {
     await mockApi(page, [], false, memberships, [wine], { ...session, locale }, [], undefined, { ...tastingArchive, items: [linked, unlinked], total: 2 });
     await page.goto("/");
     if (width === 390) await page.getByRole("button", { name: "Menu", exact: true }).click();
-    await page.getByRole("button", { name: locale === "it" ? "Storico" : "History", exact: true }).click();
+    await page.getByRole("button", { name: locale === "it" ? "Diario" : "Journal", exact: true }).click();
 
     const history = page.locator(".history-workspace");
     const linkedEntry = history.locator(".tasting-archive-entry").filter({ hasText: wine.name });
@@ -70,7 +70,7 @@ for (const [width, locale] of [[390, "it"], [1440, "en"]] as const) {
       };
     });
     if (width === 390) await page.getByRole("button", { name: "Menu", exact: true }).click();
-    await page.getByRole("button", { name: locale === "it" ? "Storico" : "History", exact: true }).click();
+    await page.getByRole("button", { name: locale === "it" ? "Diario" : "Journal", exact: true }).click();
     const entry = page.locator(".tasting-archive-entry").filter({ hasText: "Lambrusco dolce" });
     await entry.locator("summary").click();
     await entry.getByRole("button", { name: locale === "it" ? "Modifica" : "Edit", exact: true }).click();
@@ -99,6 +99,7 @@ for (const [width, locale] of [[390, "it"], [1440, "en"]] as const) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       if (size === width) {
         await snapshotChrome(page, false);
+        await page.mouse.move(0, 0);
         await editor.screenshot({ path: testInfo.outputPath(`external-tasting-editor-${width}.png`) });
         if (width === 390) await expect(editor).toHaveScreenshot("external-tasting-editor-compact.png");
         await snapshotChrome(page, true);

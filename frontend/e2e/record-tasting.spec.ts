@@ -55,7 +55,7 @@ test("record tasting saves an external wine and preserves failures for retry", a
   await expect(dialog.getByRole("alert")).toBeVisible();
   await expect(dialog.getByLabel("Nome del vino", { exact: true })).toHaveValue("Vino da amici");
   await dialog.getByRole("button", { name: "Salva bevuta" }).click();
-  await expect(dialog.getByText("Bevuta salvata nello Storico", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Bevuta salvata nel Diario", { exact: true })).toBeVisible();
   const writes = await page.evaluate(() => (window as any).tastingWrites);
   expect(writes).toHaveLength(2);
   expect(writes.every((write: any) => write.url.endsWith("/wishlist/tastings"))).toBe(true);
@@ -84,7 +84,7 @@ test("record tasting cellar flow consumes the chosen bottle", async ({ page }) =
     };
   }, wine);
   await dialog.getByRole("button", { name: "Salva bevuta" }).click();
-  await expect(dialog.getByText("Bevuta salvata nello Storico", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Bevuta salvata nel Diario", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => (window as any).consumedUrl)).toContain("/wines/wine-e2e-1/consume");
   await expect(dialog.getByRole("button", { name: "Aggiungi alla wishlist" })).toHaveCount(0);
 });
@@ -126,7 +126,7 @@ test("record tasting reuses wishlist search and confirms photo suggestions", asy
   await page.screenshot({ path: testInfo.outputPath("record-tasting-photo.png") });
   await dialog.getByLabel("Nome del vino", { exact: true }).fill("Barolo confermato");
   await dialog.getByRole("button", { name: "Salva bevuta" }).click();
-  await expect(dialog.getByText("Bevuta salvata nello Storico", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Bevuta salvata nel Diario", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => (window as any).photoTasting)).toMatchObject({ name: "Barolo confermato", vintage: "2021" });
   expect(await page.evaluate(() => (window as any).photoTasting.wishlist_item_id)).toBeUndefined();
 });
@@ -134,7 +134,7 @@ test("record tasting reuses wishlist search and confirms photo suggestions", asy
 test("record tasting is available from History with origin filters", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");
-  await page.getByRole("button", { name: /^Storico/ }).first().click();
+  await page.getByRole("button", { name: /^Diario/ }).first().click();
   await page.evaluate(() => {
     const original = window.fetch;
     window.fetch = async (input, init) => {
@@ -190,7 +190,7 @@ for (const width of [360, 390, 430]) {
     await mockApi(page, [], true, memberships, [wine], session, [], undefined, fullArchive);
     await page.goto("/");
     await page.getByRole("button", { name: "Menu", exact: true }).click();
-    await page.getByRole("button", { name: "Storico", exact: true }).click();
+    await page.getByRole("button", { name: "Diario", exact: true }).click();
     const workspace = page.locator(".history-workspace");
     await expect(workspace).toBeVisible();
     await expect(workspace.getByRole("heading", { name: "Bottiglie bevute", exact: true })).toBeVisible();

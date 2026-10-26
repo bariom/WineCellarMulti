@@ -11,7 +11,7 @@ for (const locale of ["it", "en"] as const) {
     await mockApi(page, [], false, memberships, [leVigne, other, available], { ...session, locale }, [], undefined, archive);
     await page.goto("/");
     if (await page.getByRole("button", { name: "Menu", exact: true }).isVisible()) await page.getByRole("button", { name: "Menu", exact: true }).click();
-    await page.getByRole("button", { name: it ? "Storico" : "History", exact: true }).click();
+    await page.getByRole("button", { name: it ? "Diario" : "Journal", exact: true }).click();
     const history = page.locator(".history-workspace");
     await expect(history.locator(".tasting-archive-entry")).toContainText("Le Vigne");
     await expect(history.locator(".tasting-archive-entry")).toContainText(it ? "Colore non specificato" : "Wine color unspecified");

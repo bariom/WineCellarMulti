@@ -31,8 +31,9 @@ async function openBook(page: Page, mode: "photos" | "empty" | "error" = "photos
     };
   }, { archive: tastingArchive, mode, bottlePhoto, memoryPhoto });
   await page.getByRole("button", { name: "Menu", exact: true }).click();
-  await page.getByRole("button", { name: "Storico", exact: true }).click();
-  await page.getByRole("button", { name: "Momenti · Sfoglia i ricordi", exact: true }).click();
+  await page.getByRole("button", { name: "Diario", exact: true }).click();
+  await page.getByRole("tab", { name: "Momenti", exact: true }).click();
+  await page.locator(".diary-moments").getByRole("button", { name: "Sfoglia i ricordi", exact: true }).click();
   return page.getByRole("dialog", { name: "Momenti", exact: true });
 }
 
@@ -104,6 +105,7 @@ test("polaroid table supports dragging, tasting details and returning to the sam
     if ([390, 1440].includes(viewport.width)) await page.screenshot({ path: testInfo.outputPath(`polaroid-table-${viewport.width}-review.png`) });
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.mouse.move(0, 0);
   await expect(book).toHaveScreenshot("moments-polaroid-table-compact.png");
   const before = (await card.boundingBox())!;
   await page.mouse.move(before.x + before.width / 2, before.y + 60);
@@ -255,6 +257,8 @@ test("browse memories, optionally open the map, and keep layouts inside the view
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await book.evaluate(element => { element.scrollTop = 0; });
+  // The pointer stays where the last click was: keep it off the controls being compared.
+  await page.mouse.move(0, 0);
   await page.screenshot({ path: testInfo.outputPath("moments-compact-review.png") });
   await expect(book).toHaveScreenshot("moments-compact.png");
   await book.getByRole("button", { name: "Mostra luogo sulla mappa" }).click();
@@ -269,7 +273,7 @@ test("browse memories, optionally open the map, and keep layouts inside the view
   await expect(book.getByRole("heading", { name: "Un brindisi in Toscana" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(book).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Momenti · Sfoglia i ricordi", exact: true })).toBeFocused();
+  await expect(page.locator(".diary-moments").getByRole("button", { name: "Sfoglia i ricordi", exact: true })).toBeFocused();
 });
 
 test("portrait memories keep search, captions and navigation visible without vertical scrolling", async ({ page }, testInfo) => {
@@ -693,6 +697,7 @@ test("catalog bottle photo sits beside the wine identity without obscuring the m
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await book.evaluate(element => { element.scrollTop = 0; });
+  await page.mouse.move(0, 0);
   await expect(book).toHaveScreenshot("moments-bottle-compact.png");
   await book.getByRole("button", { name: "Ricordo successivo" }).click();
   await expect(book.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
@@ -746,7 +751,7 @@ for (const origin of ["cellar", "external"] as const) {
       };
     }, { origin, fixture: wine });
     await dialog.getByRole("button", { name: "Salva bevuta" }).click();
-    await expect(dialog.getByText("Bevuta salvata nello Storico", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Bevuta salvata nel Diario", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => (window as any).gpsPayload.memory_photo)).toMatch(/^data:image\/jpeg;base64,/);
   });
 }

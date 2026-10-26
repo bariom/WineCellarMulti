@@ -515,7 +515,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await mockApi(page);
     await page.goto("/");
     await page.getByRole("button", { name: "Menu", exact: true }).click();
-    await page.getByRole("button", { name: "Storico", exact: true }).click();
+    await page.getByRole("button", { name: "Diario", exact: true }).click();
     await page.getByText("Nebbiolo di Test", { exact: true }).first().click();
     await page.getByRole("button", { name: "Scheda vino", exact: true }).click();
 

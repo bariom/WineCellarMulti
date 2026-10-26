@@ -77,9 +77,9 @@ test("the home ask bar is offered to assistant subscribers only", async ({ page 
   await expect(page.getByRole("search", { name: "Chiedi all'assistente della cantina" })).toHaveCount(0);
 });
 
-test("Moments and the assistant are two taps away on the phone", async ({ page }) => {
+test("Moments and the assistant are a few taps away on the phone", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  // The collector focus has no Moments card on the home: the menu still reaches it.
+  // The collector focus has no Moments card on the home: the Diario still reaches it.
   await mockApi(page, [], true, memberships, [wine], subscribed);
   await page.goto("/");
   const bar = page.getByRole("navigation", { name: "Navigazione principale" });
@@ -87,7 +87,11 @@ test("Moments and the assistant are two taps away on the phone", async ({ page }
   await expect(page.locator(".sommelier-hub").getByRole("button", { name: /^Chiedi alla tua cantina/ })).toBeVisible();
   await bar.getByRole("button", { name: "Menu", exact: true }).click();
   const sheet = page.locator(".mobile-navigation-sheet");
-  await sheet.getByRole("button", { name: "Momenti", exact: true }).click();
+  // The menu says where Momenti live.
+  await expect(sheet.getByRole("button", { name: "Diario", exact: true })).toHaveAccessibleDescription("Bevute, Momenti e vini finiti");
+  await sheet.getByRole("button", { name: "Diario", exact: true }).click();
+  await page.getByRole("tab", { name: "Momenti", exact: true }).click();
+  await page.getByRole("region", { name: "Momenti", exact: true }).getByRole("button", { name: "Sfoglia i ricordi", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Momenti", exact: true })).toBeVisible();
 });
 

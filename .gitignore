@@ -45,3 +45,4 @@ android/local.properties
 *.keystore
 *.jks
 *.p12
+frontend/e2e-progress.log

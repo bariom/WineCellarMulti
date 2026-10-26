@@ -14,7 +14,8 @@ export default defineConfig({
   workers: 2,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  // Locally also a progress file to follow a run: e2e-progress.log.
+  reporter: process.env.CI ? "github" : [["list"], ["./e2e/progress-reporter.ts"]],
   outputDir: "./test-results",
   use: {
     baseURL,

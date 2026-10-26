@@ -5866,7 +5866,9 @@ export function App() {
     session?.is_free_tier && freeTierLabelLimit > 0 && freeTierLabelCount >= freeTierLabelLimit,
   );
   const historyWines = wines.filter((wine) => wine.quantity <= 0);
-  const isWineCollectionView = activeView === "cellar" || (activeView === "history" && historySection !== "sales");
+  // Vendite and Momenti are Diario tabs without a wine list.
+  const historyWithoutList = historySection === "sales" || historySection === "moments";
+  const isWineCollectionView = activeView === "cellar" || (activeView === "history" && !historyWithoutList);
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
 
   useEffect(() => {
@@ -10044,7 +10046,7 @@ export function App() {
                     <div className="showcase-window">
                       <div className="showcase-bar">
                         <span className="showcase-tab">Cellar</span>
-                        <span className="showcase-tab active">{locale === "it" ? "Storico" : "History"}</span>
+                        <span className="showcase-tab active">{locale === "it" ? "Diario" : "Journal"}</span>
                         <span className="showcase-tab">{locale === "it" ? "Degustazioni" : "Tastings"}</span>
                       </div>
                       <div className="showcase-detail-layout">
@@ -10133,7 +10135,7 @@ export function App() {
           className={`workspace ${
             activeView === "settings"
               ? "settings-workspace"
-              : activeView === "home" || activeView === "sommelier" || activeView === "intelligence" || activeView === "assistant" || activeView === "pairing" || activeView === "pulse" || activeView === "buying" || activeView === "help"
+              : activeView === "home" || (activeView === "history" && historyWithoutList) || activeView === "sommelier" || activeView === "intelligence" || activeView === "assistant" || activeView === "pairing" || activeView === "pulse" || activeView === "buying" || activeView === "help"
                 ? "home-workspace"
                 : "content-workspace"
           } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""} ${activeView === "cellar" ? "cellar-workspace" : ""} ${activeView === "history" ? "history-workspace" : ""} ${wineDetailExpanded && isWineCollectionView && selectedVisibleWine ? "wine-detail-expanded" : ""}`}
@@ -10141,42 +10143,34 @@ export function App() {
           {activeView !== "settings" ? (
           <div className="view-tabs">
             <div className="view-tabs-navigation">
-            <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
+            <button type="button" className={`view-tab${activeView === "home" ? "" : " secondary"}`} onClick={() => { leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
               <AppIcon name="dashboard" variant="navigation" detailLevel="rich" />
               {t("home")}
             </button>
-            <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { leaveHelpFor("cellar"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("cellar"); }}>
+            <button type="button" className={`view-tab${activeView === "cellar" ? "" : " secondary"}`} onClick={() => { leaveHelpFor("cellar"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("cellar"); }}>
               <AppIcon name="cellar" variant="navigation" detailLevel="rich" />
-              {t("cellar")} ({cellarWines.length})
+              {t("cellar")}<small className="view-tab-count"><span className="sr-only"> (</span>{cellarWines.length}<span className="sr-only">)</span></small>
             </button>
-            <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}>
+            <button type="button" className={`view-tab${activeView === "wishlist" ? "" : " secondary"}`} onClick={() => { leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}>
               <AppIcon name="wishlist" variant="navigation" detailLevel="rich" />
-              {t("wishlist")} ({totalWishlistItemCount})
+              {t("wishlist")}<small className="view-tab-count"><span className="sr-only"> (</span>{totalWishlistItemCount}<span className="sr-only">)</span></small>
             </button>
-            {!isRestaurant ? <button type="button" className={activeView === "history" ? "" : "secondary"} onClick={() => { leaveHelpFor("history"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}>
+            {!isRestaurant ? <button type="button" className={`view-tab${activeView === "history" ? "" : " secondary"}`} onClick={() => { leaveHelpFor("history"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}>
               <AppIcon name="calendar" variant="navigation" />
               {t("history")}
             </button> : null}
-            {!isRestaurant && !offlineMode ? <button type="button" className="secondary" aria-haspopup="dialog" onClick={openMemoryBook}>
-              <AppIcon name="camera" variant="navigation" detailLevel="rich" />
-              {locale === "it" ? "Momenti" : "Moments"}
-            </button> : null}
-            <button type="button" className={aiNavigationActive ? "" : "secondary"} onClick={() => openView("sommelier")}>
-              <AppIcon name="assistant" variant="ai" detailLevel="rich" />
+            <button type="button" className={`view-tab${aiNavigationActive ? "" : " secondary"}`} onClick={() => openView("sommelier")}>
+              <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
               Sommelier AI
             </button>
-            <button type="button" className={activeView === "pulse" ? "" : "secondary"} onClick={() => { leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}>
+            <button type="button" className={`view-tab${activeView === "pulse" ? "" : " secondary"}`} onClick={() => { leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}>
               <AppIcon name="pulse" variant="premium" detailLevel="rich" />
               Wine Pulse
-            </button>
-            <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => openHelp()}>
-              <AppIcon name="grapes" variant="premium" detailLevel="rich" />
-              {t("help")}
             </button>
             {canWriteWine ? <button type="button" className="secondary view-tabs-add" aria-haspopup="dialog" onClick={startAddWineFromAnywhere}>
               <span aria-hidden="true">+</span>{locale === "it" ? "Aggiungi" : "Add"}
             </button> : null}
-            <button type="button" className="secondary compact help-context-trigger" aria-label={locale === "it" ? "Apri assistenza contestuale" : "Open contextual help"} title={locale === "it" ? "Assistenza per questa vista" : "Help for this view"} onClick={() => openHelp(contextualHelpArticle)}>?</button>
+            <button type="button" className={`secondary compact help-context-trigger${activeView === "help" ? " is-active" : ""}`} title={locale === "it" ? "Guida, a partire da questa pagina" : "Guide, starting from this page"} onClick={() => openHelp(contextualHelpArticle)}><span aria-hidden="true">?</span>{t("help")}</button>
             </div>
             <div className="view-tabs-quick-actions">
             <form
@@ -10225,13 +10219,17 @@ export function App() {
           {activeView !== "settings" ? (
             <>
               {mobileNavigationOpen ? <div className="mobile-navigation-sheet" role="dialog" aria-label={locale === "it" ? "Menu di navigazione" : "Navigation menu"}>
-                <button type="button" onClick={() => { setMobileNavigationOpen(false); setMobileSearchOpen(true); }}><AppIcon name="search" variant="action" />{t("search")}</button>
-                <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}><AppIcon name="wishlist" variant="navigation" detailLevel="rich" />{t("wishlist")}</button>
-                {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("history"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}><AppIcon name="calendar" variant="navigation" />{t("history")}</button> : null}
-                {!isRestaurant && !offlineMode ? <button type="button" aria-haspopup="dialog" onClick={() => { setMobileNavigationOpen(false); openMemoryBook(); }}><AppIcon name="camera" variant="navigation" detailLevel="rich" />{locale === "it" ? "Momenti" : "Moments"}</button> : null}
-                <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}><AppIcon name="pulse" variant="premium" detailLevel="rich" />Wine Pulse</button>
-                <button type="button" onClick={() => { setMobileNavigationOpen(false); openHelp(); }}><AppIcon name="grapes" variant="premium" detailLevel="rich" />{t("help")}</button>
-                <button type="button" onClick={() => { setMobileNavigationOpen(false); toggleSettingsView(); }}><AppIcon name="settings" variant="action" detailLevel="rich" />{t("settings")}</button>
+                {[
+                  { key: "wishlist", icon: "wishlist" as const, label: t("wishlist"), description: locale === "it" ? "I vini da comprare, con il prezzo che vuoi pagare" : "Wines to buy, at the price you want to pay", open: () => openView("wishlist") },
+                  ...(!isRestaurant ? [{ key: "history", icon: "calendar" as const, label: t("history"), description: locale === "it" ? "Bevute, Momenti e vini finiti" : "Tastings, Moments and finished wines", open: () => openView("history") }] : []),
+                  { key: "pulse", icon: "pulse" as const, label: "Wine Pulse", description: locale === "it" ? "Le notizie dal mondo del vino" : "News from the wine world", open: () => openView("pulse") },
+                  { key: "search", icon: "search" as const, label: t("search"), description: locale === "it" ? "Un vino della tua cantina" : "A wine in your cellar", open: () => setMobileSearchOpen(true) },
+                  { key: "help", icon: "grapes" as const, label: t("help"), description: locale === "it" ? "Come funziona ogni pagina" : "How each page works", open: () => openHelp() },
+                  { key: "settings", icon: "settings" as const, label: t("settings"), description: locale === "it" ? "Profilo, abbonamento, AI, cantine e dati" : "Profile, plan, AI, cellars and data", open: () => toggleSettingsView() },
+                ].map((item) => <button key={item.key} type="button" aria-label={item.label} aria-describedby={`mobile-menu-${item.key}`} onClick={() => { setMobileNavigationOpen(false); item.open(); }}>
+                  <AppIcon name={item.icon} variant="navigation" detailLevel="rich" />
+                  <span className="mobile-navigation-item"><strong>{item.label}</strong><small id={`mobile-menu-${item.key}`}>{item.description}</small></span>
+                </button>)}
                 {tabletDevice && !tabletDesktopMode ? <button type="button" onClick={() => { setMobileNavigationOpen(false); chooseTabletLayout(true); }}><AppIcon name="dashboard-cards" variant="navigation" detailLevel="rich" />{locale === "it" ? "Richiedi modalità desktop" : "Request desktop mode"}</button> : null}
               </div> : null}
               <nav className="mobile-bottom-navigation" aria-label={locale === "it" ? "Navigazione principale" : "Main navigation"}>
@@ -10284,7 +10282,7 @@ export function App() {
             onClose={() => setRecordTastingOpen(false)}
             onSaved={(updated) => {
               if (updated) setWines(current => current.map(wine => wine.id === updated.id ? updated : wine));
-              void Promise.all([loadTastingArchiveOverview(), ...(activeView === "history" ? [loadTastingArchive(0)] : [])]).catch(() => setError(locale === "it" ? "Bevuta salvata. Riapri lo Storico per aggiornare l’elenco." : "Tasting saved. Reopen History to refresh the list."));
+              void Promise.all([loadTastingArchiveOverview(), ...(activeView === "history" ? [loadTastingArchive(0)] : [])]).catch(() => setError(locale === "it" ? "Bevuta salvata. Riapri il Diario per aggiornare l’elenco." : "Tasting saved. Reopen your Journal to refresh the list."));
             }}
             onWishlist={(identity) => {
               setRecordTastingOpen(false);
@@ -12287,7 +12285,8 @@ export function App() {
           </aside>
           ) : null}
 
-          {isCollectionView ? (
+          {/* The Diario keeps its tabs on Vendite and Momenti too, which list no wines. */}
+          {isCollectionView || activeView === "history" ? (
           <section className="wine-list" aria-busy={loading}>
             {activeView === "cellar" ? (
             <details className="stats-panel-wrapper">
@@ -12475,6 +12474,15 @@ export function App() {
               >
                 {t("historyTastings")}
               </button>
+              {!offlineMode ? <button
+                type="button"
+                role="tab"
+                aria-selected={historySection === "moments"}
+                className={historySection === "moments" ? "" : "secondary"}
+                onClick={() => setHistorySection("moments")}
+              >
+                {locale === "it" ? "Momenti" : "Moments"}
+              </button> : null}
               <button
                 type="button"
                 role="tab"
@@ -12495,7 +12503,12 @@ export function App() {
               </button>
             </div>
             {historySection === "tastings" && !offlineMode ? <label className="record-tasting-origin"><span>{locale === "it" ? "Provenienza della bevuta" : "Tasting origin"}</span><select value={tastingOrigin} onChange={event => { setTastingOrigin(event.target.value as "" | "cellar" | "external"); setTastingArchiveOffset(0); }}><option value="">{locale === "it" ? "Tutte le bevute" : "All tastings"}</option><option value="cellar">{locale === "it" ? "Dalla cantina" : "From the cellar"}</option><option value="external">{locale === "it" ? "Extra cantina" : "Outside the cellar"}</option></select></label> : null}
-            {historySection === "sales" ? (
+            {historySection === "moments" ? (
+              <div className="diary-moments">
+                <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} home canAccess={canAccessMemories} onActivate={openSubscriptionSettings} onRecord={canWriteWine ? () => setRecordTastingOpen(true) : undefined} /></Suspense>
+                {canAccessMemories ? <Suspense fallback={null}><PolaroidsWidget locale={locale} /></Suspense> : null}
+              </div>
+            ) : historySection === "sales" ? (
               <Suspense fallback={<LoadingState label={t("loadingData")} />}>
                 <RestaurantDashboard
                   locale={locale}
@@ -12597,7 +12610,7 @@ export function App() {
               ) : null}
             </>
             )}
-            {!(activeView === "history" && historySection === "sales") ? <div className={`collection-filter-dock${activeView === "cellar" ? " collection-filter-dock--cellar" : ""}`}>
+            {!(activeView === "history" && historyWithoutList) ? <div className={`collection-filter-dock${activeView === "cellar" ? " collection-filter-dock--cellar" : ""}`}>
             <details id={activeView === "cellar" ? "cellar-advanced-filters" : undefined} ref={filterPanelRef} className={`filter-panel ${activeView === "cellar" ? "cellar-filter-panel" : ""}`}>
               <summary>
                 {activeView === "cellar" ? (
@@ -12814,7 +12827,7 @@ export function App() {
               </div>
             ) : null}
             </div> : null}
-            {!(activeView === "history" && historySection === "sales") ? <div className={`list-header${activeView === "cellar" ? " cellar-list-header" : ""}`}>
+            {!(activeView === "history" && historyWithoutList) ? <div className={`list-header${activeView === "cellar" ? " cellar-list-header" : ""}`}>
               <h2>
                 {activeView === "wishlist"
                   ? t("wishlist")
@@ -12891,7 +12904,6 @@ export function App() {
                 </div>
               </div>
             ) : null}
-            {activeView === "history" && historySection === "tastings" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} canAccess={canAccessMemories} onActivate={openSubscriptionSettings} /></Suspense> : null}
             {loading || tastingArchiveLoading ? <LoadingState label={t("loadingData")} variant="list" /> : null}
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? (
               <EmptyState

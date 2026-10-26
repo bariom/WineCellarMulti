@@ -28391,3 +28391,6 @@ body,
   -webkit-background-clip: text;
   color: transparent;
 }
+
+/* The Momenti tab of the Diario: the moments card and the latest polaroids. */
+.diary-moments { display: grid; gap: 16px; }

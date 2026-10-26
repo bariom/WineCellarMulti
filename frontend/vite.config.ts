@@ -110,6 +110,12 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    // Scan every source file at start, not only what the first page loads, so the
+    // dependency cache is complete at once and never rebuilt under a running page
+    // (E2E suites that mount one view import straight from that cache).
+    entries: ["index.html", "src/**/*.{ts,tsx}"],
+  },
   server: {
     port: 5173,
     proxy: {

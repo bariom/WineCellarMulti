@@ -85,6 +85,11 @@ jobs:
         run: npm ci
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+      # Suites that mount one view import React from Vite's dependency cache. A
+      # server started with an empty cache serves it under a version that goes
+      # stale, so build the cache first.
+      - name: Prepare Vite dependency cache
+        run: npx vite optimize
       # The API is mocked, so no backend is needed. Reference screenshots are
       # made on Windows and differ on Linux: they are checked locally instead.
       - name: Run E2E shard
