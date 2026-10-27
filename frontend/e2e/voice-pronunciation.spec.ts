@@ -5,7 +5,7 @@ test("French wine names are respelled the way an Italian voice should say them",
   await page.goto("/");
   const spoken = await page.evaluate(async () => {
     const pronunciation = await import("/src/utils/pronunciation.ts");
-    return Object.fromEntries(["Château Pontet-Canet", "Chateau Cos d'Estournel", "Pichon Longueville", "Château Haut-Brion", "Saint-Estèphe", "Château d'Yquem", "Moët & Chandon", "Dom Pérignon", "Veuve Clicquot", "Hospices de Beaune", "Chablis Premier Cru Montée de Tonnerre"]
+    return Object.fromEntries(["Château Pontet-Canet", "Chateau Cos d'Estournel", "Pichon Longueville", "Château Haut-Brion", "Saint-Estèphe", "Château d'Yquem", "Moët & Chandon", "Dom Pérignon", "Veuve Clicquot", "Hospices de Beaune", "Chablis Premier Cru Montée de Tonnerre", "Château Léoville Las Cases", "Domaine Armand Rousseau", "Bâtard-Montrachet", "Nuits-Saint-Georges", "Jacques Selosse", "Guigal La Landonne", "Jean-Louis Chave", "Didier Dagueneau Silex"]
       .map((name) => [name, pronunciation.frenchNameForItalian(name)]));
   });
   expect(spoken).toEqual({
@@ -16,10 +16,18 @@ test("French wine names are respelled the way an Italian voice should say them",
     "Saint-Estèphe": "Sèn-Estèf",
     "Château d'Yquem": "Sciatò d'Icuèm",
     "Moët & Chandon": "Moèt e Sciandòn",
-    "Dom Pérignon": "Dom Pèrignòn",
+    "Dom Pérignon": "Dom Perignòn",
     "Veuve Clicquot": "Vev Clicò",
     "Hospices de Beaune": "Ospis de Bòn",
-    "Chablis Premier Cru Montée de Tonnerre": "Sciablì Premiè Crù Montè de Tonnerr",
+    "Chablis Premier Cru Montée de Tonnerre": "Sciablì Premiè Crù Montè de Tonèrr",
+    "Château Léoville Las Cases": "Sciatò Leovìl Las Cas",
+    "Domaine Armand Rousseau": "Domèn Armàn Russò",
+    "Bâtard-Montrachet": "Batàr-Monrascè",
+    "Nuits-Saint-Georges": "Nuì-Sèn-Giòrg",
+    "Jacques Selosse": "Giàc Selòs",
+    "Guigal La Landonne": "Ghigàl La Landòn",
+    "Jean-Louis Chave": "Giàn-Luì Sciav",
+    "Didier Dagueneau Silex": "Didiè Daghenò Silèx",
   });
 });
 
