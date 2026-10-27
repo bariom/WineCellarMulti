@@ -664,6 +664,26 @@ def accept_received_invite(
     return accept_invite_record(db, context, invite)
 
 
+@router.post("/invites/{invite_id}/decline", status_code=status.HTTP_204_NO_CONTENT)
+def decline_received_invite(
+    invite_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> Response:
+    """The invited person turns the invitation down; it leaves the inviter's pending list."""
+    invite = db.get(HouseholdInvite, invite_id)
+    # Another person's invitation is reported as missing, not as forbidden.
+    if (
+        invite is None
+        or invite.accepted_at is not None
+        or invite.email.lower() != context.user.email.lower()
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+    db.delete(invite)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.patch("/members/{membership_id}", response_model=MemberResponse)
 def update_member_role(
     membership_id: UUID,

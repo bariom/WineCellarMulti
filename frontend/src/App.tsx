@@ -3114,6 +3114,24 @@ export function App() {
     }
   }
 
+  async function respondToReceivedInvite(invite: Invite, decision: "accept" | "decline") {
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>(`/api/v1/household/invites/${invite.id}/${decision}`, { method: "POST" });
+      setReceivedInvites((current) => current.filter((item) => item.id !== invite.id));
+      const cellar = invite.household_name || (locale === "it" ? "la cantina" : "the cellar");
+      setNotice(decision === "accept"
+        ? (locale === "it" ? `Ora fai parte di ${cellar}: la trovi tra le tue cantine.` : `You are now part of ${cellar}: find it among your cellars.`)
+        : (locale === "it" ? `Invito a ${cellar} rifiutato.` : `Invitation to ${cellar} declined.`));
+      if (decision === "accept") await loadData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to answer the invitation");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function updateMemberRole(member: Member, role: string) {
     setSaving(true);
     setError("");
@@ -12675,6 +12693,8 @@ export function App() {
                     acceptInvite={acceptInvite}
                     acceptToken={acceptToken}
                     setAcceptToken={setAcceptToken}
+                    receivedInvites={receivedInvites}
+                    respondToReceivedInvite={respondToReceivedInvite}
                   />
                 </Suspense>
               ) : null}

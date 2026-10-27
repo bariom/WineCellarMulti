@@ -43,6 +43,8 @@ type SharingSettingsTabProps = {
   revokeInvite: (invite: Invite) => void;
   acceptInvite: (event: FormEvent<HTMLFormElement>) => void;
   acceptToken: string;
+  receivedInvites: Invite[];
+  respondToReceivedInvite: (invite: Invite, decision: "accept" | "decline") => void;
   setAcceptToken: (token: string) => void;
 };
 
@@ -86,10 +88,48 @@ export default function SharingSettingsTab({
   acceptInvite,
   acceptToken,
   setAcceptToken,
+  receivedInvites,
+  respondToReceivedInvite,
 }: SharingSettingsTabProps) {
   const t = (key: TranslationKey) => translate(locale, key);
+  const it = locale === "it";
+  const roleLabels: Record<string, string> = it
+    ? { admin: "Amministratore", member: "Membro", viewer: "Sola lettura" }
+    : { admin: "Admin", member: "Member", viewer: "Read only" };
   return (
     <>
+      {receivedInvites.length ? (
+        <section className="settings-card settings-card-wide received-invites-card" aria-labelledby="received-invites-title">
+          <div className="settings-card-heading">
+            <div>
+              <span>{it ? "Inviti ricevuti" : "Invitations received"}</span>
+              <h3 id="received-invites-title">{it ? "Ti hanno invitato in una cantina" : "You have been invited to a cellar"}</h3>
+            </div>
+          </div>
+          <div className="invite-list">
+            {receivedInvites.map((invite) => (
+              <div className="invite-row" key={invite.id}>
+                <div>
+                  <strong>{invite.household_name || (it ? "Cantina condivisa" : "Shared cellar")}</strong>
+                  <span>
+                    {roleLabels[invite.role] || invite.role}
+                    {invite.role !== "admin" ? ` · ${t(invite.visibility_scope === "all" ? "visibilityAll" : "visibilityShared")}` : ""}
+                    {` · ${t("expires")} ${formatDisplayDate(invite.expires_at)}`}
+                  </span>
+                </div>
+                <div className="member-actions">
+                  <button type="button" className="compact" disabled={saving} onClick={() => respondToReceivedInvite(invite, "accept")}>
+                    {t("accept")}
+                  </button>
+                  <button type="button" className="secondary compact" disabled={saving} onClick={() => respondToReceivedInvite(invite, "decline")}>
+                    {t("decline")}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
       <details className="settings-card settings-card-wide cellar-settings-section">
         <summary>
           <span>{locale === "it" ? "Struttura" : "Structure"}</span>
