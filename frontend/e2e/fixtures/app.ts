@@ -345,6 +345,7 @@ export async function mockApi(
       else if (path.includes("/wine-pulse")) body = { items: [], total: 0, offset: 0, limit: 3, has_more: false };
       else if (path.includes("value-history/portfolio") || path.includes("wishlist/lists") || path.includes("operational-action-snoozes")) body = [];
       else if (path.includes("regional-gap-settings")) body = { targets: [], last_ai_suggestion: null };
+      else if (path.endsWith("taste-profile/me/declared")) body = { answers: {}, updated_at: null };
       else if (path.includes("taste-profile/me")) body = tasteProfileCollection;
       else if (path.includes("notifications")) body = fixtureNotificationCenter;
       else if (path.endsWith("/billing/redeem-codes")) body = [];
@@ -385,6 +386,7 @@ export async function mockApi(
     if (path.includes("wishlist/lists")) return fulfillJson(route, []);
     if (path.includes("notifications")) return fulfillJson(route, fixtureNotificationCenter);
     if (path.includes("regional-gap-settings")) return fulfillJson(route, { targets: [], last_ai_suggestion: null });
+    if (path.endsWith("taste-profile/me/declared")) return fulfillJson(route, { answers: {}, updated_at: null });
     if (path.includes("taste-profile/me")) return fulfillJson(route, tasteProfileCollection);
     if (path.includes("operational-action-snoozes")) return fulfillJson(route, []);
     if (path.endsWith("/billing/redeem-codes")) return fulfillJson(route, []);

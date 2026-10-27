@@ -134,7 +134,7 @@ function DeclaredTaste({ locale }: { locale: Locale }) {
   const [message, setMessage] = useState("");
   useEffect(() => {
     api<TasteDeclaration>("/api/v1/taste-profile/me/declared")
-      .then((result) => { setAnswers(result.answers); setSaved(result.answers); })
+      .then((result) => { setAnswers(result.answers ?? {}); setSaved(result.answers ?? {}); })
       .catch(() => setSaved({}));
   }, []);
   const dirty = saved !== null && JSON.stringify(answers) !== JSON.stringify(saved);
