@@ -246,6 +246,10 @@ def test_default_sources_include_broader_editorial_coverage():
         "winemag",
         "civilta-del-bere",
         "gambero-rosso",
+        "liv-ex",
+        "tim-atkin",
+        "lavinium",
+        "winecouture",
     } <= source_ids
 
 

@@ -116,6 +116,35 @@ DEFAULT_SOURCES = (
         "website_url": "https://www.gamberorosso.it/",
         "language": "it",
     },
+    {
+        # The fine-wine market: prices and trading of the wines collectors hold.
+        "id": "liv-ex",
+        "name": "Liv-ex",
+        "feed_url": "https://www.liv-ex.com/feed/",
+        "website_url": "https://www.liv-ex.com/",
+        "language": "en",
+    },
+    {
+        "id": "tim-atkin",
+        "name": "Tim Atkin MW",
+        "feed_url": "https://timatkin.com/feed/",
+        "website_url": "https://timatkin.com/",
+        "language": "en",
+    },
+    {
+        "id": "lavinium",
+        "name": "Lavinium",
+        "feed_url": "https://www.lavinium.it/feed/",
+        "website_url": "https://www.lavinium.it/",
+        "language": "it",
+    },
+    {
+        "id": "winecouture",
+        "name": "WineCouture",
+        "feed_url": "https://www.winecouture.it/feed/",
+        "website_url": "https://www.winecouture.it/",
+        "language": "it",
+    },
 )
 
 WINE_TERMS = {
