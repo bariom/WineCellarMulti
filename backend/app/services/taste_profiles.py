@@ -69,6 +69,13 @@ FAVOURITE_PRIOR_EXPERIENCES = 3.0
 # Version 2: grapes in a blend take their share of the rating.
 # Version 3: entries rated below neutral are kept as "avoided_*" for the sommelier.
 FAVOURITE_SCORING_MARKER = [["average_stars", 3]]
+# Stored on the global profile as attributes["validation"], so the sommelier can
+# tell how much the sensory dimensions are worth: [[status, ranking_auc, tested, negatives]].
+VALIDATION_ATTRIBUTE = "validation"
+# Below this leave-one-out AUC the dimensions barely tell liked wines from
+# disliked ones (0.5 is chance): the sommelier is told to rely on the lists.
+WEAK_DIMENSIONS_AUC = 0.65
+GOOD_DIMENSIONS_AUC = 0.75
 # What the sommelier is told about likes and dislikes, by attribute.
 SOMMELIER_FAVOURITE_KINDS = {
     "grapes": "grapes",
@@ -887,6 +894,7 @@ def rebuild_user_taste_profile(
     }
     if not samples:
         samples["global"] = 0
+    validation = validate_taste_profile_algorithms(db, household_id=household_id, user_id=user_id)
     now = datetime.now(UTC)
     profiles: list[UserTasteProfile] = []
     for category in sorted(samples):
@@ -962,6 +970,15 @@ def rebuild_user_taste_profile(
                 if score < NEUTRAL_RATING and len(values[value]) >= 2
             ][:5]
         attributes["scoring"] = FAVOURITE_SCORING_MARKER
+        if category == "global":
+            attributes[VALIDATION_ATTRIBUTE] = [
+                [
+                    validation["status"],
+                    validation["v2_ranking_auc"],
+                    validation["tested_experiences"],
+                    validation["negative_experiences"],
+                ]
+            ]
         confidence = round(
             (sum(confidence_values) / len(confidence_values)) if confidence_values else 0.0, 4
         )
@@ -1393,6 +1410,9 @@ def compact_taste_context(
         "category": profile.category,
         "confidence": round(profile.confidence, 2),
         "dimensions": dimensions,
+        "dimensions_reliability": dimensions_reliability(
+            db, household_id=household_id, user_id=user_id
+        ),
     }
     # Likes and dislikes from the user's own ratings, so recommendations stop
     # proposing what the user drinks often but does not really enjoy.
@@ -1411,9 +1431,40 @@ def compact_taste_context(
         context["liked"] = liked
     if disliked:
         context["disliked"] = disliked
+    guidance = []
     if liked or disliked:
-        context["how_to_use"] = (
+        guidance.append(
             "liked and disliked come from the user's own ratings: favour liked grapes, "
             "producers and origins, and avoid disliked ones unless the user asks for them."
         )
+    if context["dimensions_reliability"] == "weak":
+        guidance.append(
+            "dimensions did not predict which wines this user liked when checked against "
+            "their own tastings: treat them as a faint hint only, rely on liked and "
+            "disliked instead, and do not describe the user's sensory taste from them."
+        )
+    if guidance:
+        context["how_to_use"] = " ".join(guidance)
     return context
+
+
+def dimensions_reliability(db: Session, *, household_id: UUID, user_id: UUID) -> str:
+    """How much the sensory dimensions are worth: "weak", "fair" or "good".
+
+    Read from the validation stored at the last rebuild of the global profile;
+    a profile without one (rebuilt before it existed) counts as weak.
+    """
+    attributes = db.scalar(
+        select(UserTasteProfile.attributes).where(
+            UserTasteProfile.user_id == user_id,
+            UserTasteProfile.household_id == household_id,
+            UserTasteProfile.category == "global",
+        )
+    )
+    stored = (attributes or {}).get(VALIDATION_ATTRIBUTE) if isinstance(attributes, dict) else None
+    if not stored or not isinstance(stored[0], list) or len(stored[0]) < 2:
+        return "weak"
+    status, auc = stored[0][0], stored[0][1]
+    if status != "ready" or not isinstance(auc, int | float) or auc < WEAK_DIMENSIONS_AUC:
+        return "weak"
+    return "good" if auc >= GOOD_DIMENSIONS_AUC else "fair"

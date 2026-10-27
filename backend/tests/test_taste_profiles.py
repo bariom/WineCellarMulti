@@ -1832,6 +1832,41 @@ def test_sommelier_context_lists_what_the_user_likes_and_avoids() -> None:
     assert context["disliked"]["grapes"] == ["Merlot"]
     assert "Syrah" not in context["disliked"]["grapes"]
     assert "avoid disliked" in context["how_to_use"]
+    # Every wine here has the same sensory levels, so the dimensions cannot tell
+    # the liked Nebbiolo from the disliked Merlot: the sommelier is told so.
+    assert context["dimensions_reliability"] == "weak"
+    assert "rely on liked and disliked instead" in context["how_to_use"]
+
+
+def test_sommelier_context_trusts_dimensions_that_predicted_the_users_ratings() -> None:
+    db = Session()
+    household = Household(name="Predictable home")
+    user = User(email="predictable@example.test", display_name="Predictable", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    # Full-bodied wines always delight, light ones always disappoint.
+    for index, (rating, level) in enumerate(
+        [(6, 0.85), (5, 0.8), (6, 0.9), (5, 0.75), (1, 0.15), (2, 0.25), (1, 0.1), (2, 0.3)]
+    ):
+        wine = make_wine(db, household, name=f"Predictable {index}")
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions={"body": level, "acidity": level, "fruit": level},
+                confidence=0.8,
+                generation_status="available",
+            )
+        )
+        add_tasting(db, user, household, wine, rating)
+    db.commit()
+    profiles = rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+    db.commit()
+
+    overall = next(profile for profile in profiles if profile.category == "global")
+    assert overall.attributes["validation"] == [["ready", 1.0, 8, 4]]
+    context = compact_taste_context(db, household_id=household.id, user_id=user.id)
+    assert context["dimensions_reliability"] == "good"
+    assert "faint hint" not in context.get("how_to_use", "")
 
 
 def test_favourites_follow_how_much_they_were_liked_not_how_often() -> None:
