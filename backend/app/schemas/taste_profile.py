@@ -61,8 +61,8 @@ class TasteProfileAlgorithmDimension(BaseModel):
     dimension: str
     v2_preference: float | None = None
     v2_confidence: float | None = None
-    v3_preference: float | None = None
-    v3_confidence: float | None = None
+    candidate_preference: float | None = None
+    candidate_confidence: float | None = None
     scale_gap: float | None = None
 
 
@@ -71,8 +71,10 @@ class TasteProfileAlgorithmCategory(BaseModel):
     sample_count: int
     v2_version: int
     v2_confidence: float
-    v3_version: int | None = None
-    v3_confidence: float | None = None
+    candidate_version: int | None = None
+    candidate_confidence: float | None = None
+    # The star rating the candidate treated as neither liked nor disliked.
+    candidate_neutral_rating: float | None = None
     dimensions: list[TasteProfileAlgorithmDimension] = Field(default_factory=list)
     rebuilt_at: datetime
 
@@ -84,17 +86,17 @@ class TasteProfileAlgorithmValidation(BaseModel):
     positive_experiences: int = 0
     negative_experiences: int = 0
     v2_mean_absolute_error: float | None = None
-    v3_mean_absolute_error: float | None = None
+    candidate_mean_absolute_error: float | None = None
     # Probability that a liked experience ranks above a disliked one (0.5 = chance).
     v2_ranking_auc: float | None = None
-    v3_ranking_auc: float | None = None
-    winner: Literal["v2", "v3", "tie", "insufficient"] = "insufficient"
+    candidate_ranking_auc: float | None = None
+    winner: Literal["v2", "candidate", "tie", "insufficient"] = "insufficient"
 
 
 class TasteProfileAlgorithmDiagnostics(BaseModel):
     mode: Literal["shadow"] = "shadow"
-    active_version: int = 2
-    candidate_version: int = 3
+    active_version: int
+    candidate_version: int
     categories: list[TasteProfileAlgorithmCategory] = Field(default_factory=list)
     validation: TasteProfileAlgorithmValidation
 

@@ -79,6 +79,9 @@ from app.services.shared_wine_data import (
     resolve_shared_identity,
 )
 from app.services.taste_profiles import (
+    SENSORY_DIMENSIONS,
+    TASTE_PROFILE_CALCULATION_VERSION,
+    TASTE_PROFILE_SHADOW_VERSION,
     calculate_taste_match,
     calculate_taste_matches,
     claim_unassigned_tastings,
@@ -319,21 +322,25 @@ def taste_profile_algorithm_diagnostics(
     for profile in profiles:
         active_dimensions = profile.dimensions or {}
         shadow_dimensions = profile.shadow_dimensions or {}
-        dimension_names = sorted(set(active_dimensions) | set(shadow_dimensions))
+        dimension_names = sorted(
+            (set(active_dimensions) | set(shadow_dimensions)) & set(SENSORY_DIMENSIONS)
+        )
         dimensions: list[TasteProfileAlgorithmDimension] = []
         for dimension in dimension_names:
             v2_preference = _diagnostic_value(active_dimensions.get(dimension), "preference")
-            v3_preference = _diagnostic_value(shadow_dimensions.get(dimension), "preference")
+            candidate_preference = _diagnostic_value(shadow_dimensions.get(dimension), "preference")
             dimensions.append(
                 TasteProfileAlgorithmDimension(
                     dimension=dimension,
                     v2_preference=v2_preference,
                     v2_confidence=_diagnostic_value(active_dimensions.get(dimension), "confidence"),
-                    v3_preference=v3_preference,
-                    v3_confidence=_diagnostic_value(shadow_dimensions.get(dimension), "confidence"),
+                    candidate_preference=candidate_preference,
+                    candidate_confidence=_diagnostic_value(
+                        shadow_dimensions.get(dimension), "confidence"
+                    ),
                     scale_gap=(
-                        round(v3_preference - v2_preference, 4)
-                        if v2_preference is not None and v3_preference is not None
+                        round(candidate_preference - v2_preference, 4)
+                        if v2_preference is not None and candidate_preference is not None
                         else None
                     ),
                 )
@@ -344,8 +351,11 @@ def taste_profile_algorithm_diagnostics(
                 sample_count=profile.sample_count,
                 v2_version=profile.calculation_version,
                 v2_confidence=profile.confidence,
-                v3_version=profile.shadow_calculation_version,
-                v3_confidence=profile.shadow_confidence,
+                candidate_version=profile.shadow_calculation_version,
+                candidate_confidence=profile.shadow_confidence,
+                candidate_neutral_rating=_diagnostic_value(
+                    shadow_dimensions.get("neutral_rating"), "stars"
+                ),
                 dimensions=dimensions,
                 rebuilt_at=profile.rebuilt_at,
             )
@@ -356,6 +366,8 @@ def taste_profile_algorithm_diagnostics(
         user_id=context.user.id,
     )
     return TasteProfileAlgorithmDiagnostics(
+        active_version=TASTE_PROFILE_CALCULATION_VERSION,
+        candidate_version=TASTE_PROFILE_SHADOW_VERSION,
         categories=categories,
         validation=TasteProfileAlgorithmValidation.model_validate(validation),
     )

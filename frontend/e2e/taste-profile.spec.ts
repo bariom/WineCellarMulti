@@ -35,17 +35,18 @@ test("taste preferences use an individual scale and expandable wine styles", asy
   await page.route("**/api/v1/taste-profile/me/algorithm-diagnostics", route => route.fulfill({ json: {
     mode: "shadow",
     active_version: 2,
-    candidate_version: 3,
-    validation: { status: "ready", method: "leave_one_experience_out", tested_experiences: 12, positive_experiences: 8, negative_experiences: 4, v2_mean_absolute_error: .24, v3_mean_absolute_error: .17, winner: "v3" },
+    candidate_version: 4,
+    validation: { status: "ready", method: "leave_one_experience_out", tested_experiences: 12, positive_experiences: 8, negative_experiences: 4, v2_mean_absolute_error: .24, candidate_mean_absolute_error: .17, v2_ranking_auc: .6, candidate_ranking_auc: .71, winner: "candidate" },
     categories: [{
       category: "global",
       sample_count: 16,
       v2_version: 2,
       v2_confidence: .5,
-      v3_version: 3,
-      v3_confidence: .42,
+      candidate_version: 4,
+      candidate_confidence: .42,
+      candidate_neutral_rating: 4.6,
       rebuilt_at: "2026-09-15T12:00:00Z",
-      dimensions: [{ dimension: "body", v2_preference: .6, v2_confidence: .5, v3_preference: .72, v3_confidence: .42, scale_gap: .12 }],
+      dimensions: [{ dimension: "body", v2_preference: .6, v2_confidence: .5, candidate_preference: .72, candidate_confidence: .42, scale_gap: .12 }],
     }],
   } }));
   await page.route("**/api/v1/map-config", route => route.fulfill({ json: {} }));
@@ -83,14 +84,17 @@ test("taste preferences use an individual scale and expandable wine styles", asy
   await page.getByText("Come Vinaris ha costruito questo profilo", { exact: true }).click();
   await page.getByRole("button", { name: "Mostra confronto", exact: true }).click();
   const diagnostics = page.getByLabel("Diagnostica algoritmo gusto");
-  await expect(diagnostics.getByText("Confronto algoritmo V2/V3", { exact: true })).toBeVisible();
-  await expect(diagnostics.getByText("Il V2 resta attivo. Il V3 è solo osservato e non modifica affinità o suggerimenti.", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("Confronto algoritmo V2/V4", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("Il V2 resta attivo. Il V4 è solo osservato e non modifica affinità o suggerimenti.", { exact: true })).toBeVisible();
   await expect(diagnostics.getByText("Affinità V2", { exact: true })).toBeVisible();
-  await expect(diagnostics.getByText("Ideale V3", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("Affinità V4", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("Distinzione V4", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("71%", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("Neutro V4: 4,6 stelle", { exact: true })).toBeVisible();
   await expect(diagnostics.getByText("Errore medio V2 (taratura)", { exact: true })).toBeVisible();
   await expect(diagnostics.getByText("24 pt", { exact: true })).toBeVisible();
   await expect(diagnostics.getByText("17 pt", { exact: true })).toBeVisible();
-  await expect(diagnostics.getByText(/Il V3 distingue meglio/)).toBeVisible();
+  await expect(diagnostics.getByText(/Il V4 distingue meglio/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 

@@ -1640,8 +1640,8 @@ export type TasteProfileAlgorithmDimension = {
   dimension: string;
   v2_preference: number | null;
   v2_confidence: number | null;
-  v3_preference: number | null;
-  v3_confidence: number | null;
+  candidate_preference: number | null;
+  candidate_confidence: number | null;
   scale_gap: number | null;
 };
 
@@ -1650,8 +1650,9 @@ export type TasteProfileAlgorithmCategory = {
   sample_count: number;
   v2_version: number;
   v2_confidence: number;
-  v3_version: number | null;
-  v3_confidence: number | null;
+  candidate_version: number | null;
+  candidate_confidence: number | null;
+  candidate_neutral_rating: number | null;
   dimensions: TasteProfileAlgorithmDimension[];
   rebuilt_at: string;
 };
@@ -1668,10 +1669,10 @@ export type TasteProfileAlgorithmDiagnostics = {
     positive_experiences: number;
     negative_experiences: number;
     v2_mean_absolute_error: number | null;
-    v3_mean_absolute_error: number | null;
+    candidate_mean_absolute_error: number | null;
     v2_ranking_auc?: number | null;
-    v3_ranking_auc?: number | null;
-    winner: "v2" | "v3" | "tie" | "insufficient";
+    candidate_ranking_auc?: number | null;
+    winner: "v2" | "candidate" | "tie" | "insufficient";
   };
 };
 

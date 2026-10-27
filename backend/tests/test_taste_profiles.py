@@ -46,6 +46,7 @@ from app.services.taste_profiles import (
     compact_taste_context,
     confidence_level,
     generate_wine_sensory_profile,
+    personal_neutral_rating,
     rating_weight,
     rebuild_user_taste_profile,
     record_user_wine_rating,
@@ -1598,7 +1599,7 @@ def test_profiles_are_isolated_per_household_for_the_same_user() -> None:
     )
 
 
-def test_rebuild_archives_changed_profile_and_keeps_v3_in_shadow() -> None:
+def test_rebuild_archives_changed_profile_and_keeps_v4_in_shadow() -> None:
     db = Session()
     household = Household(name="Home")
     user = User(email="history@example.test", display_name="History", password_hash="x")
@@ -1635,8 +1636,10 @@ def test_rebuild_archives_changed_profile_and_keeps_v3_in_shadow() -> None:
     assert revision is not None
     assert revision.dimensions == original_dimensions
     assert rebuilt_global.calculation_version == 2
-    assert rebuilt_global.shadow_calculation_version == 3
-    assert rebuilt_global.shadow_dimensions
+    assert rebuilt_global.shadow_calculation_version == 4
+    assert rebuilt_global.shadow_dimensions["body"]
+    # Two tastings (5 and 1 stars) barely move the neutral point from three stars.
+    assert rebuilt_global.shadow_dimensions["neutral_rating"] == {"stars": 3.0}
 
 
 def test_evidence_counts_only_personal_signals_in_the_active_household() -> None:
@@ -1949,12 +1952,58 @@ def test_algorithm_validation_uses_held_out_positive_and_negative_experiences() 
     assert validation["positive_experiences"] == 4
     assert validation["negative_experiences"] == 4
     assert validation["v2_mean_absolute_error"] is not None
-    assert validation["v3_mean_absolute_error"] is not None
+    assert validation["candidate_mean_absolute_error"] is not None
     # Liked wines share high levels and disliked ones low levels, so both
     # profiles should rank every liked experience above every disliked one.
     assert validation["v2_ranking_auc"] == 1.0
-    assert validation["v3_ranking_auc"] == 1.0
+    assert validation["candidate_ranking_auc"] == 1.0
     assert validation["winner"] == "tie"
+
+
+def test_candidate_profile_reads_ratings_against_the_users_own_average() -> None:
+    """Someone who rates everything 4..6 stars: V2 sees only liked wines, V4 sees contrast."""
+    db = Session()
+    household = Household(name="Generous home")
+    user = User(email="generous@example.test", display_name="Generous", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    # Mostly light wines, all "liked" at 4 stars; the two full-bodied ones get 6.
+    ratings_and_body = [(4, 0.2)] * 6 + [(6, 0.9)] * 2
+    for index, (rating, body) in enumerate(ratings_and_body):
+        wine = make_wine(db, household, name=f"Generous {index}")
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions={"body": body, "acidity": 0.5, "fruit": 0.5},
+                confidence=0.8,
+                generation_status="available",
+            )
+        )
+        add_tasting(db, user, household, wine, rating)
+    db.commit()
+
+    profile = next(
+        item
+        for item in rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+        if item.category == "global"
+    )
+
+    # (3 * 3 + 24 + 12) / 11 = 4.09 stars: the 4-star wines are below this user's average.
+    assert profile.shadow_dimensions["neutral_rating"] == {"stars": 4.09}
+    # V2 mirrors the cellar: its affinity (0.5 + half the signal-weighted level)
+    # sits between the many light and the few full wines.
+    assert profile.dimensions["body"]["preference"] == 0.775
+    # V4 follows the ratings: the full-bodied wines were the ones that stood out.
+    assert profile.shadow_dimensions["body"]["preference"] > 0.85
+
+
+def test_personal_neutral_rating_shrinks_toward_three_stars_and_stays_in_range() -> None:
+    assert personal_neutral_rating([]) == 3.0
+    assert personal_neutral_rating([6]) == 3.75
+    assert personal_neutral_rating([0, 0, 6]) == 3.75
+    assert personal_neutral_rating([6] * 100) == 5.0
+    assert personal_neutral_rating([1] * 100) == 2.0
+    assert tasting_preference_weight(4, "", 4.3) < 0 < tasting_preference_weight(5, "", 4.3)
 
 
 def test_ranking_auc_ignores_how_high_the_predictions_are() -> None:
@@ -2012,10 +2061,11 @@ def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
                         sample_count=4,
                         calculation_version=2,
                         shadow_dimensions={
-                            "body": {"preference": 0.72, "confidence": 0.4, "samples": 4}
+                            "body": {"preference": 0.72, "confidence": 0.4, "samples": 4},
+                            "neutral_rating": {"stars": 4.6},
                         },
                         shadow_confidence=0.4,
-                        shadow_calculation_version=3,
+                        shadow_calculation_version=4,
                     ),
                     UserTasteProfile(
                         user_id=user.id,
@@ -2028,7 +2078,7 @@ def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
                         calculation_version=2,
                         shadow_dimensions={"body": {"preference": 0.9, "confidence": 0.2}},
                         shadow_confidence=0.2,
-                        shadow_calculation_version=3,
+                        shadow_calculation_version=4,
                     ),
                 ]
             )
@@ -2036,14 +2086,18 @@ def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
         diagnostics = client.get("/api/v1/taste-profile/me/algorithm-diagnostics")
         assert diagnostics.status_code == 200, diagnostics.text
         assert diagnostics.json()["mode"] == "shadow"
+        assert diagnostics.json()["candidate_version"] == 4
         assert [item["category"] for item in diagnostics.json()["categories"]] == ["global"]
+        assert diagnostics.json()["categories"][0]["candidate_neutral_rating"] == 4.6
+        # The neutral rating is stored beside the dimensions but is not one of them.
+        assert [item["dimension"] for item in diagnostics.json()["categories"][0]["dimensions"]] == ["body"]
         body = diagnostics.json()["categories"][0]["dimensions"][0]
         assert body == {
             "dimension": "body",
             "v2_preference": 0.6,
             "v2_confidence": 0.5,
-            "v3_preference": 0.72,
-            "v3_confidence": 0.4,
+            "candidate_preference": 0.72,
+            "candidate_confidence": 0.4,
             "scale_gap": 0.12,
         }
         assert diagnostics.json()["validation"] == {
@@ -2053,9 +2107,9 @@ def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
             "positive_experiences": 0,
             "negative_experiences": 0,
             "v2_mean_absolute_error": None,
-            "v3_mean_absolute_error": None,
+            "candidate_mean_absolute_error": None,
             "v2_ranking_auc": None,
-            "v3_ranking_auc": None,
+            "candidate_ranking_auc": None,
             "winner": "insufficient",
         }
         with Session() as db:

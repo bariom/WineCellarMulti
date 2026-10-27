@@ -48,7 +48,19 @@ SENSORY_DIMENSIONS = (
 TASTE_CATEGORIES = {"Red", "White", "Rose", "Sparkling", "Sweet", "Fortified"}
 NEUTRAL_RATING = 3.0  # Vinaris tastings are 1..6 stars; zero means not rated.
 TASTE_PROFILE_CALCULATION_VERSION = 2
-TASTE_PROFILE_SHADOW_VERSION = 3
+# Version 4 (observed only): every rating is compared with the user's own average
+# instead of the fixed three stars, and a wine below that average pushes the
+# preferred level away from its own. Most people rate nearly everything above
+# three stars, so V2 ends up describing what they drink rather than what they
+# prefer; V4 reads "4 stars from someone who usually gives 5" as lukewarm.
+# Version 3 (an "ideal level" estimate on absolute ratings) ranked no better
+# than chance and was retired.
+TASTE_PROFILE_SHADOW_VERSION = 4
+# The personal average starts from the neutral three stars as if rated this many
+# times, so a handful of tastings cannot move it far, and stays in a range that
+# leaves room on both sides of the scale.
+PERSONAL_NEUTRAL_PRIOR_EXPERIENCES = 3.0
+PERSONAL_NEUTRAL_RANGE = (2.0, 5.0)
 # Favourites (producers, regions, grapes…) are ranked by average stars, shrunk
 # toward the user's overall average as if each had this many extra experiences.
 FAVOURITE_PRIOR_EXPERIENCES = 3.0
@@ -73,6 +85,7 @@ def star_equivalent(weight: float) -> float:
 
 def has_current_favourite_scoring(attributes: dict | None) -> bool:
     return isinstance(attributes, dict) and attributes.get("scoring") == FAVOURITE_SCORING_MARKER
+
 
 # These are deliberately small, explainable zero-cost defaults. Appellation/grape baselines in the
 # database override/augment them and are maintained by app administrators.
@@ -358,10 +371,41 @@ def rating_weight(
     return max(-1.0, min(1.0, (rating - neutral_rating) / denominator))
 
 
-def tasting_preference_weight(rating: float, enjoyment: str = "") -> float:
+def tasting_preference_weight(
+    rating: float, enjoyment: str = "", neutral_rating: float = NEUTRAL_RATING
+) -> float:
     """Combine the explicit score with the optional positive/negative tasting signal."""
     enjoyment_weight = {"positive": 0.35, "negative": -0.35}.get(enjoyment, 0.0)
-    return max(-1.0, min(1.0, rating_weight(rating) + enjoyment_weight))
+    return max(-1.0, min(1.0, rating_weight(rating, neutral_rating) + enjoyment_weight))
+
+
+def personal_neutral_rating(ratings: list[float]) -> float:
+    """The star rating that counts as neither liked nor disliked for this user (V4)."""
+    rated = [rating for rating in ratings if rating > 0]
+    average = (PERSONAL_NEUTRAL_PRIOR_EXPERIENCES * NEUTRAL_RATING + sum(rated)) / (
+        PERSONAL_NEUTRAL_PRIOR_EXPERIENCES + len(rated)
+    )
+    low, high = PERSONAL_NEUTRAL_RANGE
+    return max(low, min(high, average))
+
+
+# One experience with sensory data: (rating, enjoyment, weight, level, source confidence).
+# The weight tempers direct star ratings (0.5) against recorded tastings (1).
+Experience = tuple[float, str, float, float, float]
+
+
+def experience_signal(experience: Experience, neutral_rating: float = NEUTRAL_RATING) -> float:
+    rating, enjoyment, weight, _, _ = experience
+    return tasting_preference_weight(rating, enjoyment, neutral_rating) * weight
+
+
+def _dimension_contributions(
+    experiences: list[Experience], neutral_rating: float = NEUTRAL_RATING
+) -> list[tuple[float, float, float]]:
+    return [
+        (experience_signal(experience, neutral_rating), experience[3], experience[4])
+        for experience in experiences
+    ]
 
 
 def _category(wine: Wine | ExternalWineTasting | WishlistItem) -> str:
@@ -430,44 +474,6 @@ def grape_shares(wine: Wine | ExternalWineTasting) -> dict[str, float]:
     return {name: share / total for name, share in shares.items()}
 
 
-def _shadow_dimension(
-    contributions: list[tuple[float, float, float]],
-) -> tuple[dict[str, float | int], float] | None:
-    """Estimate an ideal sensory level without replacing the active v2 score."""
-    weighted_targets: list[tuple[float, float]] = []
-    total_signal = 0.0
-    confidence_total = 0.0
-    for signal, sensory_value, source_confidence in contributions:
-        strength = abs(signal)
-        if not strength:
-            continue
-        confidence = max(0.0, min(float(source_confidence), 1.0))
-        weight = strength * confidence
-        if not weight:
-            continue
-        # Positive experiences pull toward the wine's level; negative ones push
-        # toward the opposite side of the scale.
-        target = sensory_value if signal > 0 else 1 - sensory_value
-        weighted_targets.append((weight, target))
-        total_signal += strength
-        confidence_total += weight
-    if not weighted_targets or not total_signal:
-        return None
-    total_weight = sum(weight for weight, _ in weighted_targets)
-    raw_target = sum(weight * target for weight, target in weighted_targets) / total_weight
-    evidence_stability = 1 - exp(-total_signal / 6)
-    preference = 0.5 + (raw_target - 0.5) * evidence_stability
-    confidence = evidence_stability * min(1.0, confidence_total / total_signal)
-    return (
-        {
-            "preference": round(preference, 4),
-            "confidence": round(confidence, 4),
-            "samples": len(contributions),
-        },
-        confidence,
-    )
-
-
 def _active_dimension(
     contributions: list[tuple[float, float, float]],
 ) -> tuple[dict[str, float | int], float] | None:
@@ -482,6 +488,37 @@ def _active_dimension(
     return (
         {
             "preference": round(0.5 + affinity / 2, 4),
+            "confidence": round(confidence, 4),
+            "samples": len(contributions),
+        },
+        confidence,
+    )
+
+
+def _candidate_dimension(
+    contributions: list[tuple[float, float, float]],
+) -> tuple[dict[str, float | int], float] | None:
+    """V4: the level of the wines rated above the user's average, away from the others.
+
+    An experience below the personal neutral pushes the preferred level toward
+    the opposite side of the scale; in V2 it could only dilute the liked wines.
+    """
+    total_strength = sum(abs(signal) for signal, _, _ in contributions)
+    if not total_strength:
+        return None
+    preference = (
+        sum(
+            abs(signal) * (value if signal > 0 else 1 - value) for signal, value, _ in contributions
+        )
+        / total_strength
+    )
+    source_confidence = (
+        sum(abs(signal) * confidence for signal, _, confidence in contributions) / total_strength
+    )
+    confidence = (1 - exp(-total_strength / 6)) * source_confidence
+    return (
+        {
+            "preference": round(preference, 4),
             "confidence": round(confidence, 4),
             "samples": len(contributions),
         },
@@ -510,12 +547,14 @@ def ranking_auc(scores: list[float], signals: list[float]) -> float | None:
 def validate_taste_profile_algorithms(
     db: Session, *, household_id: UUID, user_id: UUID
 ) -> dict[str, object]:
-    """Compare V2 and V3 against held-out experiences without changing either profile."""
-    observations: list[tuple[float, dict[str, float], float]] = []
+    """Compare V2 and the V4 candidate against held-out experiences without changing either profile."""
+    observations: list[tuple[Experience, dict[str, float]]] = []
 
-    def append_observation(signal: float, sensory_profile: WineSensoryProfile | None) -> None:
+    def append_observation(
+        rating: float, enjoyment: str, weight: float, sensory_profile: WineSensoryProfile | None
+    ) -> None:
         if (
-            not signal
+            not tasting_preference_weight(rating, enjoyment)
             or sensory_profile is None
             or sensory_profile.generation_status != "available"
         ):
@@ -523,7 +562,8 @@ def validate_taste_profile_algorithms(
         dimensions = reliable_sensory_dimensions(sensory_profile)
         if len(dimensions) < 3:
             return
-        observations.append((signal, dimensions, float(sensory_profile.confidence)))
+        confidence = float(sensory_profile.confidence)
+        observations.append(((rating, enjoyment, weight, 0.0, confidence), dimensions))
 
     tasting_rows = db.execute(
         select(WineTastingEntry, WineSensoryProfile)
@@ -540,10 +580,7 @@ def validate_taste_profile_algorithms(
         )
     )
     for tasting, sensory_profile in tasting_rows:
-        append_observation(
-            tasting_preference_weight(float(tasting.rating), tasting.enjoyment),
-            sensory_profile,
-        )
+        append_observation(float(tasting.rating), tasting.enjoyment, 1.0, sensory_profile)
 
     rating_rows = db.execute(
         select(UserWineRating, WineSensoryProfile)
@@ -557,7 +594,7 @@ def validate_taste_profile_algorithms(
         )
     )
     for rating, sensory_profile in rating_rows:
-        append_observation(rating_weight(float(rating.rating)) * 0.5, sensory_profile)
+        append_observation(float(rating.rating), "", 0.5, sensory_profile)
 
     external_rows = db.execute(
         select(ExternalWineTasting, WineSensoryProfile)
@@ -575,54 +612,53 @@ def validate_taste_profile_algorithms(
         )
     )
     for tasting, sensory_profile in external_rows:
-        append_observation(
-            tasting_preference_weight(float(tasting.rating), tasting.enjoyment),
-            sensory_profile,
+        append_observation(float(tasting.rating), tasting.enjoyment, 1.0, sensory_profile)
+
+    def prediction(targets: dict[str, float], held_out: dict[str, float]) -> float | None:
+        common = [dimension for dimension in held_out if dimension in targets]
+        if len(common) < 3:
+            return None
+        return sum(1 - abs(held_out[dimension] - targets[dimension]) for dimension in common) / len(
+            common
         )
 
     v2_errors: list[float] = []
-    v3_errors: list[float] = []
+    candidate_errors: list[float] = []
     v2_scores: list[float] = []
-    v3_scores: list[float] = []
+    candidate_scores: list[float] = []
     tested_signals: list[float] = []
-    for held_out_index, (held_out_signal, held_out_dimensions, _) in enumerate(observations):
-        training: dict[str, list[tuple[float, float, float]]] = defaultdict(list)
-        for index, (signal, dimensions, source_confidence) in enumerate(observations):
-            if index == held_out_index:
-                continue
-            for dimension, value in dimensions.items():
-                training[dimension].append((signal, value, source_confidence))
-
+    for held_out_index, (held_out, held_out_dimensions) in enumerate(observations):
+        training = [
+            observation for index, observation in enumerate(observations) if index != held_out_index
+        ]
+        # The candidate's neutral point is learnt from the training experiences only.
+        neutral = personal_neutral_rating([experience[0] for experience, _ in training])
         v2_targets: dict[str, float] = {}
-        v3_targets: dict[str, float] = {}
-        for dimension, contributions in training.items():
-            active = _active_dimension(contributions)
-            shadow = _shadow_dimension(contributions)
+        candidate_targets: dict[str, float] = {}
+        per_dimension: dict[str, list[Experience]] = defaultdict(list)
+        for experience, dimensions in training:
+            for dimension, value in dimensions.items():
+                per_dimension[dimension].append(experience[:3] + (value, experience[4]))
+        for dimension, experiences in per_dimension.items():
+            active = _active_dimension(_dimension_contributions(experiences))
+            candidate = _candidate_dimension(_dimension_contributions(experiences, neutral))
             if active is not None:
                 v2_targets[dimension] = float(active[0]["preference"])
-            if shadow is not None:
-                v3_targets[dimension] = float(shadow[0]["preference"])
-
-        common_dimensions = [
-            dimension
-            for dimension in held_out_dimensions
-            if dimension in v2_targets and dimension in v3_targets
-        ]
-        if len(common_dimensions) < 3:
+            if candidate is not None:
+                candidate_targets[dimension] = float(candidate[0]["preference"])
+        v2_prediction = prediction(v2_targets, held_out_dimensions)
+        candidate_prediction = prediction(candidate_targets, held_out_dimensions)
+        if v2_prediction is None or candidate_prediction is None:
             continue
-        v2_prediction = sum(
-            1 - abs(held_out_dimensions[dimension] - v2_targets[dimension])
-            for dimension in common_dimensions
-        ) / len(common_dimensions)
-        v3_prediction = sum(
-            1 - abs(held_out_dimensions[dimension] - v3_targets[dimension])
-            for dimension in common_dimensions
-        ) / len(common_dimensions)
-        actual = 0.5 + held_out_signal / 2
-        v2_errors.append(abs(v2_prediction - actual))
-        v3_errors.append(abs(v3_prediction - actual))
+        # Liked or disliked is the user's own absolute verdict (above or below
+        # three stars) for both algorithms, so the rankings are comparable.
+        held_out_signal = experience_signal(held_out)
+        v2_errors.append(abs(v2_prediction - (0.5 + held_out_signal / 2)))
+        candidate_errors.append(
+            abs(candidate_prediction - (0.5 + experience_signal(held_out, neutral) / 2))
+        )
         v2_scores.append(v2_prediction)
-        v3_scores.append(v3_prediction)
+        candidate_scores.append(candidate_prediction)
         tested_signals.append(held_out_signal)
 
     positive_count = sum(signal > 0 for signal in tested_signals)
@@ -635,31 +671,31 @@ def validate_taste_profile_algorithms(
             "positive_experiences": positive_count,
             "negative_experiences": negative_count,
             "v2_mean_absolute_error": None,
-            "v3_mean_absolute_error": None,
+            "candidate_mean_absolute_error": None,
             "v2_ranking_auc": None,
-            "v3_ranking_auc": None,
+            "candidate_ranking_auc": None,
             "winner": "insufficient",
         }
     v2_mae = sum(v2_errors) / len(v2_errors)
-    v3_mae = sum(v3_errors) / len(v3_errors)
+    candidate_mae = sum(candidate_errors) / len(candidate_errors)
     # The sufficiency check guarantees both classes; 0.5 (chance) is only a guard.
     v2_ranking = ranking_auc(v2_scores, tested_signals)
-    v3_ranking = ranking_auc(v3_scores, tested_signals)
+    candidate_ranking = ranking_auc(candidate_scores, tested_signals)
     v2_auc = 0.5 if v2_ranking is None else v2_ranking
-    v3_auc = 0.5 if v3_ranking is None else v3_ranking
+    candidate_auc = 0.5 if candidate_ranking is None else candidate_ranking
     # The verdict follows the ranking: telling liked wines from disliked ones is
     # what recommendations need. The mean error is kept as a calibration hint.
-    difference = v3_auc - v2_auc
-    winner = "v3" if difference >= 0.03 else "v2" if difference <= -0.03 else "tie"
+    difference = candidate_auc - v2_auc
+    winner = "candidate" if difference >= 0.03 else "v2" if difference <= -0.03 else "tie"
     return {
         "status": "ready",
         "tested_experiences": len(tested_signals),
         "positive_experiences": positive_count,
         "negative_experiences": negative_count,
         "v2_mean_absolute_error": round(v2_mae, 4),
-        "v3_mean_absolute_error": round(v3_mae, 4),
+        "candidate_mean_absolute_error": round(candidate_mae, 4),
         "v2_ranking_auc": round(v2_auc, 4),
-        "v3_ranking_auc": round(v3_auc, 4),
+        "candidate_ranking_auc": round(candidate_auc, 4),
         "winner": winner,
     }
 
@@ -706,9 +742,9 @@ def rebuild_user_taste_profile(
             .order_by(WineTastingEntry.consumed_at, WineTastingEntry.id)
         )
     )
-    accumulators: dict[str, dict[str, list[tuple[float, float, float]]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
+    accumulators: dict[str, dict[str, list[Experience]]] = defaultdict(lambda: defaultdict(list))
+    # Every star rating per category: the V4 candidate's neutral point.
+    category_stars: dict[str, list[float]] = defaultdict(list)
     # Star-equivalent of every experience per favourite with its weight (a grape's
     # share of a blend, otherwise 1), used for the ranking; the category totals
     # give the user's own average, the starting point of each one.
@@ -744,12 +780,14 @@ def rebuild_user_taste_profile(
                     attribute_drinks[category][key][value] += 1
                 if stars > 0:
                     attribute_ratings[category][key][value].append(stars)
+
     samples: dict[str, int] = defaultdict(int)
     for tasting, wine, profile in rows:
         categories = ["global"] + ([] if _category(wine) == "global" else [_category(wine)])
         weight = tasting_preference_weight(float(tasting.rating), tasting.enjoyment)
         for category in categories:
             samples[category] += 1
+            category_stars[category].append(float(tasting.rating))
             record_attribute(
                 category, wine, star_equivalent(weight), drink=True, stars=float(tasting.rating)
             )
@@ -758,7 +796,13 @@ def rebuild_user_taste_profile(
             profile_dimensions = reliable_sensory_dimensions(profile)
             for dimension, value in profile_dimensions.items():
                 accumulators[category][dimension].append(
-                    (weight, value, sensory_dimension_confidence(profile, dimension))
+                    (
+                        float(tasting.rating),
+                        tasting.enjoyment,
+                        1.0,
+                        value,
+                        sensory_dimension_confidence(profile, dimension),
+                    )
                 )
     rating_rows = db.execute(
         select(UserWineRating, Wine, WineSensoryProfile)
@@ -772,10 +816,10 @@ def rebuild_user_taste_profile(
         )
     )
     for star_rating, wine, profile in rating_rows:
-        weight = rating_weight(float(star_rating.rating)) * 0.5
         categories = ["global"] + ([] if _category(wine) == "global" else [_category(wine)])
         for category in categories:
             samples[category] += 1
+            category_stars[category].append(float(star_rating.rating))
             # The stars themselves: the halved weight only tempers the sensory profile.
             record_attribute(
                 category,
@@ -788,7 +832,13 @@ def rebuild_user_taste_profile(
                 continue
             for dimension, value in reliable_sensory_dimensions(profile).items():
                 accumulators[category][dimension].append(
-                    (weight, value, sensory_dimension_confidence(profile, dimension))
+                    (
+                        float(star_rating.rating),
+                        "",
+                        0.5,
+                        value,
+                        sensory_dimension_confidence(profile, dimension),
+                    )
                 )
     external_rows = db.execute(
         select(ExternalWineTasting, WineSensoryProfile)
@@ -810,6 +860,7 @@ def rebuild_user_taste_profile(
         weight = tasting_preference_weight(float(tasting.rating), tasting.enjoyment)
         for category in categories:
             samples[category] += 1
+            category_stars[category].append(float(tasting.rating))
             record_attribute(
                 category, tasting, star_equivalent(weight), drink=True, stars=float(tasting.rating)
             )
@@ -817,7 +868,13 @@ def rebuild_user_taste_profile(
                 continue
             for dimension, value in reliable_sensory_dimensions(profile).items():
                 accumulators[category][dimension].append(
-                    (weight, value, sensory_dimension_confidence(profile, dimension))
+                    (
+                        float(tasting.rating),
+                        tasting.enjoyment,
+                        1.0,
+                        value,
+                        sensory_dimension_confidence(profile, dimension),
+                    )
                 )
     existing_profiles = {
         profile.category: profile
@@ -837,14 +894,15 @@ def rebuild_user_taste_profile(
         confidence_values: list[float] = []
         shadow_dimensions: dict[str, dict] = {}
         shadow_confidence_values: list[float] = []
-        for dimension, contributions in accumulators[category].items():
-            active = _active_dimension(contributions)
+        neutral = personal_neutral_rating(category_stars[category])
+        for dimension, experiences in accumulators[category].items():
+            active = _active_dimension(_dimension_contributions(experiences))
             if active is None:
                 continue
             active_value, confidence = active
             dimensions[dimension] = active_value
             confidence_values.append(confidence)
-            shadow = _shadow_dimension(contributions)
+            shadow = _candidate_dimension(_dimension_contributions(experiences, neutral))
             if shadow is not None:
                 shadow_value, shadow_confidence = shadow
                 shadow_dimensions[dimension] = shadow_value
@@ -855,7 +913,8 @@ def rebuild_user_taste_profile(
         def favourite_score(scores: list[tuple[float, float]], prior: float) -> float:
             # A few excellent bottles can lead, but one bottle cannot outweigh many.
             return (
-                FAVOURITE_PRIOR_EXPERIENCES * prior + sum(score * weight for score, weight in scores)
+                FAVOURITE_PRIOR_EXPERIENCES * prior
+                + sum(score * weight for score, weight in scores)
             ) / (FAVOURITE_PRIOR_EXPERIENCES + sum(weight for _, weight in scores))
 
         def attribute_entry(category: str, key: str, value: str, score: float) -> list[object]:
@@ -912,6 +971,9 @@ def rebuild_user_taste_profile(
             else 0.0,
             4,
         )
+        # Kept beside the candidate's dimensions so the diagnostics can show
+        # which rating it treated as neutral.
+        shadow_dimensions["neutral_rating"] = {"stars": round(neutral, 2)}
         profile = existing_profiles.pop(category, None)
         if profile is None:
             profile = UserTasteProfile(
