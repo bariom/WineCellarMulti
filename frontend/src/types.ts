@@ -401,6 +401,8 @@ export type WineShareOffer = {
 
 export type TastingArchiveApiItem = {
   memory_photo_location?: { latitude: number; longitude: number } | null;
+  /** The viewer may change or remove the place of this memory photo. */
+  can_edit_location?: boolean;
   memory_photo_url?: string;
   wine_photo_thumbnail_url?: string;
   tasting_id: string;

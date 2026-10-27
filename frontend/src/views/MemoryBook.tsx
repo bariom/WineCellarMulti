@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../services/api";
+import type { PhotoLocation } from "../domain/photoLocation";
 import type { Locale, TastingArchiveApiItem, TastingArchivePage } from "../types";
 import MemoryLocation from "../components/MemoryLocation";
 import { MemoryPhotoViewer } from "../components/TastingMemoryPhoto";
@@ -10,6 +11,42 @@ import "./MemoryBook.css";
 
 const MemoryAtlas = lazy(() => import("../components/MemoryAtlas"));
 const MemoryTable = lazy(() => import("../components/MemoryTable"));
+const MemoryLocationPicker = lazy(() => import("../components/MemoryLocationPicker"));
+
+/** Where a memory photo was taken: shown on the map, and correctable by whoever may edit it. */
+function MemoryPlace({ entry, locale, onChange }: { entry: TastingArchiveApiItem; locale: Locale; onChange: (location: PhotoLocation | null) => void }) {
+  const it = locale === "it";
+  const [picking, setPicking] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const location = entry.memory_photo_location || null;
+  async function save(next: PhotoLocation | null) {
+    setSaving(true); setError("");
+    try {
+      const source = entry.source === "external_tasting" ? "external" : "cellar";
+      const result = await api<{ memory_photo_location: PhotoLocation | null }>(`/api/v1/wines/tasting-photos/${source}/${entry.tasting_id}/location`, {
+        method: "PUT", body: JSON.stringify({ location: next }),
+      });
+      onChange(result.memory_photo_location);
+      setPicking(false);
+    } catch {
+      setError(it ? "Non è stato possibile salvare il luogo. Riprova." : "The place could not be saved. Try again.");
+    } finally { setSaving(false); }
+  }
+  return <>
+    {location ? <MemoryLocation location={location} locale={locale} /> : null}
+    {entry.can_edit_location ? <div className="memory-location memory-place-edit">
+      {picking ? <Suspense fallback={<p role="status">{it ? "Caricamento mappa…" : "Loading map…"}</p>}>
+        <MemoryLocationPicker locale={locale} initial={location} onConfirm={(next) => void save(next)} onCancel={() => { setPicking(false); setError(""); }} />
+      </Suspense> : <div className="memory-place-actions">
+        <button type="button" className="secondary" disabled={saving} onClick={() => setPicking(true)}><AppIcon name="location" size={16} />{location ? (it ? "Modifica luogo" : "Change place") : (it ? "Indica il luogo" : "Set the place")}</button>
+        {location ? <button type="button" className="secondary" disabled={saving} onClick={() => void save(null)}>{it ? "Rimuovi luogo" : "Remove place"}</button> : null}
+      </div>}
+      {saving ? <small role="status">{it ? "Salvataggio del luogo…" : "Saving the place…"}</small> : null}
+      {error ? <p role="alert">{error}</p> : null}
+    </div> : null}
+  </>;
+}
 
 function MemoryWineIdentity({ entry, locale }: { entry: TastingArchiveApiItem; locale: Locale }) {
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -133,7 +170,8 @@ export default function MemoryBook({ locale, onClose, initialIndex = 0 }: { loca
           <MemoryWineIdentity entry={entry} locale={locale} />
           {entry.note ? <p className="memory-book-note">{entry.note}</p> : null}
           {entry.companions ? <p className="memory-book-companions"><AppIcon name="users" size={17} /><span>{it ? "Con " : "With "}{entry.companions}</span></p> : null}
-          {entry.memory_photo_location ? <MemoryLocation location={entry.memory_photo_location} locale={locale} /> : null}
+          <MemoryPlace key={entry.tasting_id} entry={entry} locale={locale}
+            onChange={location => setPage(current => current && { ...current, items: current.items.map(item => item.tasting_id === entry.tasting_id ? { ...item, memory_photo_location: location } : item) })} />
           {tableDetail ? <dl className="memory-book-tasting-details">
             {entry.enjoyment ? <><dt>{it ? "Gradimento" : "Enjoyment"}</dt><dd>{entry.enjoyment === "positive" ? (it ? "Mi è piaciuto" : "I enjoyed it") : (it ? "Non mi è piaciuto" : "I did not enjoy it")}</dd></> : null}
             {entry.rating > 0 && entry.score_value == null ? <><dt>{it ? "Valutazione" : "Rating"}</dt><dd>{entry.rating} / 6</dd></> : null}

@@ -755,3 +755,48 @@ for (const origin of ["cellar", "external"] as const) {
     expect(await page.evaluate(() => (window as any).gpsPayload.memory_photo)).toMatch(/^data:image\/jpeg;base64,/);
   });
 }
+
+test("a memory photo's place can be set by hand, corrected and removed from the book", async ({ page }) => {
+  await page.addInitScript(({ archive }) => {
+    (window as any).bookMemories = [{ ...archive.items[0], tasting_id: "memory-place", source: "external_tasting", wine_name: "Una sera sul lago", occasion: "", memory_photo_url: "/images/home-tasting-v1.jpg", memory_photo_location: null, can_edit_location: true }];
+  }, { archive: tastingArchive });
+  const book = await openBook(page);
+  await page.evaluate(() => {
+    (window as any).placeRequests = [];
+    const previous = window.fetch;
+    window.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/wines/tasting-photos/external/memory-place/location") && init?.method === "PUT") {
+        const { location } = JSON.parse(String(init.body));
+        (window as any).placeRequests.push(location);
+        const memory = (window as any).bookMemories[0];
+        memory.memory_photo_location = location;
+        return Response.json({ memory_photo_location: location });
+      }
+      return previous(input, init);
+    };
+  });
+  await expect(book.getByRole("heading", { name: "Una sera sul lago" })).toBeVisible();
+  await expect(book.getByRole("button", { name: "Mostra luogo sulla mappa" })).toHaveCount(0);
+
+  await book.getByRole("button", { name: "Indica il luogo", exact: true }).click();
+  const picker = book.getByRole("group", { name: "Indica il luogo della foto" });
+  await picker.locator(".leaflet-container").click();
+  await picker.getByRole("button", { name: "Usa questo luogo" }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).placeRequests.length)).toBe(1);
+  const placed = await page.evaluate(() => (window as any).placeRequests[0]);
+  expect(Math.abs(placed.latitude)).toBeLessThanOrEqual(90);
+  await expect(picker).toHaveCount(0);
+  await expect(book.getByRole("button", { name: "Mostra luogo sulla mappa" })).toBeVisible();
+
+  // Correcting keeps the current place as the starting point.
+  await book.getByRole("button", { name: "Modifica luogo", exact: true }).click();
+  await expect(picker.locator(".memory-location-coordinates")).toHaveText(`${placed.latitude.toFixed(5)}, ${placed.longitude.toFixed(5)}`);
+  await picker.getByRole("button", { name: "Annulla" }).click();
+
+  await book.getByRole("button", { name: "Rimuovi luogo", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).placeRequests.at(-1))).toBeNull();
+  await expect(book.getByRole("button", { name: "Mostra luogo sulla mappa" })).toHaveCount(0);
+  await expect(book.getByRole("button", { name: "Indica il luogo", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});

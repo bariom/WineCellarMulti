@@ -167,6 +167,23 @@ class TastingArchiveItemResponse(BaseModel):
     sommelier_feedback_at: datetime | None = None
     created_at: datetime
     tasting_id: UUID
+    # The viewer may change or remove the place of this memory photo.
+    can_edit_location: bool = False
+
+
+class MemoryPhotoLocation(BaseModel):
+    latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
+
+
+class MemoryPhotoLocationUpdate(BaseModel):
+    """A place chosen by hand for a memory photo; null removes it."""
+
+    location: MemoryPhotoLocation | None = None
+
+
+class MemoryPhotoLocationResponse(BaseModel):
+    memory_photo_location: dict[str, float] | None = None
 
 
 class TastingArchiveProfileResponse(BaseModel):

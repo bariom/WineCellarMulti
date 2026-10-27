@@ -52,6 +52,8 @@ from app.models import (
     WineValueHistory,
 )
 from app.schemas.wine import (
+    MemoryPhotoLocationResponse,
+    MemoryPhotoLocationUpdate,
     TastingArchiveItemResponse,
     TastingArchivePageResponse,
     TastingArchiveProfileResponse,
@@ -875,6 +877,55 @@ def get_tasting_memory_photo(
     )
 
 
+@router.put(
+    "/tasting-photos/{source}/{tasting_id}/location",
+    response_model=MemoryPhotoLocationResponse,
+)
+def update_tasting_memory_photo_location(
+    source: Literal["cellar", "external"],
+    tasting_id: UUID,
+    payload: MemoryPhotoLocationUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_memories_context),
+) -> MemoryPhotoLocationResponse:
+    """Correct or remove where a memory photo was taken, without uploading it again."""
+    location = (
+        {"latitude": payload.location.latitude, "longitude": payload.location.longitude}
+        if payload.location
+        else None
+    )
+    if source == "cellar":
+        require_write_context(context)
+        tasting = db.scalar(
+            select(WineTastingEntry).where(
+                WineTastingEntry.id == tasting_id,
+                WineTastingEntry.household_id == context.household.id,
+            )
+        )
+        wine = get_household_wine(db, context, tasting.wine_id) if tasting else None
+    else:
+        tasting = db.scalar(
+            select(ExternalWineTasting).where(
+                ExternalWineTasting.id == tasting_id,
+                ExternalWineTasting.household_id == context.household.id,
+                ExternalWineTasting.created_by_user_id == context.user.id,
+            )
+        )
+        wine = None
+    if tasting is None or not tasting.memory_photo_version:
+        raise HTTPException(404, "Memory photo not found")
+    tasting.memory_photo_location = location
+    if wine is not None:
+        # The wine keeps a copy of its tasting history for the wine detail.
+        entries = normalize_tasting_history([dict(entry) for entry in (wine.tasting_history or [])])
+        for entry in entries:
+            if entry.get("id") == str(tasting_id):
+                entry["memory_photo_location"] = location
+        wine.tasting_history = entries
+    db.commit()
+    return MemoryPhotoLocationResponse(memory_photo_location=location)
+
+
 @router.get("/tasting-archive", response_model=TastingArchivePageResponse)
 def list_tasting_archive(
     q: str = Query(default=""),
@@ -982,6 +1033,11 @@ def list_tasting_archive(
         reverse=True,
     )
     visible_items = archive_items[offset : offset + limit]
+    can_write = context.membership.role in {"owner", "admin", "member"}
+    for item in visible_items:
+        if item.memory_photo_url:
+            # External tastings are always the viewer's own.
+            item.can_edit_location = can_write or item.source == "external_tasting"
     missing_photo_identities = {
         (normalize_photo_identity(item.wine_name), normalize_photo_identity(item.wine_producer))
         for item in visible_items
