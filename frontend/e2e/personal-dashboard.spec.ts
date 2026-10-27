@@ -395,6 +395,9 @@ test("personal dashboard saves selection, order, width and default; preserves ed
   await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
   await page.getByRole("checkbox", { name: /Mappa delle regioni/ }).uncheck();
   await page.getByRole("checkbox", { name: /Panorama di maturità/ }).uncheck();
+  // A mouse resting on a card opens its preview after 400 ms, over the order controls.
+  await page.mouse.move(0, 0);
+  await expect(page.locator(".personal-widget-preview:popover-open")).toHaveCount(0);
   await page.getByRole("button", { name: "Sposta su: Ultimi vini aggiunti", exact: true }).click();
   await page.getByLabel("Larghezza: Ultimi vini aggiunti", { exact: true }).selectOption("full");
   await page.evaluate(() => sessionStorage.setItem("vinaris-test-save-error", "1"));

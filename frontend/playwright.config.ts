@@ -9,6 +9,9 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${port}`;
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
+  // The first load of a page compiles the app on demand: under two workers it can
+  // take more than the default 5 s, which made checks on it fail at random.
+  expect: { timeout: 10_000 },
   fullyParallel: true,
   // Bound browser concurrency on local machines as well as CI; override with --workers.
   workers: 2,

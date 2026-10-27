@@ -49,6 +49,7 @@ for (const width of [360, 390, 430, 1440]) {
     await page.screenshot({ path: testInfo.outputPath("wishlist-overview.png"), fullPage: true });
     if (width === 390) {
       await snapshotChrome(page, false);
+      await page.mouse.move(0, 0);
       await expect(overview).toHaveScreenshot("wishlist-overview-compact.png", { animations: "disabled" });
       await snapshotChrome(page, true);
     }
