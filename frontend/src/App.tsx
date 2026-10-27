@@ -1,6 +1,6 @@
 import { CellarEmptyImage } from "./components/CellarEmptyImage";
 import { tastingRequest } from "./domain/tasting";
-import { CSSProperties, ChangeEvent, Children, ComponentProps, Dispatch, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useCallback, useEffect, useId, useRef, useState } from "react";
+import { CSSProperties, ChangeEvent, ComponentProps, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent, Suspense, UIEvent, lazy, useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import PremiumMemoriesNotice from "./components/PremiumMemoriesNotice";
@@ -8,19 +8,19 @@ import LocalizedDateInput from "./components/LocalizedDateInput";
 import type { AmbassadorChange } from "./components/AdminAmbassadorEditor";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
-import { WishlistVintageField, DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
-import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel, TasteHearts } from "./components/AppPanels";
+import { WishlistVintageField, WineStatusBadge, StarRating, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, wineProgressName, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput } from "./components/AppUi";
+import { DrinkWindowMini, auditMarketSources, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, CompareWinesModal, MarketValueModal, UserStatsModal, ownershipRows, hasSharedOwnership, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, ContactSupportPanel, DashboardCarousel, TasteHearts } from "./components/AppPanels";
 import { appActionSvgIcon, wishlistActionSvgIcon } from "./components/actionIcons";
-import { aiBudgetFillRatio, emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, wineTypeForTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, RestaurantWineListScanResult, RestaurantWineListQuestionPayload, RestaurantWineListQuestionResult, WineShelfScanResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, TastingReflectionResult, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry, WineSalesHistory, CellarCommandPurchaseDraft, WineStrategyPurpose } from "./types";
-import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
+import { formatDisplayDate, formatAiBudget, formatMoney, readableLegacyAiText, wineTone, wineTypeForTone, grapesSvgIcon } from "./components/panelSupport";
+import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsage, AiSettings, AiSettingsDraft, PairingResult, RestaurantWineListScanResult, RestaurantWineListQuestionPayload, RestaurantWineListQuestionResult, WineShelfScanResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, TastingReflectionResult, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry, WineSalesHistory, CellarCommandPurchaseDraft, WineStrategyPurpose } from "./types";
+import { displayValue, reasoningEffortTranslationKey, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import type { WineImageRecognitionCandidate, WineImageRecognitionConfirmationResult, WineImageRecognitionResult } from "./types";
 import type { WineSaleDraft } from "./types";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { initializeTabletLayout, isTabletDevice, saveTabletLayout } from "./domain/tabletLayout";
 import { localizedNotification } from "./domain/notifications";
-import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isMissedDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
+import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isMissedDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, needsValueRefresh, wineSearchText, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { runWineShelfScan } from "./services/wineShelfScan";
 import type { BatchAiItem, BatchAiRun } from "./components/BatchAiReport";
@@ -28,8 +28,8 @@ import type { SommelierDestination } from "./views/SommelierHubView";
 import type { FeatureId } from "./components/FeatureSuggestions";
 import { primeSpeech, setFrenchNames } from "./utils/speech";
 import { isFrenchWine } from "./utils/pronunciation";
-import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
-import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
+import { rawObject, rawArray, rawString, tastingEnjoymentValue, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
+import { prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
 import { wineToDraft, draftPayload, wishlistToDraft, wishlistPayload } from "./domain/drafts";
 import { tokenFromUrl, stripeCheckoutResultFromUrl, emailVerificationResultFromUrl, emailVerificationTokenFromUrl, passwordResetTokenFromUrl, coOwnershipTokenFromUrl, STRIPE_CHECKOUT_PLAN_KEY, STRIPE_CHECKOUT_BALANCE_KEY, inviteLink } from "./utils/location";
 import { CellarStorageManager, WineLocationPicker, WineStrategySection } from "./components/StoragePanels";
@@ -38,13 +38,14 @@ import { HelpContext } from "./help/HelpContext";
 import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
 import type { WishlistLiveTasteScan } from "./components/WishlistLiveTasteScanner";
 import { useChartReveal } from "./components/chartMotion";
+import { PortfolioValueSparkline, dashboardStatSvgIcon } from "./components/dashboardGraphics";
 import { CollectorReadyWines } from "./components/CollectorReadyWines";
 import { CollectorCardGroup } from "./components/CollectorCardGroup";
 import { CollectorAtlas } from "./components/CollectorAtlas";
 import { CollectorDashboard } from "./components/CollectorDashboard";
 import { CollectorQuadrante } from "./components/CollectorQuadrante";
 import { CellarHomeHero, CellarHomeStats, type CellarHomeHeroStat } from "./components/CellarHomeHero";
-import { appUserActivityStatus, appUserEntitlementStatus, appUserInitials, appUserPlanLabel, appUserRoleLabel, appUserTierStatus } from "./domain/appUsers";
+import { appUserRoleLabel } from "./domain/appUsers";
 import { CellarHomeBackdrop, resetHomeBackdropSession, sessionBackdropSrc } from "./components/CellarHomeBackdrop";
 import { RiservaBanner } from "./components/RiservaBanner";
 import { featuredExplanation, featuredHighlight } from "./components/FeaturedWineDetails";
@@ -52,9 +53,7 @@ import type { PersonalDashboardWidget } from "./types";
 import { featuredValue } from "./domain/featuredValue";
 import { selectFeaturedWines } from "./domain/featuredSelection";
 import { CollectorOverview } from "./components/CollectorOverview";
-import { DashboardCountUp } from "./components/DashboardCountUp";
 import { LEGAL_DOCUMENT_VERSION } from "./legal/legalDocuments";
-import { openCookieConsentSettings } from "./services/cookieConsent";
 import { reportGoogleAdsCheckoutConversion } from "./services/googleAds";
 import "./styles.css";
 import "./components/CollectorOverview.css";
@@ -121,6 +120,9 @@ const AdminUsersWorkspace = lazy(() => import("./components/AdminUsersWorkspace"
 const WishlistOverview = lazy(() => import("./components/WishlistOverview"));
 const WineLotsSection = lazy(() => import("./components/WineLotsSection"));
 const AiSettingsTab = lazy(() => import("./views/settings/AiSettingsTab"));
+const ValueDashboard = lazy(() => import("./views/home/ValueDashboard"));
+const DashboardHero = lazy(() => import("./views/home/DashboardHero"));
+const DailySommelierBubble = lazy(() => import("./views/home/DailySommelierBubble"));
 const ProfileSettingsTab = lazy(() => import("./views/settings/ProfileSettingsTab"));
 const SharingSettingsTab = lazy(() => import("./views/settings/SharingSettingsTab"));
 const DataSettingsTab = lazy(() => import("./views/settings/DataSettingsTab"));
@@ -897,103 +899,6 @@ function collectorFocusSvgIcon(kind: "drink_now" | "past_window" | "future_deliv
   );
 }
 
-function dashboardStatSvgIcon(kind: "mine" | "shared" | "total" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data") {
-  if (kind === "mine") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M10 3h4" />
-        <path d="M11 3v4l-3.5 5.2A4.5 4.5 0 0 0 7 14.7V18a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3v-3.3a4.5 4.5 0 0 0-.5-2.5L13 7V3" />
-        <path d="M8.5 13h7" />
-      </svg>
-    );
-  }
-  if (kind === "shared") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="8" cy="8" r="3" />
-        <circle cx="16" cy="9" r="3" />
-        <path d="M3.5 19a4.5 4.5 0 0 1 9 0" />
-        <path d="M11.5 19a4.5 4.5 0 0 1 9 0" />
-      </svg>
-    );
-  }
-  if (kind === "drink_now") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M6 4h12" />
-        <path d="M8 4v5a4 4 0 0 0 8 0V4" />
-        <path d="M12 13v7" />
-        <path d="M9 20h6" />
-        <circle cx="18" cy="6" r="2.5" />
-      </svg>
-    );
-  }
-  if (kind === "drink_soon") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="8" />
-        <path d="M12 8v5l3 2" />
-      </svg>
-    );
-  }
-  if (kind === "past_window") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 4v8" />
-        <path d="M12 16h.01" />
-        <path d="M10.3 4.8 4.9 14.2A2 2 0 0 0 6.7 17h10.6a2 2 0 0 0 1.8-2.8l-5.4-9.4a2 2 0 0 0-3.4 0Z" />
-      </svg>
-    );
-  }
-  if (kind === "future_deliveries") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M3 7h11v8H3z" />
-        <path d="M14 10h3l3 3v2h-6z" />
-        <circle cx="7" cy="17" r="2" />
-        <circle cx="17" cy="17" r="2" />
-      </svg>
-    );
-  }
-  if (kind === "to_collect") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M4 7h12v9H4z" />
-        <path d="M16 10h2.5l1.5 2v4H16z" />
-        <path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h1A1.5 1.5 0 0 1 12 5.5V7" />
-        <path d="m9 12 2 2 4-4" />
-      </svg>
-    );
-  }
-  if (kind === "missing_data") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M8 6h10" />
-        <path d="M8 12h10" />
-        <path d="M8 18h10" />
-        <path d="M4 6h.01" />
-        <path d="M4 12h.01" />
-        <path d="M4 18h.01" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 7h16" />
-      <path d="M6 7V5.5A1.5 1.5 0 0 1 7.5 4h9A1.5 1.5 0 0 1 18 5.5V7" />
-      <path d="M5 7v10.5A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5V7" />
-      <path d="M9 12h6" />
-      <path d="M12 9v6" />
-    </svg>
-  );
-}
-
-function dashboardStatIcon(kind: "mine" | "shared" | "total") {
-  if (kind === "mine") return "◉";
-  if (kind === "shared") return "◌";
-  return "◈";
-}
-
 function notificationSvgIcon(kind: string) {
   if (kind === "smart_drink_now" || kind === "smart_rate_tastings") return dashboardStatSvgIcon("drink_now");
   if (kind === "smart_past_window") return dashboardStatSvgIcon("past_window");
@@ -1008,39 +913,6 @@ function notificationSvgIcon(kind: string) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M6 10a6 6 0 1 1 12 0c0 4-6 10-6 10S6 14 6 10Z" />
       <circle cx="12" cy="10" r="2.5" />
-    </svg>
-  );
-}
-
-function PortfolioValueSparkline({ points, label }: { points: Array<{ recorded_at: string; value: string }>; label: string }) {
-  const chartRef = useRef<SVGSVGElement | null>(null);
-  // The history arrives asynchronously. Re-run the reveal once the SVG is
-  // actually rendered, otherwise its animated paths can remain transparent.
-  const pointsKey = points.map((point) => `${point.recorded_at}:${point.value}`).join("|");
-  useChartReveal(chartRef, pointsKey);
-  const gradientId = `portfolio-value-area-${useId().replace(/:/g, "")}`;
-  const values = points.map((point) => Number(point.value)).filter(Number.isFinite);
-  if (values.length < 2) return null;
-  const minimum = Math.min(...values);
-  const range = Math.max(Math.max(...values) - minimum, 1);
-  const coordinates = values.map((value, index) => ({
-    x: (index / (values.length - 1)) * 100,
-    y: 29 - ((value - minimum) / range) * 25,
-  }));
-  const path = coordinates.map(({ x, y }, index) => `${index ? "L" : "M"}${x} ${y}`).join(" ");
-  const areaPath = `${path} L100 32 L0 32 Z`;
-  const latest = coordinates[coordinates.length - 1];
-  return (
-    <svg className="portfolio-value-sparkline" ref={chartRef} viewBox="0 0 100 32" role="img" aria-label={label}>
-      <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop stopColor="var(--primary)" stopOpacity="0.3" />
-          <stop offset="1" stopColor="var(--accent)" stopOpacity="0.04" />
-        </linearGradient>
-      </defs>
-      <path className="portfolio-value-area" d={areaPath} fill={`url(#${gradientId})`} />
-      <path className="portfolio-value-line" d={path} />
-      <circle className="portfolio-value-latest" cx={latest.x} cy={latest.y} r="1.8" />
     </svg>
   );
 }
@@ -1484,7 +1356,6 @@ export function App() {
   const aiOverlayMode = (generatingAi.startsWith("batch-") ? "" : generatingAi) || (compareAiLoading ? "compare" : "");
   const [aiOverlayRenderMode, setAiOverlayRenderMode] = useState("");
   const [aiOverlayVisible, setAiOverlayVisible] = useState(false);
-  const landing = landingContent[locale];
   const exportBlocks = [
     { key: "wines", label: t("exportIncludesWines") },
     { key: "sales", label: t("exportIncludesSales") },
@@ -6351,8 +6222,6 @@ export function App() {
     }))
     .filter((point) => Number.isFinite(point.timestampMs) && Number.isFinite(point.numericValue))
     .sort((first, second) => first.timestampMs - second.timestampMs);
-  const portfolioValueFirst = portfolioValuePoints[0];
-  const portfolioValueLast = portfolioValuePoints[portfolioValuePoints.length - 1];
   const paidValueWines = cellarWines.filter((wine) => Number(wine.price || 0) > 0 && wine.quantity > 0);
   const paidBottleCount = paidValueWines.reduce((total, wine) => total + wine.quantity, 0);
   const purchaseValue = paidValueWines.reduce(
@@ -6366,12 +6235,6 @@ export function App() {
   const purchaseValueDelta = purchaseValue > 0 ? currentPaidValue - purchaseValue : null;
   const purchaseValueDeltaPct = purchaseValueDelta !== null && purchaseValue > 0
     ? (purchaseValueDelta / purchaseValue) * 100
-    : null;
-  const portfolioValueLow = portfolioValuePoints.length
-    ? Math.min(...portfolioValuePoints.map((point) => point.numericValue))
-    : null;
-  const portfolioValueHigh = portfolioValuePoints.length
-    ? Math.max(...portfolioValuePoints.map((point) => point.numericValue))
     : null;
   const wishlistStats = {
     count: wishlist.length,
@@ -7228,7 +7091,6 @@ export function App() {
         : [];
   const showAdminActionItems = notificationTab === "all" || notificationTab === "action";
   const activeRedeemCodesCount = redeemCodes.filter((code) => code.is_active).length;
-  const approvedUsersCount = appUsers.filter((user) => user.is_approved).length;
   const adminUsersSorted = [...appUsers].sort((first, second) => {
     if (first.is_approved !== second.is_approved) return Number(first.is_approved) - Number(second.is_approved);
     if (first.is_blocked !== second.is_blocked) return Number(first.is_blocked) - Number(second.is_blocked);
@@ -8020,8 +7882,9 @@ export function App() {
     setBreakdownDrilldown({ title, dimension, metric, label });
   }
 
-  function openBreakdownInCellar() {
-    if (!breakdownDrilldown) return;
+  // The dashboard has no drilldown panel: its "Open in cellar" passes the slice directly.
+  function openBreakdownInCellar(drilldown: BreakdownDrilldown = breakdownDrilldown) {
+    if (!drilldown) return;
     setActiveView("cellar");
     setSearchQuery("");
     setStatusFilter("");
@@ -8034,10 +7897,10 @@ export function App() {
     setGrapeOptionQuery("");
     setQuickWineFilter("");
     setMaturityFilter(null);
-    setSortMode(breakdownDrilldown.metric === "value" ? "value" : "name");
-    setTypeFilter(breakdownDrilldown.dimension === "type" ? breakdownDrilldown.label : "");
-    if (breakdownDrilldown.dimension === "region") {
-      setSearchQuery(breakdownDrilldown.label === "Unknown region" ? "" : breakdownDrilldown.label);
+    setSortMode(drilldown.metric === "value" ? "value" : "name");
+    setTypeFilter(drilldown.dimension === "type" ? drilldown.label : "");
+    if (drilldown.dimension === "region") {
+      setSearchQuery(drilldown.label === "Unknown region" ? "" : drilldown.label);
     }
     setWineFormOpen(false);
     setWishlistFormOpen(false);
@@ -8098,7 +7961,7 @@ export function App() {
             </div>
           </div>
         </div>
-        <button type="button" onClick={openBreakdownInCellar}>
+        <button type="button" onClick={() => openBreakdownInCellar()}>
           {t("openFilteredCellar")}
         </button>
       </section>
@@ -8378,7 +8241,7 @@ export function App() {
                       <WineValueConstellation
                         items={valueByCanonicalType}
                         locale={locale}
-                        onOpen={(item) => openBreakdownDrilldown("valueByType", "type", "value", item.label)}
+                        onOpen={(item) => openBreakdownInCellar({ title: "valueByType", dimension: "type", metric: "value", label: item.label })}
                       />
                     {!valueByCanonicalType.length && <p className="empty-state">{t("noActionItems")}</p>}
                   </article>);
@@ -9594,452 +9457,16 @@ export function App() {
         publicAuthPanel
       ) : (
         <>
-          {false ? <section className="public-landing">
-            <div className="public-hero">
-              <div className="public-hero-copy">
-                <p className="eyebrow">{locale === "it" ? "Collector edition" : "Collector edition"}</p>
-                <h2>{landing.headline}</h2>
-                <strong>{landing.subheadline}</strong>
-                <p>{landing.description}</p>
-                <div className="public-collector-strip" aria-label={locale === "it" ? "Indicatori collezionista" : "Collector signals"}>
-                  <span>{locale === "it" ? "Inventario" : "Inventory"}</span>
-                  <span>{locale === "it" ? "Valore" : "Value"}</span>
-                  <span>{locale === "it" ? "Beva" : "Drink windows"}</span>
-                  <span>{locale === "it" ? "Consegne" : "Deliveries"}</span>
-                  <span>Wishlist</span>
-                </div>
-                <div className="public-proof-grid">
-                  <article className="public-proof-tile">
-                    <span>{locale === "it" ? "Inventario privato" : "Private inventory"}</span>
-                    <strong>{locale === "it" ? "Bottiglie e quote" : "Bottles and shares"}</strong>
-                  </article>
-                  <article className="public-proof-tile">
-                    <span>{locale === "it" ? "Decisioni di beva" : "Drinking decisions"}</span>
-                    <strong>{locale === "it" ? "Apri o tieni" : "Open or hold"}</strong>
-                  </article>
-                  <article className="public-proof-tile">
-                    <span>{locale === "it" ? "Memoria cantina" : "Cellar memory"}</span>
-                    <strong>{locale === "it" ? "Note e storico" : "Notes and history"}</strong>
-                  </article>
-                </div>
-                <div className="public-hero-actions">
-                  <button type="button" onClick={() => openAuthPanel("register")}>
-                    {landing.secondaryCta}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => openAuthPanel("login")}>
-                    {landing.primaryCta}
-                  </button>
-                </div>
-              </div>
-              <aside className="public-pricing-card">
-                <div className="public-bottle-card" aria-hidden="true">
-                  <div>
-                    <span>{locale === "it" ? "Posizione chiave" : "Key position"}</span>
-                    <strong>Tignanello</strong>
-                    <small>Antinori · 2021</small>
-                  </div>
-                  <div className="public-vintage-seal">2021</div>
-                  <dl>
-                    <div><dt>{locale === "it" ? "Valore" : "Value"}</dt><dd>CHF 720</dd></div>
-                    <div><dt>{locale === "it" ? "Finestra" : "Window"}</dt><dd>2027-2042</dd></div>
-                    <div><dt>{locale === "it" ? "Azione" : "Action"}</dt><dd>{locale === "it" ? "Tenere" : "Hold"}</dd></div>
-                  </dl>
-                </div>
-                <p className="eyebrow">{landing.pricesTitle}</p>
-                <div className="public-price-grid">
-                  <div className="public-price-tile">
-                    <strong>{landing.monthlyLabel}</strong>
-                    <span>{locale === "it" ? "Accesso flessibile per mese" : "Flexible month-to-month access"}</span>
-                  </div>
-                  <div className="public-price-tile public-price-tile-highlight">
-                    <strong>{landing.annualLabel}</strong>
-                    <span>{locale === "it" ? "La scelta migliore per collezionisti attivi" : "Best value for active collectors"}</span>
-                  </div>
-                </div>
-                <p className="public-pricing-note">{landing.savingsNote}</p>
-                <div className="invite-notice promo-notice public-ai-credit-note">
-                  <strong>AI</strong>
-                  <span>{landing.aiTrialNote}</span>
-                </div>
-              </aside>
-            </div>
-
-            <section className="public-features-card">
-              <div className="public-section-heading">
-                <p className="eyebrow">{landing.collectorTitle}</p>
-                <h3>{landing.collectorBody}</h3>
-              </div>
-              <div className="public-feature-grid">
-                {landing.features.map((feature) => (
-                  <article className={`${feature.highlight ? "public-feature public-feature-highlight" : "public-feature"}${feature.ai && !feature.highlight ? " public-feature-ai" : ""}`} key={feature.title}>
-                    {feature.ai && !feature.highlight ? <span className="public-feature-pill">AI</span> : null}
-                    <h4>{feature.title}</h4>
-                    <p>{feature.body}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className="public-story-card">
-              <div className="public-story-copy">
-                <div className="public-section-heading">
-                  <p className="eyebrow">{landing.storyEyebrow}</p>
-                  <h3>{landing.storyTitle}</h3>
-                </div>
-                <p>{landing.storyBody}</p>
-                <div className="public-principles-grid">
-                  {landing.principles.map((principle) => (
-                    <article className="public-principle" key={principle.title}>
-                      <h4>{principle.title}</h4>
-                      <p>{principle.body}</p>
-                    </article>
-                  ))}
-                </div>
-              </div>
-                <aside className="public-founder-card">
-                  <p className="eyebrow">{landing.principlesTitle}</p>
-                  <blockquote>{landing.founderQuote}</blockquote>
-                  <p className="public-founder-support">{landing.founderSupport}</p>
-                  <div className="public-founder-meta">
-                    <strong>{landing.founderName}</strong>
-                    <span>{landing.founderRole}</span>
-                  </div>
-                </aside>
-            </section>
-
-            <section className="public-showcase-card">
-                <div className="public-section-heading">
-                  <p className="eyebrow">{locale === "it" ? "Dentro l'applicazione" : "Inside the application"}</p>
-                  <h3>
-                    {locale === "it"
-                      ? "Un percorso semplice: decidere, controllare, ricordare."
-                      : "A simple workflow: decide, inspect, remember."}
-                  </h3>
-                  <span>
-                    {locale === "it"
-                      ? "Vinaris mette in ordine il lavoro quotidiano del collezionista: priorità, valore, maturità, wishlist e memoria degustativa."
-                      : "Vinaris keeps the collector's daily work organized: priorities, value, maturity, wishlist, and tasting memory."}
-                  </span>
-                </div>
-                <div className="public-showcase-path" aria-label={locale === "it" ? "Percorso applicazione" : "Application workflow"}>
-                  <article>
-                    <span>01</span>
-                    <strong>{locale === "it" ? "Decidi cosa fare" : "Decide what to do"}</strong>
-                    <p>{locale === "it" ? "Dashboard, finestre di beva e priorità operative in apertura." : "Dashboard, drinking windows, and operational priorities at a glance."}</p>
-                  </article>
-                  <article>
-                    <span>02</span>
-                    <strong>{locale === "it" ? "Controlla la cantina" : "Inspect the cellar"}</strong>
-                    <p>{locale === "it" ? "Statistiche, qualità dati, valore e consegne future in una lettura unica." : "Stats, data quality, value, and future deliveries in one reading."}</p>
-                  </article>
-                  <article>
-                    <span>03</span>
-                    <strong>{locale === "it" ? "Conserva memoria" : "Preserve memory"}</strong>
-                    <p>{locale === "it" ? "Schede vino, wishlist e storico degustativo restano collegati alle decisioni." : "Wine records, wishlist, and tasting history stay connected to decisions."}</p>
-                  </article>
-                </div>
-                <div className="public-showcase-grid">
-                <article className="showcase-frame showcase-frame-wide">
-                  <div className="showcase-window">
-                    <div className="showcase-bar">
-                      <span className="showcase-tab active">Home</span>
-                      <span className="showcase-tab">Cellar (45)</span>
-                      <span className="showcase-tab">Wishlist (10)</span>
-                      <span className="showcase-tab">{locale === "it" ? "Mercato" : "Market"}</span>
-                    </div>
-                    <div className="showcase-hero">
-                      <div>
-                        <p className="eyebrow">Dashboard</p>
-                        <h4>{locale === "it" ? "Vista collezionista" : "Collector view"}</h4>
-                        <span>{locale === "it" ? "Una dashboard che suggerisce cosa fare, non solo che cosa possiedi." : "A dashboard that suggests what to do, not only what you own."}</span>
-                      </div>
-                      <div className="showcase-kpis">
-                        <div><strong>CHF 4'769</strong><span>{locale === "it" ? "Valore cantina" : "Cellar value"}</span></div>
-                        <div><strong>{locale === "it" ? "12 vini" : "12 wines"}</strong><span>{locale === "it" ? "Finestra ideale" : "Ideal window"}</span></div>
-                        <div><strong>4</strong><span>{locale === "it" ? "Consegne attese" : "Expected deliveries"}</span></div>
-                      </div>
-                    </div>
-                    <div className="showcase-dashboard-grid">
-                      <div className="showcase-card">
-                        <span>{locale === "it" ? "Decisioni immediate" : "Immediate decisions"}</span>
-                        <strong>{locale === "it" ? "Da aprire ora" : "Open now"}</strong>
-                        <ul>
-                          <li>Krug Grande Cuvée</li>
-                          <li>Dom Pérignon</li>
-                          <li>Tignanello</li>
-                        </ul>
-                      </div>
-                      <div className="showcase-card">
-                        <span>{locale === "it" ? "Da monitorare" : "Watch closely"}</span>
-                        <strong>{locale === "it" ? "Finestra delicata" : "Narrow window"}</strong>
-                        <ul>
-                          <li>Sassi Grossi</li>
-                          <li>Bidibi</li>
-                        </ul>
-                      </div>
-                      <div className="showcase-card">
-                        <span>{locale === "it" ? "Analisi mercato" : "Market analysis"}</span>
-                        <strong>{locale === "it" ? "3 vini da rileggere" : "3 wines to review"}</strong>
-                        <ul>
-                          <li>Arzo · {locale === "it" ? "Valore" : "Value"}</li>
-                          <li>Sirio · {locale === "it" ? "Valore" : "Value"}</li>
-                          <li>Blanc de Blancs · {locale === "it" ? "Finestra" : "Window"}</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="showcase-caption">
-                    <strong>{locale === "it" ? "Dashboard da collezionista" : "Collector dashboard"}</strong>
-                    <span>
-                      {locale === "it"
-                        ? "Priorità, rischi, consegne e qualità dei dati in una schermata leggibile."
-                        : "Priorities, risks, deliveries, and data quality in one readable screen."}
-                    </span>
-                  </div>
-                </article>
-
-                <article className="showcase-frame showcase-frame-wide">
-                  <div className="showcase-window showcase-stats-window">
-                    <div className="showcase-stats-head">
-                      <strong>{locale === "it" ? "Statistiche cantina" : "Cellar stats"}</strong>
-                        <span>{locale === "it" ? "Qualità dati, valore e finestre di beva" : "Data quality, value, and drinking windows"}</span>
-                    </div>
-                    <div className="showcase-stats-board">
-                      <div className="showcase-stat-tile showcase-stat-tile-highlight">
-                        <span>{locale === "it" ? "Le mie bottiglie" : "My bottles"}</span>
-                        <strong>112</strong>
-                        <small>CHF 4'830</small>
-                      </div>
-                      <div className="showcase-stat-tile">
-                        <span>{locale === "it" ? "Condivise" : "Shared"}</span>
-                        <strong>4</strong>
-                        <small>CHF 312</small>
-                      </div>
-                      <div className="showcase-stat-tile">
-                        <span>{locale === "it" ? "Valore totale" : "Total value"}</span>
-                        <strong>116</strong>
-                        <small>CHF 5'142</small>
-                      </div>
-                      <div className="showcase-stat-tile">
-                        <span>{locale === "it" ? "Da bere ora" : "Drink now"}</span>
-                        <strong>38</strong>
-                      </div>
-                      <div className="showcase-stat-tile">
-                        <span>{locale === "it" ? "Da bere in 2 anni" : "Drink in 2 years"}</span>
-                        <strong>1</strong>
-                      </div>
-                      <div className="showcase-stat-tile">
-                        <span>{locale === "it" ? "Oltre finestra" : "Past window"}</span>
-                        <strong>2</strong>
-                      </div>
-                      <div className="showcase-stat-tile">
-                        <span>{locale === "it" ? "Consegne future" : "Future deliveries"}</span>
-                        <strong>5</strong>
-                        <small>Le C des Carmes Haut-Brion · 12d</small>
-                      </div>
-                      <div className="showcase-stat-tile showcase-stat-quality">
-                        <span>{locale === "it" ? "Qualità dati" : "Data quality"}</span>
-                        <small>{locale === "it" ? "Valore mancante" : "Missing value"}: <strong>4</strong></small>
-                        <small>{locale === "it" ? "Finestra mancante" : "Missing drink window"}: <strong>7</strong></small>
-                        <small>{locale === "it" ? "Uvaggi mancanti" : "Missing grapes"}: <strong>4</strong></small>
-                        <small>{locale === "it" ? "Punteggi mancanti" : "Missing scores"}: <strong>22</strong></small>
-                      </div>
-                      <div className="showcase-breakdown-card">
-                        <div>
-                          <span>{locale === "it" ? "Valore per tipo" : "Value by type"}</span>
-                          <p><i className="tone-red" /> {displayValue("Red", locale, "type")}: CHF 2'986</p>
-                          <p><i className="tone-sparkling" /> {displayValue("Sparkling", locale, "type")}: CHF 1'437</p>
-                          <p><i className="tone-white" /> {displayValue("White", locale, "type")}: CHF 685</p>
-                          <p><i className="tone-rose" /> {displayValue("Rose", locale, "type")}: CHF 34</p>
-                        </div>
-                        <div className="showcase-donut showcase-donut-type"><strong>4</strong><small>{t("typesLabel")}</small></div>
-                      </div>
-                      <div className="showcase-breakdown-card">
-                        <div>
-                          <span>{locale === "it" ? "Top regioni" : "Top regions"}</span>
-                          <p><i className="tone-region-a" /> Champagne: CHF 1'105</p>
-                          <p><i className="tone-region-b" /> Bordeaux: CHF 1'017</p>
-                          <p><i className="tone-region-c" /> Toscana: CHF 975</p>
-                          <p><i className="tone-region-d" /> Ticino: CHF 786</p>
-                        </div>
-                        <div className="showcase-donut showcase-donut-region"><strong>5</strong><small>{t("regionsLabel")}</small></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="showcase-caption">
-                    <strong>{locale === "it" ? "Statistiche operative della cantina" : "Operational cellar statistics"}</strong>
-                    <span>
-                      {locale === "it"
-                        ? "Una vista compatta per leggere valore, bottiglie condivise, finestre di beva, consegne e dati mancanti."
-                        : "A compact view for value, shared bottles, drinking windows, deliveries, and missing data."}
-                    </span>
-                  </div>
-                </article>
-
-                <article className="showcase-frame">
-                  <div className="showcase-window">
-                    <div className="showcase-bar">
-                      <span className="showcase-tab">Collector focus</span>
-                      <span className="showcase-tab active">Timeline</span>
-                      <span className="showcase-tab">Data quality</span>
-                    </div>
-                    <div className="showcase-timeline">
-                      <div className="showcase-timeline-head">
-                        <strong>27/06/2026 - 31/07/2028</strong>
-                        <span>3 future deliveries</span>
-                      </div>
-                      <div className="showcase-timeline-track">
-                        <div className="showcase-track-line" />
-                        <span className="showcase-track-dot left" />
-                        <span className="showcase-track-dot mid" />
-                        <span className="showcase-track-dot right" />
-                      </div>
-                      <div className="showcase-timeline-list">
-                        <div><strong>Le C des Carmes Haut-Brion</strong><span>25d</span></div>
-                        <div><strong>Testamatta</strong><span>28d</span></div>
-                        <div><strong>Chateau Pontet-Canet</strong><span>790d</span></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="showcase-caption">
-                    <strong>{locale === "it" ? "Timeline consegne" : "Delivery timeline"}</strong>
-                    <span>
-                      {locale === "it"
-                        ? "Perfetta per futures, en primeur e arrivi da monitorare."
-                        : "Ideal for futures, en primeur positions, and incoming deliveries."}
-                    </span>
-                  </div>
-                </article>
-
-                  <article className="showcase-frame">
-                    <div className="showcase-window">
-                      <div className="showcase-detail-layout">
-                      <div className="showcase-list">
-                        <div className="showcase-list-row"><strong>Blanc De Blancs 2022</strong><span>CHF 32</span></div>
-                        <div className="showcase-list-row active"><strong>Bourgogne blanc les Setilles 2022</strong><span>CHF 28</span></div>
-                        <div className="showcase-list-row"><strong>Bourgogne Chardonnay 2022</strong><span>CHF 28</span></div>
-                      </div>
-                      <div className="showcase-detail-panel">
-                        <div className="showcase-detail-grid">
-                          <div><span>Format</span><strong>Bottle (750ml)</strong></div>
-                          <div><span>Type</span><strong>White</strong></div>
-                          <div><span>Quantity</span><strong>2 bottles</strong></div>
-                          <div><span>Value</span><strong>CHF 28</strong></div>
-                        </div>
-                        <div className="showcase-micro-chart">
-                          <span>Value evolution</span>
-                          <div className="showcase-chart-line" />
-                        </div>
-                        <div className="showcase-drink-strip">
-                          <span>2024</span>
-                          <div className="showcase-drink-track"><strong /></div>
-                          <span>2031</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="showcase-caption">
-                    <strong>{locale === "it" ? "Dettaglio vino" : "Wine detail view"}</strong>
-                    <span>
-                      {locale === "it"
-                        ? "Scheda completa con quantità, valore, cronologia prezzi e finestra di beva."
-                        : "Complete record with quantity, value, price history, and drinking window."}
-                      </span>
-                    </div>
-                  </article>
-
-                  <article className="showcase-frame">
-                    <div className="showcase-window">
-                      <div className="showcase-bar">
-                        <span className="showcase-tab">Wishlist</span>
-                        <span className="showcase-tab active">{locale === "it" ? "Strategia di acquisto" : "Buying strategy"}</span>
-                        <span className="showcase-tab">{locale === "it" ? "Analisi mercato" : "Market analysis"}</span>
-                      </div>
-                      <div className="showcase-dashboard-grid showcase-dashboard-grid-wishlist">
-                        <div className="showcase-card">
-                          <span>{locale === "it" ? "Priorità" : "Priority"}</span>
-                          <strong>High · {locale === "it" ? "Compra" : "Buy now"}</strong>
-                          <ul>
-                            <li>Sassicaia 2021 · CHF 235</li>
-                            <li>Tignanello 2021 · CHF 118</li>
-                            <li>Krug Grande Cuvée · CHF 178</li>
-                          </ul>
-                        </div>
-                        <div className="showcase-card">
-                          <span>{locale === "it" ? "Analisi mercato" : "Market analysis"}</span>
-                          <strong>{locale === "it" ? "Stima vs target" : "Estimate vs target"}</strong>
-                          <ul>
-                            <li>{locale === "it" ? "Target utente CHF 118" : "User target CHF 118"}</li>
-                            <li>{locale === "it" ? "Stima mercato CHF 132" : "Market estimate CHF 132"}</li>
-                            <li>{locale === "it" ? "Azione: comprare ora" : "Action: buy now"}</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="showcase-caption">
-                      <strong>{locale === "it" ? "Wishlist e strategia di acquisto" : "Wishlist and buying strategy"}</strong>
-                      <span>
-                        {locale === "it"
-                          ? "Priorità, target di prezzo, stima mercato e decisione finale nello stesso punto."
-                          : "Priority, price target, market estimate, and next decision in one place."}
-                      </span>
-                    </div>
-                  </article>
-
-                  <article className="showcase-frame">
-                    <div className="showcase-window">
-                      <div className="showcase-bar">
-                        <span className="showcase-tab">Cellar</span>
-                        <span className="showcase-tab active">{locale === "it" ? "Diario" : "Journal"}</span>
-                        <span className="showcase-tab">{locale === "it" ? "Degustazioni" : "Tastings"}</span>
-                      </div>
-                      <div className="showcase-detail-layout">
-                        <div className="showcase-list">
-                          <div className="showcase-list-row active"><strong>Castello Luigi Rosso 2011</strong><span>{locale === "it" ? "Bevuto" : "Consumed"}</span></div>
-                          <div className="showcase-list-row"><strong>Blanc de Blancs NV</strong><span>{locale === "it" ? "Bevuto" : "Consumed"}</span></div>
-                          <div className="showcase-list-row"><strong>Sassicaia 2015</strong><span>{locale === "it" ? "Archivio" : "Archived"}</span></div>
-                        </div>
-                        <div className="showcase-detail-panel">
-                          <div className="showcase-detail-grid">
-                            <div><span>{locale === "it" ? "Degustato il" : "Tasted on"}</span><strong>01/06/2026</strong></div>
-                            <div><span>{locale === "it" ? "Voto" : "Rating"}</span><strong>5 / 6</strong></div>
-                            <div><span>{locale === "it" ? "Occasione" : "Occasion"}</span><strong>{locale === "it" ? "Cena tra amici" : "Dinner with friends"}</strong></div>
-                            <div><span>{locale === "it" ? "Abbinamento" : "Pairing"}</span><strong>{locale === "it" ? "Brasato" : "Braised beef"}</strong></div>
-                          </div>
-                          <div className="showcase-note-block">
-                            <span>{locale === "it" ? "Note degustazione" : "Tasting notes"}</span>
-                            <p>
-                              {locale === "it"
-                                ? "Rosso profondo, tannino risolto e finale balsamico. Bottiglia al picco, perfetta per una cena lenta."
-                                : "Deep red, resolved tannins, and a balsamic finish. At peak maturity and ideal for a long dinner."}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="showcase-caption">
-                      <strong>{locale === "it" ? "Storico degustativo" : "Tasting archive"}</strong>
-                      <span>
-                        {locale === "it"
-                        ? "Ogni bottiglia bevuta può diventare memoria utile per confronti e decisioni future."
-                          : "Every consumed bottle becomes usable memory for future comparisons and decisions."}
-                      </span>
-                    </div>
-                  </article>
-                </div>
-              </section>
-            </section> : (
-              <Suspense fallback={<LoadingState label={t("loadingData")} />}>
-                <PublicLanding
-                  locale={locale}
-                  onLocaleChange={(nextLocale) => void changeLocale(nextLocale)}
-                  onRegister={() => openAuthPanel("register")}
-                  onLogin={() => openAuthPanel("login")}
-                  onDemo={() => void enterDemo()}
-                  demoLoading={saving}
-                />
-              </Suspense>
-            )}
+          <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+            <PublicLanding
+              locale={locale}
+              onLocaleChange={(nextLocale) => void changeLocale(nextLocale)}
+              onRegister={() => openAuthPanel("register")}
+              onLogin={() => openAuthPanel("login")}
+              onDemo={() => void enterDemo()}
+              demoLoading={saving}
+            />
+          </Suspense>
 
         {!isMobileViewport && (authModalOpen || showOfflineBackupPanel) ? (
           <div className="auth-modal-overlay" onClick={() => {
@@ -10306,281 +9733,47 @@ export function App() {
               {aiPackEnhancementHint}
 
               {!isRestaurant && cellarSommelierVisible ? (
-                <aside
-                  aria-label={t("dailySommelierTitle")}
-                  style={{
-                    position: "fixed",
-                    right: isMobileViewport ? 12 : 24,
-                    bottom: isMobileViewport ? "max(76px, calc(env(safe-area-inset-bottom, 0px) + 68px))" : 24,
-                    zIndex: 75,
-                    width: isMobileViewport ? "min(320px, calc(100vw - 24px))" : "min(360px, calc(100vw - 24px))",
-                    filter: "drop-shadow(0 10px 22px color-mix(in srgb, var(--collector-depth) 30%, transparent))",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "7px 8px 7px 13px",
-                      border: "1px solid var(--border)",
-                      borderRadius: 999,
-                      background: "color-mix(in srgb, var(--surface-raised) 84%, transparent)",
-                      backdropFilter: "blur(14px) saturate(1.08)",
-                      boxShadow: "0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent), 0 0 30px color-mix(in srgb, var(--accent) 36%, transparent), var(--vinaris-shadow-float)",
-                    }}
-                  >
-                    <img
-                      src="/images/sommelier_ai.png"
-                      alt=""
-                      style={{ width: 42, height: 42, objectFit: "cover", objectPosition: "center 18%", borderRadius: "50%", border: "1px solid var(--border)" }}
-                    />
-                    <button
-                      type="button"
-                      aria-expanded={cellarSommelierOpen}
-                      onClick={() => setCellarSommelierOpen((current) => !current)}
-                      style={{
-                        display: "flex",
-                        flex: 1,
-                        alignItems: "center",
-                        gap: 9,
-                        minWidth: 0,
-                        padding: 0,
-                        border: 0,
-                        color: "var(--text)",
-                        textAlign: "left",
-                        background: "transparent",
-                        boxShadow: "none",
-                      }}
-                    >
-                      <AppIcon name="glass-sparkle" variant="ai" tone="accent" size="1.1rem" />
-                      <span style={{ display: "grid", gap: 1, minWidth: 0 }}>
-                        <small style={{ color: "var(--text-muted)", fontSize: "0.68rem" }}>{t("dailySommelierTitle")}</small>
-                        <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.82rem" }}>
-                          {dailySommelierWines.length} {dailySommelierCountLabel}
-                        </strong>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setCellarSommelierVisible(false); postponeCellarSommelierPrompt(CELLAR_SOMMELIER_DISMISS_INTERVAL_MS); }}
-                      aria-label={t("close")}
-                      title={t("close")}
-                      style={{
-                        display: "grid",
-                        placeItems: "center",
-                        width: 28,
-                        height: 28,
-                        padding: 0,
-                        border: "1px solid var(--border)",
-                        borderRadius: "50%",
-                        color: "var(--text-muted)",
-                        background: "var(--surface-muted)",
-                        boxShadow: "none",
-                        fontSize: "1.05rem",
-                      }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                  {cellarSommelierOpen ? (
-                    <div
-                      className="dashboard-card"
-                      style={{ display: "grid", gap: 10, marginTop: 8, padding: 13, background: "color-mix(in srgb, var(--surface-raised) 86%, transparent)", backdropFilter: "blur(14px) saturate(1.08)" }}
-                    >
-                      {dailySommelierWines.length ? (
-                        <>
-                          <p style={{ margin: 0, color: "var(--text-muted)", lineHeight: 1.45 }}>{t("dailySommelierIntro")}</p>
-                          <div style={{ display: "grid", gap: 6 }}>
-                            {dailySommelierWines.map((wine) => (
-                              <button
-                                type="button"
-                                key={wine.id}
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "auto minmax(0, 1fr) auto",
-                                  alignItems: "center",
-                                  gap: 8,
-                                  width: "100%",
-                                  padding: "9px 10px",
-                                  border: "1px solid var(--border)",
-                                  borderRadius: 10,
-                                  color: "var(--text)",
-                                  textAlign: "left",
-                                  background: "var(--surface-muted)",
-                                  boxShadow: "none",
-                                }}
-                                onClick={() => openWineFromDashboard(wine)}
-                              >
-                                <i className={`wine-dot tone-${wineTone(wine.type)}`} />
-                                <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                                  <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.name}</strong>
-                                  <small style={{ overflow: "hidden", color: "var(--text-muted)", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dailyRecommendationReason(wine)}</small>
-                                </span>
-                                <b style={{ whiteSpace: "nowrap" }}>{sommelierWindowLabel(wine)}</b>
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <p style={{ margin: 0, color: "var(--text-muted)" }}>{t("dailySommelierEmpty")}</p>
-                      )}
-                      <small style={{ color: "var(--text-muted)" }}>{t("dailySommelierFree")}</small>
-                      {canGenerateAi ? (
-                        <button
-                          type="button"
-                          className="secondary"
-                          style={{ width: "100%" }}
-                          onClick={() => openDishPairingForWine(dailySommelierWines[0])}
-                        >
-                          {t("dailySommelierPairing")}
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </aside>
+                <Suspense fallback={null}>
+                  <DailySommelierBubble
+                    locale={locale}
+                    isMobileViewport={isMobileViewport}
+                    cellarSommelierOpen={cellarSommelierOpen}
+                    setCellarSommelierOpen={setCellarSommelierOpen}
+                    onDismiss={() => { setCellarSommelierVisible(false); postponeCellarSommelierPrompt(CELLAR_SOMMELIER_DISMISS_INTERVAL_MS); }}
+                    dailySommelierWines={dailySommelierWines}
+                    dailySommelierCountLabel={dailySommelierCountLabel}
+                    dailyRecommendationReason={dailyRecommendationReason}
+                    sommelierWindowLabel={sommelierWindowLabel}
+                    openWineFromDashboard={openWineFromDashboard}
+                    canGenerateAi={canGenerateAi}
+                    openDishPairingForWine={openDishPairingForWine}
+                  />
+                </Suspense>
               ) : null}
 
-              {dashboardFocus !== "taste" && dashboardFocus !== "collector" && dashboardFocus !== "personal" ? <section className="hero-panel">
-                <div className="hero-copy">
-                  <p className="eyebrow">{t("dashboard")}</p>
-                  <h2>{dashboardFocusLabels[dashboardFocus]}</h2>
-                </div>
-                <div className="hero-kpis" key={dashboardFocus} role="region" tabIndex={0} aria-label={t("cellarSnapshot")}>
-                  {dashboardFocus === "daily" ? (
-                    <>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("readyToDrink")}</span>
-                        <strong><DashboardCountUp value={readyInCellarWineCount} format={(value) => formatBottleCount(value, locale)} /></strong>
-                        <p>{t("wines")}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("past_window")}</i>{t("nearestWindowEnd")}</span>
-                        <strong>{nearestDrinkNowEnd || "—"}</strong>
-                        <p>{t("priority")}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("bottles")}</span>
-                        <strong><DashboardCountUp value={cellarStats.bottles} format={(value) => formatBottleCount(value, locale)} delay={70} /></strong>
-                        <p>{t("dailyRotation")}</p>
-                      </div>
-                    </>
-                  ) : dashboardFocus === "balanced" ? (
-                    <>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("bottles")}</span>
-                        <strong><DashboardCountUp value={cellarStats.bottles} format={(value) => formatBottleCount(value, locale)} /></strong>
-                        <p>{t("cellar")}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("readyToDrink")}</span>
-                        <strong><DashboardCountUp value={readyInCellarWineCount} format={(value) => formatBottleCount(value, locale)} delay={70} /></strong>
-                        <p>{t("wines")}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("missing_data")}</i>{t("dataQuality")}</span>
-                        <strong><DashboardCountUp value={cellarDataCompleteness} format={(value) => `${Math.round(value)}%`} delay={140} /></strong>
-                        <p>{t("balancedFocus")}</p>
-                      </div>
-                    </>
-                  ) : dashboardFocus === "value" ? (
-                    <>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
-                        <strong><DashboardCountUp value={cellarStats.totalValue} format={(value) => formatMoney(value, "CHF", locale)} /></strong>
-                        <p>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>{locale === "it" ? "Rendimento vs acquisto" : "Return vs purchase"}</span>
-                        <strong>
-                          {purchaseValueDelta === null ? "—" : <DashboardCountUp value={purchaseValueDelta} format={(value) => `${value >= 0 ? "+" : ""}${formatMoney(value, "CHF", locale)}`} delay={70} />}
-                        </strong>
-                        <p>{purchaseValueDeltaPct === null ? (locale === "it" ? "Prezzi d'acquisto mancanti" : "Purchase prices missing") : `${purchaseValueDeltaPct >= 0 ? "+" : ""}${purchaseValueDeltaPct.toFixed(1)}%`}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("shared")}</i>{t("averageBottleValue")}</span>
-                        <strong><DashboardCountUp value={cellarStats.bottles ? cellarStats.totalValue / cellarStats.bottles : 0} format={(value) => formatMoney(value, "CHF", locale)} delay={140} /></strong>
-                        <p>{cellarStats.missingValue} {t("missingValue").toLowerCase()}</p>
-                      </div>
-                    </>
-                  ) : dashboardFocus === "readiness" ? (
-                    <>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("readyToDrink")}</span>
-                        <strong><DashboardCountUp value={readyInCellarWineCount} format={(value) => formatBottleCount(value, locale)} /></strong>
-                        <p>{t("wines")}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_soon")}</i>{t("drinkIn2Years")}</span>
-                        <strong><DashboardCountUp value={cellarStats.drinkSoon} format={(value) => formatBottleCount(value, locale)} delay={70} /></strong>
-                        <p>{t("drinkingWindow")}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("past_window")}</i>{monitoringLabel}</span>
-                        <strong><DashboardCountUp value={monitoringWines.length} format={(value) => formatBottleCount(value, locale)} delay={140} /></strong>
-                        <p>{monitoringCaption}</p>
-                      </div>
-                    </>
-                  ) : dashboardFocus === "timeline" ? (
-                    <>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("future_deliveries")}</i>{t("futureDeliveries")}</span>
-                        <strong><DashboardCountUp value={deliveryHorizonStats.total} format={(value) => formatBottleCount(value, locale)} /></strong>
-                        <p>{t("upcomingDeliveries")}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("future_deliveries")}</i>{t("next30Days")}</span>
-                        <strong><DashboardCountUp value={deliveryHorizonStats.next30} format={(value) => formatBottleCount(value, locale)} delay={70} /></strong>
-                        <p>{t("deliveryTimeline")}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("to_collect")}</i>{locale === "it" ? "Prossima consegna" : "Next delivery"}</span>
-                        <strong>{firstDeliveryTimelineItem ? formatDisplayDate(firstDeliveryTimelineItem.wine.expected_delivery) : "—"}</strong>
-                        <p>{firstDeliveryTimelineItem?.wine.name || t("noActionItems")}</p>
-                      </div>
-                    </>
-                  ) : dashboardFocus === "data" ? (
-                    <>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("missing_data")}</i>{t("dataCompleteness")}</span>
-                        <strong><DashboardCountUp value={cellarDataCompleteness} format={(value) => `${Math.round(value)}%`} /></strong>
-                        <p>{locale === "it" ? "Copertura dati essenziali" : "Essential data coverage"}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("incompleteData")}</span>
-                        <strong><DashboardCountUp value={incompleteWineCount} format={(value) => formatBottleCount(value, locale)} delay={70} /></strong>
-                        <p>{t("wines")}</p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("missing_data")}</i>{locale === "it" ? "Campi da completare" : "Fields to complete"}</span>
-                        <strong><DashboardCountUp value={cellarMissingDataCount} format={(value) => formatBottleCount(value, locale)} delay={140} /></strong>
-                        <p>{t("dataQuality")}</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>{t("myBottles")}</span>
-                        <strong><DashboardCountUp value={cellarStats.myBottles} format={(value) => formatBottleCount(value, locale)} /></strong>
-                        <p><DashboardCountUp value={cellarStats.myValue} format={(value) => formatMoney(value, "CHF", locale)} delay={120} /></p>
-                      </div>
-                      <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("shared")}</i>{t("sharedBottles")}</span>
-                        <strong><DashboardCountUp value={cellarStats.sharedBottles} format={(value) => formatBottleCount(value, locale)} delay={70} /></strong>
-                        <p><DashboardCountUp value={cellarStats.sharedValue} format={(value) => formatMoney(value, "CHF", locale)} delay={190} /></p>
-                      </div>
-                      <div className="hero-kpi hero-kpi--value">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
-                        <strong><DashboardCountUp value={cellarStats.totalValue} format={(value) => formatMoney(value, "CHF", locale)} delay={140} /></strong>
-                        <div className="hero-kpi-value-trend">
-                          <PortfolioValueSparkline points={portfolioValueHistory} label={t("valueEvolution")} />
-                          <p><DashboardCountUp value={cellarStats.bottles} format={(value) => `${formatBottleCount(value, locale)} ${t("bottles").toLowerCase()}`} delay={230} /></p>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </section> : null}
+              {dashboardFocus !== "taste" && dashboardFocus !== "collector" && dashboardFocus !== "personal" ? (
+                <Suspense fallback={null}>
+                  <DashboardHero
+                    locale={locale}
+                    dashboardFocus={dashboardFocus}
+                    dashboardFocusLabels={dashboardFocusLabels}
+                    cellarStats={cellarStats}
+                    readyInCellarWineCount={readyInCellarWineCount}
+                    nearestDrinkNowEnd={nearestDrinkNowEnd}
+                    cellarDataCompleteness={cellarDataCompleteness}
+                    purchaseValueDelta={purchaseValueDelta}
+                    purchaseValueDeltaPct={purchaseValueDeltaPct}
+                    monitoringLabel={monitoringLabel}
+                    monitoringCaption={monitoringCaption}
+                    monitoringWines={monitoringWines}
+                    deliveryHorizonStats={deliveryHorizonStats}
+                    firstDeliveryTimelineItem={firstDeliveryTimelineItem}
+                    incompleteWineCount={incompleteWineCount}
+                    cellarMissingDataCount={cellarMissingDataCount}
+                    portfolioValueHistory={portfolioValueHistory}
+                  />
+                </Suspense>
+              ) : null}
 
               {dashboardFocus === "personal" ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><PersonalDashboard
                 key={`${session?.user_email}:${session?.active_household_id}`}
@@ -10888,100 +10081,25 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "value" ? (
-                <DashboardCarousel locale={locale} label={t("valueFocus")} className="value-dashboard-carousel">
-                  <article className="dashboard-card wide-card portfolio-value-explorer">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("totalValue")}</span>
-                        <h2>{formatMoney(cellarStats.totalValue, "CHF", locale)}</h2>
-                      </div>
-                      <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
-                    </div>
-                    <div className="portfolio-value-explorer-summary">
-                      <div>
-                        <span>{locale === "it" ? "Rendimento vs acquisto" : "Return vs purchase"}</span>
-                        <strong className={purchaseValueDelta !== null && purchaseValueDelta < 0 ? "negative" : "positive"}>
-                          {purchaseValueDelta === null ? "—" : `${purchaseValueDelta >= 0 ? "+" : ""}${formatMoney(purchaseValueDelta, "CHF", locale)}${purchaseValueDeltaPct === null ? "" : ` · ${purchaseValueDeltaPct >= 0 ? "+" : ""}${purchaseValueDeltaPct.toFixed(1)}%`}`}
-                        </strong>
-                        <small>{paidBottleCount ? (locale === "it" ? `Su ${formatBottleCount(paidBottleCount, locale)} bottiglie con prezzo d'acquisto` : `Across ${formatBottleCount(paidBottleCount, locale)} bottles with a purchase price`) : (locale === "it" ? "Nessun prezzo d'acquisto disponibile" : "No purchase price available")}</small>
-                      </div>
-                      <div className="portfolio-value-explorer-period">
-                        <span>{locale === "it" ? "Intervallo registrato" : "Recorded range"}</span>
-                        <strong>{portfolioValueFirst && portfolioValueLast ? `${formatDisplayDate(portfolioValueFirst.recorded_at)} – ${formatDisplayDate(portfolioValueLast.recorded_at)}` : "—"}</strong>
-                      </div>
-                    </div>
-                    {portfolioValuePoints.length >= 2 ? (
-                      <Suspense fallback={<div className="portfolio-value-chart-loading" aria-label={t("valueEvolution")} />}>
-                        <div className="portfolio-value-chart">
-                          <TimeSeriesChart
-                            ariaLabel={t("valueEvolution")}
-                            locale={locale}
-                            currency="CHF"
-                            height={282}
-                            mobileHeight={206}
-                            points={portfolioValuePoints.map((point) => ({ timestampMs: point.timestampMs, value: point.numericValue }))}
-                          />
-                        </div>
-                      </Suspense>
-                    ) : (
-                      <p className="portfolio-value-chart-empty">{locale === "it" ? "Servono almeno due rilevazioni per mostrare l'evoluzione del portafoglio." : "At least two records are needed to show the portfolio trend."}</p>
-                    )}
-                    <div className="portfolio-value-insights">
-                      <button type="button" onClick={() => applyQuickWineFilter("mine")}>
-                        <span>{t("myBottles")}</span>
-                        <strong>{formatMoney(cellarStats.myValue, "CHF", locale)}</strong>
-                        <small>{formatBottleCount(cellarStats.myBottles, locale)} {t("bottles").toLowerCase()}</small>
-                      </button>
-                      <button type="button" onClick={() => applyQuickWineFilter("shared")}>
-                        <span>{t("sharedBottles")}</span>
-                        <strong>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</strong>
-                        <small>{formatBottleCount(cellarStats.sharedBottles, locale)} {t("bottles").toLowerCase()}</small>
-                      </button>
-                      <div>
-                        <span>{locale === "it" ? "Minimo / massimo" : "Low / high"}</span>
-                        <strong>{portfolioValueLow === null || portfolioValueHigh === null ? "—" : `${formatMoney(portfolioValueLow, "CHF", locale)} – ${formatMoney(portfolioValueHigh, "CHF", locale)}`}</strong>
-                        <small>{t("averageBottleValue")}: {formatMoney(cellarStats.bottles ? cellarStats.totalValue / cellarStats.bottles : 0, "CHF", locale)}</small>
-                      </div>
-                    </div>
-                  </article>
-                  {valueByCanonicalType.length ? renderValueTypeWidget() : null}
-                  {renderTopValueWidget()}
-                  {renderValueRegionWidget()}
-                  {renderValueProducerWidget()}
-                  <article className="dashboard-card top-value-list-mobile">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("valueFocus")}</span>
-                        <h2>{t("wines")}</h2>
-                      </div>
-                    </div>
-                    <div className="action-list">
-                      {topValueWines.map((wine) => (
-                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
-                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                          <strong>{formatMoney(wineUnitValue(wine), "CHF", locale)}</strong>
-                        </button>
-                      ))}
-                    </div>
-                  </article>
-                  <article className="dashboard-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("missingValue")}</span>
-                        <h2>{t("dataQuality")}</h2>
-                      </div>
-                      <strong>{cellarStats.missingValue}</strong>
-                    </div>
-                    <div className="action-list">
-                      {missingValueWines.length ? missingValueWines.map((wine) => (
-                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
-                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                          <strong>{t("value")}</strong>
-                        </button>
-                      )) : <p className="empty-state">{t("noActionItems")}</p>}
-                    </div>
-                  </article>
-                </DashboardCarousel>
+                <Suspense fallback={null}>
+                  <ValueDashboard
+                    locale={locale}
+                    cellarStats={cellarStats}
+                    purchaseValueDelta={purchaseValueDelta}
+                    purchaseValueDeltaPct={purchaseValueDeltaPct}
+                    paidBottleCount={paidBottleCount}
+                    portfolioValuePoints={portfolioValuePoints}
+                    applyQuickWineFilter={applyQuickWineFilter}
+                    valueByCanonicalType={valueByCanonicalType}
+                    renderValueTypeWidget={renderValueTypeWidget}
+                    renderTopValueWidget={renderTopValueWidget}
+                    renderValueRegionWidget={renderValueRegionWidget}
+                    renderValueProducerWidget={renderValueProducerWidget}
+                    topValueWines={topValueWines}
+                    missingValueWines={missingValueWines}
+                    openWineFromDashboard={openWineFromDashboard}
+                  />
+                </Suspense>
               ) : null}
 
               {dashboardFocus === "readiness" ? (
@@ -11277,19 +10395,6 @@ export function App() {
           {isCollectionView ? (
           <aside className="wine-side-panel">
             {showAiPackEnhancement && (activeView === "cellar" || activeView === "wishlist") ? aiPackEnhancementHint : null}
-            {false && isWineCollectionView && selectedVisibleWine && !wineFormOpen ? (
-              <div className="wine-side-panel-topbar">
-                <button
-                  type="button"
-                  className="secondary compact detail-expand-button"
-                  aria-label={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio vino" : "Reduce wine detail") : (locale === "it" ? "Espandi dettaglio vino" : "Expand wine detail")}
-                  title={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio" : "Reduce detail") : (locale === "it" ? "Espandi dettaglio" : "Expand detail")}
-                  onClick={toggleWineDetailFocus}
-                >
-                  <span aria-hidden="true">{wineDetailExpanded ? "⤡" : "⤢"}</span>
-                </button>
-              </div>
-            ) : null}
             {isWineCollectionView ? (
               (activeView === "cellar" && !wineFormOpen) || (selectedVisibleWine && !wineFormOpen) || compareWineIds.length > 0 ? (
               <div className="side-panel-actions">
@@ -12410,6 +11515,7 @@ export function App() {
                 className={historySection === "tastings" ? "" : "secondary"}
                 onClick={() => setHistorySection("tastings")}
               >
+                <AppIcon name="tasting" />
                 {t("historyTastings")}
               </button>
               {!offlineMode ? <button
@@ -12419,6 +11525,7 @@ export function App() {
                 className={historySection === "moments" ? "" : "secondary"}
                 onClick={() => setHistorySection("moments")}
               >
+                <AppIcon name="camera" />
                 {locale === "it" ? "Momenti" : "Moments"}
               </button> : null}
               <button
@@ -12428,6 +11535,7 @@ export function App() {
                 className={historySection === "wines" ? "" : "secondary"}
                 onClick={() => setHistorySection("wines")}
               >
+                <AppIcon name="archive" />
                 {t("historyArchivedWines")}
               </button>
               <button
@@ -12437,6 +11545,7 @@ export function App() {
                 className={historySection === "sales" ? "" : "secondary"}
                 onClick={() => setHistorySection("sales")}
               >
+                <AppIcon name="sales" />
                 {locale === "it" ? "Vendite" : "Sales"}
               </button>
             </div>

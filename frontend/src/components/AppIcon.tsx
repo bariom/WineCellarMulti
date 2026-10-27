@@ -1,3 +1,4 @@
+import { Archive } from "@phosphor-icons/react/dist/csr/Archive";
 import { ArrowsDownUp } from "@phosphor-icons/react/dist/csr/ArrowsDownUp";
 import { BellRinging } from "@phosphor-icons/react/dist/csr/BellRinging";
 import { BeerBottle } from "@phosphor-icons/react/dist/csr/BeerBottle";
@@ -24,6 +25,7 @@ import { Pulse } from "@phosphor-icons/react/dist/csr/Pulse";
 import { Robot } from "@phosphor-icons/react/dist/csr/Robot";
 import { Scan } from "@phosphor-icons/react/dist/csr/Scan";
 import { ShoppingBag } from "@phosphor-icons/react/dist/csr/ShoppingBag";
+import { Receipt } from "@phosphor-icons/react/dist/csr/Receipt";
 import { SignOut } from "@phosphor-icons/react/dist/csr/SignOut";
 import { Smiley } from "@phosphor-icons/react/dist/csr/Smiley";
 import { SmileySad } from "@phosphor-icons/react/dist/csr/SmileySad";
@@ -41,7 +43,7 @@ export type AppIconName =
   | "bottle" | "cellar" | "dashboard" | "dashboard-cards" | "wishlist" | "search" | "filter" | "sort"
   | "edit" | "delete" | "import" | "export" | "compare" | "camera" | "chevron-left" | "chevron-right"
   | "sentiment-positive" | "sentiment-negative" | "status-delivered" | "status-pickup" | "status-shipped" | "status-ordered"
-  | "glass-sparkle" | "tasting" | "assistant" | "buying" | "calendar" | "chart" | "star" | "users" | "settings" | "logout" | "bell" | "location" | "grapes" | "menu" | "newspaper" | "pulse";
+  | "glass-sparkle" | "tasting" | "assistant" | "buying" | "calendar" | "chart" | "star" | "users" | "settings" | "logout" | "bell" | "location" | "grapes" | "menu" | "newspaper" | "pulse" | "archive" | "sales";
 
 type IconVariant = "action" | "navigation" | "feature" | "premium" | "ai" | "status";
 type IconTone = "default" | "muted" | "accent" | "success" | "warning" | "danger" | "ai";
@@ -64,7 +66,7 @@ const icons: Record<AppIconName, typeof Wine> = {
   "sentiment-negative": SmileySad, "status-delivered": CheckCircle, "status-pickup": Package,
   "status-shipped": Truck, "status-ordered": CalendarBlank, "glass-sparkle": Martini, assistant: Robot, buying: ShoppingBag,
   tasting: Wine, calendar: CalendarBlank, chart: ChartLineUp, star: StarFour, users: UsersThree, settings: GearSix,
-  logout: SignOut, bell: BellRinging, location: MapPin, grapes: Wine, menu: List, newspaper: NewspaperClipping, pulse: Pulse,
+  logout: SignOut, bell: BellRinging, location: MapPin, grapes: Wine, menu: List, newspaper: NewspaperClipping, pulse: Pulse, archive: Archive, sales: Receipt,
 };
 
 /** Vinaris adapter over Phosphor: duotone section icons and precise operational controls. */

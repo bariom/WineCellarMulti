@@ -15584,6 +15584,29 @@ textarea {
     inset 0 1px 0 color-mix(in srgb, #fff 16%, transparent);
 }
 
+.history-section-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.history-section-tabs button .app-icon {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: #b8964c;
+  font-size: 1.1rem;
+}
+
+@media (max-width: 900px) {
+  /* Narrow tabs: the icon sits above the label so neither has to wrap. */
+  .history-section-tabs button {
+    flex-direction: column;
+    gap: 3px;
+  }
+}
+
 .view-tabs button:hover,
 .settings-tabs button:hover,
 .history-section-tabs button:hover,
