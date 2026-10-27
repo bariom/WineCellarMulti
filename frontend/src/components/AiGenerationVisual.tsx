@@ -38,12 +38,12 @@ export function AiGenerationVisual() {
         </linearGradient>
       </defs>
 
-      <circle cx="500" cy="260" r="255" fill={paint("aura")} />
+      <circle className="ai-generation-aura" cx="500" cy="260" r="255" fill={paint("aura")} />
       <g className="ai-generation-constellation" fill="none" stroke="#a0b9ab" strokeWidth=".7">
         <path d="M65 218 153 166 247 194 310 139 M690 380 766 327 850 352 949 282" opacity=".18" />
         <path d="M107 346 211 309 M784 143 894 185" opacity=".12" />
         {[[65, 218], [153, 166], [247, 194], [310, 139], [690, 380], [766, 327], [850, 352], [949, 282], [107, 346], [211, 309], [784, 143], [894, 185]].map(([cx, cy], index) =>
-          <circle key={index} cx={cx} cy={cy} r={index % 3 === 0 ? 2.5 : 1.5} fill="#d7ceb2" stroke="none" opacity={index % 3 === 0 ? ".65" : ".3"} />)}
+          <circle key={index} className="ai-generation-star" cx={cx} cy={cy} r={index % 3 === 0 ? 2.5 : 1.5} fill="#d7ceb2" stroke="none" opacity={index % 3 === 0 ? ".65" : ".3"} />)}
       </g>
 
       <g fill="none" strokeLinecap="round">
@@ -62,9 +62,14 @@ export function AiGenerationVisual() {
         <circle cx="500" cy="260" r="163" strokeDasharray="1 15" opacity=".3" />
         <path d="M500 76v9 M500 435v9 M316 260h9 M675 260h9" opacity=".5" />
       </g>
+      <g className="ai-generation-halo" fill="none" strokeLinecap="round">
+        <circle cx="500" cy="260" r="146" stroke="#efca8e" strokeWidth="10" strokeDasharray="18 82" pathLength="100" opacity=".09" />
+        <circle cx="500" cy="260" r="146" stroke="#efca8e" strokeWidth="1.8" strokeDasharray="18 82" pathLength="100" opacity=".85" />
+        <circle cx="500" cy="260" r="146" stroke="#fff2c4" strokeWidth="2.6" strokeDasharray="4 96" pathLength="100" />
+      </g>
       <g className="ai-generation-sphere">
         <circle cx="500" cy="260" r="133" fill={paint("sphere")} stroke={paint("glass")} strokeWidth=".8" />
-        <circle cx="500" cy="251" r="126" fill={paint("light")} />
+        <circle className="ai-generation-sphere-light" cx="500" cy="251" r="126" fill={paint("light")} />
         <path d="M395 205 A119 119 0 0 1 544 149" fill="none" stroke="#d9e6ce" strokeOpacity=".35" strokeWidth="1.2" />
         <path d="M554 369 A119 119 0 0 0 608 309" fill="none" stroke="#91b7a8" strokeOpacity=".23" />
       </g>
@@ -89,20 +94,24 @@ export function AiGenerationVisual() {
           <ellipse className="ai-generation-orbit-trail trail-gold trail-glow" rx="221" ry="68" stroke="#efca8e" strokeWidth="14" pathLength="100" />
           <ellipse className="ai-generation-orbit-trail trail-gold" rx="221" ry="68" stroke={paint("gold")} strokeWidth="2.8" pathLength="100" />
           <ellipse className="ai-generation-orbit-trail trail-gold trail-point" rx="221" ry="68" stroke="#fff2c4" strokeWidth="4" pathLength="100" />
+          <ellipse className="ai-generation-orbit-trail trail-gold trail-point trail-spark" rx="221" ry="68" stroke="#fff8e1" strokeWidth="7" pathLength="100" />
         </g>
         <g transform="translate(500 260) rotate(35)">
           <ellipse rx="202" ry="79" stroke={paint("sage")} strokeWidth=".7" opacity=".55" />
           <ellipse className="ai-generation-orbit-trail trail-sage trail-glow" rx="202" ry="79" stroke="#a8e0cd" strokeWidth="12" pathLength="100" />
           <ellipse className="ai-generation-orbit-trail trail-sage" rx="202" ry="79" stroke={paint("sage")} strokeWidth="1.8" pathLength="100" />
           <ellipse className="ai-generation-orbit-trail trail-sage trail-point" rx="202" ry="79" stroke="#ceffe8" strokeWidth="3.5" pathLength="100" />
+          <ellipse className="ai-generation-orbit-trail trail-sage trail-point trail-spark" rx="202" ry="79" stroke="#eafff5" strokeWidth="6" pathLength="100" />
         </g>
         <g transform="translate(500 260) rotate(-67)">
           <ellipse className="ai-generation-orbit-trail trail-rose" rx="173" ry="103" stroke={paint("rose")} strokeWidth="1.2" pathLength="100" />
         </g>
       </g>
       <g className="ai-generation-glints" fill="#f9e9bf">
-        <path d="M660 160l2.5 7.5 7.5 2.5-7.5 2.5-2.5 7.5-2.5-7.5-7.5-2.5 7.5-2.5Z" />
-        <circle cx="369" cy="357" r="2.2" /><circle cx="608" cy="381" r="1.4" />
+        <path className="ai-generation-glint" d="M660 160l2.5 7.5 7.5 2.5-7.5 2.5-2.5 7.5-2.5-7.5-7.5-2.5 7.5-2.5Z" />
+        <path className="ai-generation-glint" d="M352 334l1.8 5.4 5.4 1.8-5.4 1.8-1.8 5.4-1.8-5.4-5.4-1.8 5.4-1.8Z" />
+        <path className="ai-generation-glint" d="M618 372l1.4 4.2 4.2 1.4-4.2 1.4-1.4 4.2-1.4-4.2-4.2-1.4 4.2-1.4Z" />
+        <circle className="ai-generation-glint" cx="369" cy="357" r="2.2" /><circle className="ai-generation-glint" cx="608" cy="381" r="1.4" />
       </g>
     </svg>
   </div>;

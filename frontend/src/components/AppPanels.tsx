@@ -3,6 +3,7 @@ import { ScrollControls, ScrollHint, useHorizontalScroll } from "./HorizontalScr
 import { sourceMatchesMarket, valuationMarketLabel } from "../domain/valuationMarket";
 import type { CSSProperties, Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
 import { AppIcon } from "./AppIcon";
+import { AiActivity } from "./AiActivity";
 import { ButtonBusyContent, DetailField, LoadingState, RATING_HALF_STEPS, RatingInput, StarRating, TastingEnjoymentBadge, TastingEnjoymentInput, WineStatusBadge } from "./AppUi";
 import { clipUiText, consumeDraftFromTastingEntry, emptyConsumeWineDraft, formatAiBudget, formatDisplayDate, formatGrape, formatMoney, formatUsd, grapesSvgIcon, readableLegacyAiText, wineTone } from "./panelSupport";
 import { displayValue, reasoningEffortTranslationKey } from "../i18n";
@@ -424,13 +425,13 @@ export function CompareWinesModal({
         <div className="compare-ai-toolbar">
           {wines.length === 2 ? (
             <button type="button" className="secondary" disabled={!canGenerateAi || aiLoading} onClick={onRunAiCompare}>
-              <ButtonBusyContent busy={aiLoading} idleLabel={t("aiCompare")} busyLabel={t("generating")} />
+              <ButtonBusyContent busy={aiLoading} idleLabel={t("aiCompare")} busyLabel={t("generating")} ai />
             </button>
           ) : (
             <p className="empty-state">{t("aiCompareOnlyTwo")}</p>
           )}
         </div>
-        {aiLoading ? <LoadingState label={t("generating")} compact /> : null}
+        {aiLoading ? <AiActivity compact locale={locale} label={t("generating")} /> : null}
         {aiResult ? (
           <section className="compare-ai-panel" ref={aiResultRef}>
             <div className="compare-ai-grid">
@@ -1458,26 +1459,26 @@ export function WineDetail({
               </button>
             ) : null}
             <button type="button" className="secondary compact wine-ai-all-button" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("all")}>
-              <ButtonBusyContent busy={generating === "all"} idleLabel={t("runAllWineAi")} busyLabel={t("generating")} />
+              <ButtonBusyContent busy={generating === "all"} idleLabel={t("runAllWineAi")} busyLabel={t("generating")} ai />
             </button>
             <small className="wine-ai-all-help">{t("runAllWineAiHelp")}</small>
             <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("notes")}>
-              <ButtonBusyContent busy={generating === "notes"} idleLabel={t("aiNotes")} busyLabel={t("generating")} />
+              <ButtonBusyContent busy={generating === "notes"} idleLabel={t("aiNotes")} busyLabel={t("generating")} ai />
             </button>
             <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("drink-window")}>
-              <ButtonBusyContent busy={generating === "drink-window"} idleLabel={t("drinkWindow")} busyLabel={t("generating")} />
+              <ButtonBusyContent busy={generating === "drink-window"} idleLabel={t("drinkWindow")} busyLabel={t("generating")} ai />
             </button>
             <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating) || wine.value_not_found} onClick={() => onGenerate("value")}>
-              <ButtonBusyContent busy={generating === "value"} idleLabel={t("value")} busyLabel={t("generating")} />
+              <ButtonBusyContent busy={generating === "value"} idleLabel={t("value")} busyLabel={t("generating")} ai />
             </button>
             <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating) || wine.grapes_not_applicable} onClick={() => onGenerate("grapes")}>
-              <ButtonBusyContent busy={generating === "grapes"} idleLabel={t("grapes")} busyLabel={t("generating")} />
+              <ButtonBusyContent busy={generating === "grapes"} idleLabel={t("grapes")} busyLabel={t("generating")} ai />
             </button>
             <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating) || wine.scores_not_applicable} onClick={() => onGenerate("scores")}>
-              <ButtonBusyContent busy={generating === "scores"} idleLabel={wine.scores.length ? t("findMoreScores") : t("scores")} busyLabel={t("generating")} />
+              <ButtonBusyContent busy={generating === "scores"} idleLabel={wine.scores.length ? t("findMoreScores") : t("scores")} busyLabel={t("generating")} ai />
             </button>
           </div>
-          {generating ? <LoadingState label={t("generating")} compact /> : null}
+          {generating ? <AiActivity compact locale={locale} label={t("generating")} /> : null}
           <div className="detail-preference-bar detail-ai-preference-bar">
             <label className="detail-toggle-row">
               <input
@@ -1977,13 +1978,13 @@ export function WishlistDetail({
           {tasteMatchLoading ? (locale === "it" ? "Verifica in corso…" : "Checking…") : (locale === "it" ? "Verifica compatibilità" : "Check compatibility")}
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("strategy")}>
-          <ButtonBusyContent busy={generating === "strategy"} idleLabel={locale === "it" ? "Consiglio su questo vino" : "Advice on this wine"} busyLabel={t("generating")} />
+          <ButtonBusyContent busy={generating === "strategy"} idleLabel={locale === "it" ? "Consiglio su questo vino" : "Advice on this wine"} busyLabel={t("generating")} ai />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("purpose")}>
-          <ButtonBusyContent busy={generating === "purpose"} idleLabel={locale === "it" ? "Bere o conservare?" : "Drink or cellar?"} busyLabel={t("generating")} />
+          <ButtonBusyContent busy={generating === "purpose"} idleLabel={locale === "it" ? "Bere o conservare?" : "Drink or cellar?"} busyLabel={t("generating")} ai />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("target-price")}>
-          <ButtonBusyContent busy={generating === "target-price"} idleLabel={locale === "it" ? "Analizza offerta" : "Analyse offer"} busyLabel={t("generating")} />
+          <ButtonBusyContent busy={generating === "target-price"} idleLabel={locale === "it" ? "Analizza offerta" : "Analyse offer"} busyLabel={t("generating")} ai />
         </button>
       </div>
       {tasteMatch ? <section className="external-tasting-card wishlist-taste-match-card">
@@ -2027,7 +2028,7 @@ export function WishlistDetail({
           <div className="form-actions"><button type="submit" disabled={saving || externalTastingDraft.memory_photo_processing}><ButtonBusyContent busy={saving} idleLabel={locale === "it" ? "Salva degustazione" : "Save tasting"} busyLabel={t("saving")} /></button></div>
         </form>
       ) : null}
-      {generating ? <LoadingState label={t("generating")} compact /> : null}
+      {generating ? <AiActivity compact locale={locale} label={t("generating")} /> : null}
       {item.ai_strategy || item.ai_purpose_advice ? (
         <div className="notes-grid wishlist-ai-summary">
           {item.ai_strategy ? <DetailNote title={strategyTitle}>{readableLegacyAiText(item.ai_strategy, "strategy")}</DetailNote> : null}
@@ -2133,7 +2134,7 @@ export function WishlistPortfolioStrategyPanel({
             <ButtonBusyContent
               busy={generating}
               idleLabel={strategy ? t("refreshWishlistPortfolioStrategy") : t("generateWishlistPortfolioStrategy")}
-              busyLabel={t("generating")}
+              busyLabel={t("generating")} ai
             />
           </button>
         </div>
@@ -2152,7 +2153,7 @@ export function WishlistPortfolioStrategyPanel({
           {t(strategy.profile_applied ? "wishlistTasteProfileApplied" : "wishlistTasteProfileNotApplied")}
         </small>
       ) : null}
-      {generating ? <LoadingState label={t("generating")} compact /> : null}
+      {generating ? <AiActivity compact label={t("generating")} /> : null}
       {strategy ? (
         <>
           <div className="notes-grid">

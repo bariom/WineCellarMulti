@@ -8,6 +8,7 @@ import LocalizedDateInput from "./components/LocalizedDateInput";
 import type { AmbassadorChange } from "./components/AdminAmbassadorEditor";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
+import { AiActivity } from "./components/AiActivity";
 import { WishlistVintageField, WineStatusBadge, StarRating, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, wineProgressName, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput } from "./components/AppUi";
 import { DrinkWindowMini, auditMarketSources, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, CompareWinesModal, MarketValueModal, UserStatsModal, ownershipRows, hasSharedOwnership, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, ContactSupportPanel, DashboardCarousel, TasteHearts } from "./components/AppPanels";
 import { appActionSvgIcon, wishlistActionSvgIcon } from "./components/actionIcons";
@@ -917,14 +918,6 @@ function notificationSvgIcon(kind: string) {
   );
 }
 
-function RecognitionAiLoading({ label }: { label: string }) {
-  return <div className="recognition-ai-loading" role="status" aria-live="polite">
-    <span className="recognition-ai-orbit" aria-hidden="true"><AppIcon name="assistant" variant="ai" tone="ai" /></span>
-    <span>{label}</span>
-    <i aria-hidden="true" />
-  </div>;
-}
-
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
@@ -1386,7 +1379,7 @@ export function App() {
     setAiOverlayVisible(false);
     const timeoutId = window.setTimeout(() => {
       setAiOverlayRenderMode("");
-    }, 360);
+    }, 220);
     return () => window.clearTimeout(timeoutId);
   }, [aiOverlayMode, aiOverlayRenderMode]);
 
@@ -8624,7 +8617,7 @@ export function App() {
             </div>
             <div className="regional-ai-targets">
               <button type="button" className="regional-ai-submit" disabled={!canGenerateAi || generatingAi === "regional-gap-targets"} onClick={generateRegionalGapTargets}>
-                <ButtonBusyContent busy={generatingAi === "regional-gap-targets"} idleLabel={t("suggestWithAi")} busyLabel={t("generating")} />
+                <ButtonBusyContent busy={generatingAi === "regional-gap-targets"} idleLabel={t("suggestWithAi")} busyLabel={t("generating")} ai />
               </button>
               {regionalGapActiveSuggestion ? (
                 <div className="regional-ai-proposal" ref={regionalGapProposalRef} tabIndex={-1}>
@@ -10497,7 +10490,7 @@ export function App() {
                 {!editingId && canUseLabelRecognition && wineRecognitionTarget === "wine" && (wineRecognitionLoading || wineImageRecognitionResult) ? (
                   <div className="recognition-box">
                     <span className="recognition-box-title">{wineRecognitionLoading ? t("recognitionInProgress") : t("recognizedWineProposal")}</span>
-                    {wineRecognitionLoading ? <RecognitionAiLoading label={t("recognitionInProgress")} /> : null}
+                    {wineRecognitionLoading ? <AiActivity compact locale={locale} label={t("recognitionInProgress")} /> : null}
                     {wineImageRecognitionResult ? (
                       <div className="recognition-results">
                         <small className="recognition-ai-cost">{t("aiRequestCost")}: {formatAiBudget(wineImageRecognitionResult.estimated_cost_usd)}</small>
@@ -10652,9 +10645,9 @@ export function App() {
                 {showManualWineAiSearch ? (
                   <div className="manual-ai-search">
                     <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft("wine")}>
-                      <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("searchWineDataWithAi")} busyLabel={t("generating")} />
+                      <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("searchWineDataWithAi")} busyLabel={t("generating")} ai />
                     </button>
-                    {wineEnrichmentLoading ? <LoadingState label={t("aiWineSearchWaiting")} compact /> : null}
+                    {wineEnrichmentLoading ? <AiActivity compact locale={locale} label={t("aiWineSearchWaiting")} /> : null}
                     <small className="form-hint">{t("searchWineDataWithAiHelp")}</small>
                   </div>
                 ) : null}
@@ -11118,7 +11111,7 @@ export function App() {
                   <div className="recognition-box">
                     <span className="recognition-box-title">{wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? t("recognizingWine") : t("recognizeWine")}</span>
                     <span className="recognition-beta-note">{t("recognitionBetaNotice")}</span>
-                    {wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? <RecognitionAiLoading label={t("recognizingWine")} /> : null}
+                    {wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? <AiActivity compact locale={locale} label={t("recognizingWine")} /> : null}
                     <div className="recognition-actions">
                       <label className="recognition-upload-button secondary compact">
                         <span>{t("choosePhotoFile")}</span>
@@ -11186,9 +11179,9 @@ export function App() {
                 {showManualWishlistAiSearch ? (
                   <div className="manual-ai-search">
                     <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft("wishlist")}>
-                      <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("searchWineDataWithAi")} busyLabel={t("generating")} />
+                      <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("searchWineDataWithAi")} busyLabel={t("generating")} ai />
                     </button>
-                    {wineEnrichmentLoading ? <LoadingState label={t("aiWineSearchWaiting")} compact /> : null}
+                    {wineEnrichmentLoading ? <AiActivity compact locale={locale} label={t("aiWineSearchWaiting")} /> : null}
                     <small className="form-hint">{t("searchWineDataWithAiHelp")}</small>
                   </div>
                 ) : null}

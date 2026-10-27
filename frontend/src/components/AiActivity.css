@@ -1,0 +1,219 @@
+/* The AI at work: a dark, gold-lit panel, the same wherever the AI is busy. */
+.ai-activity {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 12px 14px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, #e6c27a 50%, transparent);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 10% 15%, color-mix(in srgb, #e6c27a 24%, transparent), transparent 48%),
+    radial-gradient(circle at 90% 90%, color-mix(in srgb, #7bbda3 14%, transparent), transparent 46%),
+    linear-gradient(135deg, #0e1a15, #1d2c24);
+  color: #f6efe2;
+  box-shadow: 0 12px 28px color-mix(in srgb, black 28%, transparent), inset 0 1px 0 color-mix(in srgb, white 9%, transparent);
+  animation: ai-activity-appear .28s cubic-bezier(.2, .7, .2, 1) both;
+}
+
+/* A light that runs along the bottom while the AI works. */
+.ai-activity.is-thinking::after {
+  content: "";
+  position: absolute;
+  left: -40%;
+  bottom: 0;
+  width: 40%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #fff0bd, #e6c27a, transparent);
+  animation: ai-activity-sweep 1.1s ease-in-out infinite;
+}
+
+.ai-activity-visual {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, #e6c27a 22%, transparent), color-mix(in srgb, #e6c27a 6%, transparent) 70%);
+}
+
+/* Listening: bars that move with the voice. Speaking: a finer, faster wave. */
+.ai-activity.is-listening .ai-activity-visual i,
+.ai-activity.is-speaking .ai-activity-visual i {
+  display: block;
+  width: 3px;
+  height: 10px;
+  border-radius: 2px;
+  background: #e6c27a;
+  animation: ai-activity-bar .75s ease-in-out infinite;
+}
+.ai-activity.is-speaking .ai-activity-visual i {
+  width: 2px;
+  background: #f6efe2;
+  animation-duration: .95s;
+}
+
+/* Thinking: the AI glass breathing inside a turning halo, a spark in orbit. */
+.ai-activity.is-thinking .ai-activity-visual .app-icon {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  color: #f1d79a;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, #e6c27a 70%, transparent));
+  animation: ai-activity-pulse 1.1s ease-in-out infinite;
+}
+.ai-activity-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 62%, #e6c27a 82%, #fff4cf 90%, transparent 100%);
+  -webkit-mask: radial-gradient(circle, transparent 60%, black 62%);
+  mask: radial-gradient(circle, transparent 60%, black 62%);
+  animation: ai-activity-spin .9s linear infinite;
+}
+.ai-activity-halo.is-inner {
+  inset: 5px;
+  background: conic-gradient(from 180deg, transparent 0 70%, color-mix(in srgb, #7bbda3 80%, white) 90%, transparent 100%);
+  -webkit-mask: radial-gradient(circle, transparent 66%, black 68%);
+  mask: radial-gradient(circle, transparent 66%, black 68%);
+  animation: ai-activity-spin 1.5s linear infinite reverse;
+}
+.ai-activity-spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px;
+  border-radius: 50%;
+  background: #fff6d6;
+  box-shadow: 0 0 6px 1px #fff0bd;
+  transform-origin: 23px 0;
+  transform: translateX(-23px) rotate(0deg);
+  animation: ai-activity-orbit 1.8s linear infinite;
+}
+
+.ai-activity-copy {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+}
+.ai-activity-copy strong {
+  font-family: var(--font-display, inherit);
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: #f6efe2;
+  /* A gold reflection crosses the words while the AI works. */
+  background: linear-gradient(100deg, #f6efe2 0 40%, #fff0bd 50%, #f6efe2 60% 100%);
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ai-activity-shine 2.4s ease-in-out infinite;
+}
+.ai-activity-copy small {
+  overflow: hidden;
+  color: color-mix(in srgb, #f6efe2 72%, transparent);
+  font-size: .82rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.ai-activity-stop {
+  flex: none;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid color-mix(in srgb, #e6c27a 70%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: #f6efe2;
+  font-weight: 700;
+  box-shadow: none;
+}
+.ai-activity-stop:hover:not(:disabled) {
+  background: color-mix(in srgb, #e6c27a 18%, transparent);
+  color: #f6efe2;
+  transform: none;
+}
+
+/* Inline inside forms and cards: one slim row. */
+.ai-activity.is-compact {
+  gap: 10px;
+  min-height: 46px;
+  padding: 7px 12px;
+  border-radius: 14px;
+  box-shadow: 0 8px 18px color-mix(in srgb, black 22%, transparent), inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+}
+.ai-activity.is-compact .ai-activity-visual { width: 32px; height: 32px; }
+.ai-activity.is-compact.is-thinking .ai-activity-visual .app-icon { width: 17px; height: 17px; }
+.ai-activity.is-compact .ai-activity-halo.is-inner { inset: 3px; }
+.ai-activity.is-compact .ai-activity-spark { transform-origin: 16px 0; transform: translateX(-16px); }
+.ai-activity.is-compact .ai-activity-copy strong { font-size: .86rem; font-weight: 650; }
+
+/* The button spark: a gold ring turning around a pulsing core. */
+.ai-spark {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+.ai-spark i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 45%, currentColor 80%, transparent 100%);
+  -webkit-mask: radial-gradient(circle, transparent 50%, black 54%);
+  mask: radial-gradient(circle, transparent 50%, black 54%);
+  animation: ai-activity-spin .8s linear infinite;
+}
+.ai-spark i:last-child {
+  inset: 6px;
+  background: currentColor;
+  -webkit-mask: none;
+  mask: none;
+  animation: ai-activity-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes ai-activity-appear { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes ai-activity-bar {
+  0%, 100% { height: 8px; opacity: .6; }
+  50% { height: 26px; opacity: 1; }
+}
+@keyframes ai-activity-spin { to { transform: rotate(360deg); } }
+@keyframes ai-activity-orbit { to { transform: translateX(-23px) rotate(360deg); } }
+@keyframes ai-activity-pulse {
+  0%, 100% { transform: scale(1); opacity: .85; }
+  50% { transform: scale(1.14); opacity: 1; }
+}
+@keyframes ai-activity-sweep {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+@keyframes ai-activity-shine { 0% { background-position: 120% 0; } 70%, 100% { background-position: -120% 0; } }
+.ai-activity.is-compact .ai-activity-spark { animation-name: ai-activity-orbit-compact; }
+@keyframes ai-activity-orbit-compact { to { transform: translateX(-16px) rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-activity,
+  .ai-activity *,
+  .ai-activity::after,
+  .ai-spark i { animation: none !important; }
+  .ai-activity .ai-activity-visual i { height: 16px; }
+  .ai-activity-copy strong { -webkit-text-fill-color: #f6efe2; background: none; }
+}
+
+/* Inside the assistant composer, whose blocks stack on phones: keep one row. */
+.cellar-assistant-composer > .ai-activity { display: flex !important; flex-direction: row; flex-wrap: nowrap !important; justify-content: flex-start !important; align-items: center; }
+.cellar-assistant-composer > .ai-activity .ai-activity-stop { width: auto !important; }

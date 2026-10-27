@@ -4,7 +4,7 @@ import type { BottlePhotoConfirmResult, BottlePhotoRow, Locale } from "../types"
 import { api } from "../services/api";
 import { runBottlePhotoScan } from "../services/bottlePhotoScan";
 import { AppIcon } from "./AppIcon";
-import { AssistantActivity } from "./AssistantActivity";
+import { AiActivity } from "./AiActivity";
 import { formatAiBudget } from "./panelSupport";
 import "./BottlePhotoImport.css";
 
@@ -187,7 +187,7 @@ export default function BottlePhotoImport({ locale, canAnalyze, onActivate, onCl
             {step === "pick" ? <button type="button" className="secondary compact" aria-label={it ? `Rimuovi foto ${index + 1}` : `Remove photo ${index + 1}`} onClick={() => setPhotos((current) => current.filter((_, position) => position !== index))}>×</button> : null}
           </li>)}
         </ol> : null}
-        {step === "reading" ? <AssistantActivity phase="thinking" locale={locale} label={progress || (it ? "Leggo le etichette…" : "Reading the labels…")} detail={it ? "Riconosco i vini e conto le bottiglie uguali." : "Recognising the wines and counting identical bottles."} /> : null}
+        {step === "reading" ? <AiActivity locale={locale} label={progress || (it ? "Leggo le etichette…" : "Reading the labels…")} detail={it ? "Riconosco i vini e conto le bottiglie uguali." : "Recognising the wines and counting identical bottles."} /> : null}
         {error ? <p className="bottle-photo-error" role="alert">{error}</p> : null}
         {step === "pick" && canAnalyze ? <button type="button" className="bottle-photo-primary" onClick={() => void read()} disabled={!photos.length}>
           {it ? `Riconosci le bottiglie${photos.length > 1 ? ` (${photos.length} foto)` : ""}` : `Recognise the bottles${photos.length > 1 ? ` (${photos.length} photos)` : ""}`}

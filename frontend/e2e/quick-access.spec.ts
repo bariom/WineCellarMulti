@@ -128,7 +128,7 @@ test("the home microphone opens the assistant in voice conversation", async ({ p
   await microphone.click();
   await expect(page.getByRole("heading", { name: "Assistente Cantina AI" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Termina la conversazione a voce" })).toHaveAttribute("aria-pressed", "true");
-  const listening = page.locator(".assistant-activity.is-listening");
+  const listening = page.locator(".ai-activity.is-listening");
   await expect(listening).toContainText("Ti ascolto…");
   await expect(listening.getByRole("button", { name: "Ferma" })).toBeVisible();
   await listening.screenshot({ path: testInfo.outputPath("activity-listening-390.png") });
@@ -176,7 +176,7 @@ test("a food pairing question is answered in chat and opens in the Sommelier AI"
   await expect(conversation.locator("li.is-user")).toHaveText("Che cosa apro con un salmì di cervo?");
   await expect(conversation.locator("li.is-pending")).toBeVisible();
   // The work shows in the activity panel, in place of greyed-out buttons.
-  const working = page.locator(".assistant-activity.is-thinking");
+  const working = page.locator(".ai-activity.is-thinking");
   await expect(working).toContainText("Chiedo al Sommelier il vino giusto…");
   await expect(page.locator(".cellar-assistant-send-actions")).toBeHidden();
   // On a phone the panel is in view without scrolling, with the question above it.
@@ -225,7 +225,7 @@ test("an answer read aloud shows the speaking panel and can be interrupted", asy
   const ask = page.getByRole("search", { name: "Chiedi all'assistente della cantina" });
   await ask.getByRole("textbox", { name: "Chiedi alla tua cantina" }).fill("Quali vini sono al picco");
   await ask.getByRole("button", { name: "Chiedi" }).click();
-  const speaking = page.locator(".assistant-activity.is-speaking");
+  const speaking = page.locator(".ai-activity.is-speaking");
   await expect(speaking).toContainText("Ti rispondo a voce…");
   // While it speaks the user can still type: the send controls stay.
   await expect(page.locator(".cellar-assistant-send-actions")).toBeVisible();

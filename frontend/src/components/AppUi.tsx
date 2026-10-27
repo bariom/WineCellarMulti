@@ -4,6 +4,7 @@ import { AppIcon } from "./AppIcon";
 import "./AiPackUpgradeNotice.css";
 import "./AiGenerationOverlay.css";
 import { AiGenerationVisual } from "./AiGenerationVisual";
+import { AiSpark } from "./AiActivity";
 import type { AppIconName } from "./AppIcon";
 import { useHelp } from "../help/HelpContext";
 import { displayValue } from "../i18n";
@@ -347,15 +348,18 @@ export function ButtonBusyContent({
   idleLabel,
   busyLabel,
   icon,
+  ai = false,
 }: {
   busy: boolean;
   idleLabel: string;
   busyLabel: string;
   icon?: ReactNode;
+  /** The work is done by the AI: the button shows the gold spark instead of the dots. */
+  ai?: boolean;
 }) {
   return (
     <span className={`button-busy-label${busy ? " is-busy" : ""}`}>
-      {busy ? <LoadingSpinner size="sm" /> : icon ? <span className="action-icon" aria-hidden="true">{icon}</span> : null}
+      {busy ? (ai ? <AiSpark /> : <LoadingSpinner size="sm" />) : icon ? <span className="action-icon" aria-hidden="true">{icon}</span> : null}
       <span>{busy ? busyLabel : idleLabel}</span>
     </span>
   );

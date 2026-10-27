@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { AppIcon, FeatureIcon } from "../components/AppIcon";
-import { EmptyState } from "../components/AppUi";
+import { ButtonBusyContent, EmptyState } from "../components/AppUi";
+import { AiActivity } from "../components/AiActivity";
 import { WineListChat } from "../components/WineListChat";
 import { reasoningEffortTranslationKey } from "../i18n";
 import type { RestaurantWineListQuestionPayload, RestaurantWineListQuestionResult, RestaurantWineListScanResult } from "../types";
@@ -91,29 +92,6 @@ function parsePriceHintAmount(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function ButtonBusyContent({
-  busy,
-  idleLabel,
-  busyLabel,
-}: {
-  busy: boolean;
-  idleLabel: string;
-  busyLabel: string;
-}) {
-  return (
-    <span className={`button-busy-label${busy ? " is-busy" : ""}`}>
-      <span>{busy ? busyLabel : idleLabel}</span>
-    </span>
-  );
-}
-
-function LoadingState({ label, compact = false }: { label: string; compact?: boolean }) {
-  return (
-    <div className={`loading-state${compact ? " compact" : ""}`} role="status" aria-live="polite">
-      <span>{label}</span>
-    </div>
-  );
-}
 
 function SommelierAiIllustration() {
   return <img src="/images/sommelier_ai.png" alt="Sommelier AI" loading="lazy" />;
@@ -533,9 +511,9 @@ export default function PairingView({
               </>
             ) : null}
             <button type="submit" className="pairing-submit-button" disabled={!canGenerateAi || generatingAi === "pairing"}>
-              <ButtonBusyContent busy={generatingAi === "pairing"} idleLabel={t("pairingSubmit")} busyLabel={t("generating")} />
+              <ButtonBusyContent busy={generatingAi === "pairing"} idleLabel={t("pairingSubmit")} busyLabel={t("generating")} ai />
             </button>
-            {generatingAi === "pairing" ? <LoadingState label={t("generating")} compact /> : null}
+            {generatingAi === "pairing" ? <AiActivity compact locale={locale} label={t("generating")} /> : null}
             {!canGenerateAi ? <EmptyState title={t("noApiKey")} icon="glass-sparkle" compact /> : null}
           </form>
           {pairingResult && (!isWineFirstPairing || pairingResult.dish_recommendations.length) ? (

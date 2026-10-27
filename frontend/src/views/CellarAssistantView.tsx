@@ -15,7 +15,7 @@ import "./CellarAssistantVoice.css";
 import "./CellarAssistantStrategy.css";
 import "./CellarAssistantMobile.css";
 import { AssistantAnswer } from "../components/AssistantAnswer";
-import { AssistantActivity } from "../components/AssistantActivity";
+import { AiActivity } from "../components/AiActivity";
 import { primeSpeech, speak, speechSupported, stopSpeaking } from "../utils/speech";
 
 const READ_ALOUD_KEY = "vinaris.assistant.read-aloud";
@@ -1044,7 +1044,7 @@ export default function CellarAssistantView({
             placeholder={purchaseExample}
           />
         </div>
-        {activityPhase ? <AssistantActivity
+        {activityPhase ? <AiActivity
           phase={activityPhase}
           locale={locale}
           label={activityPhase === "listening"

@@ -17,9 +17,24 @@
     radial-gradient(ellipse at 18% 55%, #5e2b3b26, transparent 48%),
     radial-gradient(ellipse at 86% 34%, #876f3521, transparent 42%),
     #091916;
-  animation: ai-overlay-appear 320ms ease-out both;
+  animation: ai-overlay-appear 220ms ease-out both;
 }
-.ai-generation-overlay.is-leaving { animation: ai-overlay-disappear 280ms ease-in both; }
+/* A slow drift of the ambient light keeps the backdrop alive without cost. */
+.ai-generation-overlay::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 30% 30%, #d6ac7514, transparent 40%),
+    radial-gradient(ellipse at 72% 68%, #7bbda311, transparent 42%);
+  background-size: 130% 130%;
+  animation: ai-ambient-drift 7s ease-in-out infinite alternate;
+}
+.ai-generation-overlay.is-leaving { animation: ai-overlay-disappear 200ms ease-in both; }
+.ai-generation-overlay > * { position: relative; animation: ai-rise .55s cubic-bezier(.2, .7, .2, 1) both; }
+.ai-generation-overlay > .ai-generation-stage { animation-delay: .06s; }
+.ai-generation-overlay > .ai-generation-copy { animation-delay: .14s; }
 .ai-generation-brand {
   display: flex;
   align-items: center;
@@ -46,33 +61,67 @@
   height: 100%;
   transform: translateX(-50%);
 }
-.ai-generation-ribbon { stroke-width: 2; opacity: .9; stroke-dasharray: 180 650; animation: ai-ribbon-flow 9s linear infinite; }
-.ai-generation-ribbon.ribbon-rose { stroke-width: 1.6; animation-duration: 12s; animation-delay: -4s; animation-direction: reverse; }
-.ai-generation-ribbon.ribbon-sage { animation-duration: 11s; animation-delay: -7s; }
-.ai-generation-sphere { transform-origin: 500px 260px; animation: ai-sphere-breathe 6s ease-in-out infinite; }
-.ai-generation-orbit-trail { stroke-dasharray: 24 76; animation: ai-orbit-flow 7s linear infinite; }
-.ai-generation-orbit-trail.trail-sage { stroke-dasharray: 15 85; animation-duration: 10s; animation-delay: -4s; animation-direction: reverse; }
-.ai-generation-orbit-trail.trail-rose { stroke-dasharray: 30 70; animation-duration: 13s; animation-delay: -8s; }
-.ai-generation-orbit-trail.trail-glow { opacity: .07; }
+.ai-generation-ribbon { stroke-width: 2; opacity: .9; stroke-dasharray: 180 650; animation: ai-ribbon-flow 4.5s linear infinite; }
+.ai-generation-ribbon.ribbon-rose { stroke-width: 1.6; animation-duration: 6s; animation-delay: -2s; animation-direction: reverse; }
+.ai-generation-ribbon.ribbon-sage { animation-duration: 5.5s; animation-delay: -3.5s; }
+.ai-generation-aura { transform-origin: 500px 260px; animation: ai-aura-breathe 3.2s ease-in-out infinite; }
+.ai-generation-sphere { transform-origin: 500px 260px; animation: ai-sphere-breathe 3.2s ease-in-out infinite; }
+.ai-generation-sphere-light { animation: ai-light-breathe 3.2s ease-in-out infinite; }
+/* The halo: a bright arc that circles the sphere once every two seconds. */
+.ai-generation-halo { transform-origin: 500px 260px; animation: ai-halo-turn 2.2s linear infinite; }
+.ai-generation-halo circle:last-child { animation: ai-orbit-flow 2.2s linear infinite; }
+.ai-generation-orbit-trail { stroke-dasharray: 24 76; animation: ai-orbit-flow 3.4s linear infinite; }
+.ai-generation-orbit-trail.trail-sage { stroke-dasharray: 15 85; animation-duration: 4.6s; animation-delay: -2s; animation-direction: reverse; }
+.ai-generation-orbit-trail.trail-rose { stroke-dasharray: 30 70; animation-duration: 6s; animation-delay: -4s; }
+.ai-generation-orbit-trail.trail-glow { opacity: .09; }
 .ai-generation-orbit-trail.trail-point { stroke-dasharray: .1 99.9; }
-.ai-generation-glints { animation: ai-light-breathe 5s ease-in-out infinite; }
+/* A second spark trails the first one on each orbit, pulsing as it goes. */
+.ai-generation-orbit-trail.trail-spark { opacity: .55; animation-delay: -.6s; }
+.ai-generation-orbit-trail.trail-sage.trail-spark { animation-delay: -2.9s; }
+.ai-generation-star { animation: ai-star-twinkle 2.4s ease-in-out infinite; }
+.ai-generation-star:nth-child(3n + 1) { animation-delay: -.8s; }
+.ai-generation-star:nth-child(3n + 2) { animation-delay: -1.6s; animation-duration: 3s; }
+.ai-generation-glint { transform-box: fill-box; transform-origin: center; animation: ai-glint-spark 2.4s ease-in-out infinite; }
+.ai-generation-glint:nth-child(2) { animation-delay: -.9s; }
+.ai-generation-glint:nth-child(3) { animation-delay: -1.5s; animation-duration: 1.9s; }
+.ai-generation-glint:nth-child(4) { animation-delay: -.4s; }
+.ai-generation-glint:nth-child(5) { animation-delay: -1.2s; }
 /* The bowl follows an oval gesture; liquid lags behind inside its clip. */
-.ai-generation-glass { transform-origin: 500px 339px; animation: ai-glass-swirl 3.6s ease-in-out infinite; }
-.ai-generation-wine { transform-origin: 500px 225px; animation: ai-wine-swirl 3.6s ease-in-out -.35s infinite; }
-.ai-generation-wine-current { stroke-dasharray: 28 72; animation: ai-orbit-flow 1.8s linear infinite; }
+.ai-generation-glass { transform-origin: 500px 339px; animation: ai-glass-swirl 2.6s ease-in-out infinite; }
+.ai-generation-wine { transform-origin: 500px 225px; animation: ai-wine-swirl 2.6s ease-in-out -.25s infinite; }
+.ai-generation-wine-current { stroke-dasharray: 28 72; animation: ai-orbit-flow 1.2s linear infinite; }
 .ai-generation-copy { display: grid; justify-items: center; flex: 0 0 auto; gap: 16px; width: min(100%, 570px); min-width: 0; text-align: center; }
 .ai-generation-label { display: flex; align-items: center; justify-content: center; gap: 10px; max-width: 100%; color: #d7bc8f; font-size: .68rem; font-weight: 600; line-height: 1.5; letter-spacing: .18em; text-transform: uppercase; }
-.ai-generation-label::before { content: ""; width: 5px; height: 5px; flex: 0 0 auto; border-radius: 50%; background: #d7bc8f; }
-.ai-generation-copy strong { color: #faf0dd; font: 400 clamp(1.9rem, 3.5vw, 2.8rem)/1.15 Georgia, "Times New Roman", serif; letter-spacing: -.035em; }
+.ai-generation-label::before { content: ""; width: 5px; height: 5px; flex: 0 0 auto; border-radius: 50%; background: #d7bc8f; box-shadow: 0 0 0 0 #d7bc8f80; animation: ai-label-pulse 1.4s ease-out infinite; }
+.ai-generation-copy strong {
+  font: 400 clamp(1.9rem, 3.5vw, 2.8rem)/1.15 Georgia, "Times New Roman", serif;
+  letter-spacing: -.035em;
+  color: #faf0dd;
+  /* A gold reflection crosses the title, like light on a label. */
+  background: linear-gradient(100deg, #faf0dd 0 38%, #fff6d2 46%, #e9c986 50%, #fff6d2 54%, #faf0dd 62% 100%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ai-title-shine 3.2s ease-in-out infinite;
+}
 .ai-generation-copy p { max-width: 46ch; margin: 0; color: #d2d8cd; font-size: .97rem; line-height: 1.75; }
 .ai-generation-progress { box-sizing: border-box; max-width: 100%; padding: 10px 18px; border: 1px solid #bba67d38; border-radius: var(--radius-control); color: #efdcba; background: #183129; font-size: .85rem; line-height: 1.5; overflow-wrap: anywhere; }
 .ai-generation-hint { max-width: 46ch; margin-top: 8px; padding-top: 18px; border-top: 1px solid #afbcaa25; color: #95a79b; font-size: .75rem; line-height: 1.65; }
 @keyframes ai-overlay-appear { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ai-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ai-ambient-drift { from { background-position: 0% 0%; } to { background-position: 100% 100%; } }
+@keyframes ai-aura-breathe { 0%, 100% { transform: scale(.94); opacity: .75; } 50% { transform: scale(1.04); opacity: 1; } }
+@keyframes ai-halo-turn { to { transform: rotate(360deg); } }
+@keyframes ai-star-twinkle { 0%, 100% { opacity: .2; } 50% { opacity: .9; } }
+@keyframes ai-glint-spark { 0%, 100% { opacity: .25; transform: scale(.6) rotate(0deg); } 50% { opacity: 1; transform: scale(1.15) rotate(45deg); } }
+@keyframes ai-title-shine { 0% { background-position: 120% 0; } 60%, 100% { background-position: -120% 0; } }
+@keyframes ai-label-pulse { 0% { box-shadow: 0 0 0 0 #d7bc8f80; } 100% { box-shadow: 0 0 0 7px #d7bc8f00; } }
 @keyframes ai-overlay-disappear { from { opacity: 1; } to { opacity: 0; } }
 @keyframes ai-ribbon-flow { to { stroke-dashoffset: -830; } }
 @keyframes ai-orbit-flow { to { stroke-dashoffset: -100; } }
-@keyframes ai-sphere-breathe { 0%, 100% { transform: scale(.98); } 50% { transform: scale(1.02); } }
-@keyframes ai-light-breathe { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+@keyframes ai-sphere-breathe { 0%, 100% { transform: scale(.985); } 50% { transform: scale(1.025); } }
+@keyframes ai-light-breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 @keyframes ai-glass-swirl {
   0%, 100% { transform: translate(0, -4px) rotate(-7deg); }
   25% { transform: translate(12px, 0) rotate(-2deg); }
@@ -106,6 +155,6 @@
   .ai-generation-hint { margin-top: 0; padding-top: 10px; font-size: .7rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ai-generation-overlay, .ai-generation-overlay * { animation: none; }
+  .ai-generation-overlay, .ai-generation-overlay *, .ai-generation-overlay::before { animation: none; }
   .ai-generation-overlay.is-leaving { opacity: 0; }
 }
