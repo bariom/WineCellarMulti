@@ -27618,6 +27618,70 @@ body,
   gap: 12px;
 }
 
+.taste-profile-declared {
+  padding-top: clamp(28px, 4vw, 48px);
+  border-top: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+}
+
+.taste-profile-declared-questions {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 720px) {
+  .taste-profile-declared-questions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 24px;
+  }
+}
+
+.taste-profile-declared-question {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+  min-width: 0;
+}
+
+.taste-profile-declared-question legend {
+  padding: 0;
+  margin-bottom: 10px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.taste-profile-declared-scale {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.taste-profile-declared-scale button {
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.taste-profile-declared-scale button.is-active {
+  background: color-mix(in srgb, var(--accent) 86%, var(--surface));
+  border-color: var(--accent);
+  color: var(--surface);
+}
+
+.taste-profile-declared-anchors {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  color: var(--text-muted);
+}
+
 .taste-profile-maintenance small {
   color: var(--text-muted);
 }

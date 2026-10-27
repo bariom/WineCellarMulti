@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { translate } from "../i18n";
-import type { LegacyTastingClaimResult, LegacyTastingClaimStatus, Locale, TastePreferenceEntry, TasteProfile, TasteProfileAlgorithmDiagnostics, TasteProfileCollection, TasteProfileEvidence, Wine } from "../types";
+import type { LegacyTastingClaimResult, LegacyTastingClaimStatus, Locale, TasteDeclaration, TastePreferenceEntry, TasteProfile, TasteProfileAlgorithmDiagnostics, TasteProfileCollection, TasteProfileEvidence, Wine } from "../types";
 import { api } from "../services/api";
 import { TasteOrigins } from "./TasteOrigins";
 import { PreferenceRankingChart } from "./PreferenceRankingChart";
@@ -115,6 +115,81 @@ function SensorySignatureBars({
       </div>;
     })}
   </div>;
+}
+
+const DECLARED_QUESTIONS: { dimension: string; it: [string, string, string]; en: [string, string, string] }[] = [
+  { dimension: "body", it: ["Quanto corpo cerchi in un vino?", "Leggero", "Corposo"], en: ["How much body do you look for in a wine?", "Light", "Full-bodied"] },
+  { dimension: "acidity", it: ["Quanta freschezza (acidità)?", "Morbido", "Molto fresco"], en: ["How much freshness (acidity)?", "Soft", "Very fresh"] },
+  { dimension: "tannin", it: ["Quanti tannini nei rossi?", "Setosi", "Decisi"], en: ["How much tannin in reds?", "Silky", "Firm"] },
+  { dimension: "sweetness", it: ["Quanta dolcezza?", "Secco", "Dolce"], en: ["How much sweetness?", "Dry", "Sweet"] },
+  { dimension: "wood", it: ["Quanto legno (barrique)?", "Nessuno", "Marcato"], en: ["How much oak?", "None", "Pronounced"] },
+  { dimension: "aromatic_intensity", it: ["Quanto intenso al naso?", "Delicato", "Esplosivo"], en: ["How intense on the nose?", "Delicate", "Explosive"] },
+];
+
+function DeclaredTaste({ locale }: { locale: Locale }) {
+  const italian = locale === "it";
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [saved, setSaved] = useState<Record<string, number> | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    api<TasteDeclaration>("/api/v1/taste-profile/me/declared")
+      .then((result) => { setAnswers(result.answers); setSaved(result.answers); })
+      .catch(() => setSaved({}));
+  }, []);
+  const dirty = saved !== null && JSON.stringify(answers) !== JSON.stringify(saved);
+  const answered = Object.keys(answers).length;
+  const save = async () => {
+    setSaving(true);
+    setMessage("");
+    try {
+      const payload = Object.fromEntries(DECLARED_QUESTIONS.map(({ dimension }) => [dimension, answers[dimension] ?? null]));
+      const result = await api<TasteDeclaration>("/api/v1/taste-profile/me/declared", { method: "PUT", body: JSON.stringify({ answers: payload }) });
+      setAnswers(result.answers);
+      setSaved(result.answers);
+      setMessage(italian ? "Preferenze salvate: il sommelier ne terrà conto da subito." : "Preferences saved: the sommelier will use them from now on.");
+    } catch {
+      setMessage(italian ? "Salvataggio non riuscito, riprova." : "Could not save, please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return <section className="taste-profile-declared" aria-labelledby="taste-declared-heading">
+    <div className="taste-profile-section-heading">
+      <span>{italian ? "Con parole tue" : "In your own words"}</span>
+      <h3 id="taste-declared-heading">{italian ? "Cosa cerchi in un vino" : "What you look for in a wine"}</h3>
+      <p>{italian ? "Sei domande: quello che dichiari qui vale più di ciò che Vinaris deduce dai voti, e il sommelier lo usa subito. Lascia vuoto ciò su cui non hai una preferenza." : "Six questions: what you state here outranks what Vinaris infers from your ratings, and the sommelier uses it right away. Leave blank what you have no preference about."}</p>
+    </div>
+    <div className="taste-profile-declared-questions">
+      {DECLARED_QUESTIONS.map(({ dimension, it, en }) => {
+        const [question, low, high] = italian ? it : en;
+        const current = answers[dimension];
+        return <fieldset key={dimension} className="taste-profile-declared-question">
+          <legend>{question}</legend>
+          <div className="taste-profile-declared-scale" role="radiogroup" aria-label={question}>
+            {[1, 2, 3, 4, 5].map((level) => <button
+              key={level}
+              type="button"
+              role="radio"
+              aria-checked={current === level}
+              aria-label={`${question} ${level}/5`}
+              className={current === level ? "is-active" : ""}
+              onClick={() => setAnswers((previous) => {
+                const next = { ...previous };
+                if (next[dimension] === level) delete next[dimension]; else next[dimension] = level;
+                return next;
+              })}
+            >{level}</button>)}
+          </div>
+          <div className="taste-profile-declared-anchors" aria-hidden="true"><small>{low}</small><small>{high}</small></div>
+        </fieldset>;
+      })}
+    </div>
+    <div className="taste-profile-maintenance">
+      <small>{message || (answered ? (italian ? `${answered} preferenze su 6 indicate.` : `${answered} of 6 preferences stated.`) : (italian ? "Nessuna preferenza indicata." : "No preference stated yet."))}</small>
+      <button type="button" className="primary compact" disabled={saving || !dirty} onClick={() => void save()}>{saving ? (italian ? "Salvataggio…" : "Saving…") : (italian ? "Salva preferenze" : "Save preferences")}</button>
+    </div>
+  </section>;
 }
 
 export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAdmin = false, onOpenWine }: { locale: Locale; variant?: "settings" | "insight"; wines?: Wine[]; isAppAdmin?: boolean; onOpenWine?: (wine: Wine) => void }) {
@@ -458,6 +533,8 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
         </div>
         <TasteOrigins profile={overall} wines={wines} locale={locale} onOpenWine={onOpenWine} />
       </section> : null}
+
+      <DeclaredTaste locale={locale} />
 
       <details className="taste-profile-method">
         <summary>{italian ? "Come Vinaris ha costruito questo profilo" : "How Vinaris built this profile"}</summary>

@@ -50,6 +50,16 @@ test("taste preferences use an individual scale and expandable wine styles", asy
     }],
   } }));
   await page.route("**/api/v1/map-config", route => route.fulfill({ json: {} }));
+  const declaredPuts: unknown[] = [];
+  await page.route("**/api/v1/taste-profile/me/declared", async route => {
+    if (route.request().method() === "PUT") {
+      const body = route.request().postDataJSON();
+      declaredPuts.push(body.answers);
+      const answers = Object.fromEntries(Object.entries(body.answers).filter(([, level]) => level !== null));
+      return route.fulfill({ json: { answers, updated_at: "2026-10-27T10:00:00Z" } });
+    }
+    return route.fulfill({ json: { answers: { body: 4 }, updated_at: "2026-10-01T10:00:00Z" } });
+  });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/taste-profile-test");
   await expect(page.locator(".taste-profile-hero-copy small")).toContainText("I valori non sono percentuali da sommare.");
@@ -81,6 +91,17 @@ test("taste preferences use an individual scale and expandable wine styles", asy
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  const declared = page.getByLabel("Cosa cerchi in un vino");
+  await expect(declared.getByText("1 preferenze su 6 indicate.", { exact: true })).toBeVisible();
+  await expect(declared.getByRole("radio", { name: "Quanto corpo cerchi in un vino? 4/5" })).toHaveAttribute("aria-checked", "true");
+  const saveDeclared = declared.getByRole("button", { name: "Salva preferenze", exact: true });
+  await expect(saveDeclared).toBeDisabled();
+  await declared.getByRole("radio", { name: "Quanta dolcezza? 1/5" }).click();
+  await expect(declared.getByText("2 preferenze su 6 indicate.", { exact: true })).toBeVisible();
+  await saveDeclared.click();
+  await expect(declared.getByText("Preferenze salvate: il sommelier ne terrà conto da subito.", { exact: true })).toBeVisible();
+  expect(declaredPuts).toEqual([{ body: 4, acidity: null, tannin: null, sweetness: 1, wood: null, aromatic_intensity: null }]);
+  await expect(saveDeclared).toBeDisabled();
   await page.getByText("Come Vinaris ha costruito questo profilo", { exact: true }).click();
   await page.getByRole("button", { name: "Mostra confronto", exact: true }).click();
   const diagnostics = page.getByLabel("Diagnostica algoritmo gusto");

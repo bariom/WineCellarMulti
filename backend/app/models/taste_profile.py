@@ -107,6 +107,27 @@ class UserTasteProfile(Base):
     )
 
 
+class UserTasteDeclaration(Base):
+    """What a user says they like, in their own words: one row per user.
+
+    Answers map a sensory dimension to a 1..5 level; a missing dimension means
+    "no preference". They belong to the user, not to a cellar.
+    """
+
+    __tablename__ = "user_taste_declarations"
+    __table_args__ = (UniqueConstraint("user_id", name="uq_user_taste_declaration_user"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
+    answers: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
 class UserTasteProfileRevision(Base):
     """Immutable snapshot retained before a derived taste profile changes."""
 

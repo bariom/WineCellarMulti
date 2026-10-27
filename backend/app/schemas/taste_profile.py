@@ -43,6 +43,16 @@ class TasteProfileResponse(BaseModel):
     rebuilt_at: datetime
 
 
+class TasteDeclarationResponse(BaseModel):
+    # dimension -> 1..5; a dimension left out means no stated preference.
+    answers: dict[str, int] = Field(default_factory=dict)
+    updated_at: datetime | None = None
+
+
+class TasteDeclarationUpdate(BaseModel):
+    answers: dict[str, int | None] = Field(default_factory=dict)
+
+
 class TasteProfileEvidence(BaseModel):
     tasting_rating_count: int = 0
     enjoyment_only_count: int = 0

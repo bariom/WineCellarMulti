@@ -1636,6 +1636,11 @@ export type TasteProfileCollection = {
   evidence?: TasteProfileEvidence;
 };
 
+export type TasteDeclaration = {
+  answers: Record<string, number>;
+  updated_at: string | null;
+};
+
 export type TasteProfileAlgorithmDimension = {
   dimension: string;
   v2_preference: number | null;

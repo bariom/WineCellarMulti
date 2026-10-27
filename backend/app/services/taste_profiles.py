@@ -18,6 +18,7 @@ from app.models import (
     ExternalWineTasting,
     SensoryProfileBaseline,
     SharedWineIdentity,
+    UserTasteDeclaration,
     UserTasteProfile,
     UserTasteProfileRevision,
     UserWineRating,
@@ -76,6 +77,11 @@ VALIDATION_ATTRIBUTE = "validation"
 # disliked ones (0.5 is chance): the sommelier is told to rely on the lists.
 WEAK_DIMENSIONS_AUC = 0.65
 GOOD_DIMENSIONS_AUC = 0.75
+# The dimensions a user can state a preference for, each on a 1..5 scale
+# (1 = as little as possible, 5 = as much as possible), mapped onto the same
+# 0..1 levels as the wine profiles.
+DECLARED_DIMENSIONS = ("body", "acidity", "tannin", "sweetness", "wood", "aromatic_intensity")
+DECLARED_LEVELS = {1: 0.1, 2: 0.3, 3: 0.5, 4: 0.7, 5: 0.9}
 # What the sommelier is told about likes and dislikes, by attribute.
 SOMMELIER_FAVOURITE_KINDS = {
     "grapes": "grapes",
@@ -1399,8 +1405,14 @@ def compact_taste_context(
                 UserTasteProfile.category == "global",
             )
         )
+    declared = declared_taste(db, user_id=user_id)
     if profile is None or profile.confidence < 0.2:
-        return {}
+        if not declared:
+            return {}
+        return {
+            "declared": declared,
+            "how_to_use": DECLARED_GUIDANCE,
+        }
     dimensions = {
         key: value.get("preference")
         for key, value in (profile.dimensions or {}).items()
@@ -1432,6 +1444,9 @@ def compact_taste_context(
     if disliked:
         context["disliked"] = disliked
     guidance = []
+    if declared:
+        context["declared"] = declared
+        guidance.append(DECLARED_GUIDANCE)
     if liked or disliked:
         guidance.append(
             "liked and disliked come from the user's own ratings: favour liked grapes, "
@@ -1446,6 +1461,48 @@ def compact_taste_context(
     if guidance:
         context["how_to_use"] = " ".join(guidance)
     return context
+
+
+DECLARED_GUIDANCE = (
+    "declared are the levels (0 = as little as possible, 1 = as much as possible) the user "
+    "stated for themselves: they outrank the computed dimensions whenever the two disagree."
+)
+
+
+def declared_taste(db: Session, *, user_id: UUID) -> dict[str, float]:
+    """The levels the user asked for, in their own words, as 0..1 per dimension."""
+    declaration = db.scalar(
+        select(UserTasteDeclaration).where(UserTasteDeclaration.user_id == user_id)
+    )
+    answers = declaration.answers if declaration and isinstance(declaration.answers, dict) else {}
+    return {
+        dimension: DECLARED_LEVELS[int(answers[dimension])]
+        for dimension in DECLARED_DIMENSIONS
+        if isinstance(answers.get(dimension), int) and int(answers[dimension]) in DECLARED_LEVELS
+    }
+
+
+def save_taste_declaration(
+    db: Session, *, user_id: UUID, answers: dict[str, int | None]
+) -> UserTasteDeclaration:
+    """Replace the user's stated preferences; unknown dimensions and levels are refused."""
+    cleaned: dict[str, int] = {}
+    for dimension, level in answers.items():
+        if level is None:
+            continue
+        if dimension not in DECLARED_DIMENSIONS or level not in DECLARED_LEVELS:
+            raise ValueError(f"Unknown taste declaration: {dimension}={level}")
+        cleaned[dimension] = int(level)
+    declaration = db.scalar(
+        select(UserTasteDeclaration).where(UserTasteDeclaration.user_id == user_id)
+    )
+    if declaration is None:
+        declaration = UserTasteDeclaration(user_id=user_id)
+        db.add(declaration)
+    declaration.answers = cleaned
+    declaration.updated_at = datetime.now(UTC)
+    db.flush()
+    return declaration
 
 
 def dimensions_reliability(db: Session, *, household_id: UUID, user_id: UUID) -> str:

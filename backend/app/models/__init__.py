@@ -35,6 +35,7 @@ from app.models.storage import CellarBin, CellarLocation, WineStorageAllocation,
 from app.models.tags import UserTag, UserWineTag
 from app.models.taste_profile import (
     SensoryProfileBaseline,
+    UserTasteDeclaration,
     UserTasteProfile,
     UserTasteProfileRevision,
     UserWineRating,
@@ -108,6 +109,7 @@ __all__ = [
     "UserWineTag",
     "SensoryBatchRun",
     "SensoryProfileBaseline",
+    "UserTasteDeclaration",
     "UserTasteProfile",
     "UserTasteProfileRevision",
     "UserWineRating",

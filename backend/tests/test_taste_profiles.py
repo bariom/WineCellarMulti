@@ -26,6 +26,7 @@ from app.models import (
     Household,
     SensoryProfileBaseline,
     User,
+    UserTasteDeclaration,
     UserTasteProfile,
     UserTasteProfileRevision,
     UserWineRating,
@@ -45,11 +46,13 @@ from app.services.taste_profiles import (
     claim_unassigned_tastings,
     compact_taste_context,
     confidence_level,
+    declared_taste,
     generate_wine_sensory_profile,
     personal_neutral_rating,
     rating_weight,
     rebuild_user_taste_profile,
     record_user_wine_rating,
+    save_taste_declaration,
     tasting_preference_weight,
     unassigned_tasting_count,
     ranking_auc,
@@ -2319,3 +2322,49 @@ def test_external_tasting_metadata_validation(wine):
 
     with pytest.raises(ValidationError):
         ExternalWineTastingUpdate(wine=wine)
+
+
+def test_declared_taste_outranks_the_computed_dimensions_in_the_sommelier_context() -> None:
+    db = Session()
+    household = Household(name="Declared home")
+    user = User(email="declared@example.test", display_name="Declared", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+
+    # Nothing tasted yet: the stated preferences alone reach the sommelier.
+    save_taste_declaration(db, user_id=user.id, answers={"body": 5, "sweetness": 1, "wood": None})
+    db.commit()
+    assert declared_taste(db, user_id=user.id) == {"body": 0.9, "sweetness": 0.1}
+    context = compact_taste_context(db, household_id=household.id, user_id=user.id)
+    assert context["declared"] == {"body": 0.9, "sweetness": 0.1}
+    assert "outrank the computed dimensions" in context["how_to_use"]
+    assert "dimensions" not in context
+
+    # Saving again replaces everything, and refuses what the questionnaire does not ask.
+    save_taste_declaration(db, user_id=user.id, answers={"acidity": 4})
+    db.commit()
+    assert db.scalar(select(UserTasteDeclaration).where(UserTasteDeclaration.user_id == user.id)).answers == {"acidity": 4}
+    with pytest.raises(ValueError):
+        save_taste_declaration(db, user_id=user.id, answers={"minerality": 3})
+    with pytest.raises(ValueError):
+        save_taste_declaration(db, user_id=user.id, answers={"body": 9})
+
+    # With a computed profile the declared levels sit beside it, still first.
+    wine = make_wine(db, household, name="Declared wine")
+    db.add(
+        WineSensoryProfile(
+            identity_id=wine.shared_identity_id,
+            dimensions={"body": 0.3, "acidity": 0.6, "fruit": 0.6},
+            confidence=0.8,
+            generation_status="available",
+        )
+    )
+    for rating in (5, 6, 5, 6):
+        add_tasting(db, user, household, wine, rating)
+    db.commit()
+    rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+    db.commit()
+    context = compact_taste_context(db, household_id=household.id, user_id=user.id)
+    assert context["declared"] == {"acidity": 0.7}
+    assert "body" in context["dimensions"]
+    assert context["how_to_use"].startswith("declared are the levels")

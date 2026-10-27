@@ -32,6 +32,7 @@ from app.models import (
     SensoryProfileBaseline,
     SharedWineFact,
     SharedWineIdentity,
+    UserTasteDeclaration,
     UserTasteProfile,
     UserWineRating,
     Wine,
@@ -58,6 +59,8 @@ from app.schemas.taste_profile import (
     SensoryMetadataEnrichmentResponse,
     SensoryProfileResponse,
     SensoryProfileUpdate,
+    TasteDeclarationResponse,
+    TasteDeclarationUpdate,
     TasteMatchBatchRequest,
     TasteMatchBatchResponse,
     TasteMatchResponse,
@@ -91,6 +94,7 @@ from app.services.taste_profiles import (
     infer_sensory_profile,
     mark_wine_for_sensory_enrichment,
     rebuild_user_taste_profile,
+    save_taste_declaration,
     sensory_profile_for_wine,
     unassigned_tasting_count,
     validate_taste_profile_algorithms,
@@ -370,6 +374,39 @@ def taste_profile_algorithm_diagnostics(
         candidate_version=TASTE_PROFILE_SHADOW_VERSION,
         categories=categories,
         validation=TasteProfileAlgorithmValidation.model_validate(validation),
+    )
+
+
+@router.get("/me/declared", response_model=TasteDeclarationResponse)
+def get_my_taste_declaration(
+    db: Session = Depends(get_db), context: CurrentContext = Depends(get_current_context)
+) -> TasteDeclarationResponse:
+    """What the user stated about their taste: theirs alone, whatever the active cellar."""
+    declaration = db.scalar(
+        select(UserTasteDeclaration).where(UserTasteDeclaration.user_id == context.user.id)
+    )
+    if declaration is None:
+        return TasteDeclarationResponse()
+    return TasteDeclarationResponse(
+        answers=dict(declaration.answers or {}), updated_at=declaration.updated_at
+    )
+
+
+@router.put("/me/declared", response_model=TasteDeclarationResponse)
+def update_my_taste_declaration(
+    payload: TasteDeclarationUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> TasteDeclarationResponse:
+    try:
+        declaration = save_taste_declaration(db, user_id=context.user.id, answers=payload.answers)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+    db.commit()
+    return TasteDeclarationResponse(
+        answers=dict(declaration.answers), updated_at=declaration.updated_at
     )
 
 
