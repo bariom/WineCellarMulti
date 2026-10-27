@@ -136,3 +136,11 @@ export function grapesSvgIcon() {
     </svg>
   );
 }
+
+/** How full the AI budget bar is: the balance as a share of one pack. */
+export function aiBudgetFillRatio(balance: string | number, packSize: string | number) {
+  const current = Number(balance || 0);
+  const unit = Number(packSize || 0);
+  if (!Number.isFinite(current) || !Number.isFinite(unit) || unit <= 0) return 0;
+  return Math.max(0, Math.min(current / unit, 1));
+}
