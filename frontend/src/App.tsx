@@ -10,6 +10,7 @@ import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionTrendKpi } 
 import "./components/BottlePhotoCapture.css";
 import { WishlistVintageField, DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel, TasteHearts } from "./components/AppPanels";
+import { appActionSvgIcon, wishlistActionSvgIcon } from "./components/actionIcons";
 import { aiBudgetFillRatio, emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, wineTypeForTone, grapesSvgIcon } from "./components/panelSupport";
 import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, RestaurantWineListScanResult, RestaurantWineListQuestionPayload, RestaurantWineListQuestionResult, WineShelfScanResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, TastingReflectionResult, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry, WineSalesHistory, CellarCommandPurchaseDraft, WineStrategyPurpose } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
@@ -119,8 +120,11 @@ const PairingView = lazy(() => import("./views/PairingView"));
 const AdminUsersWorkspace = lazy(() => import("./components/AdminUsersWorkspace"));
 const WishlistOverview = lazy(() => import("./components/WishlistOverview"));
 const WineLotsSection = lazy(() => import("./components/WineLotsSection"));
-const MarketPreferences = lazy(() => import("./components/MarketPreferences"));
 const AiSettingsTab = lazy(() => import("./views/settings/AiSettingsTab"));
+const ProfileSettingsTab = lazy(() => import("./views/settings/ProfileSettingsTab"));
+const SharingSettingsTab = lazy(() => import("./views/settings/SharingSettingsTab"));
+const DataSettingsTab = lazy(() => import("./views/settings/DataSettingsTab"));
+const AdminCatalogPanel = lazy(() => import("./views/settings/AdminCatalogPanel"));
 const PersonalOnboarding = lazy(() => import("./components/PersonalOnboarding"));
 const WinePulseView = lazy(() => import("./views/WinePulseView"));
 const WinePulsePreview = lazy(() => import("./views/WinePulseView").then(module => ({ default: module.WinePulsePreview })));
@@ -161,12 +165,9 @@ const RestaurantDashboard = lazy(() => import("./views/RestaurantDashboard"));
 const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then((module) => ({ default: module.AdminPhotosPanel })));
 const TasteProfilePanel = lazy(() => import("./components/TasteProfilePanel"));
 const AdminSensoryProfilesPanel = lazy(() => import("./components/AdminSensoryProfilesPanel"));
-const AdminCatalogMetadataEditor = lazy(() => import("./components/AdminCatalogMetadataEditor"));
-const AdminCatalogRecovery = lazy(() => import("./components/AdminCatalogRecovery"));
 const AdminAnnouncementsPanel = lazy(() => import("./components/AdminAnnouncementsPanel"));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
-const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipAgreementLibrary })));
 const LegalAcceptancePanel = lazy(() => import("./legal/LegalAcceptancePanel"));
 const RegistrationConsents = lazy(() => import("./legal/RegistrationConsents"));
 const DRINK_NOW_SLIDESHOW_LIMIT = 10;
@@ -1011,68 +1012,6 @@ function notificationSvgIcon(kind: string) {
   );
 }
 
-function wishlistActionSvgIcon(kind: "edit" | "convert" | "delete") {
-  if (kind === "edit") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 20h9" />
-        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-      </svg>
-    );
-  }
-  if (kind === "convert") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M7 7h10" />
-        <path d="m13 3 4 4-4 4" />
-        <path d="M17 17H7" />
-        <path d="m11 21-4-4 4-4" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 6h18" />
-      <path d="M8 6V4h8v2" />
-      <path d="M19 6l-1 14H6L5 6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-    </svg>
-  );
-}
-
-function appActionSvgIcon(kind: "compare" | "edit" | "import" | "export" | "delete") {
-  if (kind === "edit") return wishlistActionSvgIcon("edit");
-  if (kind === "delete") return wishlistActionSvgIcon("delete");
-  if (kind === "compare") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M8 5h8" />
-        <path d="M8 19h8" />
-        <path d="M6 8l-3 5h6l-3-5Z" />
-        <path d="M18 8l-3 5h6l-3-5Z" />
-        <path d="M12 5v14" />
-      </svg>
-    );
-  }
-  if (kind === "import") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 3v12" />
-        <path d="m7 10 5 5 5-5" />
-        <path d="M5 21h14" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 21V9" />
-      <path d="m7 14 5-5 5 5" />
-      <path d="M5 3h14" />
-    </svg>
-  );
-}
-
 function PortfolioValueSparkline({ points, label }: { points: Array<{ recorded_at: string; value: string }>; label: string }) {
   const chartRef = useRef<SVGSVGElement | null>(null);
   // The history arrives asynchronously. Re-run the reveal once the SVG is
@@ -1362,18 +1301,7 @@ export function App() {
   const [dailyWineBudgetDraft, setDailyWineBudgetDraft] = useState("");
   const [breakdownDrilldown, setBreakdownDrilldown] = useState<BreakdownDrilldown>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
-  const subscriptionSectionRef = useRef<HTMLElement>(null);
   const [subscriptionFocusPending, setSubscriptionFocusPending] = useState(false);
-  useEffect(() => {
-    if (!subscriptionFocusPending || activeView !== "settings" || settingsTab !== "profile") return;
-    const frame = window.requestAnimationFrame(() => {
-      const section = subscriptionSectionRef.current;
-      section?.scrollIntoView({ behavior: "instant", block: "start" });
-      section?.querySelector<HTMLElement>("h3")?.focus({ preventScroll: true });
-      setSubscriptionFocusPending(false);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [subscriptionFocusPending, activeView, settingsTab]);
   const [onboardingMode, setOnboardingMode] = useState("auto");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [wineStorageFocus, setWineStorageFocus] = useState<{ wineId: string; requestId: number } | null>(null);
@@ -5440,7 +5368,7 @@ export function App() {
   function openSubscriptionSettings() {
     setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile");
     // Wait for the lazy profile fields above billing to occupy their space.
-    void import("./components/MarketPreferences").then(() => setSubscriptionFocusPending(true))
+    void Promise.all([import("./views/settings/ProfileSettingsTab"), import("./components/MarketPreferences")]).then(() => setSubscriptionFocusPending(true))
       .catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load subscription settings"));
   }
   const helpRole: HelpRole = session?.membership_role === "owner" || session?.membership_role === "admin" || session?.membership_role === "member" || session?.membership_role === "viewer"
@@ -13491,265 +13419,56 @@ export function App() {
               ) : null}
 
               {settingsTab === "profile" ? (
-              <section className="settings-card settings-card-compact">
-                <div className="settings-card-heading">
-                  <div>
-                    <span>{t("profileSection")}</span>
-                    <h3>{t("personalSettings")}</h3>
-                  </div>
-                </div>
-                <div className="inline-form">
-                  <label>
-                    <span>{t("language")}</span>
-                    <select value={locale} onChange={(event) => void changeLocale(event.target.value as Locale)}>
-                      <option value="en">EN</option>
-                      <option value="it">IT</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>{t("theme")}</span>
-                    <select value={themePreference} onChange={(event) => void changeTheme(event.target.value as ThemePreference)}>
-                      {themeOptions.map((option) => (
-                        <option key={option.value} value={option.value}>{t(option.label)}</option>
-                      ))}
-                    </select>
-                  </label>
-                  {tabletDevice ? <label className="tablet-layout-setting">
-                    <span>{locale === "it" ? "Visualizzazione su tablet" : "Tablet display"}</span>
-                    <select value={tabletDesktopMode ? "desktop" : "tablet"} onChange={(event) => chooseTabletLayout(event.target.value === "desktop")}>
-                      <option value="tablet">{locale === "it" ? "Modalità tablet" : "Tablet mode"}</option>
-                      <option value="desktop">{locale === "it" ? "Modalità desktop" : "Desktop mode"}</option>
-                    </select>
-                    <small>{locale === "it" ? "Usa l’interfaccia desktop su questo tablet. Puoi tornare qui per ripristinare la modalità tablet." : "Use the desktop interface on this tablet. Return here to switch back to tablet mode."}</small>
-                  </label> : null}
-                  <label className="dashboard-focus-setting">
-                    <span>{t("primaryDashboardFocus")}</span>
-                    <select
-                      value={primaryDashboardFocus}
-                      onChange={(event) =>
-                        void changePrimaryDashboardFocus(
-                          event.target.value as PrimaryDashboardFocus,
-                        )}
-                    >
-                      <option value="collector">{t("collectorFocus")}</option>
-                      <option value="daily">{t("dailyFocus")}</option>
-                      <option value="balanced">{t("balancedFocus")}</option>
-                      <option value="personal">{locale === "it" ? "La mia dashboard" : "My dashboard"}</option>
-                    </select>
-                    <small>{t("primaryDashboardFocusHelp")}</small>
-                  </label>
-                  {session ? <Suspense fallback={null}><MarketPreferences session={session} locale={locale} disabled={saving || offlineMode} onSave={setSession} onNotice={setNotice} onError={setError} onSetup={() => setOnboardingMode("open")} budget={{ value: dailyWineBudgetDraft, onChange: setDailyWineBudgetDraft, saving, onSave: saveDailyWineBudget }} /></Suspense> : null}
-                </div>
-              </section>
-              ) : null}
-
-              {settingsTab === "profile" ? (
-              <section className="settings-card settings-card-compact">
-                <div className="settings-card-heading">
-                  <div>
-                    <span>{locale === "it" ? "Privacy" : "Privacy"}</span>
-                    <h3>{locale === "it" ? "Preferenze cookie" : "Cookie preferences"}</h3>
-                  </div>
-                </div>
-                <p className="settings-card-intro">
-                  {locale === "it"
-                    ? "Modifica il consenso per Google Ads e la misurazione delle conversioni."
-                    : "Change your consent for Google Ads and conversion measurement."}
-                </p>
-                <div className="form-actions">
-                  <button type="button" className="secondary" onClick={openCookieConsentSettings}>
-                    {locale === "it" ? "Gestisci preferenze cookie" : "Manage cookie preferences"}
-                  </button>
-                </div>
-              </section>
-              ) : null}
-
-              {settingsTab === "profile" ? (
-              <section ref={subscriptionSectionRef} className="settings-card settings-card-compact settings-subscription-card" aria-labelledby="subscription-settings-title">
-                <div className="settings-card-heading">
-                  <div>
-                    <span>{t("billing")}</span>
-                    <h3 id="subscription-settings-title" tabIndex={-1}>{locale === "it" ? "Abbonamento e AI Pack" : "Subscription and AI Pack"}</h3>
-                  </div>
-                  {billingStatus?.valid_until ? <strong>{formatDisplayDate(billingStatus.valid_until)}</strong> : null}
-                </div>
-                {session?.is_ambassador ? <div className="invite-notice" role="status">
-                  <strong>Vinaris Ambassador</strong>
-                  <p>{locale === "it" ? "Accesso completo alle funzionalità utente fino al" : "Full access to user features until"} {formatDisplayDate(session.ambassador_until || "")}. {locale === "it" ? "Credito AI omaggio residuo:" : "Remaining promotional AI credit:"} {formatAiBudget(billingStatus?.ambassador_ai_credit_balance_usd || 0)} USD.</p>
-                  <p>{locale === "it" ? "Il credito omaggio scade con l’affiliazione. Il credito acquistato resta disponibile." : "Promotional credit expires with the affiliation. Purchased credit stays available."}</p>
-                </div> : null}
-                {trialRedeemCodes.length ? (
-                  <div className="trial-redeem-list">
-                    {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
-                  </div>
-                ) : null}
-                <form className="inline-form" onSubmit={redeemCode}>
-                  <label>
-                    <span>{t("redeemCode")}</span>
-                    <input value={redeemInput} onChange={(event) => setRedeemInput(event.target.value)} placeholder="WCM-XXXX-XXXX-XXXX-XXXX" />
-                  </label>
-                  <button type="submit" disabled={saving || !redeemInput.trim()}>
-                    {t("redeem")}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => startCheckout("monthly")} disabled={saving}>
-                    {t("buyMonthly")}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => startCheckout("annual")} disabled={saving}>
-                    {t("buyAnnual")}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => startBillingPortal()} disabled={saving}>
-                    {t("manageSubscription")}
-                  </button>
-                  {billingStatus?.can_purchase_ai_credits ? (
-                    <button type="button" className="secondary" onClick={() => startCheckout("ai_credits")} disabled={saving}>
-                      {t("buyAiCredits")}
-                    </button>
-                  ) : null}
-                </form>
-                {standardRedeemCodes.length ? (
-                  <div className="member-list">
-                    {standardRedeemCodes.map((code) => renderRedeemCodeRow(code))}
-                  </div>
-                ) : null}
-                {billingStatus?.has_active_entitlement ? (
-                  <p className="empty-state">{t("membershipValidity")}: {locale === "it" ? "fino al" : "until"} {formatDisplayDate(billingStatus.valid_until)}</p>
-                ) : freeTierAtLabelLimit ? (
-                  <aside className="free-tier-limit-notice" role="status">
-                    <strong>{locale === "it" ? "Hai raggiunto il limite del piano gratuito" : "You reached the free-plan limit"}</strong>
-                    <span>{locale === "it" ? `Hai ${freeTierLabelCount} di ${freeTierLabelLimit} etichette attive. Acquista un abbonamento per aggiungerne altre.` : `You have ${freeTierLabelCount} of ${freeTierLabelLimit} active labels. Purchase a subscription to add more.`}</span>
-                  </aside>
-                ) : session?.is_free_tier ? (
-                  <p className="empty-state">
-                    {locale === "it"
-                      ? `Piano gratuito: ${freeTierLabelCount} di ${freeTierLabelLimit} etichette attive. Le funzioni Premium, inclusi Ricordi e Polaroid, richiedono un abbonamento. Nel piano gratuito le funzioni AI richiedono un AI Pack.`
-                      : `Free tier: ${freeTierLabelCount} of ${freeTierLabelLimit} active labels. Premium features, including Memories and Polaroids, require a subscription. AI features on the free plan require an AI Pack.`}
-                  </p>
-                ) : null}
-                  {showAiBudgetPanel ? (
-                    <div className="ai-budget-panel">
-                      <div className="ai-budget-head">
-                        <strong>{t("aiCreditBalance")}</strong>
-                        <span>{formatAiBudget(billingStatus?.ai_credit_balance_usd || 0)}</span>
-                      </div>
-                      <div className="ai-budget-bar" aria-hidden="true">
-                        <div
-                          className="ai-budget-fill"
-                          style={{ width: `${aiBudgetFillRatio(billingStatus?.ai_credit_balance_usd || 0, billingStatus?.ai_credit_pack_size_usd || 0) * 100}%` }}
-                        />
-                      </div>
-                      <small>{t("aiBudgetUsage")}</small>
-                    </div>
-                  ) : null}
-              </section>
-              ) : null}
-
-              {settingsTab === "profile" ? (
-              <section className="settings-card settings-card-compact">
-                <div className="settings-card-heading">
-                  <div>
-                    <span>{t("passkeys")}</span>
-                    <h3>{t("passkey")}</h3>
-                  </div>
-                  <button
-                    type="button"
-                    className="help-icon-button"
-                    aria-expanded={passkeyHelpOpen}
-                    aria-controls="passkey-help-panel"
-                    aria-label={t("passkeyHelpLabel")}
-                    onClick={() => setPasskeyHelpOpen((current) => !current)}
-                  >
-                    ?
-                  </button>
-                </div>
-                {passkeyHelpOpen ? (
-                  <div className="settings-help-panel" id="passkey-help-panel">
-                    <strong>{t("passkeyHelpTitle")}</strong>
-                    <p>{t("passkeyHelpBody")}</p>
-                    <strong>{t("passkeyHelpPrerequisitesTitle")}</strong>
-                    <ul>
-                      <li>{t("passkeyHelpPrerequisiteAccount")}</li>
-                      <li>{t("passkeyHelpPrerequisiteBrowser")}</li>
-                      <li>{t("passkeyHelpPrerequisiteDevice")}</li>
-                      <li>{t("passkeyHelpPrerequisiteSync")}</li>
-                    </ul>
-                  </div>
-                ) : null}
-                <div className="inline-form">
-                  <label>
-                    <span>{t("passkeyName")}</span>
-                    <input value={passkeyName} onChange={(event) => setPasskeyName(event.target.value)} />
-                  </label>
-                  <button type="button" disabled={saving} onClick={() => registerPasskey()}>
-                    {t("create")}
-                  </button>
-                </div>
-                {passkeys.length ? (
-                  <div className="passkey-list">
-                    {passkeys.map((passkey) => (
-                      <div className="passkey-row" key={passkey.id}>
-                        <div>
-                          <strong>{passkey.name}</strong>
-                          <span>{formatDisplayDate(passkey.created_at)}</span>
-                        </div>
-                        <button type="button" className="danger compact" disabled={saving} onClick={() => deletePasskey(passkey)}>
-                          {t("delete")}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="empty-state">{t("noPasskeys")}</p>
-                )}
-              </section>
-              ) : null}
-
-              {settingsTab === "profile" ? (
-              <section className="settings-card settings-card-wide account-danger-zone">
-                <div className="settings-card-heading">
-                  <div>
-                    <span>{t("dangerZone")}</span>
-                    <h3>{t("deleteAccount")}</h3>
-                  </div>
-                </div>
-                <p>{t("deleteAccountHelp")}</p>
-                <div className="account-deletion-preserved">
-                  <strong>{t("deleteAccountPreservedTitle")}</strong>
-                  <span>{t("deleteAccountPreservedHelp")}</span>
-                </div>
-                <div className="inline-form account-deletion-form">
-                  <label>
-                    <span>{t("confirmEmail")}: {session?.user_email}</span>
-                    <input
-                      type="email"
-                      autoComplete="off"
-                      value={accountDeletionEmail}
-                      onChange={(event) => setAccountDeletionEmail(event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    <span>{t("currentPassword")}</span>
-                    <input
-                      type="password"
-                      autoComplete="current-password"
-                      value={accountDeletionPassword}
-                      onChange={(event) => setAccountDeletionPassword(event.target.value)}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className="danger"
-                    disabled={
-                      saving
-                      || !accountDeletionPassword
-                      || accountDeletionEmail.trim().toLowerCase()
-                        !== (session?.user_email || "").toLowerCase()
-                    }
-                    onClick={() => void deleteOwnAccount()}
-                  >
-                    {t("deleteAccountPermanently")}
-                  </button>
-                </div>
-              </section>
+                <Suspense fallback={null}>
+                  <ProfileSettingsTab
+                    locale={locale}
+                    session={session}
+                    setSession={setSession}
+                    saving={saving}
+                    offlineMode={offlineMode}
+                    setNotice={setNotice}
+                    setError={setError}
+                    changeLocale={changeLocale}
+                    themePreference={themePreference}
+                    changeTheme={changeTheme}
+                    tabletDevice={tabletDevice}
+                    tabletDesktopMode={tabletDesktopMode}
+                    chooseTabletLayout={chooseTabletLayout}
+                    primaryDashboardFocus={primaryDashboardFocus}
+                    changePrimaryDashboardFocus={changePrimaryDashboardFocus}
+                    setOnboardingMode={setOnboardingMode}
+                    dailyWineBudgetDraft={dailyWineBudgetDraft}
+                    setDailyWineBudgetDraft={setDailyWineBudgetDraft}
+                    saveDailyWineBudget={saveDailyWineBudget}
+                    subscriptionFocusPending={subscriptionFocusPending}
+                    onSubscriptionFocused={() => setSubscriptionFocusPending(false)}
+                    billingStatus={billingStatus}
+                    showAiBudgetPanel={showAiBudgetPanel}
+                    startCheckout={startCheckout}
+                    startBillingPortal={startBillingPortal}
+                    trialRedeemCodes={trialRedeemCodes}
+                    standardRedeemCodes={standardRedeemCodes}
+                    renderRedeemCodeRow={renderRedeemCodeRow}
+                    redeemInput={redeemInput}
+                    setRedeemInput={setRedeemInput}
+                    redeemCode={redeemCode}
+                    freeTierLabelCount={freeTierLabelCount}
+                    freeTierLabelLimit={freeTierLabelLimit}
+                    freeTierAtLabelLimit={freeTierAtLabelLimit}
+                    passkeys={passkeys}
+                    passkeyName={passkeyName}
+                    setPasskeyName={setPasskeyName}
+                    passkeyHelpOpen={passkeyHelpOpen}
+                    setPasskeyHelpOpen={setPasskeyHelpOpen}
+                    registerPasskey={registerPasskey}
+                    deletePasskey={deletePasskey}
+                    accountDeletionEmail={accountDeletionEmail}
+                    setAccountDeletionEmail={setAccountDeletionEmail}
+                    accountDeletionPassword={accountDeletionPassword}
+                    setAccountDeletionPassword={setAccountDeletionPassword}
+                    deleteOwnAccount={deleteOwnAccount}
+                  />
+                </Suspense>
               ) : null}
 
               {settingsTab === "ai" && canWriteWine ? (
@@ -13807,154 +13526,48 @@ export function App() {
               ) : null}
 
               {settingsTab === "sharing" ? (
-              <details className="settings-card settings-card-wide cellar-settings-section">
-                <summary>
-                  <span>{locale === "it" ? "Struttura" : "Structure"}</span>
-                  <strong>{locale === "it" ? "Gestione della cantina" : "Cellar management"}</strong>
-                  <small>{locale === "it" ? "Nome, creazione, eliminazione e accessi" : "Name, creation, deletion and access"}</small>
-                </summary>
-                <div className="cellar-settings-section-body">
-                <form className="inline-form" onSubmit={updateHouseholdName}>
-                  <label>
-                    <span>{t("cellarName")}</span>
-                    <input
-                      value={householdNameDraft}
-                      disabled={!canAdmin || saving || session?.active_household_mode === "restaurant"}
-                      onChange={(event) => setHouseholdNameDraft(event.target.value)}
-                      required
-                    />
-                  </label>
-                  <button type="submit" disabled={!canAdmin || saving || !householdNameDraft.trim()}>
-                    {saving ? t("saving") : t("renameCellar")}
-                  </button>
-                </form>
-                {restaurantModeAvailable ? <div className="inline-form cellar-mode-setting">
-                  <label>
-                    <span>{locale === "it" ? "Tipo di gestione" : "Cellar operation"}</span>
-                    <select
-                      value={session?.active_household_mode || "private"}
-                      disabled={!canAdmin || saving}
-                      onChange={(event) => void updateHouseholdMode(event.target.value as "private" | "restaurant")}
-                    >
-                      <option value="private">{locale === "it" ? "Cantina privata" : "Private cellar"}</option>
-                      <option value="restaurant" disabled={session?.active_household_mode !== "restaurant" && hasAnotherRestaurantCellar}>{locale === "it" ? "Ristorante" : "Restaurant"}</option>
-                    </select>
-                  </label>
-                  <p className="empty-state">
-                    {locale === "it"
-                      ? session?.active_household_mode === "restaurant"
-                        ? "Una cantina ristorante resta ristorante e non può essere riconvertita in cantina privata."
-                        : hasAnotherRestaurantCellar
-                        ? "Hai già una cantina ristorante: ogni utente può usarne una sola."
-                        : "La modalità ristorante sostituisce la degustazione con la vendita e abilita ricavi e margine lordo. I dati esistenti non vengono rimossi."
-                      : session?.active_household_mode === "restaurant"
-                        ? "A restaurant cellar stays a restaurant cellar and cannot be converted back to private."
-                        : hasAnotherRestaurantCellar
-                        ? "You already have a restaurant cellar: each user can use only one."
-                        : "Restaurant mode replaces tasting with sales and enables revenue and gross-margin reporting. Existing data is preserved."}
-                  </p>
-                </div> : null}
-                {session?.is_free_tier ? <p className="empty-state">
-                  {locale === "it" ? "Il piano gratuito include una sola cantina." : "The free plan includes one cellar."}
-                </p> : <form className="inline-form" onSubmit={createHousehold}>
-                  <label>
-                    <span>{t("createCellar")}</span>
-                    <input
-                      value={newHouseholdNameDraft}
-                      disabled={saving}
-                      onChange={(event) => setNewHouseholdNameDraft(event.target.value)}
-                      placeholder={t("cellarName")}
-                      required
-                    />
-                  </label>
-                  <button type="submit" disabled={saving || !newHouseholdNameDraft.trim()}>
-                    {saving ? t("saving") : t("createCellar")}
-                  </button>
-                </form>}
-                {!session?.is_free_tier ? <p className="empty-state">{t("createCellarHelp")}</p> : null}
-                <div className="token-box">
-                  <strong>{t("deleteCellar")}</strong>
-                  <span>{t("deleteCellarHelp")}</span>
-                  <label>
-                    <span>{t("deleteCellarTypeName")}</span>
-                    <input
-                      value={deleteHouseholdConfirmDraft}
-                      disabled={saving || householdMemberships.length <= 1 || session?.membership_role !== "owner"}
-                      onChange={(event) => setDeleteHouseholdConfirmDraft(event.target.value)}
-                      placeholder={session?.active_household_name || t("cellarName")}
-                    />
-                  </label>
-                  <div className="inline-form">
-                    <button
-                      type="button"
-                      className="danger"
-                      disabled={
-                        saving ||
-                        householdMemberships.length <= 1 ||
-                        session?.membership_role !== "owner" ||
-                        deleteHouseholdConfirmDraft.trim() !== (session?.active_household_name || "").trim()
-                      }
-                      onClick={deleteActiveHousehold}
-                    >
-                      {t("deleteCellar")}
-                    </button>
-                  </div>
-                </div>
-                {!canAdmin ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
-                <details className="cellar-settings-subsection">
-                  <summary>
-                    <span>{locale === "it" ? "Accessi" : "Access"}</span>
-                    <strong>{locale === "it" ? "Membri e visibilità" : "Members and visibility"}</strong>
-                    <small>{members.length} {locale === "it" ? "membri nella cantina attiva" : "members in the active cellar"}</small>
-                  </summary>
-                  <div className="member-list">
-                  {members.map((member) => (
-                    <div className="member-row" key={member.membership_id}>
-                      <div>
-                        <strong>{member.display_name || member.email}</strong>
-                        <span>{member.email}</span>
-                      </div>
-                      {canAdmin && member.role !== "owner" ? (
-                        <div className="member-actions">
-                          <select
-                            value={member.role}
-                            disabled={saving}
-                            onChange={(event) => updateMemberRole(member, event.target.value)}
-                          >
-                            <option value="viewer">Viewer</option>
-                            <option value="member">Member</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                          {member.role === "admin" ? (
-                            <small>{t("visibilityAll")}</small>
-                          ) : (
-                            <select
-                              value={member.visibility_scope}
-                              disabled={saving}
-                              onChange={(event) => updateMemberVisibility(member, event.target.value as "all" | "shared")}
-                            >
-                              <option value="shared">{t("visibilityShared")}</option>
-                              <option value="all">{t("visibilityAll")}</option>
-                            </select>
-                          )}
-                          <button
-                            type="button"
-                            className="danger compact"
-                            disabled={saving || member.email.toLowerCase() === currentUserEmail}
-                            onClick={() => removeMember(member)}
-                          >
-                            {t("remove")}
-                          </button>
-                        </div>
-                      ) : (
-                        <small>{member.role}</small>
-                      )}
-                    </div>
-                  ))}
-                  </div>
-                </details>
-                </div>
-              </details>
+                <Suspense fallback={null}>
+                  <SharingSettingsTab
+                    locale={locale}
+                    session={session}
+                    saving={saving}
+                    canAdmin={canAdmin}
+                    householdNameDraft={householdNameDraft}
+                    setHouseholdNameDraft={setHouseholdNameDraft}
+                    updateHouseholdName={updateHouseholdName}
+                    restaurantModeAvailable={restaurantModeAvailable}
+                    updateHouseholdMode={updateHouseholdMode}
+                    hasAnotherRestaurantCellar={hasAnotherRestaurantCellar}
+                    createHousehold={createHousehold}
+                    newHouseholdNameDraft={newHouseholdNameDraft}
+                    setNewHouseholdNameDraft={setNewHouseholdNameDraft}
+                    deleteHouseholdConfirmDraft={deleteHouseholdConfirmDraft}
+                    setDeleteHouseholdConfirmDraft={setDeleteHouseholdConfirmDraft}
+                    householdMemberships={householdMemberships}
+                    deleteActiveHousehold={deleteActiveHousehold}
+                    members={members}
+                    updateMemberRole={updateMemberRole}
+                    updateMemberVisibility={updateMemberVisibility}
+                    removeMember={removeMember}
+                    currentUserEmail={currentUserEmail}
+                    coOwnershipLibraryVisible={coOwnershipLibraryVisible}
+                    setCoOwnershipLibraryVisible={setCoOwnershipLibraryVisible}
+                    myCoOwnershipAgreements={myCoOwnershipAgreements}
+                    coOwnershipAgreementFocusId={coOwnershipAgreementFocusId}
+                    shareOffers={shareOffers}
+                    decideShareOffer={decideShareOffer}
+                    createInvite={createInvite}
+                    inviteDraft={inviteDraft}
+                    setInviteDraft={setInviteDraft}
+                    inviteToken={inviteToken}
+                    generatedInviteLink={generatedInviteLink}
+                    invites={invites}
+                    revokeInvite={revokeInvite}
+                    acceptInvite={acceptInvite}
+                    acceptToken={acceptToken}
+                    setAcceptToken={setAcceptToken}
+                  />
+                </Suspense>
               ) : null}
 
               {settingsTab === "users" && canAppAdmin ? (
@@ -14004,156 +13617,26 @@ export function App() {
                 </Suspense>
               ) : null}
 
-              {settingsTab === "sharing" ? (
-              <details className="settings-card settings-card-wide cellar-settings-section" open={coOwnershipLibraryVisible} onToggle={(event) => setCoOwnershipLibraryVisible((event.currentTarget as HTMLDetailsElement).open)}>
-                <summary><span>{locale === "it" ? "Comproprietà" : "Co-ownership"}</span><strong>{locale === "it" ? "I miei accordi" : "My agreements"}</strong><small>{myCoOwnershipAgreements.length} {locale === "it" ? "accordi personali" : "personal agreements"}</small></summary>
-                <div className="cellar-settings-section-body">
-                <div className="settings-card-heading">
-                  <div>
-                    <span>{locale === "it" ? "Accordi" : "Agreements"}</span>
-                    <h3>{locale === "it" ? "I miei accordi di comproprietà" : "My co-ownership agreements"}</h3>
-                  </div>
-                </div>
-                <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento accordi…" : "Loading agreements…"} />}>
-                  <CoOwnershipAgreementLibrary
-                    agreements={myCoOwnershipAgreements}
-                    locale={locale}
-                    focusAgreementId={coOwnershipAgreementFocusId}
-                    currentUserEmail={session && session.user_email}
-                  />
-                </Suspense>
-                </div>
-              </details>
-              ) : null}
-
-              {settingsTab === "sharing" ? (
-              <details className="settings-card cellar-settings-section">
-                <summary><span>{locale === "it" ? "Posizioni condivise" : "Shared positions"}</span><strong>{t("pendingShareOffers")}</strong><small>{shareOffers.length ? `${shareOffers.length} ${locale === "it" ? "richieste da valutare" : "requests to review"}` : (locale === "it" ? "Nessuna richiesta aperta" : "No open requests")}</small></summary>
-                <div className="cellar-settings-section-body">
-                <div className="settings-card-heading">
-                  <div>
-                    <span>{t("ownership")}</span>
-                    <h3>{t("pendingShareOffers")}</h3>
-                  </div>
-                </div>
-                {shareOffers.length ? (
-                  <div className="invite-list">
-                    {shareOffers.map((offer) => (
-                      <div className="invite-row" key={offer.id}>
-                        <div>
-                          <strong>{offer.wine_name} {offer.wine_vintage}</strong>
-                          <span>{offer.share_pct}% - {offer.created_by_email}</span>
-                          {offer.message ? <span>{offer.message}</span> : null}
-                        </div>
-                        <div className="member-actions">
-                          <button type="button" className="compact" disabled={saving} onClick={() => decideShareOffer(offer, "accept")}>
-                            {t("accept")}
-                          </button>
-                          <button type="button" className="secondary compact" disabled={saving} onClick={() => decideShareOffer(offer, "decline")}>
-                            {t("decline")}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="empty-state">{t("noActionItems")}</p>
-                )}
-                </div>
-              </details>
-              ) : null}
-
               {settingsTab === "operations" && canAppAdmin ? (
                 <>
                   <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento operatività…" : "Loading operations…"} />}>
-                    <OperationsPanel locale={locale} overview={operationsOverview} activity={userActivity} onRefresh={loadOperationsMetrics} sensoryProfiles={<AdminSensoryProfilesPanel locale={locale} />} catalogPendingCount={pendingCatalogEntries.length} catalogManagement={<>
-                      <details className="operations-disclosure"><summary>{locale === "it" ? "Nuovi vini da approvare" : "New wines to approve"}</summary>
-<section className="settings-card settings-card-wide settings-admin-card">
-                  <div className="settings-card-heading">
-                    <div>
-                      <span>{t("labelRecognitionAccess")}</span>
-                      <h3>{t("pendingCatalogEntries")}</h3>
-                    </div>
-                    <div className="member-actions">
-                      <strong>{pendingCatalogEntries.length}</strong>
-                      <button type="button" className="secondary compact" disabled={saving} onClick={() => loadPendingCatalogEntries(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load catalog entries"))}>
-                        {t("loadingData")}
-                      </button>
-                    </div>
-                  </div>
-                  {pendingCatalogEntries.length ? (
-                    <div className="member-list">
-                      {pendingCatalogEntries.map((entry) => (
-                        <div className="catalog-admin-entry" key={entry.id || `${entry.producer}-${entry.name}`}>
-                        <div className="member-row">
-                          <div>
-                            <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
-                            <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
-                            {entry.country || entry.grapes_text ? <span>{[entry.country, entry.grapes_text].filter(Boolean).join(" - ")}</span> : null}
-                          </div>
-                          <div className="member-actions">
-                            <button type="button" className="compact" disabled={saving} onClick={() => approveCatalogEntry(entry)}>
-                              {t("approveCatalogEntry")}
-                            </button>
-                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteCatalogEntry(entry)}>
-                              {t("rejectCatalogEntry")}
-                            </button>
-                          </div>
-                        </div>
-                        <AdminCatalogMetadataEditor entry={entry} locale={locale} disabled={saving} onSaved={catalogMetadataSaved} />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="empty-state">{t("noPendingCatalogEntries")}</p>
-                  )}
-                </section>
-                      </details>
-                      <details className="operations-disclosure"><summary>{locale === "it" ? "Cerca e gestisci le schede" : "Search and manage entries"}</summary>
-<section className="settings-card settings-card-wide">
-                  <div className="settings-card-heading">
-                    <div>
-                      <span>{t("labelRecognitionAccess")}</span>
-                      <h3>{t("catalogAdminSearch")}</h3>
-                      <small>{t("catalogAdminSearchHelp")}</small>
-                    </div>
-                  </div>
-                  <AdminCatalogRecovery locale={locale} disabled={saving || !canWriteWine} onRecovered={async () => { await Promise.all([loadPendingCatalogEntries(), searchCatalogAdminEntries()]); }} />
-                  <form className="inline-row-form" onSubmit={(event) => { event.preventDefault(); searchCatalogAdminEntries().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to search catalog")); }}>
-                    <input value={catalogAdminQuery} onChange={(event) => setCatalogAdminQuery(event.target.value)} placeholder="Dogaia, 36 lune..." />
-                    <button type="submit" className="secondary compact" disabled={saving || !catalogAdminQuery.trim()}>{t("search")}</button>
-                  </form>
-                  {catalogAdminResults.length ? (
-                    <div className="member-list">
-                      {catalogAdminResults.map((entry) => (
-                        <div className="catalog-admin-entry" key={entry.id || `${entry.producer}-${entry.name}`}>
-                        <div className="member-row">
-                          <div>
-                            <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
-                            <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
-                            <span className={entry.is_active ? "status-pill configured" : "status-pill"}>{entry.is_active ? "active" : "pending"}</span>
-                          </div>
-                          <div className="member-actions">
-                            {!entry.is_active ? (
-                              <button type="button" className="compact" disabled={saving} onClick={() => approveCatalogEntry(entry)}>
-                                {t("approveCatalogEntry")}
-                              </button>
-                            ) : null}
-                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteCatalogEntry(entry)}>
-                              {t("deleteCatalogEntry")}
-                            </button>
-                          </div>
-                        </div>
-                        <AdminCatalogMetadataEditor entry={entry} locale={locale} disabled={saving} onSaved={catalogMetadataSaved} />
-                        </div>
-                      ))}
-                    </div>
-                  ) : catalogAdminQuery.trim() ? (
-                    <p className="empty-state">{t("noCatalogAdminResults")}</p>
-                  ) : null}
-                </section>
-                      </details>
-                    </>} />
+                    <OperationsPanel locale={locale} overview={operationsOverview} activity={userActivity} onRefresh={loadOperationsMetrics} sensoryProfiles={<AdminSensoryProfilesPanel locale={locale} />} catalogPendingCount={pendingCatalogEntries.length} catalogManagement={
+                      <AdminCatalogPanel
+                        locale={locale}
+                        saving={saving}
+                        canWriteWine={canWriteWine}
+                        pendingEntries={pendingCatalogEntries}
+                        onReloadPending={() => loadPendingCatalogEntries(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load catalog entries"))}
+                        onRecovered={async () => { await Promise.all([loadPendingCatalogEntries(), searchCatalogAdminEntries()]); }}
+                        query={catalogAdminQuery}
+                        onQueryChange={setCatalogAdminQuery}
+                        onSearch={() => { searchCatalogAdminEntries().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to search catalog")); }}
+                        results={catalogAdminResults}
+                        onApprove={approveCatalogEntry}
+                        onDelete={deleteCatalogEntry}
+                        onMetadataSaved={catalogMetadataSaved}
+                      />
+                    } />
                   </Suspense>
                 </>
               ) : null}
@@ -14171,264 +13654,33 @@ export function App() {
               ) : null}
 
               {settingsTab === "data" && canAdmin ? (
-                <section className="settings-card data-import-card" aria-labelledby="data-import-title">
-                  <div className="settings-card-heading">
-                    <div>
-                      <span>{t("importLegacy")}</span>
-                      <h3 id="data-import-title">{t("importSection")}</h3>
-                    </div>
-                  </div>
-                  <p className="data-import-intro">{t("importSupports")}</p>
-                  <div className="data-import-sources" role="group" aria-label={locale === "it" ? "Origine dei dati" : "Data source"}>
-                    <section className="data-import-source data-import-source--cellartracker" aria-labelledby="cellartracker-import-title">
-                      <span className="data-import-source-tag">{locale === "it" ? "Vieni da CellarTracker?" : "Coming from CellarTracker?"}</span>
-                      <h4 id="cellartracker-import-title">{locale === "it" ? "Importa da CellarTracker" : "Import from CellarTracker"}</h4>
-                      <p>{locale === "it" ? "Esporta la tua collezione “My Cellar” da CellarTracker in formato CSV e carica qui il file." : "Export your “My Cellar” collection from CellarTracker as a CSV file and upload it here."}</p>
-                      <label><span>{locale === "it" ? "Carica CSV CellarTracker" : "Upload CellarTracker CSV"}</span><input type="file" accept="text/csv,.csv" onChange={importCellarTrackerFile} disabled={saving} /></label>
-                    </section>
-                    <section className="data-import-source" aria-labelledby="vinaris-import-title">
-                      <span className="data-import-source-tag">{locale === "it" ? "Hai un backup Vinaris?" : "Have a Vinaris backup?"}</span>
-                      <h4 id="vinaris-import-title">{locale === "it" ? "Ripristina un backup" : "Restore a backup"}</h4>
-                      <p>{locale === "it" ? "Carica un file JSON esportato da Vinaris o un backup precedente compatibile." : "Upload a JSON file exported from Vinaris or a compatible older backup."}</p>
-                      <small>{t("exportHistoryIncluded")}</small>
-                      <label><span>{locale === "it" ? "Carica backup JSON Vinaris" : "Upload Vinaris JSON backup"}</span><input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} /></label>
-                    </section>
-                  </div>
-                  <p className="data-import-preview-help">{locale === "it" ? "Il caricamento prepara solo un’anteprima: vedrai i vini nuovi e i possibili duplicati prima di confermare." : "Uploading only prepares a preview: review new wines and possible duplicates before confirming."}</p>
-                  <label>
-                    <span>{t("importMode")}</span>
-                    <select aria-label={t("importMode")} aria-describedby="data-import-mode-help" value={importMode} onChange={(event) => setImportMode(event.target.value as ImportMode)} disabled={saving}>
-                      <option value="skip_duplicates">{t("importModeSkip")}</option>
-                      <option value="update_existing">{t("importModeUpdate")}</option>
-                      <option value="add_all">{t("importModeAdd")}</option>
-                      <option value="replace_all">{t("importModeReplace")}</option>
-                    </select>
-                    <small id="data-import-mode-help">{importMode === "replace_all"
-                      ? (locale === "it" ? "Attenzione: elimina tutti i vini e la wishlist della cantina attiva prima di importare il file." : "Warning: deletes all wines and the wishlist in the active cellar before importing the file.")
-                      : importMode === "update_existing"
-                        ? (locale === "it" ? "Aggiorna i vini già presenti con i dati del file e aggiunge quelli nuovi." : "Updates existing wines with data from the file and adds new wines.")
-                        : importMode === "add_all"
-                          ? (locale === "it" ? "Importa tutte le righe, anche se il vino potrebbe essere già presente." : "Imports every row, even if the wine may already be in your cellar.")
-                          : (locale === "it" ? "Aggiunge i vini nuovi e salta quelli che risultano già presenti. È la scelta consigliata per iniziare." : "Adds new wines and skips likely existing ones. Recommended for getting started.")}</small>
-                  </label>
-                  {saving && !importPreview && !importResult ? <LoadingState label={t("loadingData")} compact /> : null}
-                  {importPreview ? (
-                    <div className="token-box">
-                      <strong>{t("importReady")}: {importFileName}</strong>
-                      <span>{importPreview.format === "vinaris" ? "Vinaris export v2" : importPreview.format === "cellartracker" ? "CellarTracker My Cellar CSV" : locale === "it" ? "JSON legacy compatibile" : "Compatible legacy JSON"}</span>
-                      {importPreview.included_blocks.length ? <span>{importPreview.included_blocks.join(", ")}</span> : null}
-                      <span>{t("wines")}: {importPreview.wine_new} {t("newItems")}, {importPreview.wine_duplicates} {t("probableDuplicates")} {t("of")} {importPreview.wines_total}</span>
-                      <span>{t("wishlist")}: {importPreview.wishlist_new} {t("newItems")}, {importPreview.wishlist_duplicates} {t("probableDuplicates")} {t("of")} {importPreview.wishlist_total}</span>
-                      {session?.is_free_tier && typeof importPreview.free_tier_label_limit === "number" ? (
-                        <span>
-                          {(() => {
-                            const missing = Math.max(
-                              importPreview.free_tier_labels_required - Math.max(importPreview.free_tier_label_limit - importPreview.free_tier_active_labels, 0),
-                              0,
-                            );
-                            if (!missing) return locale === "it"
-                              ? `Piano gratuito: puoi importare tutti i ${importPreview.wines_total} vini.`
-                              : `Free plan: you can import all ${importPreview.wines_total} wines.`;
-                            return locale === "it"
-                              ? `Piano gratuito: importabili ${importPreview.free_tier_importable_wines ?? 0} di ${importPreview.wines_total} vini. Servono ${missing} posti aggiuntivi oppure un abbonamento.`
-                              : `Free plan: ${importPreview.free_tier_importable_wines ?? 0} of ${importPreview.wines_total} wines can be imported. ${missing} more label slots or a subscription are required.`;
-                          })()}
-                        </span>
-                      ) : null}
-                      {importPreview.members_total || importPreview.invites_total || importPreview.share_offers_total || importPreview.user_tags_total || importPreview.ai_audit_total ? (
-                        <small>
-                          {[
-                            importPreview.members_total ? `${t("members")}: ${importPreview.members_total}` : "",
-                            importPreview.invites_total ? `${t("invites")}: ${importPreview.invites_total}` : "",
-                            importPreview.share_offers_total ? `${t("exportIncludesShareOffers")}: ${importPreview.share_offers_total}` : "",
-                            importPreview.user_tags_total ? `${t("tags")}: ${importPreview.user_tags_total}` : "",
-                            importPreview.ai_audit_total ? `${t("aiAudit")}: ${importPreview.ai_audit_total}` : "",
-                            importPreview.sales_total ? `${t("exportIncludesSales")}: ${importPreview.sales_total}` : "",
-                          ].filter(Boolean).join(" | ")}
-                        </small>
-                      ) : null}
-                      {[...importPreview.sample_wine_duplicates, ...importPreview.sample_wishlist_duplicates].length ? (
-                        <small>{[...importPreview.sample_wine_duplicates, ...importPreview.sample_wishlist_duplicates].join(", ")}</small>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {importPreview?.format === "vinaris" ? (
-                    <div className="token-box">
-                      <strong>{t("importSelection")}</strong>
-                      <span>{t("importSelectionHelp")}</span>
-                      <div className="export-options-grid">
-                        {exportBlocks
-                          .filter(({ key }) => importPreview.included_blocks.includes(key))
-                          .map((block) => (
-                            <label className="export-option" key={`import-${block.key}`}>
-                              <input
-                                type="checkbox"
-                                checked={importSelection[block.key]}
-                                onChange={() => setImportSelection((current) => ({ ...current, [block.key]: !current[block.key] }))}
-                              />
-                              <span>{block.label}</span>
-                            </label>
-                          ))}
-                      </div>
-                    </div>
-                  ) : null}
-                  <div className="inline-form">
-                    <button type="button" disabled={saving || (!importPayload && !cellarTrackerCsvText)} onClick={runLegacyImport}>
-                      <ButtonBusyContent busy={saving && Boolean(importPayload || cellarTrackerCsvText)} idleLabel={t("importRun")} busyLabel={t("loadingData")} icon={appActionSvgIcon("import")} />
-                    </button>
-                  </div>
-                  {importResult ? (
-                    <div className="token-box">
-                      <strong>{t("importSummary")}</strong>
-                      {(importResult.wines_deleted || importResult.wishlist_deleted) ? <span>{t("emptyCellar")}: {importResult.wines_deleted} {t("wines").toLowerCase()}, {importResult.wishlist_deleted} {t("wishlist").toLowerCase()}</span> : null}
-                      <span>{t("wines")}: +{importResult.wines_imported}, {t("updatedItems")} {importResult.wines_updated}, {t("skipped")} {importResult.wines_skipped}</span>
-                      <span>{t("wishlist")}: +{importResult.wishlist_imported}, {t("updatedItems")} {importResult.wishlist_updated}, {t("skipped")} {importResult.wishlist_skipped}</span>
-                      {(importResult.sales_imported || importResult.sales_updated || importResult.sales_skipped) ? <span>{t("exportIncludesSales")}: +{importResult.sales_imported}, {t("updatedItems")} {importResult.sales_updated}, {t("skipped")} {importResult.sales_skipped}</span> : null}
-                      {(importResult.members_imported || importResult.members_updated || importResult.members_skipped) ? <span>{t("members")}: +{importResult.members_imported}, {t("updatedItems")} {importResult.members_updated}, {t("skipped")} {importResult.members_skipped}</span> : null}
-                      {(importResult.invites_imported || importResult.invites_updated || importResult.invites_skipped) ? <span>{t("invites")}: +{importResult.invites_imported}, {t("updatedItems")} {importResult.invites_updated}, {t("skipped")} {importResult.invites_skipped}</span> : null}
-                      {(importResult.share_offers_imported || importResult.share_offers_updated || importResult.share_offers_skipped) ? <span>{t("exportIncludesShareOffers")}: +{importResult.share_offers_imported}, {t("updatedItems")} {importResult.share_offers_updated}, {t("skipped")} {importResult.share_offers_skipped}</span> : null}
-                      {(importResult.user_tags_imported || importResult.user_tags_updated || importResult.user_tags_skipped) ? <span>{t("tags")}: +{importResult.user_tags_imported}, {t("updatedItems")} {importResult.user_tags_updated}, {t("skipped")} {importResult.user_tags_skipped}</span> : null}
-                      {(importResult.ai_audit_imported || importResult.ai_audit_updated || importResult.ai_audit_skipped) ? <span>{t("aiAudit")}: +{importResult.ai_audit_imported}, {t("updatedItems")} {importResult.ai_audit_updated}, {t("skipped")} {importResult.ai_audit_skipped}</span> : null}
-                    </div>
-                  ) : null}
-                  <div className="token-box">
-                    <strong>{t("exportData")}</strong>
-                    <span>{t("exportFullCellarHelp")}</span>
-                    <small>{t("exportHistoryIncluded")}</small>
-                    <small>{t("exportSensitiveNote")}</small>
-                  </div>
-                  <div className="export-options-grid">
-                    {exportBlocks.map((block) => (
-                      <label className="export-option" key={block.key}>
-                        <input
-                          type="checkbox"
-                          checked={exportSelection[block.key]}
-                          onChange={() => toggleExportSelection(block.key)}
-                        />
-                        <span>{block.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <div className="inline-form">
-                    <button type="button" className="secondary" disabled={saving || !hasSelectedExportBlock} onClick={exportJson}>
-                      <span className="action-icon" aria-hidden="true">{appActionSvgIcon("export")}</span>
-                      <span className="action-label">{t("exportJson")}</span>
-                    </button>
-                  </div>
-                  <div className="error-banner">
-                    <strong>{t("emptyCellar")}</strong>
-                    <span>{t("emptyCellarWarning")}</span>
-                    <button type="button" className="danger compact" disabled={saving} onClick={emptyCellar}>
-                      <span className="action-icon" aria-hidden="true">{appActionSvgIcon("delete")}</span>
-                      <span className="action-label">{t("emptyCellar")}</span>
-                    </button>
-                  </div>
-                </section>
+                <Suspense fallback={null}>
+                  <DataSettingsTab
+                    locale={locale}
+                    session={session}
+                    saving={saving}
+                    importCellarTrackerFile={importCellarTrackerFile}
+                    importLegacyFile={importLegacyFile}
+                    importMode={importMode}
+                    setImportMode={setImportMode}
+                    importPreview={importPreview}
+                    importFileName={importFileName}
+                    importResult={importResult}
+                    exportBlocks={exportBlocks}
+                    importSelection={importSelection}
+                    setImportSelection={setImportSelection}
+                    importPayload={importPayload}
+                    cellarTrackerCsvText={cellarTrackerCsvText}
+                    runLegacyImport={runLegacyImport}
+                    exportSelection={exportSelection}
+                    toggleExportSelection={toggleExportSelection}
+                    hasSelectedExportBlock={hasSelectedExportBlock}
+                    exportJson={exportJson}
+                    emptyCellar={emptyCellar}
+                  />
+                </Suspense>
               ) : null}
 
-              {settingsTab === "sharing" && canAdmin ? (
-                <details className="settings-card cellar-settings-section">
-                  <summary><span>{locale === "it" ? "Collaborazione" : "Collaboration"}</span><strong>{locale === "it" ? "Invita un membro" : "Invite a member"}</strong><small>{locale === "it" ? "Definisci ruolo e visibilità" : "Set role and visibility"}</small></summary>
-                  <div className="cellar-settings-section-body">
-                  <div className="settings-card-heading">
-                    <div>
-                      <span>{t("inviteMember")}</span>
-                      <h3>{t("sharedCellar")}</h3>
-                    </div>
-                  </div>
-                  <form className="inline-form" onSubmit={createInvite}>
-                    <label>
-                      <span>{t("email")}</span>
-                      <input type="email" value={inviteDraft.email} onChange={(event) => setInviteDraft({ ...inviteDraft, email: event.target.value })} required />
-                    </label>
-                    <label>
-                      <span>{t("role")}</span>
-                      <select value={inviteDraft.role} onChange={(event) => setInviteDraft({ ...inviteDraft, role: event.target.value })}>
-                        <option value="viewer">Viewer</option>
-                        <option value="member">Member</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span>{t("visibility")}</span>
-                      <select
-                        value={inviteDraft.role === "admin" ? "all" : inviteDraft.visibility_scope}
-                        disabled={inviteDraft.role === "admin"}
-                        onChange={(event) => setInviteDraft({ ...inviteDraft, visibility_scope: event.target.value as "all" | "shared" })}
-                      >
-                        <option value="shared">{t("visibilityShared")}</option>
-                        <option value="all">{t("visibilityAll")}</option>
-                      </select>
-                    </label>
-                    <button type="submit" disabled={saving}>{saving ? t("working") : t("createInvite")}</button>
-                    {inviteToken ? (
-                      <div className="token-box">
-                        <span>{t("inviteToken")}</span>
-                        <code>{inviteToken}</code>
-                        <span>{t("inviteLink")}</span>
-                        <a href={generatedInviteLink}>{generatedInviteLink}</a>
-                      </div>
-                    ) : null}
-                  </form>
-                  </div>
-                </details>
-              ) : null}
-
-              {settingsTab === "sharing" && canAdmin ? (
-                <details className="settings-card cellar-settings-section">
-                  <summary><span>{locale === "it" ? "Collaborazione" : "Collaboration"}</span><strong>{locale === "it" ? "Inviti in attesa" : "Pending invites"}</strong><small>{invites.length ? `${invites.length} ${locale === "it" ? "inviti da seguire" : "invites to follow"}` : (locale === "it" ? "Nessun invito aperto" : "No open invites")}</small></summary>
-                  <div className="cellar-settings-section-body">
-                  <div className="settings-card-heading">
-                    <div>
-                      <span>{t("pendingInvites")}</span>
-                      <h3>{t("inviteMember")}</h3>
-                    </div>
-                  </div>
-                  {invites.length ? (
-                    <div className="invite-list">
-                      {invites.map((invite) => {
-                        const expired = new Date(invite.expires_at) <= new Date();
-                        const accepted = Boolean(invite.accepted_at);
-                        return (
-                          <div className="invite-row" key={invite.id}>
-                            <div>
-                              <strong>{invite.email}</strong>
-                              <span>{invite.role} - {accepted ? "accepted" : expired ? "expired" : `${t("expires")} ${formatDisplayDate(invite.expires_at)}`}</span>
-                            </div>
-                            <button type="button" className="danger compact" disabled={saving} onClick={() => revokeInvite(invite)}>
-                              {t("revoke")}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="empty-state">{t("noInvites")}</p>
-                  )}
-                  </div>
-                </details>
-              ) : null}
-
-              {settingsTab === "sharing" ? (
-              <details className="settings-card cellar-settings-section">
-                <summary><span>{locale === "it" ? "Collaborazione" : "Collaboration"}</span><strong>{locale === "it" ? "Accetta un invito" : "Accept an invitation"}</strong><small>{locale === "it" ? "Usa un token ricevuto esternamente" : "Use an invitation token received externally"}</small></summary>
-                <form className="cellar-settings-section-body" onSubmit={acceptInvite}>
-                <div className="settings-card-heading">
-                  <div>
-                    <span>{t("acceptInvite")}</span>
-                    <h3>{t("inviteToken")}</h3>
-                  </div>
-                </div>
-                <label>
-                  <span>{t("inviteToken")}</span>
-                  <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} />
-                </label>
-                <button type="submit" className="secondary" disabled={saving || !acceptToken.trim()}>
-                  {t("accept")}
-                </button>
-                </form>
-              </details>
-              ) : null}
             </div>
           </section>
           ) : null}
