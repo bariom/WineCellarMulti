@@ -28,3 +28,20 @@
   --control-height: 44px;
   --control-height-lg: 48px;
 }
+
+/* Motion and light (docs/UI_WOW_RECIPE.md). */
+:root {
+  --dur-tap: 120ms;
+  --dur-fast: 180ms;
+  --dur-base: 240ms;
+  --dur-slow: 360ms;
+  --dur-hero: 520ms;
+
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --hairline-gold: color-mix(in srgb, var(--accent) 38%, transparent);
+  --glow-gold: 0 0 0 1px var(--hairline-gold), 0 0 28px color-mix(in srgb, var(--accent) 22%, transparent);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+}

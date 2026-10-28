@@ -46,6 +46,7 @@ import { CollectorAtlas } from "./components/CollectorAtlas";
 import { CollectorDashboard } from "./components/CollectorDashboard";
 import { CollectorQuadrante } from "./components/CollectorQuadrante";
 import { CellarHomeHero, CellarHomeStats, type CellarHomeHeroStat } from "./components/CellarHomeHero";
+import { CellarShowcase } from "./components/CellarShowcase";
 import { appUserRoleLabel } from "./domain/appUsers";
 import { CellarHomeBackdrop, resetHomeBackdropSession, sessionBackdropSrc } from "./components/CellarHomeBackdrop";
 import { RiservaBanner } from "./components/RiservaBanner";
@@ -69,7 +70,27 @@ import "./components/HomeRefined.css";
 import "./components/LabelsRefined.css";
 import "./components/ButtonsRefined.css";
 import "./components/CellarRefined.css";
+import "./components/MotionRefined.css";
+import "./components/TypographyRefined.css";
+import "./components/SurfacesRefined.css";
+import { installPointerLight } from "./components/pointerLight";
 import { CollectorMaturity } from "./components/CollectorMaturity";
+
+/** Whether the active theme's surface is dark; drives `data-theme-tone` for CSS and the wine tint. */
+function surfaceIsDark() {
+  const surface = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim();
+  const match = /^#([0-9a-f]{6})$/i.exec(surface);
+  if (!match) return false;
+  const value = parseInt(match[1], 16);
+  return (0.2126 * ((value >> 16) & 255) + 0.7152 * ((value >> 8) & 255) + 0.0722 * (value & 255)) / 255 < 0.5;
+}
+
+installPointerLight();
+
+/** A short pulse when stock really changed; silent where unsupported. */
+function stockChangedHaptic() {
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(8);
+}
 
 type BreakdownDrilldown = {
   title: TranslationKey;
@@ -2570,8 +2591,19 @@ export function App() {
     const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const applyTheme = () => {
       const resolvedTheme = themePreference === "system" ? (darkQuery.matches ? "dark" : "light") : themePreference;
-      document.documentElement.dataset.theme = resolvedTheme;
-      document.documentElement.dataset.themePreference = themePreference;
+      const root = document.documentElement;
+      const commit = () => {
+        root.dataset.theme = resolvedTheme;
+        root.dataset.themePreference = themePreference;
+        root.dataset.themeTone = surfaceIsDark() ? "dark" : "light";
+      };
+      // A real switch between two themes cross-fades; the first paint does not.
+      const switching = Boolean(root.dataset.theme) && root.dataset.theme !== resolvedTheme;
+      if (switching && typeof document.startViewTransition === "function" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        document.startViewTransition(commit);
+      } else {
+        commit();
+      }
     };
     applyTheme();
     darkQuery.addEventListener("change", applyTheme);
@@ -4478,6 +4510,7 @@ export function App() {
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
+      stockChangedHaptic();
       await loadTastingArchiveOverview();
       if (!offlineMode && activeView === "history" && historySection === "tastings") {
         await loadTastingArchive(tastingArchiveOffset);
@@ -4580,6 +4613,7 @@ export function App() {
           storage_allocation_id: payload.storage_allocation_id || undefined,
         }),
       });
+      stockChangedHaptic();
       await loadWines();
       setRestaurantDashboardVersion((current) => current + 1);
     } catch (nextError) {
@@ -9457,6 +9491,7 @@ export function App() {
 
       {notice ? (
         <div className="invite-notice app-notice-toast" role="status" aria-live="polite">
+          <svg className="app-notice-check" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" /><path pathLength={1} d="M7 12.5l3.2 3.2L17 9" /></svg>
           <span>{notice}</span>
           <button type="button" className="secondary compact app-notice-close" aria-label={t("close")} title={t("close")} onClick={() => setNotice("")}>
             ×
@@ -9988,6 +10023,7 @@ export function App() {
                 {renderReadyWidget()}
 
                 </CollectorCardGroup>
+                {canAccessWinePhotos && !isRestaurant ? <CellarShowcase wines={cellarWines} locale={locale} onOpenWine={openWineFromDashboard} /> : null}
                 <CollectorOverview key={`${session?.user_email}:${session?.active_household_id}`} wines={cellarWines} locale={locale} now={now} onOpen={openWineFromDashboard} />
                 <CollectorAtlas locale={locale} origins={<>
                 {renderRegionsWidget()}
@@ -10213,7 +10249,7 @@ export function App() {
               {dashboardFocus === "taste" ? (
                 <DashboardCarousel locale={locale} label={locale === "it" ? "Il mio gusto" : "My Taste"} className="taste-dashboard-carousel">
                   <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento gusto…" : "Loading taste…"} />}>
-                    <TasteProfilePanel locale={locale} variant="insight" wines={wines} isAppAdmin={Boolean(session?.is_app_admin)} onOpenWine={openWineFromDashboard} />
+                    <TasteProfilePanel locale={locale} variant="insight" wines={wines} isAppAdmin={Boolean(session?.is_app_admin)} onOpenWine={openWineFromDashboard} ownerName={session?.user_display_name} />
                   </Suspense>
                 </DashboardCarousel>
               ) : null}

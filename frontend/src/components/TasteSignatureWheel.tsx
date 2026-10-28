@@ -1,15 +1,38 @@
-import { useId } from "react";
+import { useId, useRef, useState } from "react";
+import { renderTasteShareCard, shareOrDownload } from "./tasteShareCard";
 import { dimensionStrength, TASTE_DIMENSIONS, type TasteDimensionStrength } from "../domain/tasteStrength";
+import type { CSSProperties } from "react";
 import type { Locale, TasteProfile } from "../types";
 
 const axes = TASTE_DIMENSIONS;
 type Strength = TasteDimensionStrength;
 
-export default function TasteSignatureWheel({ dimensions, labels, locale }: {
+export default function TasteSignatureWheel({ dimensions, labels, locale, shareTitle, ownerName }: {
   dimensions: TasteProfile["dimensions"]; labels: Record<string, string>; locale: Locale;
+  /** Portrait headline printed on the share card; without it no share button is shown. */
+  shareTitle?: string;
+  /** Full display name; only the first word reaches the card. */
+  ownerName?: string | null;
 }) {
   const id = useId();
   const it = locale === "it";
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
+  async function share() {
+    if (!svgRef.current || !shareTitle) return;
+    setSharing(true);
+    setShareFailed(false);
+    try {
+      const firstName = (ownerName || "").trim().split(/\s+/)[0] || "";
+      const blob = await renderTasteShareCard({ svg: svgRef.current, title: shareTitle, firstName, locale });
+      await shareOrDownload(blob, it ? "vinaris-firma-sensoriale.png" : "vinaris-sensory-signature.png", shareTitle);
+    } catch {
+      setShareFailed(true);
+    } finally {
+      setSharing(false);
+    }
+  }
   const point = (index: number, radius: number) => {
     const angle = index * Math.PI * 2 / axes.length - Math.PI / 2;
     return [180 + radius * Math.cos(angle), 180 + radius * Math.sin(angle)];
@@ -36,7 +59,7 @@ export default function TasteSignatureWheel({ dimensions, labels, locale }: {
   const rings = [0, 1, 2, 3, 4].filter(ring => ring > 0 || scaleMin > 0).map(ring => ({ ring, value: scaleMin + ring * (scaleMax - scaleMin) / 4 }));
   const description = values.map(({ key, value, strength }) => `${labels[key] || key}: ${value === null || strength === null ? (it ? "dati insufficienti" : "insufficient data") : `${Math.round(value * 100)}/100, ${it ? "influenza" : "influence"} ${strengthLabel(strength)}`}`).join("; ");
   return <figure className="taste-signature-wheel" aria-label={it ? "La tua firma sensoriale" : "Your sensory signature"}>
-    <svg viewBox="0 0 360 360" role="img" aria-labelledby={`${id}-title ${id}-description`}>
+    <svg ref={svgRef} viewBox="0 0 360 360" role="img" aria-labelledby={`${id}-title ${id}-description`}>
       <title id={`${id}-title`}>{it ? "La forma delle tue preferenze" : "The shape of your preferences"}</title>
       <desc id={`${id}-description`}>{description}</desc>
       <defs><radialGradient id={`${id}-fill`}><stop offset="0" stopColor="#edc583" stopOpacity=".14" /><stop offset="1" stopColor="#edc583" stopOpacity=".55" /></radialGradient></defs>
@@ -50,6 +73,7 @@ export default function TasteSignatureWheel({ dimensions, labels, locale }: {
         const [x, y] = point(.5, radiusOf(value / 100));
         return <text className="taste-wheel-scale" key={`scale-${ring}`} x={x} y={y} textAnchor="middle" dominantBaseline="middle" aria-hidden="true">{Math.round(value)}</text>;
       })}
+      <g className="taste-wheel-bloom">
       {points.length === axes.length ? <>
         <polygon className="taste-wheel-shape" fill={`url(#${id}-fill)`} stroke="none" points={points.map(({ index, value }) => point(index, radiusOf(value!)).join(",")).join(" ")} />
         {/* Each side is solid between two telling dimensions, dashed when one of them is weak. */}
@@ -60,10 +84,11 @@ export default function TasteSignatureWheel({ dimensions, labels, locale }: {
           return <line key={`edge-${from.key}`} className={`taste-wheel-edge${from.strength === "weak" || to.strength === "weak" ? " is-weak" : ""}`} x1={x1} y1={y1} x2={x2} y2={y2} />;
         })}
       </> : null}
-      {points.map(({ key, index, value, confidence, strength }) => {
+      {points.map(({ key, index, value, confidence, strength }, order) => {
         const [x, y] = point(index, radiusOf(value!));
-        return <g key={key}><line className="taste-wheel-ray" x1="180" y1="180" x2={x} y2={y} /><circle className={`taste-wheel-point is-${strength}`} cx={x} cy={y} r={strength === "strong" ? 5 : 4}><title>{labels[key]}: {Math.round(value! * 100)}/100 · {it ? "influenza" : "influence"} {strengthLabel(strength!)} · {it ? "affidabilità" : "confidence"} {Math.round(confidence * 100)}%</title></circle></g>;
+        return <g key={key} style={{ "--wheel-order": order } as CSSProperties}><line className="taste-wheel-ray" x1="180" y1="180" x2={x} y2={y} /><circle className={`taste-wheel-point is-${strength}`} cx={x} cy={y} r={strength === "strong" ? 5 : 4}><title>{labels[key]}: {Math.round(value! * 100)}/100 · {it ? "influenza" : "influence"} {strengthLabel(strength!)} · {it ? "affidabilità" : "confidence"} {Math.round(confidence * 100)}%</title></circle></g>;
       })}
+      </g>
       <circle cx="180" cy="180" r="3" fill="#fff5e6" />
     </svg>
     <ul className="taste-wheel-legend" aria-hidden="true">
@@ -74,5 +99,11 @@ export default function TasteSignatureWheel({ dimensions, labels, locale }: {
     <figcaption>{it ? "La tua firma sensoriale" : "Your sensory signature"}<small>{scaleMin === 0 && scaleMax === 100
         ? (it ? "Preferenze personali · scala 0–100" : "Personal preferences · 0–100 scale")
         : (it ? `Preferenze personali · scala ingrandita ${scaleMin}–${scaleMax}` : `Personal preferences · zoomed scale ${scaleMin}–${scaleMax}`)}</small></figcaption>
+    {shareTitle && points.length ? <div className="taste-wheel-share">
+      <button type="button" className="secondary compact" disabled={sharing} onClick={() => void share()}>
+        {sharing ? (it ? "Preparo l'immagine…" : "Preparing image…") : (it ? "Condividi il mio profilo" : "Share my profile")}
+      </button>
+      {shareFailed ? <small role="alert">{it ? "Impossibile creare l'immagine su questo dispositivo." : "Could not create the image on this device."}</small> : null}
+    </div> : null}
   </figure>;
 }

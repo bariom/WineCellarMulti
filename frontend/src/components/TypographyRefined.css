@@ -1,0 +1,40 @@
+/*
+ * Typography refinement (docs/UI_WOW_RECIPE.md): figures never jiggle,
+ * eyebrows share one voice, display headings use the serif's optical axis.
+ */
+
+/* Every figure in tabular numerals: prices, quantities, scores, counts, dates. */
+.wine-quantity,
+.vintage-label,
+.view-tab-count,
+.row-chip,
+.detail-current-value,
+.detail-hero-metric > strong,
+.detail-wine-vintage,
+.cellar-home-stat strong,
+.cellar-home-hero-stats dd,
+.cellar-home-count,
+.wine-tone-group-summary,
+.drink-window,
+table td,
+time,
+output {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Eyebrows / kickers: small, spaced, gold. */
+.eyebrow,
+.cellar-home-kicker {
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Display headings use the serif's optical sizing. */
+h1,
+h2,
+.cellar-home-hero h2,
+.detail-wine-name {
+  font-optical-sizing: auto;
+}

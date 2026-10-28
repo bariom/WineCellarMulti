@@ -4,6 +4,7 @@ import { sourceMatchesMarket, valuationMarketLabel } from "../domain/valuationMa
 import type { CSSProperties, Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
 import { AppIcon } from "./AppIcon";
 import { AiActivity } from "./AiActivity";
+import { useWineTint } from "./wineTint";
 import { ButtonBusyContent, DetailField, LoadingState, RATING_HALF_STEPS, RatingInput, StarRating, TastingEnjoymentBadge, TastingEnjoymentInput, WineStatusBadge } from "./AppUi";
 import { clipUiText, consumeDraftFromTastingEntry, emptyConsumeWineDraft, formatAiBudget, formatDisplayDate, formatGrape, formatMoney, formatUsd, grapesSvgIcon, readableLegacyAiText, wineTone } from "./panelSupport";
 import { displayValue, reasoningEffortTranslationKey } from "../i18n";
@@ -1250,6 +1251,7 @@ export function WineDetail({
   const salePanelRef = useRef<HTMLDetailsElement>(null);
   const glassSalePanelRef = useRef<HTMLDetailsElement>(null);
   const wineDetailRef = useRef<HTMLElement>(null);
+  const wineTintStyle = useWineTint(showBottlePhoto ? wine.photo_thumbnail_url || wine.photo_detail_url : "", wineTone(wine.type));
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const detailValue = formatMoney(wine.current_value || wine.price, wine.currency, locale);
   const collectorSignals = [
@@ -1372,7 +1374,7 @@ export function WineDetail({
   }, [wine.id]);
 
   return (
-    <section ref={wineDetailRef} className={`wine-detail tone-${wineTone(wine.type)}`} data-wine-detail-id={wine.id}>
+    <section ref={wineDetailRef} className={`wine-detail tone-${wineTone(wine.type)}`} data-wine-detail-id={wine.id} style={wineTintStyle}>
       <div className="detail-hero">
         <div className="detail-title">
           {showBottlePhoto && wine.photo_detail_url ? (
@@ -1385,6 +1387,7 @@ export function WineDetail({
             <h2 className={`detail-wine-name ${wine.name.length > 34 ? "detail-wine-name--long" : wine.name.length > 20 ? "detail-wine-name--medium" : "detail-wine-name--short"}`}>
               <i className={`wine-dot tone-${wineTone(wine.type)}`} />
               <span>{wine.name}</span>
+              {wine.vintage ? <span className="detail-wine-vintage" aria-hidden="true">{wine.vintage}</span> : null}
             </h2>
             {!restaurantMode ? canWrite ? (
               <RatingInput
@@ -1394,7 +1397,7 @@ export function WineDetail({
                 onChange={(rating) => { void onUpdateRating(rating); }}
               />
             ) : wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null : null}
-            <span className="detail-wine-meta">{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
+            <span className="detail-wine-meta">{wine.producer}{wine.vintage ? <span className="sr-only"> · {wine.vintage}</span> : null}</span>
             {collectorSignals.length ? <div className="detail-collector-signals" aria-label={locale === "it" ? "Segnali della collezione" : "Collection signals"}>
               {collectorSignals.map((signal) => <small key={signal.key} className={`detail-collector-signal is-${signal.key}`}>
                 <i aria-hidden="true" />{signal.label}
@@ -1588,7 +1591,7 @@ export function WineDetail({
                   </linearGradient>
                 </defs>
                 <path className="maturity-horizon-shadow" d="M18 122 C100 116 136 28 260 25 C384 28 420 116 502 122" />
-                <path className="maturity-horizon-line" d="M18 122 C100 116 136 28 260 25 C384 28 420 116 502 122" stroke={`url(#maturity-curve-${wine.id})`} />
+                <path className="maturity-horizon-line" pathLength={1} d="M18 122 C100 116 136 28 260 25 C384 28 420 116 502 122" stroke={`url(#maturity-curve-${wine.id})`} />
               </svg>
               <span className="maturity-horizon-peak" aria-hidden="true"><i /></span>
               <span className="maturity-horizon-current" aria-hidden="true"><i /></span>

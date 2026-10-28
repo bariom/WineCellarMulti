@@ -1,0 +1,212 @@
+/*
+ * Light and matter (docs/UI_WOW_RECIPE.md): gold hairlines, film grain on dark
+ * themes, a soft light that follows the cursor, mount entrances, bottle
+ * skeletons, maps in the theme's tone and a drawn checkmark on confirmations.
+ * Dark themes are matched through `data-theme-tone`, set by App.tsx.
+ */
+
+/* ---- Hairline + grain ------------------------------------------------- */
+
+.wine-row,
+.cellar-home-stat,
+.detail-hero {
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--border));
+}
+
+/* Film grain over the detail hero on dark themes (::before carries the wine tint). */
+:root[data-theme-tone="dark"] .wine-detail .detail-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+/* ---- Cursor light (coordinates from pointerLight.ts) ------------------ */
+
+@media (hover: hover) and (pointer: fine) {
+  .wine-row,
+  .cellar-home-stat {
+    position: relative;
+  }
+
+  .wine-row::after,
+  .cellar-home-stat::after,
+  .cellar-showcase-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+
+  /* No isolation on rows (it would trap row popovers): the light overlays softly instead. */
+  .wine-row::after,
+  .cellar-home-stat::after {
+    z-index: 0;
+    mix-blend-mode: plus-lighter;
+  }
+
+  :root[data-theme-tone="light"] .wine-row::after,
+  :root[data-theme-tone="light"] .cellar-home-stat::after {
+    mix-blend-mode: normal;
+  }
+
+  .wine-row:hover::after,
+  .cellar-home-stat:hover::after,
+  .cellar-showcase-card:hover::after {
+    opacity: 1;
+  }
+}
+
+/* ---- Entrances on mount (first eight items, then instant) ------------- */
+
+.list-item-block,
+.cellar-home-stat {
+  animation: surface-enter var(--dur-slow) var(--ease-out) both;
+}
+
+.list-item-block:nth-child(2), .cellar-home-stat:nth-child(2) { animation-delay: 40ms; }
+.list-item-block:nth-child(3), .cellar-home-stat:nth-child(3) { animation-delay: 80ms; }
+.list-item-block:nth-child(4) { animation-delay: 120ms; }
+.list-item-block:nth-child(5) { animation-delay: 160ms; }
+.list-item-block:nth-child(6) { animation-delay: 200ms; }
+.list-item-block:nth-child(7) { animation-delay: 240ms; }
+.list-item-block:nth-child(8) { animation-delay: 280ms; }
+.list-item-block:nth-child(n + 9) { animation: none; }
+
+@keyframes surface-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---- Skeletons: a real bottle silhouette and a gold sheen ------------- */
+
+.loading-skeleton-card i {
+  width: 30px;
+  height: 72px;
+  border-radius: 0;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 72'%3E%3Cpath d='M11 0h8v18c0 4 9 8 9 18v32a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V36c0-10 9-14 9-18z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 72'%3E%3Cpath d='M11 0h8v18c0 4 9 8 9 18v32a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V36c0-10 9-14 9-18z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.loading-skeleton-card > *::after,
+.global-loading-skeleton > *::after {
+  background: linear-gradient(100deg, transparent 22%, color-mix(in srgb, var(--accent) 22%, transparent) 48%, transparent 74%);
+}
+
+/* ---- Maps in the theme's tone ----------------------------------------- */
+
+:root[data-theme-tone="dark"] .leaflet-container {
+  background: #15110f;
+}
+
+/* OpenStreetMap tiles inverted to a warm night palette; the licence stays OSM's. */
+:root[data-theme-tone="dark"] .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.92) sepia(0.28) saturate(0.7);
+}
+
+:root[data-theme-tone="dark"] .memory-atlas-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.92) sepia(0.28) saturate(0.45);
+}
+
+:root[data-theme-tone="dark"] .leaflet-control-attribution,
+:root[data-theme-tone="dark"] .leaflet-control-layers,
+:root[data-theme-tone="dark"] .leaflet-bar a {
+  color: var(--text);
+  background: var(--surface-raised);
+  border-color: var(--border);
+}
+
+:root[data-theme-tone="dark"] .leaflet-control-attribution a {
+  color: var(--accent);
+}
+
+/* Gold pulse on the highlighted origin and on memory clusters, three times. */
+.vinaris-map-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: map-pulse 1.8s var(--ease-out) 3;
+}
+
+.memory-atlas-marker {
+  position: relative;
+}
+
+.memory-atlas-marker::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: map-ring 1.8s var(--ease-out) 3;
+  opacity: 0;
+}
+
+@keyframes map-pulse {
+  0% { stroke-opacity: 1; transform: scale(1); }
+  70% { stroke-opacity: 0; transform: scale(1.9); }
+  100% { stroke-opacity: 0; transform: scale(1.9); }
+}
+
+@keyframes map-ring {
+  0% { opacity: 0.9; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.8); }
+}
+
+/* ---- Confirmation toast: a drawn checkmark --------------------------- */
+
+.app-notice-check {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--success);
+}
+
+.app-notice-check path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  animation: notice-check 320ms var(--ease-out) 120ms both;
+}
+
+.app-notice-check circle {
+  fill: color-mix(in srgb, var(--success) 14%, transparent);
+  stroke: none;
+}
+
+@keyframes notice-check {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* ---- Reduced motion --------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .list-item-block,
+  .cellar-home-stat,
+  .vinaris-map-pulse,
+  .memory-atlas-marker::after,
+  .app-notice-check path,
+  .loading-skeleton-card > *::after,
+  .global-loading-skeleton > *::after {
+    animation: none;
+  }
+
+  .wine-row::after,
+  .cellar-home-stat::after,
+  .cellar-showcase-card::after {
+    transition: none;
+  }
+}

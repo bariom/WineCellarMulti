@@ -1,0 +1,175 @@
+/* Home showcase (docs/UI_WOW_RECIPE.md): bottles on a lit shelf with a reflection. */
+
+.cellar-showcase {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cellar-showcase-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cellar-showcase-head .horizontal-scroll-controls {
+  flex: none;
+}
+
+.cellar-showcase-head h2 {
+  margin: 0;
+  color: var(--text);
+  font: italic 500 var(--title-md)/1.15 var(--font-display);
+  font-optical-sizing: auto;
+}
+
+.cellar-showcase-head .eyebrow {
+  margin: 0 0 2px;
+}
+
+.cellar-showcase-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  gap: 12px;
+  margin: 0;
+  padding: 4px 2px 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.cellar-showcase-track::-webkit-scrollbar {
+  display: none;
+}
+
+.cellar-showcase-track > [role="listitem"] {
+  min-width: 0;
+  scroll-snap-align: start;
+  animation: showcase-in var(--dur-slow) var(--ease-out) both;
+  animation-delay: calc(var(--showcase-index, 0) * 60ms);
+}
+
+@media (min-width: 640px) {
+  .cellar-showcase-track { grid-auto-columns: calc((100% - 12px) / 2); }
+}
+
+@media (min-width: 900px) {
+  .cellar-showcase-track { grid-auto-columns: calc((100% - 24px) / 2.5); }
+}
+
+.cellar-showcase-card {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 176px;
+  padding: 16px 18px;
+  overflow: hidden;
+  border: 1px solid var(--hairline-gold);
+  border-radius: var(--radius-card);
+  color: var(--text);
+  text-align: left;
+  background:
+    radial-gradient(80% 90% at 22% 30%, color-mix(in srgb, var(--wine-tone, var(--accent)) 22%, transparent), transparent 70%),
+    linear-gradient(160deg, color-mix(in srgb, var(--surface-raised) 92%, var(--accent)) 0%, var(--surface) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent), var(--shadow-soft);
+  transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+
+:root[data-theme-tone="dark"] .cellar-showcase-card {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(80% 90% at 22% 30%, color-mix(in srgb, var(--wine-tone, var(--accent)) 30%, transparent), transparent 70%),
+    linear-gradient(160deg, color-mix(in srgb, var(--surface-raised) 88%, var(--accent)) 0%, var(--surface) 100%);
+}
+
+.cellar-showcase-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent), var(--glow-gold), var(--shadow-premium);
+}
+
+.cellar-showcase-card:active {
+  transform: perspective(900px) scale(0.98);
+}
+
+.cellar-showcase-stage {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+}
+
+.cellar-showcase-bottle,
+.cellar-showcase-reflection img {
+  display: block;
+  width: auto;
+  max-width: 96px;
+  height: 120px;
+  object-fit: contain;
+}
+
+.cellar-showcase-bottle {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 10px 12px color-mix(in srgb, var(--collector-depth, #000) 60%, transparent));
+}
+
+/* Mirror of the bottle's base, cut to a third and faded into the shelf. */
+.cellar-showcase-reflection {
+  display: block;
+  height: 34px;
+  overflow: hidden;
+  opacity: 0.24;
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 90%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 90%);
+}
+
+.cellar-showcase-reflection img {
+  transform: scaleY(-1);
+}
+
+.cellar-showcase-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cellar-showcase-copy strong {
+  font: italic 500 1.35rem/1.12 var(--font-display);
+  font-optical-sizing: auto;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.cellar-showcase-copy small {
+  color: var(--text-muted);
+  font: 500 var(--text-sm)/1.35 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+.cellar-showcase-copy em {
+  margin-top: 6px;
+  color: var(--accent);
+  font: 500 var(--title-sm)/1 var(--font-display);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes showcase-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cellar-showcase-track > [role="listitem"] { animation: none; }
+  .cellar-showcase-card,
+  .cellar-showcase-card:active { transform: none; transition: none; }
+}

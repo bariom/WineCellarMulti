@@ -494,3 +494,122 @@
   gap: 8px;
   margin: 0;
 }
+
+/* ------------------------------------------------------------------------
+ * Label typography and per-wine colour (docs/UI_WOW_RECIPE.md).
+ * The name reads like a label: serif italic on the optical axis, the vintage
+ * beside it in gold small caps. `--wine-tint` is set on .wine-detail by
+ * useWineTint (label photo colour, or the wine type) and lights the hero.
+ * ---------------------------------------------------------------------- */
+
+.wine-detail.wine-detail .detail-hero .detail-title h2.detail-wine-name {
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 12px;
+  row-gap: 2px;
+  font-style: italic;
+  font-weight: 500;
+  font-optical-sizing: auto;
+  letter-spacing: -0.01em;
+  line-height: 1.04;
+}
+
+.wine-detail.wine-detail .detail-hero .detail-title h2.detail-wine-name--short { font-size: clamp(2.25rem, 6vw, 3rem); }
+.wine-detail.wine-detail .detail-hero .detail-title h2.detail-wine-name--medium { font-size: clamp(1.75rem, 5vw, 2.25rem); }
+.wine-detail.wine-detail .detail-hero .detail-title h2.detail-wine-name--long { font-size: clamp(1.35rem, 4vw, 1.75rem); }
+
+.wine-detail.wine-detail .detail-hero .detail-title h2.detail-wine-name .wine-dot {
+  align-self: flex-start;
+  margin-top: 0.42em;
+}
+
+.wine-detail.wine-detail .detail-hero .detail-title h2.detail-wine-name > span:not(.detail-wine-vintage) {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.wine-detail.wine-detail .detail-hero .detail-title h2.detail-wine-name > .detail-wine-vintage {
+  flex: none;
+  color: var(--accent);
+  font: 600 0.5em/1 var(--font-ui);
+  font-variant-caps: all-small-caps;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  font-style: normal;
+  text-wrap: nowrap;
+}
+
+/* Hero backdrop lit by the wine's own colour. */
+.wine-detail.wine-detail .detail-hero {
+  position: relative;
+  isolation: isolate;
+}
+
+.wine-detail.wine-detail .detail-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(120% 80% at 50% 0%, var(--wine-tint, transparent) 0%, transparent 60%);
+  opacity: 0.32;
+  pointer-events: none;
+  transition: opacity var(--dur-slow) var(--ease-out);
+}
+
+:root[data-theme-tone="dark"] .wine-detail.wine-detail .detail-hero::before {
+  opacity: 0.62;
+}
+
+/* The bottle casts a shadow in its own colour. */
+.wine-detail.wine-detail .detail-bottle-photo img {
+  filter: drop-shadow(0 16px 22px color-mix(in srgb, var(--wine-tint, var(--collector-depth)) 42%, transparent));
+}
+
+/* ------------------------------------------------------------------------
+ * Drinking-window gauge in motion (docs/UI_WOW_RECIPE.md): the curve draws
+ * itself, then "today" lands in gold and the peak glows twice.
+ * ---------------------------------------------------------------------- */
+
+.wine-detail.wine-detail .maturity-horizon-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: horizon-draw var(--dur-hero) var(--ease-out) both;
+}
+
+.wine-detail.wine-detail .maturity-horizon-current {
+  background: var(--accent);
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 0 18px color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: horizon-land var(--dur-slow) var(--ease-spring) both;
+  animation-delay: calc(var(--dur-hero) - 120ms);
+}
+
+.wine-detail.wine-detail .maturity-horizon.is-active .maturity-horizon-peak {
+  animation: horizon-glow 1.6s var(--ease-in-out) 2;
+  animation-delay: var(--dur-hero);
+}
+
+@keyframes horizon-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes horizon-land {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes horizon-glow {
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--drink-ideal) 18%, transparent); }
+  50% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--drink-ideal) 10%, transparent), 0 0 24px color-mix(in srgb, var(--drink-ideal) 60%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wine-detail.wine-detail .maturity-horizon-line,
+  .wine-detail.wine-detail .maturity-horizon-current,
+  .wine-detail.wine-detail .maturity-horizon.is-active .maturity-horizon-peak {
+    animation: none;
+  }
+}

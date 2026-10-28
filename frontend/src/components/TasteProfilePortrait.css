@@ -102,3 +102,24 @@
   :root .home-dashboard.home-dashboard-secondary .taste-profile-panel--insight .taste-profile-hero-metrics article:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 @media (prefers-reduced-motion: reduce) { :root .home-dashboard.home-dashboard-secondary .taste-profile-panel--insight .taste-profile-hero-metrics article { transition: none; } }
+
+/* The signature blooms from the centre, then each point lands (docs/UI_WOW_RECIPE.md). */
+.taste-wheel-bloom {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: taste-wheel-bloom var(--dur-hero) var(--ease-spring) both;
+}
+.taste-wheel-bloom .taste-wheel-point {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: taste-wheel-point var(--dur-base) var(--ease-spring) both;
+  animation-delay: calc(var(--dur-hero) - 160ms + var(--wheel-order, 0) * 60ms);
+}
+@keyframes taste-wheel-bloom { from { opacity: 0; transform: scale(0.15) rotate(-12deg); } to { opacity: 1; transform: none; } }
+@keyframes taste-wheel-point { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: none; } }
+.taste-wheel-share { display: grid; justify-items: center; gap: 6px; margin-top: 10px; }
+.taste-wheel-share button { border: 1px solid #edc583a6; color: #fff2cc; background: #edc5832e; }
+.taste-wheel-share small { color: #f3ded3; font-size: var(--text-xs); }
+@media (prefers-reduced-motion: reduce) {
+  .taste-wheel-bloom, .taste-wheel-bloom .taste-wheel-point { animation: none; }
+}

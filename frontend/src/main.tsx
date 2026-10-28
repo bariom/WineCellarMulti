@@ -31,9 +31,11 @@ const root: ReactDOM.Root = import.meta.hot?.data.root
   ?? ReactDOM.createRoot(document.getElementById("root")!);
 if (import.meta.hot) import.meta.hot.data.root = root;
 
+const splash = <div className="vinaris-splash" aria-hidden="true">VINARIS<i /></div>;
+
 root.render(
   <React.StrictMode>
-    <Suspense fallback={null}>
+    <Suspense fallback={splash}>
       {publicWineListToken
         ? <PublicRestaurantWineList token={publicWineListToken} />
         : legalDocument

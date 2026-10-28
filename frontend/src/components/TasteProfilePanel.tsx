@@ -192,7 +192,7 @@ function DeclaredTaste({ locale }: { locale: Locale }) {
   </section>;
 }
 
-export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAdmin = false, onOpenWine }: { locale: Locale; variant?: "settings" | "insight"; wines?: Wine[]; isAppAdmin?: boolean; onOpenWine?: (wine: Wine) => void }) {
+export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAdmin = false, onOpenWine, ownerName }: { locale: Locale; variant?: "settings" | "insight"; wines?: Wine[]; isAppAdmin?: boolean; onOpenWine?: (wine: Wine) => void; ownerName?: string | null }) {
   const italian = locale === "it";
   const insight = variant === "insight";
   const [profiles, setProfiles] = useState<TasteProfile[]>([]);
@@ -425,7 +425,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
           <p>{profileVoice}</p>
           <small>{preferenceExplanation}</small>
         </div>
-        {insight ? <TasteSignatureWheel dimensions={overall.dimensions} labels={labels} locale={locale} /> : null}
+        {insight ? <TasteSignatureWheel dimensions={overall.dimensions} labels={labels} locale={locale} shareTitle={portrait} ownerName={ownerName} /> : null}
         <div className="taste-profile-hero-data">
           <div className="taste-profile-hero-metrics">
             {strongest.map(([dimension, value]) => <article key={dimension}>

@@ -1,0 +1,135 @@
+/*
+ * Micro-interactions and view transitions (docs/UI_WOW_RECIPE.md).
+ * One set of durations and easings for the whole app, taken from tokens.css.
+ * Only transform, opacity, box-shadow, border-color and background-color are
+ * animated. Every movement is removed under prefers-reduced-motion.
+ */
+
+/* Press feedback on every button, chip and summary. */
+button,
+summary,
+.row-chip,
+.wine-tone-pill {
+  transition:
+    transform var(--dur-tap) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+button:not(:disabled):active,
+summary:active,
+.wine-grouping-switch button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+/* Gold ring on keyboard focus, in addition to the outline the themes define. */
+button:focus-visible,
+summary:focus-visible,
+.wine-row:focus-visible,
+.cellar-home-stat:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* Cards and rows lift on hover (pointer devices only). */
+.wine-row,
+.cellar-home-stat,
+.detail-hero-metric {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wine-row:hover,
+  .cellar-home-stat:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-premium);
+  }
+}
+
+/* Two-way segmented control: one indicator slides under the active choice. */
+.wine-grouping-switch {
+  position: relative;
+  isolation: isolate;
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.wine-grouping-switch::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 4.5px);
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--primary) 22%, transparent);
+  transition: transform var(--dur-slow) var(--ease-spring);
+}
+
+.wine-grouping-switch:has(> button:nth-child(2).active)::before {
+  transform: translateX(calc(100% + 3px));
+}
+
+.wine-grouping-switch button.active {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Toggles and switches. */
+.detail-toggle-row input[type="checkbox"],
+input[type="checkbox"][role="switch"] {
+  transition: background-color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+}
+
+/* Success toast: rises in with a soft glow. */
+.app-notice-toast {
+  animation: toast-rise var(--dur-slow) var(--ease-spring) both;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--success) 32%, transparent),
+    0 0 28px color-mix(in srgb, var(--success) 18%, transparent),
+    var(--shadow-premium);
+}
+
+@keyframes toast-rise {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  summary,
+  .row-chip,
+  .wine-tone-pill,
+  .wine-row,
+  .cellar-home-stat,
+  .detail-hero-metric,
+  .wine-grouping-switch::before {
+    transition: none;
+  }
+
+  button:not(:disabled):active,
+  summary:active,
+  .wine-row:hover,
+  .cellar-home-stat:hover {
+    transform: none;
+  }
+
+  .app-notice-toast {
+    animation: none;
+  }
+}

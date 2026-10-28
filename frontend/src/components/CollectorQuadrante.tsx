@@ -10,6 +10,7 @@ import { featuredValue } from "../domain/featuredValue";
 import { bestTastingRating, isMaturityReason, isTasteReason } from "../domain/featuredSelection";
 import { featuredCaption, featuredExplanation, type FeaturedWine } from "./FeaturedWineDetails";
 import { CollectorAtlas } from "./CollectorAtlas";
+import { CellarShowcase } from "./CellarShowcase";
 import "./CollectorQuadrante.css";
 const CollectorEvolution = lazy(() => import("./CollectorEvolution"));
 
@@ -206,6 +207,8 @@ export function CollectorQuadrante({ children, wines, featured, recent, locale, 
   // The timeline above already covers maturity: the atlas keeps Origins and Value only.
   const atlas = atlasSlot ? cloneElement(atlasSlot as React.ReactElement<{ maturity?: ReactNode }>, { maturity: null }) : null;
   const details = slots.filter(slot => slot.type === "details");
+  // The showcase follows the board, so the first screen keeps the bottle of the day.
+  const showcase = slots.find(slot => slot.type === CellarShowcase) || null;
 
   function wineButtons(items: Wine[]) {
     return <div className="cq-wines">{items.map(wine => <button type="button" key={wine.id} onClick={() => onOpen(wine)}>
@@ -316,6 +319,8 @@ export function CollectorQuadrante({ children, wines, featured, recent, locale, 
       </section>
       </div>
     </div>
+
+    {showcase}
 
     {showRiserva ? <RiservaBanner locale={locale} onExplore={onExploreRiserva} /> : null}
 

@@ -83,10 +83,18 @@
         ]
       }
     </script>
+    <style>
+      /* Splash while the app chunk loads (docs/UI_WOW_RECIPE.md); same markup as the Suspense fallback. */
+      .vinaris-splash { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; background: #f7f3ea; color: #6f5a2e; font: 500 15px/1 Georgia, serif; letter-spacing: .42em; text-indent: .42em; }
+      .vinaris-splash i { display: block; width: 120px; height: 1px; background: linear-gradient(90deg, transparent, #c2ac66, transparent); transform-origin: center; animation: vinaris-splash-line 1.4s cubic-bezier(.65,0,.35,1) infinite alternate; }
+      @keyframes vinaris-splash-line { from { transform: scaleX(.2); opacity: .4; } to { transform: scaleX(1); opacity: 1; } }
+      @media (prefers-color-scheme: dark) { .vinaris-splash { background: #10231d; color: #d7bd6d; } }
+      @media (prefers-reduced-motion: reduce) { .vinaris-splash i { animation: none; } }
+    </style>
     <script type="module" src="/src/main.tsx"></script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="vinaris-splash" aria-hidden="true">VINARIS<i></i></div></div>
     <noscript>
       <main>
         <h1>Vinaris · Cantina digitale per collezionisti di vino</h1>

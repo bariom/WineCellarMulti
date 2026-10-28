@@ -125,7 +125,7 @@ function VineyardLocationMap({ wine, location, className, locale, fullscreen = f
     >
       <MapBaseLayers locale={locale} />
       {precise ? (
-        <CircleMarker center={position} radius={fullscreen ? 17 : 15} pathOptions={{ color: "#b58a3a", weight: 3, fillOpacity: 0 }} />
+        <CircleMarker center={position} radius={fullscreen ? 17 : 15} pathOptions={{ color: "#b58a3a", weight: 3, fillOpacity: 0, className: "vinaris-map-pulse" }} />
       ) : null}
       <CircleMarker center={position} radius={fullscreen ? 11 : 9} pathOptions={{ color: "#fffaf0", weight: 3, fillColor: precise ? "#376f56" : "#76233d", fillOpacity: 0.95 }}>
         <Tooltip permanent direction="top" offset={[0, -8]}>{precise ? "✓ " : ""}{wine.vineyard_name || wine.name}</Tooltip>
