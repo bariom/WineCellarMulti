@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "../../types";
 import type { LandingCopy } from "./content";
+import { highFetchPriority } from "../../utils/fetchPriority";
 
 type LandingHeaderProps = {
   copy: LandingCopy;
@@ -65,7 +66,7 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
   return (
     <header ref={headerRef} className={`marketing-header${scrolled ? " is-scrolled" : ""}`}>
       <a className="marketing-brand" href="#top" aria-label="Vinaris">
-        <img src="/icons/icon-192.png" alt="" width="42" height="42" fetchPriority="high" />
+        <img src="/icons/icon-192.png" alt="" width="42" height="42" {...highFetchPriority} />
         <span><strong>Vinaris</strong><small>Private Cellar Intelligence</small></span>
       </a>
       {showMobileLogin ? <button type="button" className="marketing-button secondary compact marketing-mobile-login" onClick={onLogin}>{copy.header.login}</button> : null}

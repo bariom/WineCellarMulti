@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { highFetchPriority } from "../utils/fetchPriority";
 
 export const HOME_BACKDROP_SESSION_KEY = "vinaris.home-backdrop.v1";
 export const HOME_BACKDROPS = [
@@ -52,7 +53,7 @@ export function CellarHomeBackdrop() {
   const [src, setSrc] = useState<string>(selection.src);
   const [failed, setFailed] = useState(false);
   return <div className="cellar-home-backdrop" aria-hidden="true" data-scene={selection.id}>
-    {!failed && <img src={src} alt="" decoding="async" fetchPriority="high" onError={() => {
+    {!failed && <img src={src} alt="" decoding="async" {...highFetchPriority} onError={() => {
       if (src !== fallback) setSrc(fallback);
       else setFailed(true);
     }} />}

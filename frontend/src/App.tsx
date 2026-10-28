@@ -76,6 +76,7 @@ import "./components/TypographyRefined.css";
 import "./components/SurfacesRefined.css";
 import { installPointerLight } from "./components/pointerLight";
 import { CollectorMaturity } from "./components/CollectorMaturity";
+import { highFetchPriority } from "./utils/fetchPriority";
 
 /** Whether the active theme's surface is dark; drives `data-theme-tone` for CSS and the wine tint. */
 function surfaceIsDark() {
@@ -8762,7 +8763,7 @@ export function App() {
 
   const publicBrandLockup = (
     <div className="public-brand-lockup">
-      <img className="public-brand-mark" src="/icons/icon-192.png" alt="Vinaris" width="48" height="48" fetchPriority="high" />
+      <img className="public-brand-mark" src="/icons/icon-192.png" alt="Vinaris" width="48" height="48" {...highFetchPriority} />
       <div className="public-brand-copy">
         <strong>Vinaris</strong>
         <span>{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</span>
@@ -9017,7 +9018,7 @@ export function App() {
         <div className="topbar-brand">
           {authenticated ? (
             <>
-              <img className="topbar-brand-mark" src="/icons/icon-192.png" alt="Vinaris" width="56" height="56" fetchPriority="high" />
+              <img className="topbar-brand-mark" src="/icons/icon-192.png" alt="Vinaris" width="56" height="56" {...highFetchPriority} />
               <div>
                 <div className="brand-eyebrow-row">
                   <p className="eyebrow">Vinaris</p>

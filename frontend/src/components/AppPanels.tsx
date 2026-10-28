@@ -19,6 +19,7 @@ import { WineLocationPicker, WineStorageSection, WineStrategySection } from "./S
 import LocalizedDateInput from "./LocalizedDateInput";
 import { TastingMemoryPhoto, TastingMemoryPhotoInput } from "./TastingMemoryPhoto";
 import { WineSensorySignaturePanel } from "./WineSensorySignaturePanel";
+import { highFetchPriority } from "../utils/fetchPriority";
 const WineLotsSection = lazy(() => import("./WineLotsSection"));
 const PurchaseDocuments = lazy(() => import("./PurchaseDocuments"));
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
@@ -52,7 +53,7 @@ function ProgressiveBottlePhoto({ detailUrl, thumbnailUrl, alt }: { detailUrl: s
     };
   }, [detailUrl, thumbnailUrl]);
 
-  return <img src={visibleUrl} alt={alt} decoding="async" fetchPriority="high" onError={() => {
+  return <img src={visibleUrl} alt={alt} decoding="async" {...highFetchPriority} onError={() => {
     if (visibleUrl !== detailUrl) setLoadedDetailUrl(detailUrl);
   }} />;
 }
