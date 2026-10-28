@@ -107,6 +107,10 @@ export default function ProfileSettingsTab({
 }: ProfileSettingsTabProps) {
   const t = (key: TranslationKey) => translate(locale, key);
   const subscriptionSectionRef = useRef<HTMLElement>(null);
+  // Stops the post-scroll realignment; kept outside the focus effect so that
+  // consuming the focus request does not cancel it.
+  const stopSettlingRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopSettlingRef.current?.(), []);
   useEffect(() => {
     if (!subscriptionFocusPending) return;
     const frame = window.requestAnimationFrame(() => {
@@ -114,6 +118,25 @@ export default function ProfileSettingsTab({
       section?.scrollIntoView({ behavior: "instant", block: "start" });
       section?.querySelector<HTMLElement>("h3")?.focus({ preventScroll: true });
       onSubscriptionFocused();
+      if (!section || typeof ResizeObserver === "undefined") return;
+      stopSettlingRef.current?.();
+      // Panels above may still be loading: keep the section aligned while the
+      // page settles, until the user scrolls or one second has passed.
+      const settle = new ResizeObserver(() => section.scrollIntoView({ behavior: "instant", block: "start" }));
+      const stop = () => {
+        settle.disconnect();
+        window.clearTimeout(timer);
+        window.removeEventListener("wheel", stop);
+        window.removeEventListener("touchstart", stop);
+        window.removeEventListener("keydown", stop);
+        if (stopSettlingRef.current === stop) stopSettlingRef.current = null;
+      };
+      const timer = window.setTimeout(stop, 1000);
+      settle.observe(document.body);
+      window.addEventListener("wheel", stop, { passive: true });
+      window.addEventListener("touchstart", stop, { passive: true });
+      window.addEventListener("keydown", stop);
+      stopSettlingRef.current = stop;
     });
     return () => window.cancelAnimationFrame(frame);
   }, [subscriptionFocusPending, onSubscriptionFocused]);
