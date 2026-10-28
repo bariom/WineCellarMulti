@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, EmailStr, Field, field_validator
 
+from app.core.themes import curated_theme
 from app.schemas.dashboard import DashboardWidgetPreference
 from app.services.valuation_market import MARKET_COUNTRIES
 
@@ -184,3 +185,10 @@ class UserPreferencesUpdate(BaseModel):
         default=None,
         pattern="^(system|light|dark|private-cellar|sepia|white-wine|red-wine|rose-wine|champagne|bordeaux|burgundy|tuscany|piedmont|ticino|atelier|midnight-ledger|maison-champagne|pietra-vigna|cave-privee)$",
     )
+
+    @field_validator("theme_preference")
+    @classmethod
+    def store_curated_theme(cls, theme: str | None) -> str | None:
+        # Retired themes are still accepted from cached clients but stored as
+        # the closest signature theme.
+        return curated_theme(theme) if theme is not None else None

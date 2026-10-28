@@ -163,9 +163,11 @@ between two themes cross-fades through `document.startViewTransition`
 
 The picker (`ThemePicker.tsx`) offers the base appearance (System, Light, Dark)
 and four signature themes: Atelier, Maison Champagne, Cave Privée and Private
-Cellar. Retired themes map to the closest one in `domain/themes.ts` at display
-time; the backend keeps accepting them and nothing is migrated. Their CSS was
-removed; never style a retired theme again. Swatch colours in
+Cellar. Retired themes map to the closest one: migration `0127_retire_themes`
+rewrote stored values, the API stores any retired value it still receives as
+its signature theme (`backend/app/core/themes.py`), and `domain/themes.ts`
+maps at display time as a safety net for old sessions. Keep both mappings in
+sync. Their CSS was removed; never style a retired theme again. Swatch colours in
 `domain/themes.ts` are copies of the theme blocks: update both together.
 
 ## Review checklist for each item

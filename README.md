@@ -717,9 +717,10 @@ The current auth flow uses email/password registration, HTTP-only session cookie
 Settings > Theme offers the base appearance (System, Light, Dark) and four signature
 themes shown as live previews: Collector Atelier, Maison Champagne (warm ivory), Cave
 Privée (dark ink and champagne) and Private Cellar. The choice persists per user.
-Older themes were retired on 28 Oct 2026: the server still accepts them, and the app
-shows the closest signature theme until the user picks again (see
-`frontend/src/domain/themes.ts`).
+Older themes were retired on 28 Oct 2026. Migration `0127_retire_themes` stores
+existing choices as the closest signature theme; the API still accepts the old
+values from cached clients and stores them the same way (`backend/app/core/themes.py`,
+mirrored in `frontend/src/domain/themes.ts`).
 
 ### Vinaris Ambassador
 
