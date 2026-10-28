@@ -11,3 +11,28 @@
 .tasting-profile-card.tone-red { border-left-color: #9c2938; } .tasting-profile-card.tone-white { border-left-color: #c7a230; } .tasting-profile-card.tone-rose { border-left-color: #c75d78; } .tasting-profile-card.tone-sparkling { border-left-color: #468a8a; } .tasting-profile-card.tone-sweet { border-left-color: #b46f25; } .tasting-profile-card.tone-fortified { border-left-color: #74462f; }
 .tasting-profile-card dl { display: grid; gap: .4rem; margin: .8rem 0 0; } .tasting-profile-card dt, .tasting-profile-card dd { margin: 0; } .tasting-profile-card dd { font-weight: 700; } .tasting-profile-card dd.positive { color: #20844b; } .tasting-profile-card dd.negative { color: #bd3548; }
 .tasting-profile-unavailable { padding-top: .1rem; } .tasting-profile-note { margin: 0; }
+
+/* Collapsible profile: a one-line summary until opened (Diario, compact header). */
+details.tasting-archive-insights { padding: .75rem 1rem; gap: .75rem; }
+details.tasting-archive-insights > summary { display: flex; align-items: center; justify-content: space-between; gap: .75rem 1rem; flex-wrap: wrap; cursor: pointer; list-style: none; }
+details.tasting-archive-insights > summary::-webkit-details-marker { display: none; }
+details.tasting-archive-insights > summary::after { content: "›"; flex: none; color: var(--muted); font-size: 1.2rem; transform: rotate(90deg); transition: transform var(--dur-fast) var(--ease-out); }
+details.tasting-archive-insights[open] > summary::after { transform: rotate(-90deg); }
+.tasting-archive-insights-title { display: grid; gap: .15rem; min-width: 0; }
+.tasting-archive-insights-title .eyebrow { margin: 0; }
+.tasting-archive-insights-title strong { font-size: .98rem; }
+.tasting-archive-insights-figures { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .6rem; margin-left: auto; font-variant-numeric: tabular-nums; }
+.tasting-archive-insights-figures b { color: var(--text); font-size: .9rem; }
+.tasting-archive-insights-figures em { color: #20844b; font-size: .84rem; font-style: normal; font-weight: 700; }
+.tasting-profile-title small { color: var(--muted); font-size: .78rem; font-weight: 700; }
+/* Phones: the type cards scroll sideways instead of stacking into a long column. */
+@media (max-width: 700px) {
+  details.tasting-archive-insights > summary::after { margin-left: auto; }
+  .tasting-archive-insights-figures { margin-left: 0; }
+  .tasting-profile-grid { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(200px, 78%); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; padding-bottom: .3rem; }
+  .tasting-profile-card { scroll-snap-align: start; }
+}
+@media (prefers-reduced-motion: reduce) { details.tasting-archive-insights > summary::after { transition: none; } }
+/* The scrolling card strip must not widen the panel. */
+details.tasting-archive-insights { grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 100%; }
+details.tasting-archive-insights > * { min-width: 0; }

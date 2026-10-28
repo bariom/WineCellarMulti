@@ -142,7 +142,7 @@ test("record tasting is available from History with origin filters", async ({ pa
       return original(input, init);
     };
   });
-  await page.getByLabel("Provenienza della bevuta").selectOption("external");
+  await page.getByRole("radiogroup", { name: "Provenienza della bevuta" }).getByRole("radio", { name: "Extra cantina" }).click();
   await expect.poll(() => page.evaluate(() => (window as any).archiveUrl)).toContain("origin=external");
   await openRecordTasting(page);
   await expect(page.getByRole("dialog", { name: "Registra bevuta" })).toBeVisible();
@@ -186,7 +186,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
 for (const width of [360, 390, 430]) {
   test(`history stays within the mobile viewport ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: width === 360 ? 800 : width === 430 ? 932 : 844 });
-    const fullArchive = { ...tastingArchive, total: 32, rated_count: 29, notes_count: 19, latest_consumed_at: "2026-09-21" };
+    const fullArchive = { ...tastingArchive, total: 120, rated_count: 103, notes_count: 61, latest_consumed_at: "2026-09-21" };
     await mockApi(page, [], true, memberships, [wine], session, [], undefined, fullArchive);
     await page.goto("/");
     await page.getByRole("button", { name: "Menu", exact: true }).click();
@@ -194,7 +194,17 @@ for (const width of [360, 390, 430]) {
     const workspace = page.locator(".history-workspace");
     await expect(workspace).toBeVisible();
     await expect(workspace.getByRole("heading", { name: "Bottiglie bevute", exact: true })).toBeVisible();
+    await expect(workspace.locator(".diary-pager")).toContainText("di 120");
     await expect(workspace.locator(".pagination-bar")).toBeVisible();
+    // The compact header lets the first bottle start on the first screen, above the bottom bar.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const firstEntry = (await workspace.locator(".tasting-archive-entry").first().boundingBox())!;
+    const bottomBar = (await page.getByRole("navigation", { name: "Navigazione principale" }).boundingBox())!;
+    expect(firstEntry.y + 40).toBeLessThanOrEqual(bottomBar.y);
+    // The tasting profile starts as a one-line summary.
+    const profile = workspace.locator("details.tasting-archive-insights");
+    await expect(profile).not.toHaveAttribute("open");
+    await expect(profile.locator(".tasting-profile-grid")).toBeHidden();
 
     const viewport = page.viewportSize()!;
     for (const locator of [
@@ -202,7 +212,9 @@ for (const width of [360, 390, 430]) {
       workspace.locator(".wine-list"),
       workspace.locator(".history-section-tabs"),
       workspace.locator(".record-tasting-origin"),
-      workspace.locator(".stats-panel-wrapper"),
+      workspace.locator(".diary-summary"),
+      workspace.locator(".diary-pager"),
+      workspace.locator("details.tasting-archive-insights"),
       workspace.locator(".collection-filter-dock"),
       workspace.locator(".pagination-bar"),
       workspace.locator(".tasting-archive-entry").first(),

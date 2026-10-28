@@ -1,0 +1,160 @@
+/*
+ * Diario (history) header, compact (docs/UI_WOW_RECIPE.md). The list used to
+ * start after six stacked blocks; now: tabs, one origin row, one summary line,
+ * the title with its pager, then the entries.
+ */
+
+.history-workspace .history-section-tabs {
+  margin-bottom: 10px;
+}
+
+/* Tasting origin: one segmented row instead of a labelled select. */
+.history-workspace .diary-origin {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, auto);
+  gap: 3px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 10px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-muted) 74%, var(--surface));
+}
+
+.history-workspace .diary-origin button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+  font: 600 var(--text-sm)/1.1 var(--font-ui);
+  white-space: nowrap;
+}
+
+.history-workspace .diary-origin button.is-active {
+  color: var(--primary-contrast);
+  background: var(--primary);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+/* Summary: one line of figures instead of a panel of four large cards. */
+.history-workspace .diary-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  margin: 0 0 12px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--surface) 92%, var(--surface-raised));
+}
+
+.history-workspace .diary-summary > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.history-workspace .diary-summary dt {
+  color: var(--text-muted);
+  font: 600 var(--text-xs)/1.2 var(--font-ui);
+  letter-spacing: 0.02em;
+}
+
+.history-workspace .diary-summary dd {
+  margin: 0;
+  color: var(--text);
+  font: 500 var(--title-sm)/1.1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Title row: compact pager on the right. */
+.history-workspace .diary-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font: 600 var(--text-sm)/1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.history-workspace .diary-pager button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.history-workspace .pagination-bar {
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .authenticated-app-shell .history-workspace .diary-origin {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .authenticated-app-shell .history-workspace .diary-origin button {
+    min-width: 0;
+    padding: 0 6px;
+    font-size: var(--text-xs);
+    white-space: normal;
+  }
+
+  .authenticated-app-shell .history-workspace .diary-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+    padding: 10px 12px;
+  }
+
+  .authenticated-app-shell .history-workspace .diary-summary dd {
+    font-size: var(--text-lg);
+  }
+}
+
+/* Closed search panel and profile: one slim row each. */
+.history-workspace .filter-panel:not([open]) {
+  padding-block: 4px;
+}
+
+.history-workspace details.tasting-archive-insights {
+  margin-bottom: 10px;
+}
+
+@media (max-width: 900px) {
+  /* All four sections on one row. */
+  .authenticated-app-shell .history-workspace .history-section-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .authenticated-app-shell .history-workspace .history-section-tabs button {
+    gap: 3px;
+    min-height: 54px;
+    padding: 6px 2px;
+    font-size: .7rem;
+    line-height: 1.15;
+  }
+
+  .authenticated-app-shell .history-workspace details.tasting-archive-insights {
+    padding: .6rem .75rem;
+  }
+
+  .authenticated-app-shell .history-workspace .tasting-archive-insights-title strong {
+    font-size: .9rem;
+  }
+}

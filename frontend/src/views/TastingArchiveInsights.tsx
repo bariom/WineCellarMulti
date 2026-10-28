@@ -83,16 +83,29 @@ export default function TastingArchiveInsights({
   }, [period]);
 
   const total = profile.reduce((sum, item) => sum + item.count, 0);
+  // Gain over purchase cost, per currency, on the tastings with a known value.
+  const gains = new Map<string, number>();
+  for (const item of profile) {
+    if (!item.comparable_count) continue;
+    gains.set(item.currency, (gains.get(item.currency) || 0) + item.market_value_total - item.comparable_purchase_total);
+  }
+  const gainText = [...gains].map(([currency, gain]) => `${gain >= 0 ? "+" : ""}${formatMoney(gain, currency, locale)}`).join(" · ");
+  const typesWithSeveralCurrencies = new Set(
+    profile.map((item) => item.wine_type).filter((type, index, types) => types.indexOf(type) !== index),
+  );
 
   return (
-    <section className="tasting-archive-insights" aria-label={locale === "it" ? "Profilo storico" : "History profile"}>
-      <header>
-        <div>
-          <p className="eyebrow">{locale === "it" ? "Profilo degustazioni" : "Tasting profile"}</p>
-          <h3>{locale === "it" ? "Cosa hai bevuto e quanto valeva" : "What you drank and what it was worth"}</h3>
-        </div>
-        <span aria-live="polite">{loading ? "…" : total} {locale === "it" ? "bottiglie" : "bottles"}</span>
-      </header>
+    <details className="tasting-archive-insights" aria-label={locale === "it" ? "Profilo storico" : "History profile"}>
+      <summary>
+        <span className="tasting-archive-insights-title">
+          <span className="eyebrow">{locale === "it" ? "Profilo degustazioni" : "Tasting profile"}</span>
+          <strong>{locale === "it" ? "Cosa hai bevuto e quanto valeva" : "What you drank and what it was worth"}</strong>
+        </span>
+        <span className="tasting-archive-insights-figures" aria-live="polite">
+          <b>{loading ? "…" : total} {locale === "it" ? "bottiglie" : "bottles"}</b>
+          {gainText ? <em>{gainText} {locale === "it" ? "sul costo" : "over cost"}</em> : null}
+        </span>
+      </summary>
       <div className="tasting-profile-periods" role="group" aria-label={locale === "it" ? "Periodo di analisi" : "Analysis period"}>
         {archivePeriods.map((option) => (
           <button
@@ -113,7 +126,7 @@ export default function TastingArchiveInsights({
           return (
             <article className={`tasting-profile-card tone-${item.wine_type.toLowerCase()}`} key={`${item.wine_type}-${item.currency}`}>
               <div className="tasting-profile-title">
-                <strong>{typeLabel(item.wine_type, locale)}</strong>
+                <strong>{typeLabel(item.wine_type, locale)}{typesWithSeveralCurrencies.has(item.wine_type) ? <small> · {item.currency}</small> : null}</strong>
                 <span>{item.count} · {percentage}%</span>
               </div>
               <dl>
@@ -147,6 +160,6 @@ export default function TastingArchiveInsights({
           ? "Il valore è congelato alla registrazione della degustazione; per le degustazioni precedenti viene usata soltanto una quotazione storica già disponibile."
           : "Value is captured when the tasting is recorded; older tastings use only an already available historical valuation."}
       </p>
-    </section>
+    </details>
   );
 }

@@ -74,6 +74,7 @@ import "./components/CellarRefined.css";
 import "./components/MotionRefined.css";
 import "./components/TypographyRefined.css";
 import "./components/SurfacesRefined.css";
+import "./views/DiaryRefined.css";
 import { installPointerLight } from "./components/pointerLight";
 import { CollectorMaturity } from "./components/CollectorMaturity";
 import { highFetchPriority } from "./utils/fetchPriority";
@@ -8857,6 +8858,33 @@ export function App() {
     </>);
   }
 
+  /** Tasting archive paging: compact arrows beside the title, full buttons after the list. */
+  function renderTastingPager(position: "top" | "bottom") {
+    const first = tastingArchiveOffset + 1;
+    const last = Math.min(tastingArchiveOffset + visibleTastingEntries.length, tastingArchiveTotalCount);
+    const atStart = tastingArchiveLoading || tastingArchiveOffset <= 0;
+    const atEnd = tastingArchiveLoading || tastingArchiveOffset + visibleTastingEntries.length >= tastingArchiveTotalCount;
+    const previous = () => setTastingArchiveOffset((current) => Math.max(current - TASTING_ARCHIVE_PAGE_SIZE, 0));
+    const next = () => setTastingArchiveOffset((current) => current + TASTING_ARCHIVE_PAGE_SIZE);
+    const range = `${first}–${last} ${locale === "it" ? "di" : "of"} ${tastingArchiveTotalCount}`;
+    if (position === "top") {
+      return <div className="diary-pager" role="group" aria-label={locale === "it" ? "Pagine dell'archivio" : "Archive pages"}>
+        <span aria-live="polite">{range}</span>
+        {tastingArchiveTotalCount > TASTING_ARCHIVE_PAGE_SIZE ? <>
+          <button type="button" className="secondary compact" aria-label={t("previousPage")} disabled={atStart} onClick={previous}>‹</button>
+          <button type="button" className="secondary compact" aria-label={t("nextPage")} disabled={atEnd} onClick={next}>›</button>
+        </> : null}
+      </div>;
+    }
+    return <div className="pagination-bar">
+      <span>{t("showingResults")} {range}</span>
+      <div className="pagination-actions">
+        <button type="button" className="secondary compact" disabled={atStart} onClick={() => { previous(); window.scrollTo({ top: 0, behavior: "smooth" }); }}>{t("previousPage")}</button>
+        <button type="button" className="secondary compact" disabled={atEnd} onClick={() => { next(); window.scrollTo({ top: 0, behavior: "smooth" }); }}>{t("nextPage")}</button>
+      </div>
+    </div>;
+  }
+
   function renderWineDetail(wine: Wine) {
     return (
       <WineDetail
@@ -11599,7 +11627,13 @@ export function App() {
                 {locale === "it" ? "Vendite" : "Sales"}
               </button>
             </div>
-            {historySection === "tastings" && !offlineMode ? <label className="record-tasting-origin"><span>{locale === "it" ? "Provenienza della bevuta" : "Tasting origin"}</span><select value={tastingOrigin} onChange={event => { setTastingOrigin(event.target.value as "" | "cellar" | "external"); setTastingArchiveOffset(0); }}><option value="">{locale === "it" ? "Tutte le bevute" : "All tastings"}</option><option value="cellar">{locale === "it" ? "Dalla cantina" : "From the cellar"}</option><option value="external">{locale === "it" ? "Extra cantina" : "Outside the cellar"}</option></select></label> : null}
+            {historySection === "tastings" && !offlineMode ? <div className="record-tasting-origin diary-origin" role="radiogroup" aria-label={locale === "it" ? "Provenienza della bevuta" : "Tasting origin"}>
+              {([["", "Tutte", "All"], ["cellar", "Dalla cantina", "From the cellar"], ["external", "Extra cantina", "Outside the cellar"]] as const).map(([value, itLabel, enLabel]) => (
+                <button type="button" role="radio" aria-checked={tastingOrigin === value} className={tastingOrigin === value ? "is-active" : ""} key={value || "all"} onClick={() => { setTastingOrigin(value); setTastingArchiveOffset(0); }}>
+                  {locale === "it" ? itLabel : enLabel}
+                </button>
+              ))}
+            </div> : null}
             {historySection === "moments" ? (
               <div className="diary-moments">
                 <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} home canAccess={canAccessMemories} onActivate={openSubscriptionSettings} onRecord={canWriteWine ? () => setRecordTastingOpen(true) : undefined} /></Suspense>
@@ -11622,55 +11656,27 @@ export function App() {
                   onChanged={async () => { await loadWines(); setRestaurantDashboardVersion((current) => current + 1); }}
                 />
               </Suspense>
-            ) : <details className="stats-panel-wrapper" open>
-              <summary>{historySection === "tastings" ? t("historyTastings") : t("consumedWines")}</summary>
-              <section className="stats-panel">
-                {historySection === "tastings" ? (
-                  <>
-                    <div className="stat-card">
-                      <span>{t("tastingEntries")}</span>
-                      <strong>{formatBottleCount(tastingStats.count, locale)}</strong>
-                    </div>
-                    <div className="stat-card">
-                      <span>{t("ratedTastings")}</span>
-                      <strong>{formatBottleCount(tastingStats.rated, locale)}</strong>
-                    </div>
-                    <div className="stat-card">
-                      <span>{t("tastingNotesSaved")}</span>
-                      <strong>{formatBottleCount(tastingStats.notes, locale)}</strong>
-                    </div>
-                    <div className="stat-card compact-list ai-card">
-                      <span>{t("latestTasted")}</span>
-                      <strong>{tastingStats.latest ? formatDisplayDate(tastingStats.latest) : "-"}</strong>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="stat-card">
-                      <span>{t("consumedWines")}</span>
-                      <strong>{formatBottleCount(historyStats.count, locale)}</strong>
-                    </div>
-                    <div className="stat-card">
-                      <span>{t("sharedBottles")}</span>
-                      <strong>{formatBottleCount(historyStats.shared, locale)}</strong>
-                    </div>
-                    <div className="stat-card">
-                      <span>{t("notes")}</span>
-                      <strong>{historyStats.notes}</strong>
-                    </div>
-                    <div className="stat-card">
-                      <span>{t("scores")}</span>
-                      <strong>{historyStats.scores}</strong>
-                    </div>
-                    <div className="stat-card compact-list ai-card">
-                      <span>{t("aiReadiness")}</span>
-                      <strong>{historyStats.aiNotes} / {historyWines.length}</strong>
-                      <p>{t("aiReadinessHelp")}</p>
-                    </div>
-                  </>
-                )}
-              </section>
-            </details>}
+            ) : <dl className="diary-summary" aria-label={historySection === "tastings" ? t("historyTastings") : t("consumedWines")}>
+              {(historySection === "tastings"
+                ? [
+                  [t("tastingEntries"), formatBottleCount(tastingStats.count, locale)],
+                  [t("ratedTastings"), formatBottleCount(tastingStats.rated, locale)],
+                  [t("tastingNotesSaved"), formatBottleCount(tastingStats.notes, locale)],
+                  [t("latestTasted"), tastingStats.latest ? formatDisplayDate(tastingStats.latest) : "-"],
+                ]
+                : [
+                  [t("consumedWines"), formatBottleCount(historyStats.count, locale)],
+                  [t("sharedBottles"), formatBottleCount(historyStats.shared, locale)],
+                  [t("notes"), String(historyStats.notes)],
+                  [t("scores"), String(historyStats.scores)],
+                  [t("aiReadiness"), `${historyStats.aiNotes} / ${historyWines.length}`],
+                ]).map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>}
             </>
             ) : (
             <>
@@ -11936,7 +11942,7 @@ export function App() {
                       ? t("cellar")
                       : t("wines")}
               </h2>
-              <span>
+              {activeView === "history" && historySection === "tastings" && usingPagedTastingArchive && visibleTastingEntries.length ? renderTastingPager("top") : <span>
                 {activeView === "cellar" && maturityFilter
                   ? <>{formatBottleCount(visibleCount, locale)} {t("winesLabel")} · {formatBottleCount(filteredWineBottleCount, locale)} {t("bottles").toLowerCase()}</>
                   : activeView === "cellar" && visibleCount === activeWineCollection.length
@@ -11948,7 +11954,7 @@ export function App() {
                       ? activeWineCollection.length
                       : wishlist.length
                   } {t("records")}</>}
-              </span>
+              </span>}
               {activeView === "cellar" ? (
                 <button
                   type="button"
@@ -12033,31 +12039,7 @@ export function App() {
             ) : null}
             {activeView === "history" && historySection === "tastings" && visibleTastingEntries.length ? (
               <>
-                {usingPagedTastingArchive ? (
-                  <div className="pagination-bar">
-                    <span>
-                      {t("showingResults")} {tastingArchiveOffset + 1}-{Math.min(tastingArchiveOffset + visibleTastingEntries.length, tastingArchiveTotalCount)} / {tastingArchiveTotalCount}
-                    </span>
-                    <div className="pagination-actions">
-                      <button
-                        type="button"
-                        className="secondary compact"
-                        disabled={tastingArchiveLoading || tastingArchiveOffset <= 0}
-                        onClick={() => setTastingArchiveOffset((current) => Math.max(current - TASTING_ARCHIVE_PAGE_SIZE, 0))}
-                      >
-                        {t("previousPage")}
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary compact"
-                        disabled={tastingArchiveLoading || tastingArchiveOffset + visibleTastingEntries.length >= tastingArchiveTotalCount}
-                        onClick={() => setTastingArchiveOffset((current) => current + TASTING_ARCHIVE_PAGE_SIZE)}
-                      >
-                        {t("nextPage")}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
+
                 <Suspense fallback={<LoadingState label={t("loadingData")} />}>
                   <TastingArchiveSection
                     canGenerateAi={canGenerateAi}
@@ -12076,6 +12058,7 @@ export function App() {
                     wineTone={wineTone}
                   />
                 </Suspense>
+                {usingPagedTastingArchive && tastingArchiveTotalCount > TASTING_ARCHIVE_PAGE_SIZE ? renderTastingPager("bottom") : null}
                 {isMobileViewport && selectedVisibleWine && !wineFormOpen && !wineDetailExpanded ? (
                   <div className="mobile-inline-detail" role="dialog" aria-modal="true" aria-label={selectedVisibleWine.name} onClick={closeMobileWineDetail}>
                     <div className="mobile-detail-sheet" onClick={(event) => event.stopPropagation()}>
