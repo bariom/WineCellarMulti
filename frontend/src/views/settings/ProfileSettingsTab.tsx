@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, type Dispatch, type FormEvent, type ReactNode, type SetStateAction } from "react";
 import { aiBudgetFillRatio, formatAiBudget, formatDisplayDate } from "../../components/panelSupport";
-import { themeOptions, translate, type TranslationKey } from "../../i18n";
+import { translate, type TranslationKey } from "../../i18n";
+import { ThemePicker } from "../../components/ThemePicker";
 import { openCookieConsentSettings } from "../../services/cookieConsent";
 import type { BillingStatus, Locale, Passkey, PaymentPlan, PrimaryDashboardFocus, RedeemCode, Session, ThemePreference } from "../../types";
 
@@ -157,14 +158,7 @@ export default function ProfileSettingsTab({
               <option value="it">IT</option>
             </select>
           </label>
-          <label>
-            <span>{t("theme")}</span>
-            <select value={themePreference} onChange={(event) => void changeTheme(event.target.value as ThemePreference)}>
-              {themeOptions.map((option) => (
-                <option key={option.value} value={option.value}>{t(option.label)}</option>
-              ))}
-            </select>
-          </label>
+          <ThemePicker value={themePreference} locale={locale} onChange={(theme) => void changeTheme(theme)} />
           {tabletDevice ? <label className="tablet-layout-setting">
             <span>{locale === "it" ? "Visualizzazione su tablet" : "Tablet display"}</span>
             <select value={tabletDesktopMode ? "desktop" : "tablet"} onChange={(event) => chooseTabletLayout(event.target.value === "desktop")}>

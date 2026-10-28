@@ -1,4 +1,4 @@
-import type { Locale, ThemePreference } from "./types";
+import type { Locale } from "./types";
 import { normalizeWineType } from "./domain/wineTypes";
 
 export const translations = {
@@ -714,21 +714,9 @@ export const translations = {
     themeLight: "Light",
     themeDark: "Dark",
     themePrivateCellar: "Private cellar",
-    themeSepia: "Warm cellar",
-    themeWhiteWine: "White wine",
-    themeRedWine: "Red wine",
-    themeRoseWine: "Rose wine",
-    themeChampagne: "Champagne",
-    themeBordeaux: "Bordeaux",
-    themeBurgundy: "Burgundy",
-    themeTuscany: "Tuscany",
-    themePiedmont: "Piedmont",
-    themeTicino: "Ticino",
     themeMaisonChampagne: "Maison Champagne",
-    themePietraVigna: "Pietra & Vigna",
     themeCavePrivee: "Cave Privée",
     themeAtelier: "Collector atelier",
-    themeMidnightLedger: "Midnight ledger",
     unblockAccess: "Unblock access",
     thisMonth: "This month",
     timeline: "Timeline",
@@ -1522,21 +1510,9 @@ export const translations = {
     themeLight: "Chiaro",
     themeDark: "Scuro",
     themePrivateCellar: "Cantina privata",
-    themeSepia: "Cantina calda",
-    themeWhiteWine: "Vino bianco",
-    themeRedWine: "Vino rosso",
-    themeRoseWine: "Rosé",
-    themeChampagne: "Champagne",
-    themeBordeaux: "Bordeaux",
-    themeBurgundy: "Borgogna",
-    themeTuscany: "Toscana",
-    themePiedmont: "Piemonte",
-    themeTicino: "Ticino",
     themeMaisonChampagne: "Maison Champagne",
-    themePietraVigna: "Pietra & Vigna",
     themeCavePrivee: "Cave Privée",
     themeAtelier: "Atelier del collezionista",
-    themeMidnightLedger: "Registro notturno",
     unblockAccess: "Sblocca accesso",
     thisMonth: "Questo mese",
     timeline: "Timeline",
@@ -1633,28 +1609,6 @@ export function reasoningEffortTranslationKey(value: string | null | undefined):
     default: return "reasoningEffortUnknown";
   }
 }
-
-export const themeOptions: Array<{ value: ThemePreference; label: TranslationKey }> = [
-  { value: "system", label: "themeSystem" },
-  { value: "light", label: "themeLight" },
-  { value: "dark", label: "themeDark" },
-  { value: "private-cellar", label: "themePrivateCellar" },
-  { value: "sepia", label: "themeSepia" },
-  { value: "white-wine", label: "themeWhiteWine" },
-  { value: "red-wine", label: "themeRedWine" },
-  { value: "rose-wine", label: "themeRoseWine" },
-  { value: "champagne", label: "themeChampagne" },
-  { value: "bordeaux", label: "themeBordeaux" },
-  { value: "burgundy", label: "themeBurgundy" },
-  { value: "tuscany", label: "themeTuscany" },
-  { value: "piedmont", label: "themePiedmont" },
-  { value: "ticino", label: "themeTicino" },
-  { value: "atelier", label: "themeAtelier" },
-  { value: "maison-champagne", label: "themeMaisonChampagne" },
-  { value: "pietra-vigna", label: "themePietraVigna" },
-  { value: "cave-privee", label: "themeCavePrivee" },
-  { value: "midnight-ledger", label: "themeMidnightLedger" },
-];
 
 export function translate(locale: Locale, key: TranslationKey) {
   return (translations[locale] as Record<TranslationKey, string>)[key] || translations.en[key];

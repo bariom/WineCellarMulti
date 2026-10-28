@@ -70,7 +70,7 @@ test("desktop cellar Riserva and navigation preserve existing actions", async ({
   await expect(page.locator(".settings-tabs")).toBeVisible();
 });
 
-for (const theme of ["atelier", "midnight-ledger"]) {
+for (const theme of ["atelier", "cave-privee"]) {
   test(`desktop cellar empty English and theme ${theme}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", theme_preference: theme, locale: "en" });
@@ -577,7 +577,7 @@ for (const width of [360, 390, 430, 1440]) {
   });
 }
 
-for (const theme of ["atelier", "private-cellar", "midnight-ledger", "maison-champagne", "pietra-vigna", "cave-privee"]) {
+for (const theme of ["atelier", "private-cellar", "maison-champagne", "cave-privee"]) {
   test(`collector editorial hierarchy in ${theme}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector", theme_preference: theme });

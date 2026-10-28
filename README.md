@@ -714,9 +714,12 @@ hostname -I
 
 The current auth flow uses email/password registration, HTTP-only session cookies, and one active household per session. Legacy JSON import is scoped to the active household and requires an owner/admin role.
 
-Three additional premium themes are available in Settings > Theme: Maison Champagne
-(warm ivory), Pietra & Vigna (mineral white and pine), and Cave Privée (dark ink and
-champagne). They share the compact editorial layout and persist per user.
+Settings > Theme offers the base appearance (System, Light, Dark) and four signature
+themes shown as live previews: Collector Atelier, Maison Champagne (warm ivory), Cave
+Privée (dark ink and champagne) and Private Cellar. The choice persists per user.
+Older themes were retired on 28 Oct 2026: the server still accepts them, and the app
+shows the closest signature theme until the user picks again (see
+`frontend/src/domain/themes.ts`).
 
 ### Vinaris Ambassador
 

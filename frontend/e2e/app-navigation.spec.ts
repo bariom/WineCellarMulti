@@ -93,7 +93,7 @@ for (const width of [1100, 1440, 1920]) {
   });
 }
 
-for (const [width, theme] of [[360, "atelier"], [390, "atelier"], [430, "atelier"], [1024, "atelier"], [1440, "atelier"], [1440, "private-cellar"], [1440, "midnight-ledger"], [1440, "maison-champagne"], [1440, "pietra-vigna"], [1440, "cave-privee"]] as const) {
+for (const [width, theme] of [[360, "atelier"], [390, "atelier"], [430, "atelier"], [1024, "atelier"], [1440, "atelier"], [1440, "private-cellar"], [1440, "maison-champagne"], [1440, "cave-privee"]] as const) {
   test(`compact section header ${width} ${theme}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: width < 901 ? 844 : 1000 });
     await mockApi(page, [], false, [...memberships, { ...memberships[0], membership_id: "second", household_id: "second", household_name: "Seconda cantina" }], [wine], { ...session, theme_preference: theme });
@@ -175,7 +175,7 @@ test("header palettes stay coherent and legible across all themes", async ({ pag
   }
 });
 
-for (const theme of ["atelier", "private-cellar", "midnight-ledger", "maison-champagne", "pietra-vigna", "cave-privee"]) {
+for (const theme of ["atelier", "private-cellar", "maison-champagne", "cave-privee"]) {
   for (const width of theme === "atelier" ? [360, 390, 430, 1440] : [390, 1440]) {
     test(`Home backdrop themes ${theme} ${width}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });

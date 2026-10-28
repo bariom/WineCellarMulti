@@ -47,6 +47,7 @@ import { CollectorDashboard } from "./components/CollectorDashboard";
 import { CollectorQuadrante } from "./components/CollectorQuadrante";
 import { CellarHomeHero, CellarHomeStats, type CellarHomeHeroStat } from "./components/CellarHomeHero";
 import { CellarShowcase } from "./components/CellarShowcase";
+import { curatedTheme } from "./domain/themes";
 import { appUserRoleLabel } from "./domain/appUsers";
 import { CellarHomeBackdrop, resetHomeBackdropSession, sessionBackdropSrc } from "./components/CellarHomeBackdrop";
 import { RiservaBanner } from "./components/RiservaBanner";
@@ -2590,7 +2591,8 @@ export function App() {
   useEffect(() => {
     const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const applyTheme = () => {
-      const resolvedTheme = themePreference === "system" ? (darkQuery.matches ? "dark" : "light") : themePreference;
+      const shownTheme = curatedTheme(themePreference);
+      const resolvedTheme = shownTheme === "system" ? (darkQuery.matches ? "dark" : "light") : shownTheme;
       const root = document.documentElement;
       const commit = () => {
         root.dataset.theme = resolvedTheme;

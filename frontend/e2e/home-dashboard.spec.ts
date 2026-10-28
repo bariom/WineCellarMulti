@@ -75,7 +75,7 @@ for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "dat
   }
 }
 
-for (const theme of ["maison-champagne", "pietra-vigna", "cave-privee"]) {
+for (const theme of ["maison-champagne", "cave-privee"]) {
   for (const width of [360, 430, 1440]) {
     test(`premium theme ${theme} fits ${width}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: width === 360 ? 800 : 932 });
