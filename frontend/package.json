@@ -31,6 +31,8 @@
     "test:e2e:onboarding": "playwright test e2e/personal-onboarding.spec.ts",
     "test:e2e:intelligence": "playwright test e2e/intelligence.spec.ts",
     "test:e2e:notifications": "playwright test e2e/notifications.spec.ts",
+    "test:e2e:email-campaigns": "playwright test e2e/email-campaigns.spec.ts",
+    "email:library": "playwright test --config playwright.email-library.config.ts",
     "test:e2e:home-dashboard": "playwright test e2e/home-dashboard.spec.ts",
     "test:e2e:cellar-management": "playwright test e2e/cellar-management.spec.ts",
     "test:e2e:bottle-photo-import": "playwright test e2e/bottle-photo-import.spec.ts",

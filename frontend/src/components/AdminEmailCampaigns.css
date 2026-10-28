@@ -1,0 +1,78 @@
+/* News e-mail composer (docs/EMAIL_CAMPAIGNS.md). */
+
+.admin-email-campaigns { grid-column: 1 / -1; display: grid; gap: 18px; min-width: 0; }
+.admin-email-campaigns :is(input, textarea, select) { width: 100%; min-width: 0; box-sizing: border-box; }
+.admin-email-campaigns label { display: grid; gap: 6px; min-width: 0; }
+.admin-email-campaigns button { min-height: 44px; white-space: normal; }
+.admin-email-campaigns button.compact { min-height: 36px; }
+.email-campaigns-intro { margin: 0; color: var(--text-muted); line-height: 1.5; }
+
+.email-step { display: grid; gap: 12px; min-width: 0; padding-top: 16px; border-top: 1px solid var(--border); }
+.email-step h4 { display: flex; align-items: center; gap: 10px; margin: 0; font: 500 var(--title-sm)/1.2 var(--font-display); }
+.email-step h4 > span { display: grid; place-items: center; width: 26px; height: 26px; border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border)); border-radius: 50%; color: var(--accent); font: 700 var(--text-xs)/1 var(--font-ui); }
+
+.email-language { display: inline-grid; grid-auto-flow: column; gap: 3px; width: fit-content; padding: 3px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--surface-muted) 74%, var(--surface)); }
+.admin-email-campaigns .email-language button { min-height: 34px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); color: var(--text-muted); background: transparent; box-shadow: none; }
+.admin-email-campaigns .email-language button.is-active { color: var(--primary-contrast); background: var(--primary); }
+
+.email-blocks { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.email-block { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border)); border-left-width: 3px; border-radius: var(--radius-card); background: var(--surface); }
+.email-block.is-heading { border-left-color: var(--accent); }
+.email-block.is-image { border-left-color: var(--chart-2); }
+.email-block.is-button { border-left-color: var(--primary); }
+.email-block-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.email-block-head strong { color: var(--text-muted); font: 700 var(--text-xs)/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; }
+.email-block-tools { display: flex; gap: 4px; }
+.admin-email-campaigns .email-block-tools button { width: 36px; min-width: 36px; padding: 0; }
+.email-block.is-heading textarea { font: italic 500 1.15rem/1.3 var(--font-display); }
+.email-image-block { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px 12px; align-items: start; }
+.email-image-block > img, .email-image-missing { grid-row: span 2; width: 120px; height: 80px; object-fit: cover; border: 1px solid var(--border); border-radius: 8px; }
+.email-image-missing { display: grid; place-items: center; color: var(--text-muted); font-size: var(--text-xs); text-align: center; }
+.email-button-block { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 200px); gap: 8px 12px; }
+.email-add-blocks { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.email-library > summary, .email-history > summary { cursor: pointer; min-height: 40px; padding: 8px 0; font-weight: 600; }
+.email-library ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 6px 0 12px; padding: 0; list-style: none; }
+.email-library li { display: grid; gap: 4px; min-width: 0; }
+.email-library li img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; object-position: top; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-muted); }
+.email-library li span { font-size: var(--text-sm); overflow-wrap: anywhere; }
+.email-library li small { color: var(--text-muted); font-size: var(--text-xs); }
+.email-upload { display: grid; gap: 8px; padding: 12px; border: 1px dashed var(--border); border-radius: var(--radius-card); }
+
+.email-preview-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.email-preview-frame { width: 100%; height: 640px; border: 1px solid var(--border); border-radius: var(--radius-card); background: #f4efe4; }
+
+.email-recipient-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.email-recipient-tools input { flex: 1 1 240px; min-height: 40px; }
+.email-recipients { display: grid; gap: 4px; max-height: 320px; margin: 0; padding: 4px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-card); list-style: none; }
+.email-recipients label { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; min-height: 44px; padding: 4px 8px; border-radius: 8px; cursor: pointer; }
+.email-recipients label:hover { background: var(--surface-muted); }
+.email-recipients input { width: 18px; height: 18px; }
+.email-recipients span { display: grid; gap: 2px; min-width: 0; }
+.email-recipients strong, .email-recipients small { overflow-wrap: anywhere; }
+.email-recipients small { color: var(--text-muted); font-size: var(--text-xs); }
+.email-recipients .is-opted-out { opacity: .55; }
+.email-recipients .is-opted-out label { cursor: not-allowed; }
+.email-selection-count { margin: 0; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.email-confirm { display: grid; gap: 10px; padding: 14px; border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border)); border-radius: var(--radius-card); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.email-confirm p { margin: 0; overflow-wrap: anywhere; }
+.email-confirm > div { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.email-error { margin: 0; color: var(--danger); overflow-wrap: anywhere; }
+.email-notice { margin: 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--success) 40%, var(--border)); border-radius: var(--radius-card); overflow-wrap: anywhere; }
+.email-history ul { display: grid; gap: 8px; margin: 6px 0 0; padding: 0; list-style: none; }
+.email-history li { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-card); }
+.email-history small { color: var(--text-muted); }
+
+@media (max-width: 600px) {
+  .email-image-block, .email-button-block { grid-template-columns: minmax(0, 1fr); }
+  .email-image-block > img, .email-image-missing { grid-row: auto; width: 100%; height: 140px; }
+  .email-preview-frame { height: 520px; }
+}
+
+/* The global `label > span` uppercases field labels; recipients are names. */
+.email-recipients label > span,
+.email-recipients label > span * {
+  letter-spacing: normal;
+  text-transform: none;
+}

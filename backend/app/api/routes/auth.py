@@ -938,6 +938,7 @@ def update_preferences(
         or "personal_dashboard_widgets" in payload.model_fields_set
         or payload.market_country is not None
         or payload.onboarding_completed is not None
+        or payload.news_email_opt_out is not None
     ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo preferences are limited to language and theme")
     daily_budget_provided = "daily_wine_budget_chf" in payload.model_fields_set
@@ -945,6 +946,7 @@ def update_preferences(
     if (
         payload.locale is None
         and payload.theme_preference is None
+        and payload.news_email_opt_out is None
         and payload.dashboard_focus is None
         and payload.market_country is None
         and payload.onboarding_completed is None
@@ -962,6 +964,8 @@ def update_preferences(
         context.user.market_country = payload.market_country
     if payload.theme_preference is not None:
         context.user.theme_preference = payload.theme_preference
+    if payload.news_email_opt_out is not None:
+        context.user.news_email_opt_out = payload.news_email_opt_out
     if payload.dashboard_focus is not None:
         context.user.dashboard_focus = payload.dashboard_focus
     if daily_budget_provided:

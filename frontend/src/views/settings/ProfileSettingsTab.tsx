@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, type Dispatch, type FormEvent, type 
 import { aiBudgetFillRatio, formatAiBudget, formatDisplayDate } from "../../components/panelSupport";
 import { translate, type TranslationKey } from "../../i18n";
 import { ThemePicker } from "../../components/ThemePicker";
+import { api } from "../../services/api";
 import { openCookieConsentSettings } from "../../services/cookieConsent";
 import type { BillingStatus, Locale, Passkey, PaymentPlan, PrimaryDashboardFocus, RedeemCode, Session, ThemePreference } from "../../types";
 
@@ -159,6 +160,32 @@ export default function ProfileSettingsTab({
             </select>
           </label>
           <ThemePicker value={themePreference} locale={locale} onChange={(theme) => void changeTheme(theme)} />
+          {session?.authenticated && !session.is_demo && !offlineMode ? <label className="news-email-setting">
+            <input
+              type="checkbox"
+              checked={!session.news_email_opt_out}
+              disabled={saving}
+              onChange={async (event) => {
+                const wanted = event.currentTarget.checked;
+                // Optimistic: the box follows the click at once and reverts if saving fails.
+                setSession((current) => current ? { ...current, news_email_opt_out: !wanted } : current);
+                try {
+                  const next = await api<Session>("/api/v1/auth/preferences", { method: "PATCH", body: JSON.stringify({ news_email_opt_out: !wanted }) });
+                  setSession(next);
+                  setNotice(locale === "it"
+                    ? (wanted ? "Riceverai le novità di Vinaris via email." : "Non riceverai più le novità di Vinaris via email.")
+                    : (wanted ? "You will receive Vinaris news by e-mail." : "You will no longer receive Vinaris news by e-mail."));
+                } catch (cause) {
+                  setSession((current) => current ? { ...current, news_email_opt_out: wanted } : current);
+                  setError(cause instanceof Error ? cause.message : "Unable to save");
+                }
+              }}
+            />
+            <span>
+              <strong>{locale === "it" ? "Ricevi le novità di Vinaris via email" : "Receive Vinaris news by e-mail"}</strong>
+              <small>{locale === "it" ? "Poche email sulle nuove funzioni. Puoi disattivarle quando vuoi, anche dal link in fondo a ogni email." : "A few e-mails about new features. Turn them off at any time, also from the link at the bottom of each e-mail."}</small>
+            </span>
+          </label> : null}
           {tabletDevice ? <label className="tablet-layout-setting">
             <span>{locale === "it" ? "Visualizzazione su tablet" : "Tablet display"}</span>
             <select value={tabletDesktopMode ? "desktop" : "tablet"} onChange={(event) => chooseTabletLayout(event.target.value === "desktop")}>

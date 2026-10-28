@@ -226,3 +226,40 @@
   font-size: var(--text-sm);
   font-weight: 600;
 }
+
+/* News e-mail opt-in/out, below the theme picker in Settings → Profile. */
+.inline-form > .news-email-setting {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: var(--radius-card);
+}
+
+.inline-form > .news-email-setting input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+
+.inline-form > .news-email-setting > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.inline-form > .news-email-setting strong {
+  color: var(--text);
+  font: 600 var(--text-sm)/1.3 var(--font-ui);
+}
+
+.inline-form > .news-email-setting small {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}

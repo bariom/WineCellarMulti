@@ -65,6 +65,8 @@ class User(Base):
         DateTime(timezone=True), nullable=True
     )
     ambassador_credit_wallet: Mapped[str] = mapped_column(String(64), default="")
+    # Vinaris news e-mails go to every account unless the user opts out.
+    news_email_opt_out: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class UserMonitorDeviceToken(Base):

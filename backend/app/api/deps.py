@@ -116,6 +116,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "legal_document_version": LEGAL_DOCUMENT_VERSION,
         "locale": context.user.locale,
         "theme_preference": context.user.theme_preference,
+        "news_email_opt_out": context.user.news_email_opt_out,
         "dashboard_focus": context.user.dashboard_focus,
         "personal_dashboard_widgets": context.user.personal_dashboard_widgets,
         "daily_wine_budget_chf": context.user.daily_wine_budget_chf,

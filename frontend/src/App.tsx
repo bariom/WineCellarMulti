@@ -193,6 +193,7 @@ const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then
 const TasteProfilePanel = lazy(() => import("./components/TasteProfilePanel"));
 const AdminSensoryProfilesPanel = lazy(() => import("./components/AdminSensoryProfilesPanel"));
 const AdminAnnouncementsPanel = lazy(() => import("./components/AdminAnnouncementsPanel"));
+const AdminEmailCampaigns = lazy(() => import("./components/AdminEmailCampaigns"));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const LegalAcceptancePanel = lazy(() => import("./legal/LegalAcceptancePanel"));
@@ -2589,6 +2590,20 @@ export function App() {
       window.clearInterval(accountTimer);
     };
   }, [session?.authenticated, session?.is_app_admin, session?.membership_role, notificationTab, notificationView, notificationStateFilter, notificationsOpen, notificationCenter.items.length]);
+
+  // Links in news e-mails open a section with ?open=<view>; the parameter is
+  // consumed once the user is signed in, then removed from the address.
+  useEffect(() => {
+    if (!session?.authenticated) return;
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("open");
+    if (!requested) return;
+    const views: Record<string, ViewName> = { cellar: "cellar", wishlist: "wishlist", history: "history", pulse: "pulse", sommelier: "sommelier" };
+    if (views[requested]) setActiveView(views[requested]);
+    params.delete("open");
+    const rest = params.toString();
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
+  }, [session?.authenticated]);
 
   useEffect(() => {
     const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -12794,6 +12809,7 @@ export function App() {
               {settingsTab === "announcements" && canAppAdmin && !session?.is_demo ? (
                 <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento comunicazioni…" : "Loading announcements…"} />}>
                   <AdminAnnouncementsPanel locale={locale} />
+                  <AdminEmailCampaigns locale={locale} />
                 </Suspense>
               ) : null}
 

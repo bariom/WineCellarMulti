@@ -25,6 +25,7 @@ class SessionResponse(BaseModel):
     legal_document_version: str = ""
     locale: str = "it"
     theme_preference: str = "system"
+    news_email_opt_out: bool = False
     dashboard_focus: str = "collector"
     personal_dashboard_widgets: list[DashboardWidgetPreference] | None = None
     daily_wine_budget_chf: Decimal | None = None

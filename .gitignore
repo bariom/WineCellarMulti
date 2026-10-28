@@ -25,6 +25,7 @@ frontend/.vite/
 frontend/*.tsbuildinfo
 frontend/playwright-report/
 frontend/test-results/
+frontend/test-results-email-library/
 frontend/e2e/**/*.png-diff.png
 deploy/*.zip
 deploy/*certificate*

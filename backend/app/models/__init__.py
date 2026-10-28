@@ -13,6 +13,7 @@ from app.models.billing import (
 from app.models.cellar_ai_command import CellarAiCommand
 from app.models.coownership import CoOwnershipAgreement, CoOwnershipParticipant, CoOwnershipPayment
 from app.models.demo import DemoWineSelection
+from app.models.email_campaign import EmailAsset, EmailCampaign, EmailCampaignDelivery
 from app.models.household import Household
 from app.models.household_preferences import (
     HouseholdRegionalGapSettings,
@@ -134,4 +135,7 @@ __all__ = [
     "ExternalWineTasting",
     "WishlistItem",
     "WishlistList",
+    "EmailAsset",
+    "EmailCampaign",
+    "EmailCampaignDelivery",
 ]

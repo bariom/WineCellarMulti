@@ -1,14 +1,13 @@
+import json
 import logging
 import smtplib
 import ssl
-import json
 from email.message import EmailMessage
 from email.utils import formataddr
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.core.config import settings
-
 
 logger = logging.getLogger(__name__)
 
@@ -17,19 +16,37 @@ def build_from_header() -> str:
     return formataddr((settings.effective_from_name, settings.effective_from_email))
 
 
-def send_via_smtp(*, cleaned_recipients: list[str], subject: str, body: str) -> bool:
+def send_via_smtp(
+    *,
+    cleaned_recipients: list[str],
+    subject: str,
+    body: str,
+    html: str | None = None,
+    headers: dict[str, str] | None = None,
+) -> bool:
     message = EmailMessage()
     message["Subject"] = subject
     message["From"] = build_from_header()
     message["To"] = ", ".join(cleaned_recipients)
+    for name, value in (headers or {}).items():
+        message[name] = value
     message.set_content(body)
+    if html:
+        message.add_alternative(html, subtype="html")
 
     if settings.smtp_use_ssl:
         with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
             if settings.smtp_username:
                 smtp.login(settings.smtp_username, settings.smtp_password)
             smtp.send_message(message)
-            logger.info("Email delivered", extra={"recipients": cleaned_recipients, "subject": subject, "transport": "smtp_ssl"})
+            logger.info(
+                "Email delivered",
+                extra={
+                    "recipients": cleaned_recipients,
+                    "subject": subject,
+                    "transport": "smtp_ssl",
+                },
+            )
             return True
 
     with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
@@ -40,19 +57,36 @@ def send_via_smtp(*, cleaned_recipients: list[str], subject: str, body: str) -> 
         if settings.smtp_username:
             smtp.login(settings.smtp_username, settings.smtp_password)
         smtp.send_message(message)
-        logger.info("Email delivered", extra={"recipients": cleaned_recipients, "subject": subject, "transport": "smtp_starttls" if settings.smtp_use_tls else "smtp_plain"})
+        logger.info(
+            "Email delivered",
+            extra={
+                "recipients": cleaned_recipients,
+                "subject": subject,
+                "transport": "smtp_starttls" if settings.smtp_use_tls else "smtp_plain",
+            },
+        )
         return True
 
 
-def send_via_resend(*, cleaned_recipients: list[str], subject: str, body: str) -> bool:
-    payload = json.dumps(
-        {
-            "from": build_from_header(),
-            "to": cleaned_recipients,
-            "subject": subject,
-            "text": body,
-        }
-    ).encode("utf-8")
+def send_via_resend(
+    *,
+    cleaned_recipients: list[str],
+    subject: str,
+    body: str,
+    html: str | None = None,
+    headers: dict[str, str] | None = None,
+) -> bool:
+    message: dict[str, object] = {
+        "from": build_from_header(),
+        "to": cleaned_recipients,
+        "subject": subject,
+        "text": body,
+    }
+    if html:
+        message["html"] = html
+    if headers:
+        message["headers"] = headers
+    payload = json.dumps(message).encode("utf-8")
     request = Request(
         settings.resend_api_url,
         data=payload,
@@ -65,12 +99,25 @@ def send_via_resend(*, cleaned_recipients: list[str], subject: str, body: str) -
     )
     with urlopen(request, timeout=10) as response:
         response.read()
-    logger.info("Email delivered", extra={"recipients": cleaned_recipients, "subject": subject, "transport": "resend"})
+    logger.info(
+        "Email delivered",
+        extra={"recipients": cleaned_recipients, "subject": subject, "transport": "resend"},
+    )
     return True
 
 
-def send_email(*, recipients: list[str], subject: str, body: str) -> bool:
-    cleaned_recipients = [recipient.strip().lower() for recipient in recipients if recipient and recipient.strip()]
+def send_email(
+    *,
+    recipients: list[str],
+    subject: str,
+    body: str,
+    html: str | None = None,
+    headers: dict[str, str] | None = None,
+) -> bool:
+    """Send a plain-text e-mail, with an optional HTML alternative and extra headers."""
+    cleaned_recipients = [
+        recipient.strip().lower() for recipient in recipients if recipient and recipient.strip()
+    ]
     if not cleaned_recipients:
         logger.warning("Skipped email delivery because no recipients were provided")
         return False
@@ -89,11 +136,26 @@ def send_email(*, recipients: list[str], subject: str, body: str) -> bool:
 
     try:
         if provider == "resend":
-            return send_via_resend(cleaned_recipients=cleaned_recipients, subject=subject, body=body)
-        return send_via_smtp(cleaned_recipients=cleaned_recipients, subject=subject, body=body)
+            return send_via_resend(
+                cleaned_recipients=cleaned_recipients,
+                subject=subject,
+                body=body,
+                html=html,
+                headers=headers,
+            )
+        return send_via_smtp(
+            cleaned_recipients=cleaned_recipients,
+            subject=subject,
+            body=body,
+            html=html,
+            headers=headers,
+        )
     except HTTPError as exc:
         response_body = exc.read().decode("utf-8", errors="replace")
-        logger.exception("Failed to send email", extra={"provider": provider, "status_code": exc.code, "response_body": response_body})
+        logger.exception(
+            "Failed to send email",
+            extra={"provider": provider, "status_code": exc.code, "response_body": response_body},
+        )
         return False
     except URLError:
         logger.exception("Failed to send email", extra={"provider": provider})

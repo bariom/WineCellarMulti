@@ -17,6 +17,8 @@ export type Session = {
   legal_document_version?: string;
   locale: Locale;
   theme_preference: ThemePreference;
+  /** True when the user turned Vinaris news e-mails off (opt-out model). */
+  news_email_opt_out?: boolean;
   dashboard_focus: PrimaryDashboardFocus;
   personal_dashboard_widgets?: PersonalDashboardWidget[] | null;
   daily_wine_budget_chf: string | null;
@@ -1920,4 +1922,49 @@ export type BottlePhotoConfirmResult = {
   bottles: number;
   saved_rows: number;
   limit_reached: boolean;
+};
+
+/** News e-mail campaigns (docs/EMAIL_CAMPAIGNS.md); mirrors backend/app/schemas/email_campaign.py. */
+export type EmailBlockType = "heading" | "paragraph" | "image" | "button";
+
+export type EmailBlock = {
+  type: EmailBlockType;
+  text: string;
+  asset_id: string;
+  caption: string;
+  path: string;
+};
+
+export type EmailDraft = {
+  locale: Locale;
+  subject: string;
+  preheader: string;
+  blocks: EmailBlock[];
+};
+
+export type EmailAssetItem = {
+  id: string;
+  kind: "library" | "upload";
+  title: string;
+  description: string;
+  url: string;
+};
+
+export type EmailRecipient = {
+  id: string;
+  display_name: string;
+  email: string;
+  locale: string;
+  opted_out: boolean;
+};
+
+export type EmailCampaignSummary = {
+  id: string;
+  subject: string;
+  locale: string;
+  recipient_count: number;
+  sent_count: number;
+  failed_count: number;
+  created_at: string;
+  finished_at: string | null;
 };

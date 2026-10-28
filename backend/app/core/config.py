@@ -116,6 +116,7 @@ class Settings(BaseSettings):
     wine_recognition_timeout_seconds: int = 45
     wine_photo_storage_dir: str = "data/wine-photos"
     purchase_document_storage_dir: str = "data/purchase-documents"
+    email_asset_storage_dir: str = "data/email-assets"
     wine_photo_ai_enabled: bool = True
     wine_photo_ai_model: str = "birefnet-general-lite"
     wine_photo_ai_max_input_bytes: int = 12_000_000
