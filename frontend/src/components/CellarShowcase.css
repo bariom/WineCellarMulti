@@ -174,13 +174,42 @@
   .cellar-showcase-card:active { transform: none; transition: none; }
 }
 
-/* Drawn bottle for wines without a photo: same footprint as a photo. */
+/* Every card has the same height and the same bottle stage, photo or not. */
+.cellar-showcase-track > [role="listitem"] { display: flex; }
+.cellar-showcase-card { height: 100%; }
+.cellar-showcase-stage { height: 156px; }
+
+/* Drawn illustration for wines without a photo, contained in the photo's footprint. */
 .cellar-showcase-bottle--drawn {
   display: grid;
   place-items: center;
   width: 96px;
   height: 120px;
-  color: color-mix(in srgb, var(--wine-tone, var(--accent)) 70%, var(--text));
-  filter: drop-shadow(0 10px 12px color-mix(in srgb, var(--collector-depth, #000) 45%, transparent));
+  overflow: hidden;
+  filter: drop-shadow(0 10px 12px color-mix(in srgb, var(--collector-depth, #000) 35%, transparent));
 }
-.cellar-showcase-bottle--drawn > * { width: 100%; height: 100%; }
+/* Generic rules size .key-position-bottle-visual at 140-180 px depending on the
+ * layout; scoped this deep, the showcase keeps it inside the photo footprint. */
+.cellar-showcase .cellar-showcase-card .cellar-showcase-bottle--drawn > .key-position-bottle-visual,
+.cellar-showcase .cellar-showcase-card .cellar-showcase-bottle--drawn .key-position-wine-illustration {
+  min-height: 0;
+  max-height: 120px;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+/* Scoped under .cellar-showcase so it always beats the generic
+ * `.key-position-wine-illustration svg { width: 100%; height: auto }` and the
+ * editorial home's 90x140 sizing, whatever order the stylesheets load in. */
+.cellar-showcase .cellar-showcase-card .cellar-showcase-bottle--drawn .key-position-wine-illustration svg {
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  max-height: 120px;
+}
