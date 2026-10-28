@@ -123,3 +123,57 @@ test("a multi-page restaurant wine list can be scanned and questioned", async ({
     if (width === 390 || width === 1440) await chat.screenshot({ path: testInfo.outputPath(`restaurant-chat-${width}.png`) });
   }
 });
+
+test("restaurant picks with glass and bottle prices stay readable inside their cards", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page, [], true, memberships, [wine], session);
+  await page.addInitScript(() => {
+    const previous = window.fetch;
+    const chablis = { name: "AOC Chablis Réserve de Vaudon “Joseph Drouhin”", producer: "Joseph Drouhin", vintage: "", price_text: "Calice 1 dl CHF 13; bottiglia 0,75 l CHF 70", style: "Bianco; Chablis" };
+    const rose = { name: "Pinot Nero Rosato", producer: "Cantina D", vintage: "2023", price_text: "CHF 58", style: "Rosato" };
+    window.fetch = async (input, init) => {
+      const path = new URL(String(input), location.href).pathname;
+      if (path === "/api/v1/ai/restaurant-wine-list/scan" && init?.method === "POST") {
+        return Response.json({
+          summary: "Trascrizione delle voci leggibili nelle due pagine nell’ordine fornito. Per l’insalata di legumi, le opzioni più adatte entro CHF 120 sono bianchi freschi e un rosato di Pinot Nero.",
+          extracted_text: "Chablis", wines: [chablis, rose], taste_profile_applied: true, model: "gpt-6-luna", reasoning_effort: "low", estimated_cost_usd: "0.01",
+          recommendations: [
+            { ...chablis, reason: "Chablis: la freschezza e la sapidità possono accompagnare bene i legumi; bottiglia entro budget.", serving_note: "Servire il Chablis e il Pouilly-Fumé ben freschi.", taste_affinity: 3 },
+            { ...rose, reason: "Rosato fragrante.", serving_note: "", taste_affinity: 4 },
+          ],
+        });
+      }
+      return previous(input, init);
+    };
+  });
+  await page.goto("/");
+  await openSommelierFeature(page, /^Al ristorante/);
+  await page.getByRole("button", { name: /^Analizza una carta vini/ }).click();
+  await page.locator(".restaurant-wine-list-upload-button input").setInputFiles([{ name: "carta.jpg", mimeType: "image/jpeg", buffer: Buffer.from("jpeg") }]);
+  await page.getByRole("button", { name: "Analizza carta vini", exact: true }).click();
+  const picks = page.locator(".restaurant-wine-list-recommendations");
+  await expect(picks.getByText("AOC Chablis Réserve de Vaudon “Joseph Drouhin”", { exact: true })).toBeVisible();
+
+  const inside = (inner: { x: number; width: number }, outer: { x: number; width: number }) => inner.x >= outer.x - 0.5 && inner.x + inner.width <= outer.x + outer.width + 0.5;
+  const overlap = (a: { x: number; y: number; width: number; height: number }, b: typeof a) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+  for (const [width, height] of [[360, 800], [390, 844], [430, 932], [1440, 900]]) {
+    await page.setViewportSize({ width, height });
+    const result = (await page.locator(".restaurant-wine-list-result").boundingBox())!;
+    expect(result.x + result.width).toBeLessThanOrEqual(width);
+    for (const paragraph of await page.locator(".restaurant-wine-list-result > p").all()) {
+      expect(inside((await paragraph.boundingBox())!, result)).toBe(true);
+    }
+    const card = picks.locator("article").first();
+    const cardBox = (await card.boundingBox())!;
+    const name = (await card.locator(".restaurant-wine-list-recommendation-head strong").boundingBox())!;
+    const price = (await card.locator(".restaurant-wine-list-recommendation-head > b").boundingBox())!;
+    expect(overlap(name, price)).toBe(false);
+    // The name keeps a readable measure instead of one word per line.
+    expect(name.width).toBeGreaterThanOrEqual(Math.min(220, cardBox.width * 0.55));
+    for (const part of [name, price, (await card.locator("p").boundingBox())!, (await card.locator("small").boundingBox())!]) {
+      expect(inside(part, cardBox)).toBe(true);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width === 390 || width === 1440) await picks.screenshot({ path: testInfo.outputPath(`restaurant-picks-${width}.png`) });
+  }
+});

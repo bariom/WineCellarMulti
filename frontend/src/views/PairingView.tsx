@@ -5,6 +5,7 @@ import { AiActivity } from "../components/AiActivity";
 import { WineListChat } from "../components/WineListChat";
 import { reasoningEffortTranslationKey } from "../i18n";
 import type { RestaurantWineListQuestionPayload, RestaurantWineListQuestionResult, RestaurantWineListScanResult } from "../types";
+import "./RestaurantWineListRefined.css";
 
 type WineLike = {
   id: string;
@@ -331,7 +332,7 @@ export default function PairingView({
           </header>
           {restaurantScan.summary ? <p className="restaurant-wine-list-summary">{restaurantScan.summary}</p> : null}
           {restaurantScan.recommendations.length ? <section className="restaurant-wine-list-recommendations"><h4>{locale === "it" ? "Le scelte più affini" : "Best-fitting choices"}</h4>{restaurantScan.recommendations.map((wine, index) => <article key={`${wine.name}-${index}`}>
-            <div className="restaurant-wine-list-recommendation-head"><span className="restaurant-wine-list-rank">{String(index + 1).padStart(2, "0")}</span><div><strong>{wine.name}</strong><span>{[wine.producer, wine.vintage, wine.style].filter(Boolean).join(" · ")}</span>{wine.taste_affinity > 0 ? <span className="restaurant-taste-affinity" aria-label={locale === "it" ? `Affinità AI con il tuo gusto: ${wine.taste_affinity} su 6` : `AI taste affinity: ${wine.taste_affinity} out of 6`}>{Array.from({ length: 6 }, (_, heart) => <i key={heart} className={heart < wine.taste_affinity ? "filled" : ""} aria-hidden="true">♥</i>)}</span> : null}</div>{wine.price_text ? <b>{wine.price_text}</b> : null}</div>
+            <div className="restaurant-wine-list-recommendation-head"><span className="restaurant-wine-list-rank">{String(index + 1).padStart(2, "0")}</span><div><strong>{wine.name}</strong><span>{[wine.producer, wine.vintage, wine.style].filter(Boolean).join(" · ")}</span>{wine.taste_affinity > 0 ? <span className="restaurant-taste-affinity" aria-label={locale === "it" ? `Affinità AI con il tuo gusto: ${wine.taste_affinity} su 6` : `AI taste affinity: ${wine.taste_affinity} out of 6`}>{Array.from({ length: 6 }, (_, heart) => <i key={heart} className={heart < wine.taste_affinity ? "filled" : ""} aria-hidden="true">♥</i>)}</span> : null}</div>{wine.price_text ? <b className="restaurant-wine-list-price">{wine.price_text.split(/\s*;\s*/).filter(Boolean).map((part, partIndex) => <span key={partIndex}>{part}</span>)}</b> : null}</div>
             <p>{wine.reason}</p>{wine.serving_note ? <small><span>{locale === "it" ? "Servizio" : "Service"}</span>{wine.serving_note}</small> : null}
           </article>)}</section> : null}
           {restaurantScan.wines.length ? <WineListChat key={restaurantScanKey} locale={locale} canGenerateAi={canGenerateAi} wines={restaurantScan.wines} dish={restaurantDish} maxPriceChf={restaurantBudget} ignorePreferences={restaurantIgnoreTaste} setting="restaurant" suggestions={restaurantQuestionSuggestions} scope={locale === "it" ? `Risponde solo sui ${restaurantScan.wines.length} vini letti nella carta.` : `Answers only about the ${restaurantScan.wines.length} wines read from the list.`} onAsk={onAskRestaurantWineList} /> : null}
