@@ -16,8 +16,12 @@ function breakdownColor(label: string, index: number, mode: "type" | "region") {
     if (tone === "sweet") return "#d98936";
     return "#5b8f7d";
   }
-  const palette = ["#2f6f5e", "#9a8549", "#b55d5d", "#6f8ea8", "#8c6cb5", "#5b8f7d"];
-  return palette[index % palette.length];
+  // Regions have no colour of their own: categorical series from tokens.css, in fixed order.
+  const palette = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)", "var(--chart-6)"];
+  // Never cycle hues: the smallest regions beyond the sixth get neutral greys,
+  // named by the legend, instead of repeating the first series' colours.
+  if (index < palette.length) return palette[index];
+  return `color-mix(in srgb, var(--text-muted) ${index === palette.length ? 75 : 45}%, var(--surface))`;
 }
 
 function breakdownDonutSegments(items: ValueBreakdownItem[], mode: "type" | "region") {

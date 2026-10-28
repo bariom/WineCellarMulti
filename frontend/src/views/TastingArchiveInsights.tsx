@@ -95,7 +95,7 @@ export default function TastingArchiveInsights({
   );
 
   return (
-    <details className="tasting-archive-insights" aria-label={locale === "it" ? "Profilo storico" : "History profile"}>
+    <details className="tasting-archive-insights" aria-label={locale === "it" ? "Profilo storico" : "Tasting history profile"}>
       <summary>
         <span className="tasting-archive-insights-title">
           <span className="eyebrow">{locale === "it" ? "Profilo degustazioni" : "Tasting profile"}</span>
@@ -103,7 +103,7 @@ export default function TastingArchiveInsights({
         </span>
         <span className="tasting-archive-insights-figures" aria-live="polite">
           <b>{loading ? "…" : total} {locale === "it" ? "bottiglie" : "bottles"}</b>
-          {gainText ? <em>{gainText} {locale === "it" ? "sul costo" : "over cost"}</em> : null}
+          {gainText ? <em>{gainText} {locale === "it" ? "sul costo" : "vs. purchase cost"}</em> : null}
         </span>
       </summary>
       <div className="tasting-profile-periods" role="group" aria-label={locale === "it" ? "Periodo di analisi" : "Analysis period"}>

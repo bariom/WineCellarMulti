@@ -9,20 +9,23 @@ export default function WishlistOverview({ locale, lists, selectedId, onSelect, 
   onSaveWine: () => void; onOffer: () => void; onStrategy: () => void; t: (key: TranslationKey) => string;
 }) {
   const it = locale === "it";
+  // With wines in the list the guidance has done its job: the overview shrinks
+  // to its title and one-line actions, so the list starts on the first screen.
+  const compact = count > 0;
   const actions = [
     { title: it ? "Salva un vino" : "Save a wine", description: it ? "Un vino da ricordare, provare o acquistare." : "A wine to remember, taste or buy.", action: onSaveWine, disabled: !canWrite },
     { title: it ? "Valuta un’offerta" : "Evaluate an offer", description: it ? "Inserisci vino e prezzo. Dopo il salvataggio, confronta l’offerta con il mercato." : "Enter the wine and price. After saving, compare the offer with the market.", action: onOffer, disabled: !canWrite },
     { title: it ? "Pianifica gli acquisti" : "Plan your purchases", description: it ? "Confronta i vini di questa lista e scegli le priorità con l’AI." : "Compare wines in this list and choose priorities with AI.", action: onStrategy, disabled: count === 0 },
   ];
-  return <section className="wishlist-overview" aria-label={it ? "La tua wishlist" : "Your wishlist"}>
+  return <section className={`wishlist-overview${compact ? " is-compact" : ""}`} aria-label={it ? "La tua wishlist" : "Your wishlist"}>
     <header>
       <span className="eyebrow">{it ? "Dall’idea al prossimo calice" : "From an idea to your next glass"}</span>
       <h2>{it ? "Vini da scoprire e da scegliere" : "Wines to discover and choose"}</h2>
-      <p>{it ? "Salva ciò che ti incuriosisce. Puoi valutarlo, assaggiarlo o acquistarlo quando vuoi." : "Save what catches your eye. Evaluate, taste or buy it whenever you like."}</p>
+      {compact ? null : <p>{it ? "Salva ciò che ti incuriosisce. Puoi valutarlo, assaggiarlo o acquistarlo quando vuoi." : "Save what catches your eye. Evaluate, taste or buy it whenever you like."}</p>}
     </header>
     <div className="wishlist-start-actions" aria-label={it ? "Cosa vuoi fare?" : "What would you like to do?"}>
       {actions.map((item, index) => <button key={index} type="button" className="secondary" onClick={item.action} disabled={saving || item.disabled}>
-        <span className="wishlist-start-number" aria-hidden="true">0{index + 1}</span><span><strong>{item.title}</strong><small>{item.description}</small></span><span aria-hidden="true">→</span>
+        <span className="wishlist-start-number" aria-hidden="true">0{index + 1}</span><span><strong>{item.title}</strong>{compact ? null : <small>{item.description}</small>}</span><span aria-hidden="true">→</span>
       </button>)}
     </div>
     {!canWrite ? <p className="wishlist-start-hint">{it ? "Hai accesso in lettura: puoi consultare i vini e i consigli già salvati. Per aggiungere vini o registrare acquisti e assaggi serve il permesso di modifica." : "You have read-only access to wines and saved advice. Adding wines or recording purchases and tastings requires editing permission."}</p>
@@ -40,6 +43,6 @@ export default function WishlistOverview({ locale, lists, selectedId, onSelect, 
         <dl><div><dt>{t("wishlistItems")}</dt><dd>{count}</dd></div><div><dt>{t("targetValue")}</dt><dd>{targetValue}</dd></div><div><dt>{t("highPriority")}</dt><dd>{highPriority}</dd></div><div><dt>{t("readyToBuy")}</dt><dd>{readyToBuy}</dd></div></dl>
       </details>
     </div>
-    {count > 0 ? <p className="wishlist-next-step">{it ? "Apri un vino per analizzare l’offerta o registrare un assaggio. “Registra acquisto” aggiunge le bottiglie alla cantina; l’assaggio salva solo la tua esperienza." : "Open a wine to analyse the offer or record a tasting. “Record purchase” adds bottles to your cellar; a tasting only saves your experience."}</p> : null}
+    {count > 0 && !compact ? <p className="wishlist-next-step">{it ? "Apri un vino per analizzare l’offerta o registrare un assaggio. “Registra acquisto” aggiunge le bottiglie alla cantina; l’assaggio salva solo la tua esperienza." : "Open a wine to analyse the offer or record a tasting. “Record purchase” adds bottles to your cellar; a tasting only saves your experience."}</p> : null}
   </section>;
 }

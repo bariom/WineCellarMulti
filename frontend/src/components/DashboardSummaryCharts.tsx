@@ -26,8 +26,8 @@ export function SummaryRadar({ items, label }: { items: SummarySlice[]; label: s
     <title id={titleId}>{label}: {items.map(item => `${item.label} ${Math.round(item.value)} / 100`).join(", ")}</title>
     {[.25, .5, .75, 1].map(ratio => <polygon key={ratio} points={items.map((_, index) => point(index, ratio * 78).join(",")).join(" ")} fill="none" stroke="var(--border)" strokeDasharray={ratio === .5 ? "3 3" : undefined} />)}
     {items.map((item, index) => { const [x, y] = point(index, 105); return <g key={item.label}><line x1="160" y1="125" x2={point(index, 78)[0]} y2={point(index, 78)[1]} stroke="var(--border)" /><text x={x} y={y} textAnchor={x < 145 ? "end" : x > 175 ? "start" : "middle"} dominantBaseline="middle">{item.label}</text></g>; })}
-    <polygon points={items.map((item, index) => point(index, Math.max(0, Math.min(100, item.value)) * .78).join(",")).join(" ")} fill="#426b5a33" stroke="#426b5a" strokeWidth="2.5" />
-    {items.map((item, index) => <circle key={item.label} cx={point(index, item.value * .78)[0]} cy={point(index, item.value * .78)[1]} r="3" fill="#426b5a" />)}
+    <polygon points={items.map((item, index) => point(index, Math.max(0, Math.min(100, item.value)) * .78).join(",")).join(" ")} fill="color-mix(in srgb, var(--primary) 20%, transparent)" stroke="var(--primary)" strokeWidth="2" />
+    {items.map((item, index) => <circle key={item.label} cx={point(index, item.value * .78)[0]} cy={point(index, item.value * .78)[1]} r="4" fill="var(--primary)" stroke="var(--surface)" strokeWidth="2" />)}
   </svg>;
 }
 

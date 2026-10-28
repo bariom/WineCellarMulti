@@ -58,6 +58,6 @@ export function ThemePicker({ value, locale, disabled = false, onChange }: { val
     </div>
     {selected !== value ? <small className="theme-picker-note">{it
       ? "Il tema che usavi è stato ritirato: ti mostriamo il più simile. Sceglierne uno lo salva."
-      : "The theme you used has been retired: you are seeing the closest one. Picking a theme saves it."}</small> : null}
+      : "The theme you had chosen has been retired, so you are seeing the closest one. Pick a theme to save it."}</small> : null}
   </fieldset>;
 }

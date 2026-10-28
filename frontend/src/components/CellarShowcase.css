@@ -173,3 +173,14 @@
   .cellar-showcase-card,
   .cellar-showcase-card:active { transform: none; transition: none; }
 }
+
+/* Drawn bottle for wines without a photo: same footprint as a photo. */
+.cellar-showcase-bottle--drawn {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 120px;
+  color: color-mix(in srgb, var(--wine-tone, var(--accent)) 70%, var(--text));
+  filter: drop-shadow(0 10px 12px color-mix(in srgb, var(--collector-depth, #000) 45%, transparent));
+}
+.cellar-showcase-bottle--drawn > * { width: 100%; height: 100%; }

@@ -33,3 +33,23 @@
   .wine-list .wishlist-row > .wine-row-main, .wine-list .wishlist-row > .wishlist-price-block, .wine-list .wishlist-row > .wishlist-row-actions { grid-column: 1; grid-row: auto; }
   .wine-list .wishlist-row > .wishlist-row-actions { display: grid; grid-template-columns: 1fr 1.4fr 1fr; }
 }
+
+/* Compact overview once the list has wines (docs/UI_WOW_RECIPE.md): title and
+ * one-line actions, list picker beside them on wide screens. */
+.wishlist-overview.is-compact { gap: 12px; padding: 14px 16px; }
+.wishlist-overview.is-compact header { display: grid; gap: 2px; }
+.wishlist-overview.is-compact h2 { margin: 0; font-size: var(--title-sm); }
+.wishlist-overview.is-compact .wishlist-start-actions > button { min-height: 44px; padding: 8px 12px; }
+.wishlist-overview.is-compact .wishlist-start-actions strong { font-size: .9rem; }
+.wishlist-overview.is-compact .wishlist-overview-list { gap: 8px; padding-top: 10px; }
+.wishlist-overview.is-compact .wishlist-overview-list select { min-height: 40px; }
+.wishlist-overview.is-compact .wishlist-list-options > summary { min-height: 36px; padding: 6px 0; }
+@media (min-width: 1100px) {
+  .wishlist-overview.is-compact { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; column-gap: 24px; }
+  .wishlist-overview.is-compact header { grid-column: 1 / -1; }
+  .wishlist-overview.is-compact .wishlist-start-actions { grid-template-columns: minmax(0, 1fr); }
+  .wishlist-overview.is-compact .wishlist-start-actions > button { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .wishlist-overview.is-compact .wishlist-start-actions > button > span:last-child { display: inline; }
+  .wishlist-overview.is-compact .wishlist-overview-list { border-top: 0; padding-top: 0; }
+  .wishlist-overview.is-compact .wishlist-start-hint { grid-column: 1 / -1; }
+}

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, type CSSProperties, type PointerEvent } from
 import { ScrollControls, useHorizontalScroll } from "./HorizontalScroll";
 import type { Locale, Wine } from "../types";
 import { formatMoney, wineTone } from "./panelSupport";
+import { KeyPositionBottleVisual } from "./KeyPositionCardParts";
 import "./CellarShowcase.css";
 
 const SHOWCASE_SIZE = 5;
@@ -14,15 +15,16 @@ function unitValue(wine: Wine) {
 }
 
 /**
- * Home showcase (docs/UI_WOW_RECIPE.md): the most valuable bottles in stock
- * that have a photo, falling back to the most recently added. Hidden when
- * fewer than two bottles can be shown, so the home never opens on a half-empty shelf.
+ * Home showcase (docs/UI_WOW_RECIPE.md): the most valuable bottles in stock,
+ * falling back to the most recently added. Bottles without a photo show the
+ * drawn bottle in their colour. Hidden with fewer than two bottles, so the
+ * home never opens on a half-empty shelf.
  */
 export function CellarShowcase({ wines, locale, onOpenWine }: { wines: Wine[]; locale: Locale; onOpenWine: (wine: Wine) => void }) {
   const showcase = useMemo(() => {
-    const withPhoto = wines.filter((wine) => wine.quantity > 0 && (wine.photo_detail_url || wine.photo_thumbnail_url));
-    const valued = withPhoto.filter((wine) => unitValue(wine) > 0).sort((a, b) => unitValue(b) - unitValue(a));
-    const recent = withPhoto
+    const inStock = wines.filter((wine) => wine.quantity > 0);
+    const valued = inStock.filter((wine) => unitValue(wine) > 0).sort((a, b) => unitValue(b) - unitValue(a));
+    const recent = inStock
       .filter((wine) => !valued.includes(wine))
       .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
     return [...valued, ...recent].slice(0, SHOWCASE_SIZE);
@@ -97,8 +99,10 @@ function CellarShowcaseRail({ showcase, locale, onOpenWine }: { showcase: Wine[]
             aria-label={[wine.name, wine.vintage, wine.producer].filter(Boolean).join(", ")}
           >
             <span className="cellar-showcase-stage" aria-hidden="true">
-              <img className="cellar-showcase-bottle" src={photo} alt="" loading={index < 2 ? "eager" : "lazy"} decoding="async" />
-              <span className="cellar-showcase-reflection"><img src={photo} alt="" loading="lazy" decoding="async" /></span>
+              {photo ? <>
+                <img className="cellar-showcase-bottle" src={photo} alt="" loading={index < 2 ? "eager" : "lazy"} decoding="async" />
+                <span className="cellar-showcase-reflection"><img src={photo} alt="" loading="lazy" decoding="async" /></span>
+              </> : <span className="cellar-showcase-bottle cellar-showcase-bottle--drawn"><KeyPositionBottleVisual photoUrl="" sizes="96px" tone={wineTone(wine.type)} /></span>}
             </span>
             <span className="cellar-showcase-copy">
               <strong>{wine.name}</strong>

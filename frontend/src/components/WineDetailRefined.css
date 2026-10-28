@@ -619,3 +619,48 @@
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------------------
+ * Secondary sections (01-07) in the hero's language: gold hairline, the
+ * +/- marker in a small ring, and a gold rule on the open section.
+ * ---------------------------------------------------------------------- */
+
+.wine-detail.wine-detail > details[data-wine-detail-section] {
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.wine-detail.wine-detail > details[data-wine-detail-section][open] {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.wine-detail.wine-detail > details[data-wine-detail-section] > .wine-detail-structured-summary::after {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: .95rem;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.wine-detail.wine-detail > details[data-wine-detail-section][open] > .wine-detail-structured-summary::after {
+  color: var(--surface);
+  background: var(--accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wine-detail.wine-detail > details[data-wine-detail-section]:not([open]):hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wine-detail.wine-detail > details[data-wine-detail-section],
+  .wine-detail.wine-detail > details[data-wine-detail-section] > .wine-detail-structured-summary::after {
+    transition: none;
+  }
+}

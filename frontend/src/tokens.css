@@ -44,4 +44,26 @@
   --hairline-gold: color-mix(in srgb, var(--accent) 38%, transparent);
   --glow-gold: 0 0 0 1px var(--hairline-gold), 0 0 28px color-mix(in srgb, var(--accent) 22%, transparent);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+
+  /* Categorical chart series, fixed order (ruby, blue, gold, green, violet,
+   * rose). Validated with the dataviz palette checks: lightness band, chroma,
+   * colour-blind separation of neighbours and contrast. Gold and rose sit under
+   * 3:1 on light surfaces, so charts using them always show labels or values. */
+  --chart-1: #b8304d;
+  --chart-2: #2a78d6;
+  --chart-3: #c98a12;
+  --chart-4: #16865b;
+  --chart-5: #7a52c7;
+  --chart-6: #e3708f;
+}
+
+/* Dark themes: the same hues stepped for dark surfaces (checked on dark,
+ * private-cellar and cave-privee); all clear 3:1. */
+:root[data-theme-tone="dark"] {
+  --chart-1: #e0566f;
+  --chart-2: #4a90e2;
+  --chart-3: #bb8a18;
+  --chart-4: #22a170;
+  --chart-5: #9a7ae0;
+  --chart-6: #d26a89;
 }

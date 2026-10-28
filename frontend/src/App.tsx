@@ -11628,7 +11628,7 @@ export function App() {
               </button>
             </div>
             {historySection === "tastings" && !offlineMode ? <div className="record-tasting-origin diary-origin" role="radiogroup" aria-label={locale === "it" ? "Provenienza della bevuta" : "Tasting origin"}>
-              {([["", "Tutte", "All"], ["cellar", "Dalla cantina", "From the cellar"], ["external", "Extra cantina", "Outside the cellar"]] as const).map(([value, itLabel, enLabel]) => (
+              {([["", "Tutte", "All"], ["cellar", "Dalla cantina", "From my cellar"], ["external", "Extra cantina", "Elsewhere"]] as const).map(([value, itLabel, enLabel]) => (
                 <button type="button" role="radio" aria-checked={tastingOrigin === value} className={tastingOrigin === value ? "is-active" : ""} key={value || "all"} onClick={() => { setTastingOrigin(value); setTastingArchiveOffset(0); }}>
                   {locale === "it" ? itLabel : enLabel}
                 </button>

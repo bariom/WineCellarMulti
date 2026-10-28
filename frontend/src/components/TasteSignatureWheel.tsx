@@ -101,7 +101,7 @@ export default function TasteSignatureWheel({ dimensions, labels, locale, shareT
         : (it ? `Preferenze personali · scala ingrandita ${scaleMin}–${scaleMax}` : `Personal preferences · zoomed scale ${scaleMin}–${scaleMax}`)}</small></figcaption>
     {shareTitle && points.length ? <div className="taste-wheel-share">
       <button type="button" className="secondary compact" disabled={sharing} onClick={() => void share()}>
-        {sharing ? (it ? "Preparo l'immagine…" : "Preparing image…") : (it ? "Condividi il mio profilo" : "Share my profile")}
+        {sharing ? (it ? "Preparo l'immagine…" : "Preparing the image…") : (it ? "Condividi il mio profilo" : "Share my profile")}
       </button>
       {shareFailed ? <small role="alert">{it ? "Impossibile creare l'immagine su questo dispositivo." : "Could not create the image on this device."}</small> : null}
     </div> : null}

@@ -57,7 +57,8 @@ export function useDashboardResource<T>(url: string | null) {
 }
 
 export type SummarySlice = { label: string; value: number; color?: string };
-export const summaryPalette = ["#426b5a", "#ac7841", "#8b405a", "#65889b", "#a29367", "#7e7294"];
+/** Categorical series colours from tokens.css (--chart-1..6), in fixed order. */
+export const summaryPalette = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)", "var(--chart-6)"];
 export function sumBottles(wines: Wine[]) { return wines.reduce((sum, wine) => sum + Math.max(0, wine.quantity), 0); }
 export function recordedValue(wine: Wine) {
   const current = Number(wine.current_value);
