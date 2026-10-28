@@ -714,9 +714,10 @@ hostname -I
 
 The current auth flow uses email/password registration, HTTP-only session cookies, and one active household per session. Legacy JSON import is scoped to the active household and requires an owner/admin role.
 
-Settings > Theme offers the base appearance (System, Light, Dark) and four signature
-themes shown as live previews: Collector Atelier, Maison Champagne (warm ivory), Cave
-Privée (dark ink and champagne) and Private Cellar. The choice persists per user.
+Settings > Theme offers the base appearance (System, Light, Dark) and five signature
+themes shown as live previews: Collector Atelier, Pietra & Vigna (mineral white and
+pine), Maison Champagne (warm ivory), Cave Privée (dark ink and champagne) and Private
+Cellar. The choice persists per user.
 Older themes were retired on 28 Oct 2026. Migration `0127_retire_themes` stores
 existing choices as the closest signature theme; the API still accepts the old
 values from cached clients and stores them the same way (`backend/app/core/themes.py`,

@@ -9,6 +9,7 @@ const LABELS: Partial<Record<ThemePreference, TranslationKey>> = {
   light: "themeLight",
   dark: "themeDark",
   atelier: "themeAtelier",
+  "pietra-vigna": "themePietraVigna",
   "maison-champagne": "themeMaisonChampagne",
   "cave-privee": "themeCavePrivee",
   "private-cellar": "themePrivateCellar",

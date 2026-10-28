@@ -28,9 +28,9 @@ for (const width of [360, 390, 430, 1440]) {
     await mockApi(page, [], false, memberships, [wine], { ...session, theme_preference: "system" });
     await page.goto("/");
     const picker = await openSettings(page, width);
-    await expect(picker.getByRole("radio")).toHaveCount(7);
+    await expect(picker.getByRole("radio")).toHaveCount(8);
     await expect(picker.getByRole("radio", { name: "Sistema", exact: true })).toBeChecked();
-    for (const name of ["Atelier del collezionista", "Maison Champagne", "Cave Privée", "Cantina privata"]) {
+    for (const name of ["Atelier del collezionista", "Pietra & Vigna", "Maison Champagne", "Cave Privée", "Cantina privata"]) {
       await expect(picker.getByRole("radio", { name, exact: true })).toBeAttached();
     }
     await picker.scrollIntoViewIfNeeded();

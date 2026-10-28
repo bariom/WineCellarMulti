@@ -577,7 +577,7 @@ for (const width of [360, 390, 430, 1440]) {
   });
 }
 
-for (const theme of ["atelier", "private-cellar", "maison-champagne", "cave-privee"]) {
+for (const theme of ["atelier", "private-cellar", "maison-champagne", "pietra-vigna", "cave-privee"]) {
   test(`collector editorial hierarchy in ${theme}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector", theme_preference: theme });

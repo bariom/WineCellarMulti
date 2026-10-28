@@ -27631,6 +27631,47 @@ body,
   --hero-bg: linear-gradient(125deg, var(--surface), var(--surface-muted));
 }
 
+:root[data-theme="pietra-vigna"] {
+  color-scheme: light;
+  --page: #eeeee7;
+  --surface: #f8f8f2;
+  --surface-raised: #fbfbf6;
+  --surface-muted: #e8ebe2;
+  --surface-subtle: #dce2d6;
+  --text: #243a33;
+  --text-muted: #536458;
+  --text-soft: #61705c;
+  --border: #cdd5c9;
+  --border-strong: #a7b6a5;
+  --primary: #2f5143;
+  --primary-contrast: #f8f8f2;
+  --secondary: #e1e7dc;
+  --accent: #a26048;
+  --drink-young: #b08a39;
+  --drink-ideal: #4a795f;
+  --drink-past: #a54e57;
+  --bar-muted: var(--surface-subtle);
+  --chart-bar-start: var(--drink-ideal);
+  --chart-bar-end: var(--accent);
+  --maturity-bar-start: var(--drink-ideal);
+  --maturity-bar-end: var(--drink-young);
+  --financial-text: var(--text);
+  --icon-ai: #805881;
+  --danger: #a34c58;
+  --danger-text: #7e2937;
+  --danger-surface: #faedf0;
+  --success-surface: #eaf0e6;
+  --collector-sheen: rgba(255,255,255,.45);
+  --collector-depth: rgba(35,40,30,.04);
+  --collector-edge: color-mix(in srgb, var(--accent) 24%, transparent);
+  --collector-glow: color-mix(in srgb, var(--accent) 5%, transparent);
+  --focus: color-mix(in srgb, var(--primary) 45%, transparent);
+  --shadow-soft: 0 6px 18px var(--collector-depth);
+  --shadow-premium: 0 12px 28px var(--collector-depth);
+  --luxury-ink-shadow: none;
+  --hero-bg: linear-gradient(125deg, var(--surface), var(--surface-muted));
+}
+
 :root[data-theme="cave-privee"] {
   color-scheme: dark;
   --page: #191b1a;
@@ -27674,21 +27715,22 @@ body,
 
 /* A restrained masthead replaces the legacy burgundy gradient in these editions. */
 :root[data-theme="maison-champagne"] { --edition-masthead: #38342c; }
+:root[data-theme="pietra-vigna"] { --edition-masthead: #243a33; }
 :root[data-theme="cave-privee"] { --edition-masthead: #181d1a; }
-:root:is([data-theme="maison-champagne"], [data-theme="cave-privee"]) .authenticated-app-shell:not(.cellar-home-edition) .topbar:not(.cellar-compact-header) {
+:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .authenticated-app-shell:not(.cellar-home-edition) .topbar:not(.cellar-compact-header) {
   background: var(--edition-masthead);
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 38%, var(--edition-masthead));
   color: #fffaf0;
   box-shadow: 0 3px 12px var(--collector-depth);
 }
-:root:is([data-theme="maison-champagne"], [data-theme="cave-privee"]) .authenticated-app-shell .topbar :is(h1, .topbar-brand .eyebrow) { color: #fffaf0; }
-:root:is([data-theme="maison-champagne"], [data-theme="cave-privee"]) .mobile-bottom-navigation .mobile-bottom-navigation-add {
+:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .authenticated-app-shell .topbar :is(h1, .topbar-brand .eyebrow) { color: #fffaf0; }
+:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .mobile-bottom-navigation .mobile-bottom-navigation-add {
   color: var(--primary-contrast);
   background: var(--primary);
   box-shadow: 0 5px 14px var(--collector-depth);
 }
 
-:root:is([data-theme="maison-champagne"], [data-theme="cave-privee"]) .authenticated-app-shell:not(.cellar-home-edition) .view-tabs button:not(.secondary) {
+:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .authenticated-app-shell:not(.cellar-home-edition) .view-tabs button:not(.secondary) {
   color: var(--primary-contrast);
   background: var(--primary);
   --icon-primary: var(--primary-contrast);

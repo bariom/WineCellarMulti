@@ -162,8 +162,10 @@ between two themes cross-fades through `document.startViewTransition`
 ## Themes
 
 The picker (`ThemePicker.tsx`) offers the base appearance (System, Light, Dark)
-and four signature themes: Atelier, Maison Champagne, Cave Privée and Private
-Cellar. Retired themes map to the closest one: migration `0127_retire_themes`
+and five signature themes: Atelier, Pietra & Vigna, Maison Champagne, Cave
+Privée and Private Cellar. Pietra & Vigna was retired by migration 0127 and
+reinstated the same day for its neutral green header; users moved to Atelier
+can pick it again. Retired themes map to the closest one: migration `0127_retire_themes`
 rewrote stored values, the API stores any retired value it still receives as
 its signature theme (`backend/app/core/themes.py`), and `domain/themes.ts`
 maps at display time as a safety net for old sessions. Keep both mappings in

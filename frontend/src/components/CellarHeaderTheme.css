@@ -22,6 +22,10 @@
   --cellar-header-bg: #421b2a; --cellar-header-tint: 44, 15, 26;
   --cellar-header-accent: #e6bd9a; --cellar-header-border: #a08790;
 }
+:root[data-theme="pietra-vigna"] {
+  --cellar-header-bg: #243a33; --cellar-header-tint: 20, 40, 32;
+  --cellar-header-accent: #d8c59e; --cellar-header-border: #88988b;
+}
 :root[data-theme="cave-privee"] {
   --cellar-header-bg: #202623; --cellar-header-tint: 16, 22, 19;
   --cellar-header-accent: #d2bc98; --cellar-header-border: #879289;

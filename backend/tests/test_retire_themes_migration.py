@@ -21,8 +21,11 @@ def test_migration_stores_retired_themes_as_signature_themes():
     migration = load_migration()
     assert len(migration.revision) <= 32
     assert migration.down_revision == "0126_taste_declarations"
-    # The migration keeps its own copy; it must match what the app stores.
-    assert migration.RETIRED_THEMES == RETIRED_THEMES
+    # The migration keeps its own copy; it must match what the app stores,
+    # except Pietra & Vigna, retired by 0127 and reinstated afterwards.
+    assert {
+        k: v for k, v in migration.RETIRED_THEMES.items() if k != "pietra-vigna"
+    } == RETIRED_THEMES
     engine = sa.create_engine("sqlite://")
     with engine.begin() as connection:
         connection.execute(sa.text("CREATE TABLE users (email TEXT, theme_preference VARCHAR(32))"))

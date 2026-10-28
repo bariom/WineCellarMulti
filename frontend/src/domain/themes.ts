@@ -14,6 +14,8 @@ export const BASE_THEMES = ["system", "light", "dark"] as const satisfies readon
 /** Colours copied from each theme's `:root[data-theme]` block in styles.css. */
 export const SIGNATURE_THEMES: ReadonlyArray<{ value: ThemePreference; swatch: ThemeSwatch }> = [
   { value: "atelier", swatch: { page: "#f3f5f0", surface: "#fffefa", accent: "#a9782a", primary: "#4b1324", text: "#171b18" } },
+  // Reinstated on 2026-10-28 at the owner's request: the neutral, green light theme.
+  { value: "pietra-vigna", swatch: { page: "#eeeee7", surface: "#f8f8f2", accent: "#a26048", primary: "#2f5143", text: "#243a33" } },
   { value: "maison-champagne", swatch: { page: "#f7f4ed", surface: "#fffcf6", accent: "#9a753d", primary: "#625036", text: "#282823" } },
   { value: "cave-privee", swatch: { page: "#191b1a", surface: "#232725", accent: "#c5aa76", primary: "#c5aa76", text: "#eee8dc" } },
   { value: "private-cellar", swatch: { page: "#15100d", surface: "#211915", accent: "#8d6a35", primary: "#d5b06b", text: "#f6efe4" } },
@@ -25,7 +27,6 @@ const RETIRED_THEMES: Partial<Record<ThemePreference, ThemePreference>> = {
   champagne: "maison-champagne",
   tuscany: "maison-champagne",
   "rose-wine": "maison-champagne",
-  "pietra-vigna": "atelier",
   "red-wine": "private-cellar",
   bordeaux: "private-cellar",
   burgundy: "private-cellar",

@@ -75,7 +75,7 @@ for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "dat
   }
 }
 
-for (const theme of ["maison-champagne", "cave-privee"]) {
+for (const theme of ["maison-champagne", "pietra-vigna", "cave-privee"]) {
   for (const width of [360, 430, 1440]) {
     test(`premium theme ${theme} fits ${width}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: width === 360 ? 800 : 932 });
@@ -95,7 +95,7 @@ test("editorial surfaces respect every user theme", async ({ page }, testInfo) =
   await page.goto("/");
   const surfaceCard = page.locator(".daily-board-lower .dashboard-card").first();
   await expect(surfaceCard).toBeVisible();
-  for (const theme of ["light", "dark", "private-cellar", "atelier", "maison-champagne", "cave-privee"]) {
+  for (const theme of ["light", "dark", "private-cellar", "atelier", "maison-champagne", "pietra-vigna", "cave-privee"]) {
     await page.evaluate((selected) => document.documentElement.setAttribute("data-theme", selected), theme);
     await expect(page.locator(".authenticated-app-shell")).toHaveCSS("background-image", "none");
     // Theme changes animate surfaces; compare their settled colors.

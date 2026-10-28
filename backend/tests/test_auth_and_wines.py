@@ -1676,7 +1676,7 @@ def test_user_can_delete_account_while_catalog_and_reference_photo_are_preserved
 def test_premium_themes_persist_in_session():
     client = TestClient(app)
     assert register(client).status_code == 201
-    for theme in ("atelier", "maison-champagne", "cave-privee", "private-cellar"):
+    for theme in ("atelier", "pietra-vigna", "maison-champagne", "cave-privee", "private-cellar"):
         response = client.patch("/api/v1/auth/preferences", json={"theme_preference": theme})
         assert response.status_code == 200
         assert response.json()["theme_preference"] == theme
@@ -1691,7 +1691,6 @@ def test_retired_themes_are_stored_as_their_signature_theme():
     client = TestClient(app)
     assert register(client).status_code == 201
     for retired, curated in (
-        ("pietra-vigna", "atelier"),
         ("midnight-ledger", "cave-privee"),
         ("bordeaux", "private-cellar"),
         ("sepia", "maison-champagne"),
