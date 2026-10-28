@@ -664,3 +664,9 @@
     transition: none;
   }
 }
+
+/* AI audit pages load 10 entries at a time. */
+.wine-detail.wine-detail .audit-load-more {
+  justify-self: start;
+  margin-top: 6px;
+}

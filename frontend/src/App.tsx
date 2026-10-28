@@ -396,6 +396,7 @@ function DeferredWineGeographyMap({ wines, t, onSelectRegion, locale }: { wines:
 }
 
 const TASTING_ARCHIVE_PAGE_SIZE = 50;
+const AUDIT_PAGE_SIZE = 10;
 const WINE_TONE_PAGE_SIZE = 40;
 const OPERATIONAL_ACTION_SNOOZE_DAYS = 14;
 const OPERATIONAL_ACTION_SNOOZE_STORAGE_KEY = "vinaris.operationalActionSnoozes.v1";
@@ -5778,9 +5779,12 @@ export function App() {
   const pairingWineDetail = pairingWineDetailId ? wines.find((wine) => wine.id === pairingWineDetailId) || null : null;
   const wineDetailModalWine = pairingWineDetail || (wineDetailExpanded ? selectedVisibleWine : null);
   // The recent audit list holds the cellar's last 30 AI calls; an open wine or
-  // wishlist item also loads its own history, so it never "loses" entries when
-  // newer calls happen on other wines. Keyed by cellar; refreshed with the list.
-  const [entityAuditHistory, setEntityAuditHistory] = useState<Record<string, AiAuditLog[]>>({});
+  // wishlist item also loads its own history, newest first and 10 at a time, so it
+  // never "loses" entries when newer calls happen on other wines. Pages are kept per
+  // cellar and reloaded at their current size after each AI call.
+  const [entityAuditHistory, setEntityAuditHistory] = useState<Record<string, { entries: AiAuditLog[]; hasMore: boolean }>>({});
+  const entityAuditHistoryRef = useRef(entityAuditHistory);
+  entityAuditHistoryRef.current = entityAuditHistory;
   const auditHousehold = session?.active_household_id || "";
   const canReadAudit = !offlineMode && Boolean(session?.authenticated) && ["owner", "admin", "member"].includes(session?.membership_role || "");
   const openAuditEntities = [
@@ -5793,16 +5797,39 @@ export function App() {
     let active = true;
     for (const key of openAuditEntities.split("|")) {
       const [entityType, entityId] = key.split(":");
-      api<AiAuditLog[]>(`/api/v1/ai/audit?entity_type=${entityType}&entity_id=${entityId}`)
-        .then((entries) => { if (active) setEntityAuditHistory((current) => ({ ...current, [`${auditHousehold}:${key}`]: entries })); })
+      const storeKey = `${auditHousehold}:${key}`;
+      const size = Math.min(100, Math.max(AUDIT_PAGE_SIZE, entityAuditHistoryRef.current[storeKey]?.entries.length || 0));
+      api<AiAuditLog[]>(`/api/v1/ai/audit?entity_type=${entityType}&entity_id=${entityId}&limit=${size}`)
+        .then((entries) => { if (active) setEntityAuditHistory((current) => ({ ...current, [storeKey]: { entries, hasMore: entries.length === size } })); })
         .catch(() => undefined);
     }
     return () => { active = false; };
   }, [canReadAudit, openAuditEntities, auditHousehold, aiAudit]);
+  function entityAuditPage(entityType: "wine" | "wishlist", entityId: string) {
+    return entityAuditHistory[`${auditHousehold}:${entityType}:${entityId}`] || null;
+  }
+  async function loadMoreEntityAudit(entityType: "wine" | "wishlist", entityId: string) {
+    const storeKey = `${auditHousehold}:${entityType}:${entityId}`;
+    const offset = entityAuditHistoryRef.current[storeKey]?.entries.length || 0;
+    try {
+      const next = await api<AiAuditLog[]>(`/api/v1/ai/audit?entity_type=${entityType}&entity_id=${entityId}&limit=${AUDIT_PAGE_SIZE}&offset=${offset}`);
+      setEntityAuditHistory((current) => {
+        const previous = current[storeKey]?.entries || [];
+        const seen = new Set(previous.map((entry) => entry.id));
+        return { ...current, [storeKey]: { entries: [...previous, ...next.filter((entry) => !seen.has(entry.id))], hasMore: next.length === AUDIT_PAGE_SIZE } };
+      });
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to load AI audit");
+    }
+  }
+  /** Entries for one item: its loaded history, or the recent list until that arrives. */
+  function entityAuditEntries(entityType: "wine" | "wishlist", entityId: string) {
+    return entityAuditPage(entityType, entityId)?.entries || aiAudit.filter((entry) => entry.entity_type === entityType && entry.entity_id === entityId);
+  }
   const aiAuditWithHistory = useMemo(() => {
     const seen = new Set<string>();
     const merged: AiAuditLog[] = [];
-    const history = Object.entries(entityAuditHistory).filter(([key]) => key.startsWith(`${auditHousehold}:`)).flatMap(([, entries]) => entries);
+    const history = Object.entries(entityAuditHistory).filter(([key]) => key.startsWith(`${auditHousehold}:`)).flatMap(([, page]) => page.entries);
     for (const entry of [...aiAudit, ...history]) {
       if (seen.has(entry.id)) continue;
       seen.add(entry.id);
@@ -8938,7 +8965,9 @@ export function App() {
       <WineDetail
         wine={wine}
         session={session}
-        auditEntries={aiAuditWithHistory.filter((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id)}
+        auditEntries={entityAuditEntries("wine", wine.id)}
+        auditHasMore={Boolean(entityAuditPage("wine", wine.id)?.hasMore)}
+        onLoadMoreAudit={() => loadMoreEntityAudit("wine", wine.id)}
         canGenerate={canGenerateAi}
         canWrite={canWriteWine}
         saving={saving}
@@ -11176,12 +11205,12 @@ export function App() {
                 <section className={`wine-editor-section wine-editor-section--audit wine-editor-disclosure ${openWineEditorSections.audit ? "is-open" : ""}`} data-wine-editor-section="audit">
                   <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+7" aria-expanded={Boolean(openWineEditorSections.audit)} onClick={() => setOpenWineEditorSections((current) => current.audit ? {} : { audit: true })}>
                     <div><span>07</span><strong>{t("aiAudit")}</strong></div>
-                    <small>{selectedWine ? aiAuditWithHistory.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id).length : 0}</small>
+                    <small>{selectedWine ? entityAuditEntries("wine", selectedWine.id).length : 0}</small>
                   </button>
                   {openWineEditorSections.audit ? <div className="wine-editor-section-body is-visible">
                     {selectedWine && aiAudit.some((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id) ? (
                       <div className="audit-list">
-                        {aiAuditWithHistory.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id).map((entry) => (
+                        {entityAuditEntries("wine", selectedWine.id).map((entry) => (
                           <div className="audit-row" key={entry.id}>
                             <strong>{entry.feature.replace(/_/g, " ")}</strong>
                             <span>{entry.model} · {formatDisplayDate(entry.created_at)}</span>
@@ -11411,7 +11440,7 @@ export function App() {
             ) : activeView === "wishlist" && selectedWishlistItem ? (
                 <WishlistDetail
                   item={selectedWishlistItem}
-                  auditEntries={aiAuditWithHistory.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === selectedWishlistItem.id)}
+                  auditEntries={entityAuditEntries("wishlist", selectedWishlistItem.id)}
                   canGenerate={canGenerateAi}
                   generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                   onGenerate={(feature) => generateWishlistAi(selectedWishlistItem, feature)}
@@ -12477,7 +12506,7 @@ export function App() {
                       </div>
                       <WishlistDetail
                         item={item}
-                        auditEntries={aiAuditWithHistory.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id)}
+                        auditEntries={entityAuditEntries("wishlist", item.id)}
                         canGenerate={canGenerateAi}
                         generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                         onGenerate={(feature) => generateWishlistAi(item, feature)}

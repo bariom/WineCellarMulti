@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -1110,28 +1110,32 @@ def utc_datetime(value: datetime) -> datetime:
 def list_ai_audit(
     entity_type: Literal["wine", "wishlist"] | None = None,
     entity_id: UUID | None = None,
+    limit: int = Query(default=10, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=10_000),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> list[AiAuditLog]:
     """Latest AI audit of the active cellar, or the history of one wine or wishlist item.
 
-    The unfiltered list is the cellar-wide recent activity (30 entries). A wine page
-    asks for its own entity: otherwise its history would vanish from the page as soon
-    as 30 newer AI calls happened on other wines, although nothing is deleted.
+    The unfiltered list is the cellar-wide recent activity (30 entries; limit and
+    offset do not apply). A wine page asks for its own entity, newest first, a page
+    at a time: otherwise its history would vanish from the page as soon as 30 newer
+    AI calls happened on other wines, although nothing is deleted.
     """
     statement = select(AiAuditLog).where(AiAuditLog.household_id == context.household.id)
-    limit = 30
-    if entity_type is not None or entity_id is not None:
-        if entity_type is None or entity_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="entity_type and entity_id must be given together",
-            )
-        statement = statement.where(
-            AiAuditLog.entity_type == entity_type, AiAuditLog.entity_id == entity_id
+    if entity_type is None and entity_id is None:
+        return list(db.scalars(statement.order_by(AiAuditLog.created_at.desc()).limit(30)))
+    if entity_type is None or entity_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="entity_type and entity_id must be given together",
         )
-        limit = 100
-    return list(db.scalars(statement.order_by(AiAuditLog.created_at.desc()).limit(limit)))
+    statement = statement.where(
+        AiAuditLog.entity_type == entity_type, AiAuditLog.entity_id == entity_id
+    )
+    # The id breaks ties so pages never repeat or skip entries with equal timestamps.
+    ordered = statement.order_by(AiAuditLog.created_at.desc(), AiAuditLog.id.desc())
+    return list(db.scalars(ordered.offset(offset).limit(limit)))
 
 
 @router.get("/usage", response_model=AiUsageResponse)

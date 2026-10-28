@@ -1154,6 +1154,8 @@ export function WineDetail({
   wine,
   session,
   auditEntries,
+  auditHasMore = false,
+  onLoadMoreAudit,
   canGenerate,
   canWrite,
   saving,
@@ -1188,6 +1190,9 @@ export function WineDetail({
   wine: Wine;
   session: Session | null;
   auditEntries: AiAuditLog[];
+  /** More AI audit entries exist beyond the ones shown (they load 10 at a time). */
+  auditHasMore?: boolean;
+  onLoadMoreAudit?: () => Promise<void>;
   canGenerate: boolean;
   canWrite: boolean;
   saving: boolean;
@@ -1252,6 +1257,7 @@ export function WineDetail({
   const salePanelRef = useRef<HTMLDetailsElement>(null);
   const glassSalePanelRef = useRef<HTMLDetailsElement>(null);
   const wineDetailRef = useRef<HTMLElement>(null);
+  const [loadingMoreAudit, setLoadingMoreAudit] = useState(false);
   const wineTintStyle = useWineTint(showBottlePhoto ? wine.photo_thumbnail_url || wine.photo_detail_url : "", wineTone(wine.type));
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const detailValue = formatMoney(wine.current_value || wine.price, wine.currency, locale);
@@ -1886,7 +1892,7 @@ export function WineDetail({
       <details className="detail-section ai-audit-detail" data-wine-detail-section="07" tabIndex={-1}>
         <summary className="wine-detail-structured-summary">
           <div><span>07</span><strong>{t("aiAudit")}</strong></div>
-          <small>{auditEntries.length}</small>
+          <small>{auditEntries.length}{auditHasMore ? "+" : ""}</small>
         </summary>
         {auditEntries.length ? (
           <div className="audit-list">
@@ -1897,6 +1903,10 @@ export function WineDetail({
                 <p>{entry.summary}</p>
               </div>
             ))}
+            {auditHasMore && onLoadMoreAudit ? <button type="button" className="secondary compact audit-load-more" disabled={loadingMoreAudit} onClick={() => {
+              setLoadingMoreAudit(true);
+              void onLoadMoreAudit().finally(() => setLoadingMoreAudit(false));
+            }}>{loadingMoreAudit ? (locale === "it" ? "Carico…" : "Loading…") : (locale === "it" ? "Mostra altri" : "Show more")}</button> : null}
           </div>
         ) : (
           <p className="empty-state">{t("noAiAudit")}</p>

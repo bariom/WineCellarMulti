@@ -81,11 +81,28 @@ def test_a_wine_keeps_its_audit_after_newer_ai_calls_on_other_wines(env):
     assert history.status_code == 200
     assert [entry["feature"] for entry in history.json()] == ["ai_value"]
 
-    busy = client.get(
-        "/api/v1/ai/audit", params={"entity_type": "wine", "entity_id": str(busy_wine)}
-    )
-    assert len(busy.json()) == 35
-    assert busy.json()[0]["feature"] == "notes-0"
+
+def test_a_wine_history_comes_ten_at_a_time_newest_first(env):
+    db, mine, _, client = env
+    wine = uuid4()
+    db.add_all(audit(mine, wine, f"call-{index}", days_ago=index / 10) for index in range(25))
+    db.commit()
+    params = {"entity_type": "wine", "entity_id": str(wine)}
+
+    pages = []
+    for offset in (0, 10, 20, 30):
+        response = client.get("/api/v1/ai/audit", params={**params, "offset": offset})
+        assert response.status_code == 200
+        pages.append([entry["feature"] for entry in response.json()])
+    assert [len(page) for page in pages] == [10, 10, 5, 0]
+    assert pages[0][0] == "call-0"
+    flat = [feature for page in pages for feature in page]
+    assert flat == [f"call-{index}" for index in range(25)]
+
+    # Reloading what a page already shows after a new AI call keeps the same entries.
+    widened = client.get("/api/v1/ai/audit", params={**params, "limit": 20}).json()
+    assert [entry["feature"] for entry in widened] == flat[:20]
+    assert client.get("/api/v1/ai/audit", params={**params, "limit": 101}).status_code == 422
 
 
 def test_entity_filters_must_come_together(env):
