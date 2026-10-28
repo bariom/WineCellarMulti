@@ -561,15 +561,15 @@
   opacity: 0.62;
 }
 
-/* The photo never takes the wine tint: light themes blend label photos with
- * `multiply` to drop their white background, so the frame gets its own neutral
- * surface and an isolated stacking context, above the tinted halo. */
-.wine-detail.wine-detail .detail-bottle-photo {
-  position: relative;
-  z-index: 0;
-  isolation: isolate;
-  border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--surface-raised, var(--surface)) 94%, var(--surface));
+/* With a bottle photo the halo stays clear of it: light themes blend label
+ * photos with `multiply` to drop their white background, so any tint under the
+ * photo would colour and darken it. The photo column is at most 44% of the
+ * hero on every layout; the halo is centred on the text and masked to fully
+ * transparent over that column, fading in without an edge. */
+.wine-detail.wine-detail .detail-hero:has(.detail-bottle-photo)::before {
+  background: radial-gradient(70% 90% at 80% 0%, var(--wine-tint, transparent) 0%, transparent 65%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, transparent 46%, #000 78%);
+  mask-image: linear-gradient(to right, transparent 0%, transparent 46%, #000 78%);
 }
 
 /* ------------------------------------------------------------------------
