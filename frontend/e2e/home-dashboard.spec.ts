@@ -95,7 +95,7 @@ test("editorial surfaces respect every user theme", async ({ page }, testInfo) =
   await page.goto("/");
   const surfaceCard = page.locator(".daily-board-lower .dashboard-card").first();
   await expect(surfaceCard).toBeVisible();
-  for (const theme of ["light", "dark", "private-cellar", "sepia", "white-wine", "red-wine", "rose-wine", "champagne", "bordeaux", "burgundy", "tuscany", "piedmont", "ticino", "atelier", "midnight-ledger", "maison-champagne", "pietra-vigna", "cave-privee"]) {
+  for (const theme of ["light", "dark", "private-cellar", "atelier", "maison-champagne", "cave-privee"]) {
     await page.evaluate((selected) => document.documentElement.setAttribute("data-theme", selected), theme);
     await expect(page.locator(".authenticated-app-shell")).toHaveCSS("background-image", "none");
     // Theme changes animate surfaces; compare their settled colors.
@@ -109,7 +109,7 @@ test("editorial surfaces respect every user theme", async ({ page }, testInfo) =
       return surface === getComputedStyle(document.querySelector(".daily-board-lower .dashboard-card")!).backgroundColor;
     })).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-    if (["light", "atelier", "private-cellar", "midnight-ledger"].includes(theme)) {
+    if (["light", "atelier", "private-cellar", "cave-privee"].includes(theme)) {
       await page.screenshot({ path: testInfo.outputPath(`surfaces-${theme}.png`), animations: "disabled" });
     }
   }

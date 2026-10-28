@@ -149,11 +149,7 @@ test("header palettes stay coherent and legible across all themes", async ({ pag
   await expect(page.locator(".cellar-home-backdrop img")).toBeVisible();
   const palettes = {
     light: "#183c31", dark: "#172a24", "private-cellar": "#30231b",
-    sepia: "#403326", "white-wine": "#333822", "red-wine": "#421b2a",
-    "rose-wine": "#482b35", champagne: "#403326", bordeaux: "#421b2a",
-    burgundy: "#482b35", tuscany: "#462622", piedmont: "#333822",
-    ticino: "#243a33", atelier: "#421b2a", "midnight-ledger": "#172a24",
-    "maison-champagne": "#403326", "pietra-vigna": "#243a33", "cave-privee": "#202623",
+    atelier: "#421b2a", "maison-champagne": "#403326", "cave-privee": "#202623",
   };
   const luminance = (rgb: number[]) => rgb.map(value => {
     const channel = value / 255;

@@ -164,10 +164,9 @@ between two themes cross-fades through `document.startViewTransition`
 The picker (`ThemePicker.tsx`) offers the base appearance (System, Light, Dark)
 and four signature themes: Atelier, Maison Champagne, Cave Privée and Private
 Cellar. Retired themes map to the closest one in `domain/themes.ts` at display
-time; the backend keeps accepting them and nothing is migrated. Their CSS
-blocks in `styles.css` are still present and can be deleted in a later cleanup
-once no test sets them directly. Swatch colours in `domain/themes.ts` are
-copies of the theme blocks: update both together.
+time; the backend keeps accepting them and nothing is migrated. Their CSS was
+removed; never style a retired theme again. Swatch colours in
+`domain/themes.ts` are copies of the theme blocks: update both together.
 
 ## Review checklist for each item
 

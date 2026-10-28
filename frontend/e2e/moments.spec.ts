@@ -203,7 +203,7 @@ test("memory album and polaroids follow the selected theme", async ({ page }, te
   const book = await openBook(page);
   await book.getByRole("button", { name: "Polaroid", exact: true }).click();
   await expect(book.locator(".memory-polaroid")).toHaveCount(2);
-  for (const theme of ["light", "dark", "private-cellar", "sepia", "burgundy", "champagne"]) {
+  for (const theme of ["light", "dark", "private-cellar", "atelier", "maison-champagne", "cave-privee"]) {
     await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
     await expect.poll(async () => book.evaluate(element => {
       const probe = document.createElement("span");
