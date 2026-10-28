@@ -1,6 +1,6 @@
 import { CellarEmptyImage } from "./components/CellarEmptyImage";
 import { tastingRequest } from "./domain/tasting";
-import { CSSProperties, ChangeEvent, ComponentProps, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent, Suspense, UIEvent, lazy, useCallback, useEffect, useId, useRef, useState } from "react";
+import { CSSProperties, ChangeEvent, ComponentProps, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent, Suspense, UIEvent, lazy, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import PremiumMemoriesNotice from "./components/PremiumMemoriesNotice";
@@ -5777,11 +5777,44 @@ export function App() {
     : null;
   const pairingWineDetail = pairingWineDetailId ? wines.find((wine) => wine.id === pairingWineDetailId) || null : null;
   const wineDetailModalWine = pairingWineDetail || (wineDetailExpanded ? selectedVisibleWine : null);
+  // The recent audit list holds the cellar's last 30 AI calls; an open wine or
+  // wishlist item also loads its own history, so it never "loses" entries when
+  // newer calls happen on other wines. Keyed by cellar; refreshed with the list.
+  const [entityAuditHistory, setEntityAuditHistory] = useState<Record<string, AiAuditLog[]>>({});
+  const auditHousehold = session?.active_household_id || "";
+  const canReadAudit = !offlineMode && Boolean(session?.authenticated) && ["owner", "admin", "member"].includes(session?.membership_role || "");
+  const openAuditEntities = [
+    selectedVisibleWine ? `wine:${selectedVisibleWine.id}` : "",
+    pairingWineDetail ? `wine:${pairingWineDetail.id}` : "",
+    selectedWishlistItem ? `wishlist:${selectedWishlistItem.id}` : "",
+  ].filter(Boolean).filter((key, index, keys) => keys.indexOf(key) === index).join("|");
+  useEffect(() => {
+    if (!canReadAudit || !openAuditEntities) return;
+    let active = true;
+    for (const key of openAuditEntities.split("|")) {
+      const [entityType, entityId] = key.split(":");
+      api<AiAuditLog[]>(`/api/v1/ai/audit?entity_type=${entityType}&entity_id=${entityId}`)
+        .then((entries) => { if (active) setEntityAuditHistory((current) => ({ ...current, [`${auditHousehold}:${key}`]: entries })); })
+        .catch(() => undefined);
+    }
+    return () => { active = false; };
+  }, [canReadAudit, openAuditEntities, auditHousehold, aiAudit]);
+  const aiAuditWithHistory = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: AiAuditLog[] = [];
+    const history = Object.entries(entityAuditHistory).filter(([key]) => key.startsWith(`${auditHousehold}:`)).flatMap(([, entries]) => entries);
+    for (const entry of [...aiAudit, ...history]) {
+      if (seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      merged.push(entry);
+    }
+    return merged.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }, [aiAudit, entityAuditHistory, auditHousehold]);
   const comparedWines = compareWineIds
     .map((wineId) => wines.find((wine) => wine.id === wineId) || null)
     .filter((wine): wine is Wine => Boolean(wine));
   const selectedWishlistMarketAudit = selectedWishlistItem
-    ? aiAudit.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === selectedWishlistItem.id && entry.feature === "wishlist_target_price") || null
+    ? aiAuditWithHistory.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === selectedWishlistItem.id && entry.feature === "wishlist_target_price") || null
     : null;
   const latestWishlistPortfolioAudit =
     aiAudit.find(
@@ -8905,7 +8938,7 @@ export function App() {
       <WineDetail
         wine={wine}
         session={session}
-        auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id)}
+        auditEntries={aiAuditWithHistory.filter((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id)}
         canGenerate={canGenerateAi}
         canWrite={canWriteWine}
         saving={saving}
@@ -8925,7 +8958,7 @@ export function App() {
         onUpdateCommercialStatus={(status) => updateWineCommercialStatus(wine, status)}
         onUpdateTastingEntry={updateWineTastingEntry}
         onDeleteTastingEntry={deleteWineTastingEntry}
-        marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature)) || null}
+        marketAuditEntry={aiAuditWithHistory.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature)) || null}
         onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
         coOwnershipSection={renderCoOwnershipSection(wine)}
         photoActions={canManageWinePhotos ? (
@@ -11143,12 +11176,12 @@ export function App() {
                 <section className={`wine-editor-section wine-editor-section--audit wine-editor-disclosure ${openWineEditorSections.audit ? "is-open" : ""}`} data-wine-editor-section="audit">
                   <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+7" aria-expanded={Boolean(openWineEditorSections.audit)} onClick={() => setOpenWineEditorSections((current) => current.audit ? {} : { audit: true })}>
                     <div><span>07</span><strong>{t("aiAudit")}</strong></div>
-                    <small>{selectedWine ? aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id).length : 0}</small>
+                    <small>{selectedWine ? aiAuditWithHistory.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id).length : 0}</small>
                   </button>
                   {openWineEditorSections.audit ? <div className="wine-editor-section-body is-visible">
                     {selectedWine && aiAudit.some((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id) ? (
                       <div className="audit-list">
-                        {aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id).map((entry) => (
+                        {aiAuditWithHistory.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id).map((entry) => (
                           <div className="audit-row" key={entry.id}>
                             <strong>{entry.feature.replace(/_/g, " ")}</strong>
                             <span>{entry.model} · {formatDisplayDate(entry.created_at)}</span>
@@ -11378,7 +11411,7 @@ export function App() {
             ) : activeView === "wishlist" && selectedWishlistItem ? (
                 <WishlistDetail
                   item={selectedWishlistItem}
-                  auditEntries={aiAudit.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === selectedWishlistItem.id)}
+                  auditEntries={aiAuditWithHistory.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === selectedWishlistItem.id)}
                   canGenerate={canGenerateAi}
                   generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                   onGenerate={(feature) => generateWishlistAi(selectedWishlistItem, feature)}
@@ -12444,14 +12477,14 @@ export function App() {
                       </div>
                       <WishlistDetail
                         item={item}
-                        auditEntries={aiAudit.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id)}
+                        auditEntries={aiAuditWithHistory.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id)}
                         canGenerate={canGenerateAi}
                         generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                         onGenerate={(feature) => generateWishlistAi(item, feature)}
                         canWrite={canWriteWine}
                         saving={saving}
                         onRecordTasting={(payload) => recordWishlistTasting(item, payload)}
-                        marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id && entry.feature === "wishlist_target_price") || null}
+                        marketAuditEntry={aiAuditWithHistory.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id && entry.feature === "wishlist_target_price") || null}
                         onOpenMarketView={(entry) => setMarketViewContext({ kind: "wishlist", item, entry })}
                         t={t}
                         locale={locale}

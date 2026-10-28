@@ -1108,17 +1108,30 @@ def utc_datetime(value: datetime) -> datetime:
 
 @router.get("/audit", response_model=list[AiAuditLogResponse])
 def list_ai_audit(
+    entity_type: Literal["wine", "wishlist"] | None = None,
+    entity_id: UUID | None = None,
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> list[AiAuditLog]:
-    return list(
-        db.scalars(
-            select(AiAuditLog)
-            .where(AiAuditLog.household_id == context.household.id)
-            .order_by(AiAuditLog.created_at.desc())
-            .limit(30),
-        ),
-    )
+    """Latest AI audit of the active cellar, or the history of one wine or wishlist item.
+
+    The unfiltered list is the cellar-wide recent activity (30 entries). A wine page
+    asks for its own entity: otherwise its history would vanish from the page as soon
+    as 30 newer AI calls happened on other wines, although nothing is deleted.
+    """
+    statement = select(AiAuditLog).where(AiAuditLog.household_id == context.household.id)
+    limit = 30
+    if entity_type is not None or entity_id is not None:
+        if entity_type is None or entity_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="entity_type and entity_id must be given together",
+            )
+        statement = statement.where(
+            AiAuditLog.entity_type == entity_type, AiAuditLog.entity_id == entity_id
+        )
+        limit = 100
+    return list(db.scalars(statement.order_by(AiAuditLog.created_at.desc()).limit(limit)))
 
 
 @router.get("/usage", response_model=AiUsageResponse)

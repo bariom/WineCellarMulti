@@ -661,3 +661,34 @@ test.describe("personal stars on touch screens", () => {
     await expect(input.locator("button.half-filled")).toHaveCount(0);
   });
 });
+
+test("AI audit keeps a wine's history beyond the cellar's latest 30 calls", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page);
+  await page.addInitScript(() => {
+    const previous = window.fetch;
+    window.fetch = async (input, init) => {
+      const url = new URL(String(input), location.href);
+      if (url.pathname !== "/api/v1/ai/audit") return previous(input, init);
+      const requests = JSON.parse(sessionStorage.getItem("audit-requests") || "[]");
+      sessionStorage.setItem("audit-requests", JSON.stringify([...requests, url.search]));
+      // The cellar-wide list no longer reaches this wine; its own history does.
+      if (url.searchParams.get("entity_id") !== "wine-e2e-1") return Response.json([]);
+      return Response.json([{
+        id: "audit-old-1", household_id: "household-e2e", user_id: null, entity_type: "wine", entity_id: "wine-e2e-1",
+        feature: "ai_value", model: "gpt-test", reasoning_effort: "low", outcome: "success", summary: "Valutazione di sei giorni fa.",
+        sources: [], input_tokens: 10, cached_input_tokens: 0, output_tokens: 5, total_tokens: 15, estimated_cost_usd: "0.001000",
+        created_at: "2026-10-22T09:00:00Z",
+      }]);
+    };
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: /^Cantina/ }).first().click();
+  await page.locator('[data-wine-row-id="wine-e2e-1"] article').click();
+  const section = page.locator('.wine-detail:visible details[data-wine-detail-section="07"]').first();
+  await expect(section.locator("summary small")).toHaveText("1");
+  await section.locator("summary").click();
+  await expect(section).toContainText("Valutazione di sei giorni fa.");
+  const requests = await page.evaluate(() => JSON.parse(sessionStorage.getItem("audit-requests") || "[]"));
+  expect(requests).toContain("?entity_type=wine&entity_id=wine-e2e-1");
+});
