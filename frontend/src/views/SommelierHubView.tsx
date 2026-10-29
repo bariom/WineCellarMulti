@@ -1,4 +1,4 @@
-import type { Locale } from "../types";
+import type { EventFeature, Locale } from "../types";
 import { AppIcon, type AppIconName } from "../components/AppIcon";
 import "./SommelierHubView.css";
 
@@ -17,16 +17,23 @@ type HubCard = {
  * Every AI feature in one place, each with a line on what it does, so none of
  * them hides behind a menu or a switch inside another page.
  */
-export default function SommelierHubView({ locale, showAssistant, assistantLocked, showStrategy, shelfLocked, onOpen }: {
+const EVENT_FEATURE_BY_DESTINATION: Partial<Record<SommelierDestination, EventFeature>> = {
+  assistant: "assistant", "pairing-home": "dish_pairing", "pairing-restaurant": "restaurant_wine_list", buying: "buying_advice",
+};
+
+export default function SommelierHubView({ locale, showAssistant, assistantLocked, showStrategy, shelfLocked, eventFeatures, eventName, onOpen }: {
   locale: Locale;
   showAssistant: boolean;
   assistantLocked: boolean;
   showStrategy: boolean;
   shelfLocked: boolean;
+  /** An event guest sees only the features the event offers. */
+  eventFeatures?: EventFeature[];
+  eventName?: string;
   onOpen: (destination: SommelierDestination) => void;
 }) {
   const it = locale === "it";
-  const cards: HubCard[] = [
+  const allCards: HubCard[] = [
     ...(showAssistant ? [{
       id: "assistant" as const, icon: "assistant" as const, locked: assistantLocked,
       title: it ? "Chiedi alla tua cantina" : "Ask your cellar",
@@ -58,12 +65,20 @@ export default function SommelierHubView({ locale, showAssistant, assistantLocke
       body: it ? "Obiettivi per ogni bottiglia, piano d'azione e cosa bere prima che sia tardi." : "A goal for each bottle, an action plan and what to drink before it is too late.",
     }] : []),
   ];
+  const cards = eventFeatures
+    ? allCards.filter((card) => {
+      const feature = EVENT_FEATURE_BY_DESTINATION[card.id];
+      return feature !== undefined && eventFeatures.includes(feature);
+    })
+    : allCards;
 
   return <section className="sommelier-hub" aria-labelledby="sommelier-hub-title">
     <header className="sommelier-hub-header">
-      <p>{it ? "Il tuo sommelier personale" : "Your personal sommelier"}</p>
+      <p>{eventFeatures ? (it ? `Il sommelier di stasera${eventName ? ` · ${eventName}` : ""}` : `Tonight's sommelier${eventName ? ` · ${eventName}` : ""}`) : (it ? "Il tuo sommelier personale" : "Your personal sommelier")}</p>
       <h1 id="sommelier-hub-title">Sommelier AI</h1>
-      <span>{it ? "Tutto quello che l'AI di Vinaris sa fare con la tua cantina. Scegli da dove partire." : "Everything Vinaris AI can do with your cellar. Choose where to start."}</span>
+      <span>{eventFeatures
+        ? (it ? "Offerto da Vinaris per questa serata. Scegli da dove partire." : "Offered by Vinaris for tonight. Choose where to start.")
+        : (it ? "Tutto quello che l'AI di Vinaris sa fare con la tua cantina. Scegli da dove partire." : "Everything Vinaris AI can do with your cellar. Choose where to start.")}</span>
     </header>
     <div className="sommelier-hub-grid">
       {cards.map((card) => <button key={card.id} type="button" className="sommelier-hub-card" onClick={() => onOpen(card.id)}>

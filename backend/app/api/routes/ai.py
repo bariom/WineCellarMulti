@@ -156,6 +156,7 @@ from app.services.critic_scores import (
     score_matches_page,
     supported_ai_scores,
 )
+from app.services.demo_events import ensure_event_feature, ensure_event_task_allowed
 from app.services.free_tier import ensure_free_tier_label_capacity, is_free_tier
 from app.services.grape_names import clean_grape_entries
 from app.services.merchants import get_or_create_merchant
@@ -848,6 +849,7 @@ def create_ai_response(
         and not settings.wine_sensory_research_enabled
     ):
         raise HTTPException(503, "Paid sensory research is suspended")
+    ensure_event_task_allowed(db, context, task_type)
     if app_funded and not is_free_tier(context) and not is_ambassador(context.user):
         api_key = settings.openai_api_key.strip()
         if not api_key:
@@ -4870,6 +4872,7 @@ def suggest_pairing(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> PairingResponse:
+    ensure_event_feature(db, context, "dish_pairing")
     return pairing_for_request(payload, db, context)
 
 
@@ -5104,6 +5107,7 @@ async def scan_restaurant_wine_list(
     context: CurrentContext = Depends(require_write_context),
 ) -> RestaurantWineListScanResponse:
     """Read the photographed pages of one restaurant wine list in memory and rank its wines."""
+    ensure_event_feature(db, context, "restaurant_wine_list")
     # `image` is the original single-photo field; `images` carries multi-page lists.
     pages = ([image] if image is not None else []) + list(images)
     if not pages:
@@ -5297,6 +5301,7 @@ def ask_restaurant_wine_list(
     context: CurrentContext = Depends(require_write_context),
 ) -> RestaurantWineListQuestionResponse:
     """Answer a follow-up question about wines already transcribed from a restaurant list."""
+    ensure_event_feature(db, context, "restaurant_wine_list")
     if payload.setting == "shop":
         ensure_wine_shelf_scan_available(context)
     user_settings = get_or_create_user_ai_settings(db, context)

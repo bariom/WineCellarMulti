@@ -1,0 +1,227 @@
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from uuid import UUID
+
+import pytest
+import test_auth_and_wines as harness
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+
+from app.api.routes import ai
+from app.api.routes import auth as auth_routes
+from app.core.config import settings
+from app.core.legal import LEGAL_DOCUMENT_VERSION
+from app.main import app
+from app.models import DemoEvent, Household, User
+from app.services.demo_events import ensure_event_task_allowed
+
+
+def setup_function():
+    harness.setup_function()
+
+
+def teardown_function():
+    harness.teardown_function()
+
+
+@pytest.fixture
+def admin():
+    client = TestClient(app)
+    assert harness.register(client).status_code == 201
+    return client
+
+
+def create_event(admin: TestClient, **overrides):
+    payload = {"name": "The Market", "place": "Lugano", "features": ["restaurant_wine_list"]}
+    payload.update(overrides)
+    response = admin.post("/api/v1/admin/events", json=payload)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_guest_enters_through_the_qr_code_with_the_events_credit_and_features(admin, monkeypatch):
+    event = create_event(admin)
+    assert event["url"].endswith(f"/e/{event['slug']}")
+
+    guest = TestClient(app)
+    entered = guest.post(f"/api/v1/events/{event['slug']}/enter")
+    assert entered.status_code == 200, entered.text
+    session = entered.json()
+    assert session["authenticated"] is True
+    assert session["membership_role"] == "owner"
+    assert session["active_household_name"] == "The Market · Lugano"
+    assert session["event"]["name"] == "The Market"
+    assert session["event"]["features"] == ["restaurant_wine_list"]
+    assert session["event"]["landing"] == "pairing-restaurant"
+    assert session["requires_legal_acceptance"] is False
+    assert guest.get("/api/v1/wines").json() == []
+    assert guest.get("/api/v1/ai/settings").json()["app_credit_balance_usd"] == "0.500000"
+
+    # Dish pairing is not part of this event: refused before any AI work.
+    refused = guest.post("/api/v1/ai/pairing", json={"dish": "Risotto", "locale": "it"})
+    assert refused.status_code == 403
+
+    # The wine-list scan is: it reaches the AI call.
+    def reached(*args, **kwargs):
+        raise HTTPException(status_code=418, detail="reached")
+
+    monkeypatch.setattr(ai, "create_ai_response", reached)
+    monkeypatch.setattr(ai, "optimized_wine_images", lambda content: [content])
+    scanned = guest.post(
+        "/api/v1/ai/restaurant-wine-list/scan",
+        files={"image": ("list.jpg", b"jpeg-bytes", "image/jpeg")},
+        data={"dish": "Risotto", "locale": "it", "ignore_preferences": "true"},
+    )
+    assert scanned.status_code == 418
+
+    listed = admin.get("/api/v1/admin/events").json()
+    assert listed[0]["stats"] == {
+        "visitor_count": 1,
+        "active_visitors": 1,
+        "conversions": 0,
+        "granted_usd": "0.500000",
+        "spent_usd": "0.00",
+    }
+
+
+def test_every_ai_task_outside_the_event_is_refused():
+    with harness.TestingSessionLocal() as db:
+        event = DemoEvent(
+            slug="x", name="Tasting", features=["dish_pairing"], created_at=datetime.now(UTC)
+        )
+        db.add(event)
+        db.flush()
+        guest = User(
+            email="g@visitor.vinaris.app",
+            display_name="Guest",
+            password_hash="x",
+            event_id=event.id,
+            event_visitor_until=datetime.now(UTC) + timedelta(hours=1),
+        )
+        db.add(guest)
+        db.flush()
+        context = SimpleNamespace(user=guest)
+        ensure_event_task_allowed(db, context, "pairing")
+        with pytest.raises(HTTPException) as refused:
+            ensure_event_task_allowed(db, context, "wine_value")
+        assert refused.value.status_code == 403
+        # A guest who kept the account is an ordinary user again.
+        guest.event_visitor_until = None
+        ensure_event_task_allowed(db, context, "wine_value")
+
+
+def test_closed_events_daily_cap_and_budget_stop_new_guests(admin):
+    paused = create_event(admin, is_active=False)
+    assert TestClient(app).post(f"/api/v1/events/{paused['slug']}/enter").status_code == 404
+    over = create_event(admin, ends_at=(datetime.now(UTC) - timedelta(hours=1)).isoformat())
+    assert TestClient(app).post(f"/api/v1/events/{over['slug']}/enter").status_code == 404
+
+    capped = create_event(admin, max_visitors_per_day=1)
+    assert TestClient(app).post(f"/api/v1/events/{capped['slug']}/enter").status_code == 200
+    assert TestClient(app).post(f"/api/v1/events/{capped['slug']}/enter").status_code == 429
+
+    tight = create_event(admin, credit_per_visitor_usd="0.4", budget_usd="0.5")
+    assert TestClient(app).post(f"/api/v1/events/{tight['slug']}/enter").status_code == 200
+    assert TestClient(app).post(f"/api/v1/events/{tight['slug']}/enter").status_code == 503
+
+    unknown = TestClient(app).post("/api/v1/events/no-such-event/enter")
+    assert unknown.status_code == 404
+
+
+def test_guest_keeps_the_account_and_nothing_starts_over(admin, monkeypatch):
+    deliveries = []
+    monkeypatch.setattr(
+        auth_routes,
+        "send_email",
+        lambda *, recipients, subject, body: deliveries.append(recipients) or True,
+    )
+    monkeypatch.setattr(settings, "registration_requires_approval", False)
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(settings, "smtp_from_email", "noreply@example.com")
+    event = create_event(admin)
+    guest = TestClient(app)
+    entered = guest.post(f"/api/v1/events/{event['slug']}/enter").json()
+
+    # Only guests can claim; a claim with an e-mail in use is refused.
+    assert (
+        admin.post("/api/v1/events/claim", json=claim_payload("x@example.com")).status_code == 400
+    )
+    assert (
+        guest.post("/api/v1/events/claim", json=claim_payload("owner@example.com")).status_code
+        == 409
+    )
+
+    claimed = guest.post("/api/v1/events/claim", json=claim_payload("guest@example.com"))
+    assert claimed.status_code == 200, claimed.text
+    assert claimed.json()["pending_email_verification"] is True
+    assert deliveries == [["guest@example.com"]]
+    with harness.TestingSessionLocal() as db:
+        user = db.get(User, UUID(entered["user_id"]))
+        assert user.email == "guest@example.com"
+        assert user.display_name == "Anna"
+        assert str(user.event_id) == event["id"]
+        assert user.event_visitor_until is None
+        household = db.get(Household, UUID(entered["active_household_id"]))
+        assert household.name == "La mia cantina"
+    stats = admin.get("/api/v1/admin/events").json()[0]["stats"]
+    assert stats["conversions"] == 1
+    assert stats["active_visitors"] == 0
+
+
+def test_expired_guests_are_purged_with_their_cellars(admin):
+    event = create_event(admin)
+    entered = TestClient(app).post(f"/api/v1/events/{event['slug']}/enter").json()
+    with harness.TestingSessionLocal() as db:
+        user = db.get(User, UUID(entered["user_id"]))
+        user.event_visitor_until = datetime.now(UTC) - timedelta(minutes=1)
+        db.commit()
+
+    listed = admin.get("/api/v1/admin/events").json()
+    assert listed[0]["stats"]["visitor_count"] == 1
+    assert listed[0]["stats"]["active_visitors"] == 0
+    with harness.TestingSessionLocal() as db:
+        assert db.get(User, UUID(entered["user_id"])) is None
+        assert db.get(Household, UUID(entered["active_household_id"])) is None
+
+
+def test_admin_edits_and_rotates_the_qr_address(admin):
+    event = create_event(admin)
+    updated = admin.patch(
+        f"/api/v1/admin/events/{event['id']}",
+        json={
+            "features": ["restaurant_wine_list", "bottle_photo"],
+            "landing": "sommelier",
+            "rotate_slug": True,
+        },
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["slug"] != event["slug"]
+    assert updated.json()["features"] == ["restaurant_wine_list", "bottle_photo"]
+    assert (
+        admin.patch(f"/api/v1/admin/events/{event['id']}", json={"features": ["x"]}).status_code
+        == 422
+    )
+    assert (
+        admin.patch(f"/api/v1/admin/events/{event['id']}", json={"features": []}).status_code == 422
+    )
+    qr = admin.get(f"/api/v1/admin/events/{event['id']}/qr.svg")
+    assert qr.status_code == 200
+    assert qr.headers["content-type"].startswith("image/svg+xml")
+    # Guests cannot reach the administration.
+    guest = TestClient(app)
+    assert guest.post(f"/api/v1/events/{updated.json()['slug']}/enter").status_code == 200
+    assert guest.get("/api/v1/admin/events").status_code == 403
+
+
+def claim_payload(email: str) -> dict:
+    return {
+        "email": email,
+        "display_name": "Anna",
+        "password": "strong-password-9",
+        "household_name": "La mia cantina",
+        "locale": "it",
+        "legal_document_version": LEGAL_DOCUMENT_VERSION,
+        "privacy_policy_accepted": True,
+        "terms_accepted": True,
+        "photo_usage_disclaimer_accepted": True,
+    }

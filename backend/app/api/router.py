@@ -8,6 +8,7 @@ from app.api.routes import (
     bottle_photos,
     catalog,
     coownership,
+    demo_events,
     email_campaigns,
     households,
     imports,
@@ -37,6 +38,8 @@ api_router = APIRouter()
 api_router.include_router(announcements.router, tags=["admin announcements"])
 api_router.include_router(auth.router, tags=["auth"])
 api_router.include_router(email_campaigns.router, tags=["admin email campaigns"])
+api_router.include_router(demo_events.router, tags=["events"])
+api_router.include_router(demo_events.admin_router, tags=["admin events"])
 api_router.include_router(email_campaigns.public_router, tags=["email"])
 api_router.include_router(billing.router, tags=["billing"])
 api_router.include_router(ai.router, tags=["ai"])

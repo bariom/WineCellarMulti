@@ -3,6 +3,7 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 from app.schemas.dashboard import DashboardWidgetPreference
+from app.schemas.demo_event import SessionEvent
 
 
 class SessionResponse(BaseModel):
@@ -42,6 +43,7 @@ class SessionResponse(BaseModel):
     has_active_entitlement: bool = False
     entitlement_valid_until: str | None = None
     entitlement_days_remaining: int | None = None
+    event: SessionEvent | None = None
 
 
 class PublicAppConfigResponse(BaseModel):

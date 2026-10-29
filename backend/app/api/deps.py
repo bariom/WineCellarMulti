@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.legal import LEGAL_DOCUMENT_VERSION, legal_acceptance_is_current
 from app.core.security import hash_session_token
 from app.db.session import get_db
-from app.models import Household, Membership, User, UserEntitlement, UserSession
+from app.models import DemoEvent, Household, Membership, User, UserEntitlement, UserSession
 from app.services.ambassador import ambassador_expiry, ambassador_valid_until, is_ambassador
 
 
@@ -22,6 +22,8 @@ class CurrentContext:
     session: UserSession
     has_active_entitlement: bool = False
     entitlement_valid_until: datetime | None = None
+    # The event a guest came in through, while the visit lasts.
+    event: DemoEvent | None = None
 
 
 def subscription_valid_until(db: Session, user: User) -> datetime | None:
@@ -90,6 +92,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "has_active_entitlement": False,
             "entitlement_valid_until": None,
             "entitlement_days_remaining": None,
+            "event": None,
         }
     entitlement_days_remaining = (
         math.ceil((context.entitlement_valid_until - datetime.now(UTC)).total_seconds() / 86400)
@@ -156,6 +159,17 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "entitlement_days_remaining": max(entitlement_days_remaining, 0)
         if entitlement_days_remaining is not None
         else None,
+        "event": {
+            "id": str(context.event.id),
+            "name": context.event.name,
+            "place": context.event.place,
+            "locale": context.event.locale,
+            "features": list(context.event.features or []),
+            "landing": context.event.landing,
+            "visitor_until": context.user.event_visitor_until.isoformat(),
+        }
+        if context.event is not None and context.user.event_visitor_until is not None
+        else None,
     }
 
 
@@ -208,7 +222,14 @@ def get_optional_context(
         session=user_session,
         has_active_entitlement=entitlement_valid_until is not None,
         entitlement_valid_until=entitlement_valid_until,
+        event=event_for_context(db, user),
     )
+
+
+def event_for_context(db: Session, user: User) -> DemoEvent | None:
+    if user.event_id is None or user.event_visitor_until is None:
+        return None
+    return db.get(DemoEvent, user.event_id)
 
 
 def get_authenticated_context(

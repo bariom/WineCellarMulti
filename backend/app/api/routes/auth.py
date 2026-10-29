@@ -28,6 +28,7 @@ from app.api.deps import (
     CurrentContext,
     active_entitlement_valid_until,
     build_session_response,
+    event_for_context,
     get_authenticated_context,
     get_current_context,
     require_app_admin_context,
@@ -275,6 +276,7 @@ def session_response_for(db: Session, user: User, household: Household, membersh
                 session=user_session,
                 has_active_entitlement=entitlement_valid_until is not None,
                 entitlement_valid_until=entitlement_valid_until,
+                event=event_for_context(db, user),
             ),
         ),
     )

@@ -63,6 +63,7 @@ import "./components/CollectorOverview.css";
 import "./components/CollectorEditorial.css";
 import "./components/DashboardEditorial.css";
 import "./components/CellarHome.css";
+import "./components/EventClaimDialog.css";
 import "./components/CellarCompactHeader.css";
 import "./components/CellarHeaderTheme.css";
 import "./components/CellarDesktopNavigation.css";
@@ -195,6 +196,8 @@ const TasteProfilePanel = lazy(() => import("./components/TasteProfilePanel"));
 const AdminSensoryProfilesPanel = lazy(() => import("./components/AdminSensoryProfilesPanel"));
 const AdminAnnouncementsPanel = lazy(() => import("./components/AdminAnnouncementsPanel"));
 const AdminEmailCampaigns = lazy(() => import("./components/AdminEmailCampaigns"));
+const AdminEventsPanel = lazy(() => import("./components/AdminEventsPanel"));
+const EventClaimDialog = lazy(() => import("./components/EventClaimDialog"));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const LegalAcceptancePanel = lazy(() => import("./legal/LegalAcceptancePanel"));
@@ -1185,6 +1188,7 @@ export function App() {
   const [dashboardCarouselInitialIndex, setDashboardCarouselInitialIndex] = useState(0);
   const [cellarSommelierVisible, setCellarSommelierVisible] = useState(false);
   const [cellarSommelierOpen, setCellarSommelierOpen] = useState(false);
+  const [eventClaimOpen, setEventClaimOpen] = useState(false);
   const [cellarSommelierHighlightedWineId, setCellarSommelierHighlightedWineId] = useState<string | null>(null);
   const cellarSommelierPromptedWineIdsRef = useRef(new Set<string>());
   const automaticCellarSommelierPromptShownRef = useRef(false);
@@ -2412,8 +2416,35 @@ export function App() {
     }
   }
 
+  /** The QR code's address, /e/<slug>: a guest account for the event, then its landing page. */
+  async function enterEvent(slug: string) {
+    window.history.replaceState(null, "", "/");
+    setLoading(true);
+    setError("");
+    try {
+      const nextSession = await api<Session>(`/api/v1/events/${encodeURIComponent(slug)}/enter?locale=${locale}`, { method: "POST" });
+      setSession(nextSession);
+      applySessionPreferences(nextSession, true);
+      setAuthModalOpen(false);
+      await loadAuthenticatedSessionData(nextSession);
+      const landing = nextSession.event?.landing ?? "sommelier";
+      if (landing === "sommelier") openView("sommelier");
+      else openSommelierFeature(landing);
+    } catch (nextError) {
+      await loadData();
+      setError(nextError instanceof Error ? nextError.message : (locale === "it" ? "Evento non disponibile" : "Event unavailable"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function loadData() {
     if (offlineMode) return;
+    const eventSlug = window.location.pathname.match(/^\/e\/([^/]+)\/?$/)?.[1];
+    if (eventSlug) {
+      await enterEvent(eventSlug);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -5109,6 +5140,9 @@ export function App() {
     householdMemberships.find((membership) => membership.household_id === session?.active_household_id) ||
     householdMemberships.find((membership) => membership.household_name === session?.active_household_name);
   const canAdmin = !offlineMode && (session?.membership_role === "owner" || session?.membership_role === "admin");
+  // An event guest: the event on the masthead, only its features in the navigation, one way to stay.
+  const eventGuest = session?.event ?? null;
+  const eventTitle = eventGuest ? `Vinaris at ${eventGuest.name}${eventGuest.place ? ` · ${eventGuest.place}` : ""}` : "";
   const canAppAdmin = !offlineMode && Boolean(session?.is_app_admin);
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
   const restaurantModeAvailable = Boolean(session?.restaurant_mode_available || session?.is_app_admin);
@@ -9144,20 +9178,20 @@ export function App() {
               <img className="topbar-brand-mark" src="/icons/icon-192.png" alt="Vinaris" width="56" height="56" {...highFetchPriority} />
               <div>
                 <div className="brand-eyebrow-row">
-                  <p className="eyebrow">Vinaris</p>
-                  <span className="tier-badge-wrap">
+                  <p className={`eyebrow${eventGuest ? " topbar-event-title" : ""}`}>{eventGuest ? eventTitle : "Vinaris"}</p>
+                  {!eventGuest ? <span className="tier-badge-wrap">
                     <span className="tier-badge" tabIndex={0} aria-describedby="active-tier-description">{activeTier.name}</span>
                     <span className="tier-tooltip" id="active-tier-description" role="tooltip">{activeTier.description}</span>
-                  </span>
+                  </span> : null}
                 </div>
-                <h1>{session?.active_household_name || "Vinaris"}</h1>
+                <h1>{eventGuest ? (locale === "it" ? "Sommelier AI per gli ospiti" : "AI sommelier for guests") : (session?.active_household_name || "Vinaris")}</h1>
               </div>
             </>
           ) : (
             publicBrandLockup
           )}
         </div>
-        {authenticated && activeView !== "settings" ? (
+        {authenticated && activeView !== "settings" && !eventGuest ? (
           <form
             className="desktop-topbar-search"
             role="search"
@@ -9203,8 +9237,9 @@ export function App() {
               boxSizing: "border-box",
             } : undefined}
           >
-            {!session?.is_demo ? <strong>{session?.user_display_name || session?.user_email}</strong> : null}
-            {activeView === "home" && !isRestaurant ? <button type="button" className="cellar-home-search" aria-label={t("search")} aria-expanded={mobileSearchOpen} aria-controls="mobile-topbar-search" onClick={() => setMobileSearchOpen(open => !open)}><AppIcon name="search" detailLevel="compact" /></button> : null}
+            {eventGuest ? <span className="event-guest-pill"><span className="status-pill">{locale === "it" ? "Ospite" : "Guest"}</span><button type="button" className="compact event-keep-button" onClick={() => setEventClaimOpen(true)}>{locale === "it" ? "Tieni questa serata" : "Keep tonight"}</button></span> : null}
+            {!session?.is_demo && !eventGuest ? <strong>{session?.user_display_name || session?.user_email}</strong> : null}
+            {activeView === "home" && !isRestaurant && !eventGuest ? <button type="button" className="cellar-home-search" aria-label={t("search")} aria-expanded={mobileSearchOpen} aria-controls="mobile-topbar-search" onClick={() => setMobileSearchOpen(open => !open)}><AppIcon name="search" detailLevel="compact" /></button> : null}
             {householdMemberships.length > 1 ? (
               <label className="household-switch" title={locale === "it" ? "Cambia cantina" : "Switch cellar"}>
                 <AppIcon name="cellar" variant="action" tone="muted" size="0.95rem" />
@@ -9221,10 +9256,10 @@ export function App() {
                 </select>
               </label>
             ) : null}
-            {!session?.is_demo ? <span>{session?.membership_role}</span> : null}
+            {!session?.is_demo && !eventGuest ? <span>{session?.membership_role}</span> : null}
             {session?.is_demo ? <span className="status-pill">{locale === "it" ? "Demo · sola lettura" : "Demo · read-only"}</span> : null}
             {offlineMode ? <span>{t("offlineMode")}: {offlineFileName}</span> : null}
-            {!offlineMode && !session?.is_demo ? <div className="notification-wrap">
+            {!offlineMode && !session?.is_demo && !eventGuest ? <div className="notification-wrap">
               <button
                 type="button"
                 className="secondary compact notification-button"
@@ -9482,7 +9517,7 @@ export function App() {
                 document.body,
               ) : null}
             </div> : null}
-            <button
+            {!eventGuest ? <button
               type="button"
               className={`secondary compact topbar-icon-button topbar-settings-button${activeView === "settings" ? " active" : ""}`}
               aria-label={t("settings")}
@@ -9490,7 +9525,7 @@ export function App() {
               onClick={toggleSettingsView}
             >
               {settingsGearIcon()}
-            </button>
+            </button> : null}
             <button
               type="button"
               className="secondary compact topbar-icon-button topbar-logout-button"
@@ -9512,10 +9547,10 @@ export function App() {
             </button>
             {mobileAccountMenuOpen ? (
               <div id="mobile-account-menu" className="mobile-account-menu" role="menu" aria-label={locale === "it" ? "Menu account" : "Account menu"}>
-                <button type="button" role="menuitem" onClick={() => { setMobileAccountMenuOpen(false); toggleSettingsView(); }}>
+                {!eventGuest ? <button type="button" role="menuitem" onClick={() => { setMobileAccountMenuOpen(false); toggleSettingsView(); }}>
                   <AppIcon name="settings" variant="action" detailLevel="compact" />
                   {t("settings")}
-                </button>
+                </button> : null}
                 <button type="button" role="menuitem" onClick={() => { setMobileAccountMenuOpen(false); openHelp(); }}>
                   <AppIcon name="grapes" variant="premium" detailLevel="compact" />
                   {t("help")}
@@ -9686,6 +9721,17 @@ export function App() {
           {activeView !== "settings" ? (
           <div className="view-tabs">
             <div className="view-tabs-navigation">
+            {eventGuest ? <>
+              <button type="button" className={`view-tab${aiNavigationActive ? "" : " secondary"}`} onClick={() => openView("sommelier")}>
+                <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
+                Sommelier AI
+              </button>
+              <button type="button" className="view-tab secondary" onClick={() => setEventClaimOpen(true)}>
+                <AppIcon name="star" variant="navigation" detailLevel="rich" />
+                {locale === "it" ? "Tieni questa serata" : "Keep tonight"}
+              </button>
+              <button type="button" className={`secondary compact help-context-trigger${activeView === "help" ? " is-active" : ""}`} title={locale === "it" ? "Guida, a partire da questa pagina" : "Guide, starting from this page"} onClick={() => openHelp(contextualHelpArticle)}><span aria-hidden="true">?</span>{t("help")}</button>
+            </> : <>
             <button type="button" className={`view-tab${activeView === "home" ? "" : " secondary"}`} onClick={() => { leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
               <AppIcon name="dashboard" variant="navigation" detailLevel="rich" />
               {t("home")}
@@ -9714,8 +9760,9 @@ export function App() {
               <span aria-hidden="true">+</span>{locale === "it" ? "Aggiungi" : "Add"}
             </button> : null}
             <button type="button" className={`secondary compact help-context-trigger${activeView === "help" ? " is-active" : ""}`} title={locale === "it" ? "Guida, a partire da questa pagina" : "Guide, starting from this page"} onClick={() => openHelp(contextualHelpArticle)}><span aria-hidden="true">?</span>{t("help")}</button>
+            </>}
             </div>
-            <div className="view-tabs-quick-actions">
+            {!eventGuest ? <div className="view-tabs-quick-actions">
             <form
               className="view-tabs-quick-search"
               role="search"
@@ -9743,10 +9790,17 @@ export function App() {
                 </button>
               ) : null}
             </form>
-            </div>
+            </div> : null}
           </div>
           ) : null}
-          {activeView !== "settings" ? (
+          {activeView !== "settings" && eventGuest ? (
+            <nav className="mobile-bottom-navigation" aria-label={locale === "it" ? "Navigazione principale" : "Main navigation"}>
+              <button type="button" className={aiNavigationActive ? "active" : ""} onClick={() => openView("sommelier")}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{t("pairingMenuShort")}</span></button>
+              <button type="button" onClick={() => setEventClaimOpen(true)}><AppIcon name="star" variant="navigation" detailLevel="rich" /><span>{locale === "it" ? "Tieni la serata" : "Keep tonight"}</span></button>
+              <button type="button" className={activeView === "help" ? "active" : ""} onClick={() => openHelp(contextualHelpArticle)}><AppIcon name="grapes" variant="navigation" detailLevel="rich" /><span>{t("help")}</span></button>
+            </nav>
+          ) : null}
+          {activeView !== "settings" && !eventGuest ? (
             <>
               {mobileNavigationOpen ? <div className="mobile-navigation-sheet" role="dialog" aria-label={locale === "it" ? "Menu di navigazione" : "Navigation menu"}>
                 {[
@@ -10056,7 +10110,7 @@ export function App() {
 
               {dashboardFocus === "collector" ? (
               <CollectorHome now={now} wines={cellarWines} featured={keyPositionCandidates} ready={drinkNowWines} recent={recentCellarWines} locale={locale} canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard}
-                showRiserva={!offlineMode && !session?.is_demo && !session?.has_active_entitlement && !session?.is_app_admin}
+                showRiserva={!offlineMode && !session?.is_demo && !eventGuest && !session?.has_active_entitlement && !session?.is_app_admin}
                 onExploreRiserva={() => { setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile"); }}>
                 <CollectorCardGroup className="collector-wine-stage" locale={locale} label={locale === "it" ? "I vini della tua collezione" : "Wines in your collection"}>
                 <article className="dashboard-card key-position-card">
@@ -10143,7 +10197,7 @@ export function App() {
                 </article>
 
 
-                {!offlineMode && !session?.is_demo && !session?.has_active_entitlement && !session?.is_app_admin ? <div className="collector-desktop-riserva"><RiservaBanner locale={locale} onExplore={() => { setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile"); }} /></div> : null}
+                {!offlineMode && !session?.is_demo && !eventGuest && !session?.has_active_entitlement && !session?.is_app_admin ? <div className="collector-desktop-riserva"><RiservaBanner locale={locale} onExplore={() => { setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile"); }} /></div> : null}
                 {renderRecentWidget()}
 
                 {renderReadyWidget()}
@@ -10444,8 +10498,10 @@ export function App() {
             locale={locale}
             showAssistant={!isRestaurant && canAccessCellarAssistant}
             assistantLocked={!session?.cellar_ai_assistant_subscribed}
-            showStrategy={!isRestaurant}
+            showStrategy={!isRestaurant && !eventGuest}
             shelfLocked={!session?.wine_shelf_scan_available}
+            eventFeatures={eventGuest?.features}
+            eventName={eventGuest ? `${eventGuest.name}${eventGuest.place ? ` · ${eventGuest.place}` : ""}` : undefined}
             onOpen={openSommelierFeature}
           /></Suspense> : null}
 
@@ -10456,6 +10512,7 @@ export function App() {
                 <PairingView
                   key={pairingStartPlace}
                   startPlace={pairingStartPlace}
+                  defaultIgnoreTaste={Boolean(eventGuest)}
                   activePairingBudget={activePairingBudget}
                   aiSettingsDraft={aiSettingsDraft}
                   canGenerateAi={canGenerateAi}
@@ -12858,6 +12915,7 @@ export function App() {
 
               {settingsTab === "operations" && canAppAdmin ? (
                 <>
+                  {!session?.is_demo ? <Suspense fallback={null}><AdminEventsPanel locale={locale} /></Suspense> : null}
                   <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento operatività…" : "Loading operations…"} />}>
                     <OperationsPanel locale={locale} overview={operationsOverview} activity={userActivity} onRefresh={loadOperationsMetrics} sensoryProfiles={<AdminSensoryProfilesPanel locale={locale} />} catalogPendingCount={pendingCatalogEntries.length} catalogManagement={
                       <AdminCatalogPanel
@@ -12927,6 +12985,25 @@ export function App() {
         </section>
       )}
       {renderCellarSommelierLayer()}
+      {eventClaimOpen && eventGuest ? (
+        <Suspense fallback={null}>
+          <EventClaimDialog
+            locale={locale}
+            eventName={`${eventGuest.name}${eventGuest.place ? ` · ${eventGuest.place}` : ""}`}
+            onClose={() => setEventClaimOpen(false)}
+            onClaimed={(nextSession, email) => {
+              setEventClaimOpen(false);
+              setRegistrationEmail(email);
+              setSession(nextSession);
+              if (!nextSession.authenticated) setAuthModalOpen(true);
+              if (nextSession.authenticated) {
+                applySessionPreferences(nextSession, true);
+                void loadAuthenticatedSessionData(nextSession);
+              }
+            }}
+          />
+        </Suspense>
+      ) : null}
       {wishlistConversionItem ? (
         <div className="auth-modal-overlay" onClick={() => !saving && setWishlistConversionItem(null)}>
           <section className="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="wishlist-conversion-title" onClick={(event) => event.stopPropagation()}>

@@ -1,4 +1,40 @@
+/** The event a guest came in through (QR code), while the visit lasts. */
+export type SessionEvent = {
+  id: string;
+  name: string;
+  place: string;
+  locale: string;
+  features: EventFeature[];
+  landing: EventLanding;
+  visitor_until: string;
+};
+
+export type EventFeature = "restaurant_wine_list" | "dish_pairing" | "bottle_photo" | "assistant" | "buying_advice";
+export type EventLanding = "pairing-restaurant" | "pairing-home" | "assistant" | "buying" | "sommelier";
+
+export type DemoEvent = {
+  id: string;
+  slug: string;
+  url: string;
+  qr_url: string;
+  name: string;
+  place: string;
+  locale: Locale;
+  is_active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  features: EventFeature[];
+  landing: EventLanding;
+  credit_per_visitor_usd: string;
+  budget_usd: string;
+  max_visitors_per_day: number;
+  session_hours: number;
+  created_at: string;
+  stats: { visitor_count: number; active_visitors: number; conversions: number; granted_usd: string; spent_usd: string };
+};
+
 export type Session = {
+  event?: SessionEvent | null;
   is_ambassador?: boolean;
   ambassador_until?: string | null;
   authenticated: boolean;

@@ -65,6 +65,17 @@ class User(Base):
         DateTime(timezone=True), nullable=True
     )
     ambassador_credit_wallet: Mapped[str] = mapped_column(String(64), default="")
+    # Guests who came in through an event QR code: the event stays as provenance
+    # after they keep the account; the visitor expiry is cleared then.
+    event_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("demo_events.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    event_visitor_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # Vinaris news e-mails go to every account unless the user opts out.
     news_email_opt_out: Mapped[bool] = mapped_column(Boolean, default=False)
 

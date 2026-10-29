@@ -1,0 +1,15 @@
+.event-claim-dialog .auth-panel { display: grid; gap: 14px; }
+.event-claim-dialog .auth-panel label { display: grid; gap: 6px; min-width: 0; }
+.event-claim-dialog .auth-panel label small { color: var(--text-muted); font-size: .75rem; }
+.event-claim-dialog .auth-panel :is(input:not([type="checkbox"])) { width: 100%; min-width: 0; box-sizing: border-box; }
+.event-claim-intro { margin: 0; font-size: .9rem; line-height: 1.5; color: var(--text-muted); }
+.event-claim-dialog .auth-panel label.event-claim-consent { display: flex; align-items: flex-start; gap: 10px; }
+.event-claim-consent input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; }
+.event-claim-consent span { font-size: .85rem; line-height: 1.45; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.event-claim-consent a { color: var(--accent); }
+.event-claim-error { margin: 0; color: var(--danger); overflow-wrap: anywhere; }
+
+/* Event guests: the event, not Vinaris, on the masthead; one way in, one way to stay. */
+.topbar-event-title { overflow-wrap: anywhere; white-space: normal; }
+.event-keep-button { white-space: nowrap; }
+.event-guest-pill { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

@@ -64,6 +64,8 @@ type PairingViewProps = {
   startAtHome?: boolean;
   /** Skip "Dove sei?" when the user already chose, e.g. on the Sommelier AI page. */
   startPlace?: "choose" | "home" | "restaurant";
+  /** Event guests have no taste profile yet: the wine list is read for the dish and budget alone. */
+  defaultIgnoreTaste?: boolean;
   saving: boolean;
   savedPairingPreferences: string;
   wines: WineLike[];
@@ -130,6 +132,7 @@ export default function PairingView({
   pairingResult,
   startAtHome = false,
   startPlace = "choose",
+  defaultIgnoreTaste = false,
   saving,
   savedPairingPreferences,
   setAiSettingsDraft,
@@ -151,7 +154,7 @@ export default function PairingView({
   const [restaurantListImages, setRestaurantListImages] = useState<File[]>([]);
   const [restaurantDish, setRestaurantDish] = useState("");
   const [restaurantBudget, setRestaurantBudget] = useState("");
-  const [restaurantIgnoreTaste, setRestaurantIgnoreTaste] = useState(false);
+  const [restaurantIgnoreTaste, setRestaurantIgnoreTaste] = useState(defaultIgnoreTaste);
   const [restaurantScan, setRestaurantScan] = useState<RestaurantWineListScanResult | null>(null);
   const [restaurantScanKey, setRestaurantScanKey] = useState(0);
   const [restaurantScanError, setRestaurantScanError] = useState("");
