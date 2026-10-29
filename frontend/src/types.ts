@@ -1432,7 +1432,7 @@ export type CellarCommandResult = {
   estimated_cost_usd: number | string;
 };
 
-export type ViewName = "home" | "cellar" | "history" | "wishlist" | "intelligence" | "assistant" | "pairing" | "pulse" | "buying" | "sommelier" | "help" | "settings";
+export type ViewName = "home" | "cellar" | "history" | "wishlist" | "intelligence" | "assistant" | "pairing" | "pulse" | "buying" | "sommelier" | "help" | "settings" | "event";
 
 export type WineStrategyPurpose = "drink" | "maturation" | "investment" | "special_occasion" | "undecided";
 

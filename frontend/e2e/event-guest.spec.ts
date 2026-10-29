@@ -33,7 +33,7 @@ async function mockEvent(page: Page) {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       const path = new URL(requestUrl, window.location.origin).pathname;
       if (path.endsWith("/events/market-2026/enter")) {
-        window.sessionStorage.setItem("vinaris-test-event-entered", "yes");
+        window.sessionStorage.setItem("vinaris-test-event-entered", new URL(requestUrl, window.location.origin).search || "yes");
         return new Response(JSON.stringify(fixture), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (path.endsWith("/events/claim")) {
@@ -51,16 +51,26 @@ for (const width of [390, 1440]) {
     await mockEvent(page);
     await page.goto("/e/market-2026");
 
+    // No locale on the request: the guest speaks the event's language.
     await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("vinaris-test-event-entered"))).toBe("yes");
     await expect(page).toHaveURL(/\/$/);
     const masthead = page.locator(".topbar-brand");
     await expect(masthead.locator(".eyebrow")).toHaveText("Vinaris at The Market · Lugano");
     await expect(masthead.getByRole("heading", { level: 1 })).toHaveText("Sommelier AI per gli ospiti");
     await expect(page.locator(".topbar-settings-button")).toHaveCount(0);
-    // Landing: at the restaurant, the taste profile left aside.
-    await expect(page.getByRole("button", { name: "Analizza una carta vini" })).toBeVisible();
-    await page.getByRole("button", { name: "Analizza una carta vini" }).click();
+    // Landing: the event's welcome page, with only the feature on offer.
+    await expect(page.getByRole("heading", { name: "Il sommelier AI è al tuo tavolo." })).toBeVisible();
+    const cards = page.locator(".event-welcome-card");
+    await expect(cards).toHaveCount(1);
+    await expect(cards.first()).toContainText("Scegli dalla carta dei vini");
+    await page.screenshot({ path: testInfo.outputPath(`event-welcome-${width}.png`), fullPage: true });
+    await cards.first().click();
+    // Straight to the wine-list scan, the taste profile left aside, no other path on offer.
+    await expect(page.getByRole("button", { name: "Analizza carta vini" })).toBeVisible();
     await expect(page.getByLabel("Non usare il mio profilo gusto")).toBeChecked();
+    await expect(page.getByRole("button", { name: "Cambia percorso" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "A casa" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Proposta senza carta" })).toHaveCount(0);
     // Nothing of the cellar app: only the sommelier and the way to stay.
     await expect(page.getByRole("button", { name: /^Cantina/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Wishlist" })).toHaveCount(0);
@@ -84,14 +94,27 @@ for (const width of [390, 1440]) {
   });
 }
 
-test("the sommelier page offers only the event's features", async ({ page }) => {
+test("the welcome page returns from a feature and lists every feature the event offers", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await mockEvent(page);
+  await mockApi(page, [], true, memberships, [], { ...guestSession, event: { ...guestSession.event, features: ["restaurant_wine_list", "dish_pairing", "bottle_photo"] } });
+  await page.addInitScript((fixture) => {
+    const mocked = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (new URL(requestUrl, window.location.origin).pathname.endsWith("/events/market-2026/enter")) return new Response(JSON.stringify(fixture), { status: 200, headers: { "Content-Type": "application/json" } });
+      return mocked(input, init);
+    };
+  }, { ...guestSession, event: { ...guestSession.event, features: ["restaurant_wine_list", "dish_pairing", "bottle_photo"] } });
   await page.goto("/e/market-2026");
-  await page.getByRole("button", { name: "Sommelier AI" }).first().click();
-  await expect(page.getByRole("heading", { name: "Sommelier AI" })).toBeVisible();
-  await expect(page.getByText("Il sommelier di stasera · The Market · Lugano")).toBeVisible();
-  const cards = page.locator(".sommelier-hub-card");
-  await expect(cards).toHaveCount(1);
-  await expect(cards.first()).toContainText("Al ristorante");
+  const cards = page.locator(".event-welcome-card");
+  await expect(cards).toHaveCount(3);
+  await cards.nth(1).click();
+  // The dish path, with the way back to the list but never "at home".
+  await expect(page.getByText("Proposta senza carta").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cambia percorso" })).toBeVisible();
+  await page.getByRole("button", { name: "Cambia percorso" }).click();
+  await expect(page.getByRole("button", { name: "Analizza una carta vini" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "A casa" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Stasera" }).first().click();
+  await expect(page.getByRole("heading", { name: "Il sommelier AI è al tuo tavolo." })).toBeVisible();
 });

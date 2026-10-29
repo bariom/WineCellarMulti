@@ -18,14 +18,6 @@ const FEATURES: Array<{ id: EventFeature; it: string; en: string }> = [
   { id: "buying_advice", it: "Consigli d’acquisto", en: "Buying advice" },
 ];
 
-const LANDINGS: Array<{ id: EventLanding; it: string; en: string }> = [
-  { id: "pairing-restaurant", it: "Al ristorante: fotografa la carta", en: "At the restaurant: photograph the list" },
-  { id: "pairing-home", it: "Abbinamento a un piatto", en: "Dish pairing" },
-  { id: "assistant", it: "Assistente", en: "Assistant" },
-  { id: "buying", it: "Consigli d’acquisto", en: "Buying advice" },
-  { id: "sommelier", it: "Pagina Sommelier AI", en: "Sommelier AI page" },
-];
-
 type Draft = {
   name: string; place: string; locale: Locale; features: EventFeature[]; landing: EventLanding;
   credit_per_visitor_usd: string; budget_usd: string; max_visitors_per_day: string; session_hours: string;
@@ -133,7 +125,6 @@ export default function AdminEventsPanel({ locale }: { locale: Locale }) {
         <label><span>{it ? "Nome (es. The Market)" : "Name (e.g. The Market)"}</span><input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required maxLength={120} /></label>
         <label><span>{it ? "Luogo (es. Lugano)" : "Place (e.g. Lugano)"}</span><input value={draft.place} onChange={(event) => setDraft({ ...draft, place: event.target.value })} maxLength={120} /></label>
         <label><span>{it ? "Lingua" : "Language"}</span><select value={draft.locale} onChange={(event) => setDraft({ ...draft, locale: event.target.value as Locale })}><option value="it">Italiano</option><option value="en">English</option></select></label>
-        <label><span>{it ? "Pagina di arrivo" : "Landing page"}</span><select value={draft.landing} onChange={(event) => setDraft({ ...draft, landing: event.target.value as EventLanding })}>{LANDINGS.map((landing) => <option key={landing.id} value={landing.id}>{landing[locale]}</option>)}</select></label>
       </div>
       <fieldset className="admin-events-features">
         <legend>{it ? "Funzioni AI offerte" : "AI features on offer"}</legend>

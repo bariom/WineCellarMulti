@@ -26,6 +26,7 @@ import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError }
 import { runWineShelfScan } from "./services/wineShelfScan";
 import type { BatchAiItem, BatchAiRun } from "./components/BatchAiReport";
 import type { SommelierDestination } from "./views/SommelierHubView";
+import type { EventFeature } from "./types";
 import type { FeatureId } from "./components/FeatureSuggestions";
 import { primeSpeech, setFrenchNames } from "./utils/speech";
 import { isFrenchWine } from "./utils/pronunciation";
@@ -198,6 +199,7 @@ const AdminAnnouncementsPanel = lazy(() => import("./components/AdminAnnouncemen
 const AdminEmailCampaigns = lazy(() => import("./components/AdminEmailCampaigns"));
 const AdminEventsPanel = lazy(() => import("./components/AdminEventsPanel"));
 const EventClaimDialog = lazy(() => import("./components/EventClaimDialog"));
+const EventWelcomeView = lazy(() => import("./views/EventWelcomeView"));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const LegalAcceptancePanel = lazy(() => import("./legal/LegalAcceptancePanel"));
@@ -1080,6 +1082,7 @@ export function App() {
   }, [wines]);
   // Where a pairing visit starts when it comes from the Sommelier AI page.
   const [pairingStartPlace, setPairingStartPlace] = useState<"choose" | "home" | "restaurant">("choose");
+  const [pairingRestaurantFlow, setPairingRestaurantFlow] = useState<"choose" | "scan" | "without-list">("choose");
   const [tastingOrigin, setTastingOrigin] = useState<"" | "cellar" | "external">("");
   const [tastingArchivePage, setTastingArchivePage] = useState<TastingArchivePage | null>(null);
   const [tastingArchiveOverview, setTastingArchiveOverview] = useState<TastingArchivePage | null>(null);
@@ -2422,14 +2425,13 @@ export function App() {
     setLoading(true);
     setError("");
     try {
-      const nextSession = await api<Session>(`/api/v1/events/${encodeURIComponent(slug)}/enter?locale=${locale}`, { method: "POST" });
+      // No locale: the guest speaks the event's language.
+      const nextSession = await api<Session>(`/api/v1/events/${encodeURIComponent(slug)}/enter`, { method: "POST" });
       setSession(nextSession);
       applySessionPreferences(nextSession, true);
       setAuthModalOpen(false);
       await loadAuthenticatedSessionData(nextSession);
-      const landing = nextSession.event?.landing ?? "sommelier";
-      if (landing === "sommelier") openView("sommelier");
-      else openSommelierFeature(landing);
+      openView("event");
     } catch (nextError) {
       await loadData();
       setError(nextError instanceof Error ? nextError.message : (locale === "it" ? "Evento non disponibile" : "Event unavailable"));
@@ -7406,6 +7408,22 @@ export function App() {
     }
   }
 
+  /** The event welcome page leads to each offered feature, on its only path. */
+  function openEventFeature(feature: EventFeature) {
+    if (feature === "restaurant_wine_list" || feature === "dish_pairing") {
+      setPairingTargetWineId(null);
+      setPairingStartPlace("restaurant");
+      setPairingRestaurantFlow(feature === "restaurant_wine_list" ? "scan" : "without-list");
+      openView("pairing");
+    } else if (feature === "bottle_photo") {
+      setBottlePhotoImportOpen(true);
+    } else if (feature === "assistant") {
+      openView("assistant");
+    } else {
+      openSommelierFeature("buying");
+    }
+  }
+
   /** The Sommelier AI page leads to each AI feature, already on the right path. */
   function openSommelierFeature(destination: SommelierDestination) {
     if (destination === "assistant") openView("assistant");
@@ -7416,6 +7434,7 @@ export function App() {
     } else {
       setPairingTargetWineId(null);
       setPairingStartPlace(destination === "pairing-restaurant" ? "restaurant" : "home");
+      setPairingRestaurantFlow("choose");
       openView("pairing");
     }
   }
@@ -9722,9 +9741,9 @@ export function App() {
           <div className="view-tabs">
             <div className="view-tabs-navigation">
             {eventGuest ? <>
-              <button type="button" className={`view-tab${aiNavigationActive ? "" : " secondary"}`} onClick={() => openView("sommelier")}>
+              <button type="button" className={`view-tab${activeView === "event" || aiNavigationActive ? "" : " secondary"}`} onClick={() => openView("event")}>
                 <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
-                Sommelier AI
+                {locale === "it" ? "Stasera" : "Tonight"}
               </button>
               <button type="button" className="view-tab secondary" onClick={() => setEventClaimOpen(true)}>
                 <AppIcon name="star" variant="navigation" detailLevel="rich" />
@@ -9795,7 +9814,7 @@ export function App() {
           ) : null}
           {activeView !== "settings" && eventGuest ? (
             <nav className="mobile-bottom-navigation" aria-label={locale === "it" ? "Navigazione principale" : "Main navigation"}>
-              <button type="button" className={aiNavigationActive ? "active" : ""} onClick={() => openView("sommelier")}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{t("pairingMenuShort")}</span></button>
+              <button type="button" className={activeView === "event" || aiNavigationActive ? "active" : ""} onClick={() => openView("event")}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{locale === "it" ? "Stasera" : "Tonight"}</span></button>
               <button type="button" onClick={() => setEventClaimOpen(true)}><AppIcon name="star" variant="navigation" detailLevel="rich" /><span>{locale === "it" ? "Tieni la serata" : "Keep tonight"}</span></button>
               <button type="button" className={activeView === "help" ? "active" : ""} onClick={() => openHelp(contextualHelpArticle)}><AppIcon name="grapes" variant="navigation" detailLevel="rich" /><span>{t("help")}</span></button>
             </nav>
@@ -10494,6 +10513,13 @@ export function App() {
             /></Suspense></>
           ) : null}
 
+          {activeView === "event" && eventGuest ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><EventWelcomeView
+            locale={locale}
+            event={eventGuest}
+            onOpen={openEventFeature}
+            onKeep={() => setEventClaimOpen(true)}
+          /></Suspense> : null}
+
           {activeView === "sommelier" ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><SommelierHubView
             locale={locale}
             showAssistant={!isRestaurant && canAccessCellarAssistant}
@@ -10513,6 +10539,8 @@ export function App() {
                   key={pairingStartPlace}
                   startPlace={pairingStartPlace}
                   defaultIgnoreTaste={Boolean(eventGuest)}
+                  lockedFlows={eventGuest ? { scan: eventGuest.features.includes("restaurant_wine_list"), withoutList: eventGuest.features.includes("dish_pairing") } : undefined}
+                  initialRestaurantFlow={pairingRestaurantFlow}
                   activePairingBudget={activePairingBudget}
                   aiSettingsDraft={aiSettingsDraft}
                   canGenerateAi={canGenerateAi}

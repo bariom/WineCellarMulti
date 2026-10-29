@@ -9,8 +9,12 @@ L'obiettivo è acquisire clienti, non locali: il locale è solo il contesto.
 
 - **Admin → Impostazioni → Operatività → Eventi con QR.** Ogni evento ha nome
   e luogo (in testata: *Vinaris at The Market · Lugano*), lingua, funzioni AI
-  offerte, pagina di arrivo, credito per ospite, tetto di spesa, ospiti al
-  giorno, durata della visita e, facoltativi, inizio e fine validità.
+  offerte, credito per ospite, tetto di spesa, ospiti al giorno, durata della
+  visita e, facoltativi, inizio e fine validità.
+- L'ospite atterra sulla **pagina di benvenuto dell'evento** ("Stasera"), nella
+  lingua dell'evento: presenta solo le funzioni offerte, come funziona in tre
+  passi e "Tieni questa serata". Nell'abbinamento al ristorante vede solo i
+  percorsi previsti (carta fotografata e/o proposta dal piatto), mai "A casa".
 - Il QR (SVG scaricabile) codifica `https://<dominio>/e/<slug>`. Lo slug è
   casuale e si può rigenerare ("Nuovo indirizzo") se il QR finisce in giro.
 - All'apertura, `POST /api/v1/events/{slug}/enter` crea un utente effimero
