@@ -20,6 +20,7 @@ export const personalDashboardCatalogue: Array<{ id: PersonalDashboardWidgetId; 
   {"id": "ready", "it": ["Da bere adesso", "Tre bottiglie nella finestra di beva."], "en": ["Drink now", "Three bottles in their drinking window."]},
   {"id": "past_window", "it": ["Da tenere d’occhio", "Finestre in chiusura o superate."], "en": ["Keep an eye on", "Closing or elapsed drinking windows."]},
   {"id": "next_peak", "it": ["Le prossime al picco", "Le prossime finestre ideali, lungo una linea del tempo."], "en": ["Next at peak", "Upcoming ideal windows on a timeline."]},
+  { id: "today", it: ["La tua cantina oggi", "Tre proposte motivate: per stasera, da tenere d’occhio e per la collezione."], en: ["Your cellar today", "Three reasoned picks: for tonight, to keep an eye on and for your collection."] },
   {"id": "tonight", "it": ["Una bottiglia per stasera", "Una proposta pronta da bere e il suo abbinamento."], "en": ["A bottle for tonight", "One ready-to-drink choice and its pairing."]},
   {"id": "taste", "it": ["Mappa del gusto", "Un radar delle affinità personali."], "en": ["Taste map", "A radar of your personal affinities."]},
   {"id": "taste_origins", "it": ["Geografia del gusto", "Le origini associate ai vini apprezzati."], "en": ["Taste geography", "Origins associated with wines you enjoyed."]},

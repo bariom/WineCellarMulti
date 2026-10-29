@@ -14,6 +14,7 @@ import type { WineSaleDraft } from "../types";
 import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } from "../domain/cellar";
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
 import { api } from "../services/api";
+import { tasteTraitLabel } from "../domain/tasteStrength";
 import type { WineStockLot } from "../types";
 import { WineLocationPicker, WineStorageSection, WineStrategySection } from "./StoragePanels";
 import LocalizedDateInput from "./LocalizedDateInput";
@@ -1024,17 +1025,6 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     tasting_history: [],
     value_history: [],
   };
-}
-
-function tasteTraitLabel(trait: string, locale: Locale) {
-  const labels: Record<string, string> = locale === "it" ? {
-    body: "corpo", acidity: "acidità", tannin: "tannini", sweetness: "dolcezza",
-    aromatic_intensity: "intensità aromatica", "aromatic intensity": "intensità aromatica", fruit: "frutto", wood: "legno", spice: "spezie", minerality: "mineralità",
-  } : {
-    body: "body", acidity: "acidity", tannin: "tannin", sweetness: "sweetness",
-    aromatic_intensity: "aromatic intensity", fruit: "fruit", wood: "wood", spice: "spice", minerality: "minerality",
-  };
-  return labels[trait] || trait;
 }
 
 function TasteHeartScale({ score, confidence, locale, compact = false, className = "" }: { score: number; confidence: number; locale: Locale; compact?: boolean; className?: string }) {

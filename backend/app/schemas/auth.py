@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import AwareDatetime, BaseModel, EmailStr, Field, field_validator
 
@@ -167,8 +167,10 @@ class UserPreferencesUpdate(BaseModel):
         default=None,
         pattern="^(collector|daily|balanced|personal)$",
     )
+    # Each widget at most once (see the validator below): the catalogue is the limit.
     personal_dashboard_widgets: list[DashboardWidgetPreference] | None = Field(
-        default=None, max_length=40
+        default=None,
+        max_length=len(get_args(DashboardWidgetPreference.model_fields["id"].annotation)),
     )
 
     @field_validator("personal_dashboard_widgets")

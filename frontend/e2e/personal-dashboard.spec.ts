@@ -805,3 +805,33 @@ test("personal dashboard links to matching insights, filtered cellar, or nowhere
   await expect(page.locator('[data-wine-row-id]')).toHaveCount(1);
   await expect(page.locator('[data-wine-row-id]').first()).toContainText('Vino da ritirare');
 });
+
+test("today in the cellar widget proposes tonight's bottle and the one whose window is closing", async ({ page }) => {
+  const year = new Date().getFullYear();
+  const closing = { ...wine, id: "closing-wine", name: "Barbera in chiusura", drink_from: year - 6, drink_peak_from: year - 3, drink_peak_to: year - 1, drink_to: year };
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
+    await mockApi(page, [], true, memberships, [wine, closing], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [{ id: "today", width: "full" }] });
+    await page.goto("/");
+    const today = page.locator('[data-widget-id="today"]').getByRole("region", { name: "La tua cantina oggi" });
+    await expect(today).toBeVisible();
+    const tonight = today.locator(".today-in-cellar-card--tonight");
+    await expect(tonight).toContainText("Nebbiolo di Test");
+    await expect(tonight).toContainText("In sintonia con il tuo gusto per corpo e tannini");
+    const watch = today.locator(".today-in-cellar-card--watch");
+    await expect(watch).toContainText("Barbera in chiusura");
+    await expect(watch).toContainText("La finestra di beva si chiude quest'anno");
+    for (const card of await today.locator(".today-in-cellar-card").all()) {
+      const box = (await card.boundingBox())!;
+      for (const button of await card.locator("button").all()) {
+        const bounds = (await button.boundingBox())!;
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(box.x + box.width + 0.5);
+      }
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`today-widget-${width}.png`), fullPage: false });
+  }
+  // The home stays as the user chose it: the strip lives only in the personal dashboard.
+  await page.getByRole("tab", { name: "Bere bene oggi", exact: true }).click();
+  await expect(page.getByRole("region", { name: "La tua cantina oggi" })).toHaveCount(0);
+});

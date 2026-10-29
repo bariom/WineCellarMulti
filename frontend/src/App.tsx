@@ -148,6 +148,7 @@ const AiSettingsTab = lazy(() => import("./views/settings/AiSettingsTab"));
 const ValueDashboard = lazy(() => import("./views/home/ValueDashboard"));
 const DashboardHero = lazy(() => import("./views/home/DashboardHero"));
 const DailySommelierBubble = lazy(() => import("./views/home/DailySommelierBubble"));
+const TodayInCellar = lazy(() => import("./views/home/TodayInCellar"));
 const ProfileSettingsTab = lazy(() => import("./views/settings/ProfileSettingsTab"));
 const SharingSettingsTab = lazy(() => import("./views/settings/SharingSettingsTab"));
 const DataSettingsTab = lazy(() => import("./views/settings/DataSettingsTab"));
@@ -8540,6 +8541,23 @@ export function App() {
     if ((widget.id === "polaroids" || widget.id === "memories") && !canAccessMemories) return <PremiumMemoriesNotice locale={locale} polaroids={widget.id === "polaroids"} onActivate={openSubscriptionSettings} />;
     if (widget.id === "polaroids") return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><PolaroidsWidget locale={locale} preview={preview} offline={offlineMode} /></Suspense>;
     if (widget.id === "memories") return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><MemoriesWidget locale={locale} preview={preview} offline={offlineMode} /></Suspense>;
+    if (widget.id === "today") return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><TodayInCellar
+      locale={locale}
+      householdId={session?.active_household_id ?? undefined}
+      currentYear={currentYear}
+      readyWines={rankedDailyTonightWines}
+      availableWines={balancedAvailableWines}
+      bottleCount={(wine) => ownedBottleCount(wine, session)}
+      budgetChf={hasDailyWineBudget ? dailyWineBudgetChf : null}
+      canShowPhotos={canAccessWinePhotos}
+      canGenerateAi={canGenerateAi}
+      emptyLabel={t("dailySommelierEmpty")}
+      footerLabel={t("dailySommelierFree")}
+      reasonFor={dailyRecommendationReason}
+      onOpenWine={(wine) => { if (!preview) openWineFromDashboard(wine); }}
+      onPairing={(wine) => { if (!preview) openDishPairingForWine(wine); }}
+      onOpenBuying={() => { if (!preview) openSommelierFeature("buying"); }}
+    /></Suspense>;
     return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><DashboardSummaryWidget
       widget={widget} locale={locale} wines={wines} wishlist={wishlist} featured={keyPositionCandidates}
       canShowPhotos={canAccessWinePhotos} onOpen={wine => { if (!preview) openWineFromDashboard(wine); }} onRegion={region => { if (!preview) openCellarForRegion(region); }}

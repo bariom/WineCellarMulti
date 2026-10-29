@@ -47,6 +47,7 @@ class DashboardWidgetPreference(BaseModel):
         "storage",
         "wishlist",
         "purposes",
+        "today",
     ]
     width: Literal["half", "full"] = "full"
 

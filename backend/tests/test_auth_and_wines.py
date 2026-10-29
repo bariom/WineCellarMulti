@@ -1404,7 +1404,7 @@ def test_personal_dashboard_supports_complete_catalogue():
     from app.schemas.dashboard import DashboardWidgetPreference
 
     widget_ids = get_args(DashboardWidgetPreference.model_fields["id"].annotation)
-    assert len(widget_ids) == 40
+    assert len(widget_ids) == 41
     assert "memories" in widget_ids
     assert "polaroids" in widget_ids
     with TestClient(app) as client:

@@ -1,0 +1,62 @@
+.today-in-cellar .summary-body { align-content: start; }
+.today-in-cellar-empty { margin: 0; font-size: .85rem; color: var(--text-muted); }
+
+.today-in-cellar-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; min-width: 0; }
+
+.today-in-cellar-card {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "kicker" "identity" "actions";
+  grid-template-rows: auto 1fr auto; gap: 8px 14px; min-width: 0; padding: 16px 18px; overflow: hidden;
+  border: 1px solid var(--home-rule, var(--border)); border-radius: var(--radius-card, 18px);
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 62%),
+    var(--home-paper, var(--surface-raised));
+  box-shadow: var(--home-shadow, 0 5px 16px #192c2008);
+}
+.today-in-cellar-card.has-bottle { grid-template-columns: 46px minmax(0, 1fr); grid-template-areas: "bottle kicker" "bottle identity" "actions actions"; }
+.today-in-cellar-card::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 3px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 15%, transparent));
+}
+.today-in-cellar-card--watch::before { background: linear-gradient(90deg, var(--home-copper, var(--accent)), color-mix(in srgb, var(--home-copper, var(--accent)) 15%, transparent)); }
+
+.today-in-cellar-kicker { grid-area: kicker; display: flex; align-items: center; gap: 7px; margin: 0; font-size: .68rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--accent); }
+
+.today-in-cellar-bottle {
+  grid-area: bottle; align-self: start; display: grid; place-items: center; width: 46px; height: 84px; border-radius: 10px;
+  background: radial-gradient(ellipse at 50% 75%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 72%);
+  --bottle-tone: #4b1d26;
+}
+.today-in-cellar-bottle img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 5px #192c201f); }
+.today-in-cellar-bottle svg { width: 26px; height: 70px; fill: var(--bottle-tone); filter: drop-shadow(0 5px 4px #192c2026); }
+.today-in-cellar-bottle svg rect { fill: color-mix(in srgb, var(--home-paper, #f4eee2) 88%, var(--accent)); }
+.today-in-cellar-bottle.tone-white { --bottle-tone: #9c8a45; }
+.today-in-cellar-bottle.tone-rose { --bottle-tone: #c07c78; }
+.today-in-cellar-bottle.tone-sparkling { --bottle-tone: #2f4a35; }
+.today-in-cellar-bottle.tone-sweet { --bottle-tone: #a5671e; }
+.today-in-cellar-bottle.tone-other { --bottle-tone: var(--primary); }
+
+.today-in-cellar-identity { grid-area: identity; display: grid; align-content: start; gap: 3px; min-width: 0; }
+.today-in-cellar-identity h3 { margin: 0; font: normal 1.15rem/1.2 var(--home-serif, var(--font-display)); letter-spacing: -.01em; color: var(--text); overflow-wrap: anywhere; }
+.today-in-cellar-identity small { font-size: .72rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.today-in-cellar-identity p { margin: 4px 0 0; font-size: .8rem; line-height: 1.45; color: var(--text); }
+
+.today-in-cellar-actions { grid-area: actions; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.today-in-cellar-actions button { min-height: 38px; padding: 7px 14px; font-size: .8rem; }
+
+@media (max-width: 720px) {
+    .today-in-cellar-cards {
+    display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: calc(100% - 32px);
+    overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none;
+    gap: 10px; padding: 2px 1px 4px;
+  }
+  .today-in-cellar-cards::-webkit-scrollbar { display: none; }
+  .today-in-cellar-cards:has(> :only-child) { grid-auto-columns: 100%; }
+  .today-in-cellar-card { scroll-snap-align: start; padding: 13px 14px 12px; gap: 6px 12px; }
+  .today-in-cellar-card.has-bottle { grid-template-columns: 38px minmax(0, 1fr); }
+  .today-in-cellar-bottle { width: 38px; height: 68px; }
+  .today-in-cellar-bottle svg { width: 22px; height: 58px; }
+  .today-in-cellar-identity h3 { font-size: 1.05rem; }
+  .today-in-cellar-identity p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .today-in-cellar-actions { margin-top: 2px; }
+  .today-in-cellar-actions button { min-height: 36px; padding: 6px 12px; }
+}
