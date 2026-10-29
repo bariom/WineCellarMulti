@@ -1709,11 +1709,16 @@ def test_favourites_carry_bottles_drunk_and_average_stars() -> None:
     name, score, drunk, average = producers["La Tunella"]
     assert (name, drunk, average) == ("La Tunella", 3, 5.0)
     assert producers["Chateau Citran"][2:] == [1, 6.0]
-    # Ranked by average stars shrunk toward the user's own average (5.2 here):
-    # four experiences averaging 5.0 sit just below it, one bottle at 6 above it.
-    assert score == 5.09
-    assert producers["Chateau Citran"][1] == 5.4
-    assert overall.attributes["scoring"] == [["average_stars", 3]]
+    # Ranked by average stars shrunk toward halfway between neutral and the
+    # user's own average (5.2 here, so 4.1): four experiences averaging 5.0
+    # outrank a single bottle at 6.
+    assert score == 4.61
+    assert producers["Chateau Citran"][1] == 4.57
+    assert [entry[0] for entry in overall.attributes["preferred_producers"]] == [
+        "La Tunella",
+        "Chateau Citran",
+    ]
+    assert overall.attributes["scoring"] == [["average_stars", 4]]
 
 
 def test_grape_names_drop_notes_the_ai_put_in_brackets() -> None:
@@ -1922,7 +1927,7 @@ def test_profiles_saved_with_the_earlier_favourite_ranking_are_rebuilt_on_read()
     response = taste_profile_routes.get_my_taste_profile(db, context)
 
     overall = next(profile for profile in response.profiles if profile.category == "global")
-    assert overall.attributes["scoring"] == [["average_stars", 3]]
+    assert overall.attributes["scoring"] == [["average_stars", 4]]
     assert overall.attributes["preferred_producers"][0][:3] == ["Producer", overall.attributes["preferred_producers"][0][1], 1]
 
 

@@ -63,13 +63,16 @@ TASTE_PROFILE_SHADOW_VERSION = 4
 PERSONAL_NEUTRAL_PRIOR_EXPERIENCES = 3.0
 PERSONAL_NEUTRAL_RANGE = (2.0, 5.0)
 # Favourites (producers, regions, grapes…) are ranked by average stars, shrunk
-# toward the user's overall average as if each had this many extra experiences.
+# as if each had this many extra experiences: liked ones toward halfway between
+# neutral and the user's own average, so an unproven favourite sits below one
+# confirmed by many bottles; avoided ones toward the user's average.
 FAVOURITE_PRIOR_EXPERIENCES = 3.0
 # Stored in a profile's attributes so readers can tell this ranking from the
 # earlier "sum of experiences" one, and stale profiles can be rebuilt.
 # Version 2: grapes in a blend take their share of the rating.
 # Version 3: entries rated below neutral are kept as "avoided_*" for the sommelier.
-FAVOURITE_SCORING_MARKER = [["average_stars", 3]]
+# Version 4: liked entries start below the user's average, not at it.
+FAVOURITE_SCORING_MARKER = [["average_stars", 4]]
 # Stored on the global profile as attributes["validation"], so the sommelier can
 # tell how much the sensory dimensions are worth: [[status, ranking_auc, tested, negatives]].
 VALIDATION_ATTRIBUTE = "validation"
@@ -923,6 +926,9 @@ def rebuild_user_taste_profile(
                 shadow_confidence_values.append(shadow_confidence)
         experiences = category_scores[category]
         user_average = sum(experiences) / len(experiences) if experiences else NEUTRAL_RATING
+        # Starting at the user's own average, one good bottle would outrank a
+        # country drunk eighteen times at that average.
+        liked_prior = min(user_average, (NEUTRAL_RATING + user_average) / 2)
 
         def favourite_score(scores: list[tuple[float, float]], prior: float) -> float:
             # A few excellent bottles can lead, but one bottle cannot outweigh many.
@@ -947,7 +953,7 @@ def rebuild_user_taste_profile(
                 attribute_entry(category, key, value, score)
                 for value, score in sorted(
                     (
-                        (value, favourite_score(scores, user_average))
+                        (value, favourite_score(scores, liked_prior))
                         for value, scores in values.items()
                     ),
                     key=lambda item: (item[1], len(values[item[0]])),
