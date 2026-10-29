@@ -1,23 +1,27 @@
 import { AppIcon, type AppIconName } from "../components/AppIcon";
-import type { EventFeature, Locale, SessionEvent } from "../types";
+import type { EventFeature, Locale, SessionEvent, Wine } from "../types";
 import "./EventWelcomeView.css";
 
 /**
  * Where the event QR code lands: the event's name, what the sommelier can do
  * tonight (only the features the event offers), and the way to keep it all.
  */
-export default function EventWelcomeView({ locale, event, onOpen, onKeep, onExploreDemo }: {
+export default function EventWelcomeView({ locale, event, wines, onOpen, onKeep, onExploreDemo, onRemoveWine }: {
   locale: Locale;
   event: SessionEvent;
+  /** The bottles the guest photographed tonight: theirs until the visit ends, or for good with an account. */
+  wines: Wine[];
   onOpen: (feature: EventFeature) => void;
   onKeep: () => void;
   /** The public demo cellar: what Vinaris does beyond tonight. */
   onExploreDemo: () => void;
+  onRemoveWine: (wine: Wine) => void;
 }) {
   const it = locale === "it";
   const place = `${event.name}${event.place ? ` · ${event.place}` : ""}`;
   const until = new Date(event.visitor_until);
   const untilLabel = Number.isFinite(until.getTime()) ? until.toLocaleTimeString(it ? "it-CH" : "en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+  const bottleCount = wines.reduce((total, wine) => total + (wine.quantity || 0), 0);
   const catalogue: Record<EventFeature, { icon: AppIconName; title: string; body: string; action: string }> = {
     restaurant_wine_list: {
       icon: "tasting",
@@ -33,9 +37,9 @@ export default function EventWelcomeView({ locale, event, onOpen, onKeep, onExpl
     },
     bottle_photo: {
       icon: "camera",
-      title: it ? "Cosa c’è in questa bottiglia?" : "What is in this bottle?",
-      body: it ? "Fotografa l’etichetta: produttore, annata, vitigni, finestra di beva e cosa aspettarti nel bicchiere." : "Photograph the label: producer, vintage, grapes, drinking window and what to expect in the glass.",
-      action: it ? "Fotografa l’etichetta" : "Photograph the label",
+      title: it ? "Cosa c’è in queste bottiglie?" : "What is in these bottles?",
+      body: it ? "Fotografa le etichette: il sommelier le riconosce e le tiene qui per stasera, con produttore, annata e cosa aspettarti nel bicchiere." : "Photograph the labels: the sommelier recognises them and keeps them here for tonight, with producer, vintage and what to expect in the glass.",
+      action: it ? "Fotografa le bottiglie" : "Photograph the bottles",
     },
     assistant: {
       icon: "assistant",
@@ -74,6 +78,30 @@ export default function EventWelcomeView({ locale, event, onOpen, onKeep, onExpl
         </button>;
       })}
     </div>
+
+    {wines.length ? <section className="event-welcome-bottles" aria-labelledby="event-welcome-bottles-title">
+      <header>
+        <div>
+          <p className="event-welcome-kicker">{it ? "Fotografate stasera" : "Photographed tonight"}</p>
+          <h2 id="event-welcome-bottles-title">{it ? "Le bottiglie di stasera" : "Tonight's bottles"}</h2>
+        </div>
+        <span className="event-welcome-bottles-count">{bottleCount} {it ? (bottleCount === 1 ? "bottiglia" : "bottiglie") : (bottleCount === 1 ? "bottle" : "bottles")}</span>
+      </header>
+      <ul>
+        {wines.map((wine) => <li key={wine.id}>
+          <span className="event-welcome-bottle-text">
+            <strong>{wine.name}</strong>
+            <span>{[wine.producer, wine.vintage, wine.region].filter(Boolean).join(" · ")}</span>
+          </span>
+          <span className="event-welcome-bottle-quantity">×{wine.quantity}</span>
+          <button type="button" className="secondary compact" aria-label={it ? `Rimuovi ${wine.name}` : `Remove ${wine.name}`} onClick={() => onRemoveWine(wine)}>{it ? "Rimuovi" : "Remove"}</button>
+        </li>)}
+      </ul>
+      <p className="event-welcome-bottles-note">{it
+        ? `Restano qui fino alla fine della serata${untilLabel ? ` (${untilLabel})` : ""}, poi vengono eliminate. Crea il tuo account per tenerle nella tua cantina.`
+        : `They stay here until the visit ends${untilLabel ? ` (${untilLabel})` : ""}, then they are deleted. Create your account to keep them in your cellar.`}</p>
+      <button type="button" onClick={onKeep}>{it ? "Tieni le bottiglie: crea il mio account" : "Keep the bottles: create my account"}</button>
+    </section> : null}
 
     <section className="event-welcome-how" aria-label={it ? "Come funziona" : "How it works"}>
       <ol>

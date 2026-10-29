@@ -104,6 +104,7 @@
 .bottle-photo-done > .app-icon { width: 46px; height: 46px; color: var(--accent); }
 .bottle-photo-done h3 { margin: 0; font-family: var(--font-display); font-size: 1.5rem; }
 .bottle-photo-done p { margin: 0; color: var(--text-muted); }
+.bottle-photo-guest-note { max-width: 52ch; font-size: .88rem; line-height: 1.5; }
 .bottle-photo-done > button { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; }
 
 @media (max-width: 620px) {

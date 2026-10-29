@@ -43,9 +43,11 @@ function LabelThumb({ file, row }: { file: File | undefined; row: BottlePhotoRow
   return <canvas ref={canvas} className="bottle-photo-thumb" width={72} height={96} aria-hidden="true" />;
 }
 
-export default function BottlePhotoImport({ locale, canAnalyze, onActivate, onClose, onImported, onCompleteWithAi }: {
+export default function BottlePhotoImport({ locale, canAnalyze, eventGuest = false, onActivate, onClose, onImported, onCompleteWithAi }: {
   locale: Locale;
   canAnalyze: boolean;
+  /** An event guest: the bottles live on the event page until the visit ends, or for good with an account. */
+  eventGuest?: boolean;
   onActivate: () => void;
   onClose: () => void;
   onImported: () => Promise<void>;
@@ -239,13 +241,16 @@ export default function BottlePhotoImport({ locale, canAnalyze, onActivate, onCl
         <p>{it
           ? `${done.created_wine_ids.length} ${done.created_wine_ids.length === 1 ? "vino nuovo" : "vini nuovi"}${done.updated_wine_ids.length ? `, ${done.updated_wine_ids.length} ${done.updated_wine_ids.length === 1 ? "vino aggiornato" : "vini aggiornati"}` : ""}. I dati del catalogo sono già compilati.`
           : `${done.created_wine_ids.length} new ${done.created_wine_ids.length === 1 ? "wine" : "wines"}${done.updated_wine_ids.length ? `, ${done.updated_wine_ids.length} updated` : ""}. Catalog data is already filled in.`}</p>
+        {eventGuest ? <p className="bottle-photo-guest-note">{it
+          ? "Le trovi nella pagina Stasera. Restano fino alla fine della serata, poi vengono eliminate: crea il tuo account per tenerle nella tua cantina."
+          : "They are on the Tonight page. They stay until the visit ends, then they are deleted: create your account to keep them in your cellar."}</p> : null}
         {aiCost ? <p className="bottle-photo-ai-cost"><span>{it ? "Costo AI del riconoscimento" : "Recognition AI cost"} {formatAiBudget(aiCost.usd)}</span><small>{aiCost.model}</small></p> : null}
         {done.aiWineIds.length ? <button type="button" onClick={() => { onCompleteWithAi(done.aiWineIds); onClose(); }}>
           <AppIcon name="glass-sparkle" variant="ai" />{it ? (done.aiWineIds.length === 1 ? "Completa con AI il vino non trovato nel catalogo" : `Completa con AI i ${done.aiWineIds.length} vini non trovati nel catalogo`) : (done.aiWineIds.length === 1 ? "Complete with AI the wine not in the catalog" : `Complete with AI the ${done.aiWineIds.length} wines not in the catalog`)}
         </button> : null}
         <div className="bottle-photo-footer">
           <button type="button" className="secondary" onClick={() => { setPhotos([]); setRows([]); setDone(null); setStep("pick"); }}>{it ? "Fotografa altre bottiglie" : "Photograph more bottles"}</button>
-          <button type="button" onClick={onClose}>{it ? "Vai alla cantina" : "Go to the cellar"}</button>
+          <button type="button" onClick={onClose}>{eventGuest ? (it ? "Torna alla serata" : "Back to tonight") : (it ? "Vai alla cantina" : "Go to the cellar")}</button>
         </div>
       </section> : null}
     </dialog>,

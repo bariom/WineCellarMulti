@@ -31,6 +31,10 @@ L'obiettivo è acquisire clienti, non locali: il locale è solo il contesto.
   Segue la stessa verifica e-mail della registrazione; il credito di benvenuto
   è quello di `signup_ai_credit_usd`. L'evento resta come provenienza
   (`users.event_id`), la scadenza della visita viene azzerata.
+- **Foto delle bottiglie** (`bottle_photo`): l'import scrive nella cantina
+  effimera dell'ospite. La pagina Stasera le elenca ("Le bottiglie di stasera",
+  con rimozione) e avverte che spariscono con la purga a fine visita; tenendo
+  la serata restano nella cantina dell'account.
 - **Esplora la demo**: la demo è una sessione a parte (sola lettura). Se la
   apre un ospite, `user_sessions.resume_user_id` ricorda l'ospite e la sessione
   espone `event_return`; **Torna alla serata** chiama

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { memberships, mockApi, session } from "./fixtures/app";
+import { memberships, mockApi, session, wine } from "./fixtures/app";
 
 /*
  * A guest scans the event QR code: no account, the event on the masthead, only
@@ -160,4 +160,20 @@ test("a hard refresh keeps the guest on the welcome page, not a cellar dashboard
   await expect(page.locator(".topbar-brand .eyebrow")).toHaveText("Vinaris at The Market · Lugano");
   await expect(page.getByRole("button", { name: "Focus collezionista" })).toHaveCount(0);
   await expect(page.getByText("La bottiglia del giorno")).toHaveCount(0);
+});
+
+test("the bottles photographed tonight are listed on the welcome page, with the way to keep them", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], true, memberships, [wine], { ...guestSession, event: { ...guestSession.event, features: ["bottle_photo"] } });
+  await page.goto("/");
+  const bottles = page.locator(".event-welcome-bottles");
+  await expect(bottles.getByRole("heading", { name: "Le bottiglie di stasera" })).toBeVisible();
+  await expect(bottles.getByText("Nebbiolo di Test")).toBeVisible();
+  await expect(bottles.getByText("4 bottiglie")).toBeVisible();
+  await expect(bottles.getByText(/poi vengono eliminate/)).toBeVisible();
+  await expect(bottles.getByRole("button", { name: "Rimuovi Nebbiolo di Test" })).toBeVisible();
+  // No horizontal overflow on a phone.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await bottles.getByRole("button", { name: "Tieni le bottiglie: crea il mio account" }).click();
+  await expect(page.getByText(/Le 4 bottiglie fotografate stasera restano nella tua cantina/)).toBeVisible();
 });

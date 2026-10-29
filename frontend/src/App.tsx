@@ -9892,6 +9892,7 @@ export function App() {
             key={session?.active_household_id}
             locale={locale}
             canAnalyze={canGenerateAi}
+            eventGuest={Boolean(eventGuest)}
             onActivate={() => { setBottlePhotoImportOpen(false); openSubscriptionSettings(); }}
             onClose={() => setBottlePhotoImportOpen(false)}
             onImported={async () => { await Promise.all([loadWines(), loadAiSettings(), loadBilling()]); }}
@@ -10542,9 +10543,11 @@ export function App() {
           {activeView === "event" && eventGuest ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><EventWelcomeView
             locale={locale}
             event={eventGuest}
+            wines={wines}
             onOpen={openEventFeature}
             onKeep={() => setEventClaimOpen(true)}
             onExploreDemo={() => void enterDemo()}
+            onRemoveWine={(wine) => deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine"))}
           /></Suspense> : null}
 
           {activeView === "sommelier" ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><SommelierHubView
@@ -13045,6 +13048,7 @@ export function App() {
           <EventClaimDialog
             locale={locale}
             eventName={`${eventGuest.name}${eventGuest.place ? ` · ${eventGuest.place}` : ""}`}
+            bottleCount={wines.reduce((total, wine) => total + (wine.quantity || 0), 0)}
             onClose={() => setEventClaimOpen(false)}
             onClaimed={(nextSession, email) => {
               setEventClaimOpen(false);

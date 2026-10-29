@@ -8,9 +8,11 @@ import "./EventClaimDialog.css";
  * "Keep tonight": an event guest turns the throw-away account into their own.
  * Nothing they did at the table is lost; the e-mail is confirmed afterwards.
  */
-export default function EventClaimDialog({ locale, eventName, onClose, onClaimed }: {
+export default function EventClaimDialog({ locale, eventName, bottleCount = 0, onClose, onClaimed }: {
   locale: Locale;
   eventName: string;
+  /** Bottles photographed tonight: they come along into the account's cellar. */
+  bottleCount?: number;
   onClose: () => void;
   onClaimed: (session: Session, email: string) => void;
 }) {
@@ -65,8 +67,8 @@ export default function EventClaimDialog({ locale, eventName, onClose, onClaimed
       </div>
       <form className="auth-panel" onSubmit={submit}>
         <p className="event-claim-intro">{it
-          ? "Quello che hai fatto stasera diventa il tuo account Vinaris: nulla ricomincia da zero. Ti mandiamo un’e-mail per confermare l’indirizzo."
-          : "What you did tonight becomes your Vinaris account: nothing starts over. We will send an e-mail to confirm the address."}</p>
+          ? `Quello che hai fatto stasera diventa il tuo account Vinaris: nulla ricomincia da zero.${bottleCount ? ` ${bottleCount === 1 ? "La bottiglia fotografata stasera resta" : `Le ${bottleCount} bottiglie fotografate stasera restano`} nella tua cantina.` : ""} Ti mandiamo un’e-mail per confermare l’indirizzo.`
+          : `What you did tonight becomes your Vinaris account: nothing starts over.${bottleCount ? ` The ${bottleCount === 1 ? "bottle" : `${bottleCount} bottles`} photographed tonight ${bottleCount === 1 ? "stays" : "stay"} in your cellar.` : ""} We will send an e-mail to confirm the address.`}</p>
         <label><span>{it ? "Il tuo nome" : "Your name"}</span><input autoFocus value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name" required maxLength={120} /></label>
         <label><span>E-mail</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required /></label>
         <label><span>Password</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required minLength={8} maxLength={200} /><small>{it ? "Almeno 8 caratteri." : "At least 8 characters."}</small></label>
