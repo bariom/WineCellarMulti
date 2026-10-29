@@ -161,6 +161,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         else None,
         "event": {
             "id": str(context.event.id),
+            "slug": context.event.slug,
             "name": context.event.name,
             "place": context.event.place,
             "locale": context.event.locale,

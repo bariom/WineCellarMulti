@@ -1,6 +1,7 @@
 /** The event a guest came in through (QR code), while the visit lasts. */
 export type SessionEvent = {
   id: string;
+  slug: string;
   name: string;
   place: string;
   locale: string;

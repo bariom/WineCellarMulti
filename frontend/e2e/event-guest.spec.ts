@@ -16,6 +16,7 @@ const guestSession = {
   is_free_tier: true,
   event: {
     id: "event-1",
+    slug: "market-2026",
     name: "The Market",
     place: "Lugano",
     locale: "it",
@@ -117,4 +118,39 @@ test("the welcome page returns from a feature and lists every feature the event 
   await expect(page.getByRole("button", { name: "A casa" })).toHaveCount(0);
   await page.getByRole("button", { name: "Stasera" }).first().click();
   await expect(page.getByRole("heading", { name: "Il sommelier AI è al tuo tavolo." })).toBeVisible();
+});
+
+test("the demo is one tap away and the guest can come back to tonight", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockEvent(page);
+  await page.addInitScript((fixture) => {
+    const mocked = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const path = new URL(requestUrl, window.location.origin).pathname;
+      if (path.endsWith("/auth/demo")) {
+        window.sessionStorage.setItem("vinaris-test-demo-entered", "yes");
+        return new Response(JSON.stringify({ ...fixture, event: null, is_demo: true, membership_role: "viewer", active_household_name: "Cantina demo" }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return mocked(input, init);
+    };
+  }, guestSession);
+  await page.goto("/e/market-2026");
+  await page.getByRole("button", { name: "Esplora la demo" }).click();
+  await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("vinaris-test-demo-entered"))).toBe("yes");
+  await expect(page.getByText("Demo · sola lettura")).toBeVisible();
+  await page.getByRole("button", { name: "Torna alla serata" }).click();
+  await expect(page.getByRole("heading", { name: "Il sommelier AI è al tuo tavolo." })).toBeVisible();
+  await expect(page.locator(".topbar-brand .eyebrow")).toHaveText("Vinaris at The Market · Lugano");
+});
+
+test("a hard refresh keeps the guest on the welcome page, not a cellar dashboard", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // The session cookie survives the reload; the address is "/" again, not /e/<slug>.
+  await mockApi(page, [], true, memberships, [], guestSession);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Il sommelier AI è al tuo tavolo." })).toBeVisible();
+  await expect(page.locator(".topbar-brand .eyebrow")).toHaveText("Vinaris at The Market · Lugano");
+  await expect(page.getByRole("button", { name: "Focus collezionista" })).toHaveCount(0);
+  await expect(page.getByText("La bottiglia del giorno")).toHaveCount(0);
 });

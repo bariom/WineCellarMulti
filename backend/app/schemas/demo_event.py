@@ -112,6 +112,7 @@ class SessionEvent(BaseModel):
     """What the app shows a guest: the event's name on the masthead and the features on offer."""
 
     id: str
+    slug: str
     name: str
     place: str
     locale: str

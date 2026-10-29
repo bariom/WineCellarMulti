@@ -50,6 +50,12 @@
 .event-welcome-keep p:not(.event-welcome-kicker) { margin: 0; font-size: .9rem; line-height: 1.5; color: var(--text-muted); max-width: 60ch; }
 .event-welcome-keep > button { min-height: 46px; padding: 10px 20px; white-space: nowrap; }
 
+.event-welcome-demo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 22px 24px; border: 1px solid var(--border); border-radius: var(--radius-card, 18px); background: var(--surface); }
+.event-welcome-demo div { display: grid; gap: 6px; min-width: 0; }
+.event-welcome-demo h2 { margin: 0; font: normal 1.35rem/1.2 var(--font-display); }
+.event-welcome-demo p:not(.event-welcome-kicker) { margin: 0; font-size: .9rem; line-height: 1.5; color: var(--text-muted); max-width: 60ch; }
+.event-welcome-demo > button { min-height: 46px; padding: 10px 20px; white-space: nowrap; }
+
 .event-welcome-footnote { margin: 0; font-size: .72rem; line-height: 1.5; color: var(--text-muted); text-align: center; }
 
 @media (max-width: 720px) {
@@ -58,6 +64,6 @@
   .event-welcome-card { padding: 16px; grid-template-columns: 46px minmax(0, 1fr); gap: 6px 12px; }
   .event-welcome-features.count-1 .event-welcome-card { grid-template-columns: 50px minmax(0, 1fr); padding: 18px; }
   .event-welcome-icon, .event-welcome-features.count-1 .event-welcome-icon { width: 46px; height: 46px; font-size: 1.3rem; }
-  .event-welcome-keep { grid-template-columns: minmax(0, 1fr); padding: 18px; }
-  .event-welcome-keep > button { width: 100%; }
+  .event-welcome-keep, .event-welcome-demo { grid-template-columns: minmax(0, 1fr); padding: 18px; }
+  .event-welcome-keep > button, .event-welcome-demo > button { width: 100%; }
 }

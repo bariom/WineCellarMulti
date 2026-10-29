@@ -6,11 +6,13 @@ import "./EventWelcomeView.css";
  * Where the event QR code lands: the event's name, what the sommelier can do
  * tonight (only the features the event offers), and the way to keep it all.
  */
-export default function EventWelcomeView({ locale, event, onOpen, onKeep }: {
+export default function EventWelcomeView({ locale, event, onOpen, onKeep, onExploreDemo }: {
   locale: Locale;
   event: SessionEvent;
   onOpen: (feature: EventFeature) => void;
   onKeep: () => void;
+  /** The public demo cellar: what Vinaris does beyond tonight. */
+  onExploreDemo: () => void;
 }) {
   const it = locale === "it";
   const place = `${event.name}${event.place ? ` · ${event.place}` : ""}`;
@@ -90,6 +92,17 @@ export default function EventWelcomeView({ locale, event, onOpen, onKeep }: {
           : "With a name, an e-mail and a password, what you do tonight becomes your account: your cellar, your taste profile, your memories. Nothing starts over."}</p>
       </div>
       <button type="button" onClick={onKeep}>{it ? "Crea il mio account" : "Create my account"}</button>
+    </section>
+
+    <section className="event-welcome-demo">
+      <div>
+        <p className="event-welcome-kicker">{it ? "Oltre stasera" : "Beyond tonight"}</p>
+        <h2>{it ? "Cosa fa Vinaris con una cantina vera" : "What Vinaris does with a real cellar"}</h2>
+        <p>{it
+          ? "Una cantina già popolata da esplorare: bottiglie con finestra di beva e valore, il profilo di gusto, i ricordi delle serate, il sommelier che consiglia cosa aprire. Da qui puoi tornare alla serata quando vuoi."
+          : "A populated cellar to explore: bottles with drinking window and value, the taste profile, memories of evenings, the sommelier that says what to open. You can come back to tonight whenever you like."}</p>
+      </div>
+      <button type="button" className="secondary" onClick={onExploreDemo}>{it ? "Esplora la demo" : "Explore the demo"}</button>
     </section>
 
     <p className="event-welcome-footnote">{it
