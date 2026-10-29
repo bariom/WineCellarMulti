@@ -11,8 +11,9 @@ from app.api.routes import ai
 from app.api.routes import auth as auth_routes
 from app.core.config import settings
 from app.core.legal import LEGAL_DOCUMENT_VERSION
+from app.core.security import hash_password
 from app.main import app
-from app.models import DemoEvent, Household, User
+from app.models import DemoEvent, Household, Membership, User, Wine
 from app.services.demo_events import ensure_event_task_allowed
 
 
@@ -225,3 +226,67 @@ def claim_payload(email: str) -> dict:
         "terms_accepted": True,
         "photo_usage_disclaimer_accepted": True,
     }
+
+
+def test_guest_comes_back_from_the_demo_to_the_same_account(admin):
+    event = create_event(admin, max_visitors_per_day=1)
+    # A demo cellar to look at: one wine, read by the Italian demo account.
+    now = datetime.now(UTC)
+    with harness.TestingSessionLocal() as db:
+        demo_household = Household(name="Cantina demo", is_demo=True)
+        demo_user = User(
+            email="demo-it@internal.vinaris.app",
+            display_name="Demo",
+            password_hash=hash_password("demo-password-1"),
+            is_approved=True,
+            approved_at=now,
+            email_verified_at=now,
+            privacy_policy_accepted_at=now,
+            privacy_policy_version=LEGAL_DOCUMENT_VERSION,
+            terms_accepted_at=now,
+            terms_version=LEGAL_DOCUMENT_VERSION,
+        )
+        db.add_all([demo_household, demo_user])
+        db.flush()
+        db.add(Membership(user_id=demo_user.id, household_id=demo_household.id, role="viewer"))
+        db.add(Wine(household_id=demo_household.id, name="Demo Barolo", quantity=1))
+        db.commit()
+
+    guest = TestClient(app)
+    entered = guest.post(f"/api/v1/events/{event['slug']}/enter").json()
+    assert entered["event_return"] is None
+    # Anyone else in the demo has no event to go back to.
+    stranger = TestClient(app)
+    stranger_demo = stranger.post("/api/v1/auth/demo", params={"locale": "it"}).json()
+    assert stranger_demo["event_return"] is None
+    assert stranger.post("/api/v1/events/return").status_code == 404
+
+    demo = guest.post("/api/v1/auth/demo", params={"locale": "it"})
+    assert demo.status_code == 200, demo.text
+    assert demo.json()["is_demo"] is True
+    assert demo.json()["event_return"] == {
+        "slug": event["slug"],
+        "name": "The Market",
+        "place": "Lugano",
+    }
+    assert guest.get("/api/v1/session").json()["event_return"]["slug"] == event["slug"]
+
+    # Back to tonight: the same guest, with the day's only entry already used.
+    returned = guest.post("/api/v1/events/return")
+    assert returned.status_code == 200, returned.text
+    assert returned.json()["user_id"] == entered["user_id"]
+    assert returned.json()["event"]["slug"] == event["slug"]
+    assert returned.json()["event_return"] is None
+    assert guest.get("/api/v1/session").json()["user_id"] == entered["user_id"]
+    assert admin.get("/api/v1/admin/events").json()[0]["stats"]["visitor_count"] == 1
+    # The demo session is gone, and a second return has nothing to go back to.
+    assert guest.post("/api/v1/events/return").status_code == 404
+
+    # Once the visit is over, the demo offers no way back.
+    assert guest.post("/api/v1/auth/demo", params={"locale": "it"}).status_code == 200
+    with harness.TestingSessionLocal() as db:
+        user = db.get(User, UUID(entered["user_id"]))
+        user.event_visitor_until = datetime.now(UTC) - timedelta(minutes=1)
+        db.commit()
+    assert guest.get("/api/v1/session").json()["event_return"] is None
+    assert guest.post("/api/v1/events/return").status_code == 404

@@ -130,7 +130,12 @@ test("the demo is one tap away and the guest can come back to tonight", async ({
       const path = new URL(requestUrl, window.location.origin).pathname;
       if (path.endsWith("/auth/demo")) {
         window.sessionStorage.setItem("vinaris-test-demo-entered", "yes");
-        return new Response(JSON.stringify({ ...fixture, event: null, is_demo: true, membership_role: "viewer", active_household_name: "Cantina demo" }), { status: 200, headers: { "Content-Type": "application/json" } });
+        const eventReturn = { slug: fixture.event.slug, name: fixture.event.name, place: fixture.event.place };
+        return new Response(JSON.stringify({ ...fixture, event: null, event_return: eventReturn, is_demo: true, membership_role: "viewer", active_household_name: "Cantina demo" }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (path.endsWith("/events/return")) {
+        window.sessionStorage.setItem("vinaris-test-event-returned", "yes");
+        return new Response(JSON.stringify(fixture), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       return mocked(input, init);
     };
@@ -140,6 +145,8 @@ test("the demo is one tap away and the guest can come back to tonight", async ({
   await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("vinaris-test-demo-entered"))).toBe("yes");
   await expect(page.getByText("Demo · sola lettura")).toBeVisible();
   await page.getByRole("button", { name: "Torna alla serata" }).click();
+  // The same guest comes back, through the server's memory of them, not a new QR entry.
+  await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("vinaris-test-event-returned"))).toBe("yes");
   await expect(page.getByRole("heading", { name: "Il sommelier AI è al tuo tavolo." })).toBeVisible();
   await expect(page.locator(".topbar-brand .eyebrow")).toHaveText("Vinaris at The Market · Lugano");
 });

@@ -342,7 +342,9 @@ def _worker_context(db: Any, job: ShelfScanJob) -> Any:
     from app.services.sensory_agent import worker_context
 
     try:
-        return worker_context(db, job.household_id, job.user_id, job.session_id)
+        return worker_context(
+            db, job.household_id, job.user_id, job.session_id, app_admin_only=False
+        )
     except PermissionError as exc:
         raise HTTPException(401, "Session expired during the shelf analysis") from exc
 

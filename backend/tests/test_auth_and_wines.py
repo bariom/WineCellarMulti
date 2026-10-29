@@ -9949,6 +9949,8 @@ def test_bottle_photos_debit_ai_credits_by_the_cost_shown(monkeypatch):
     with TestingSessionLocal() as db:
         user = db.scalar(select(User).where(User.email == "owner@example.com"))
         assert user is not None
+        # An ordinary subscriber, not the app administrator: the photos are open to every plan.
+        user.is_app_admin = False
         db.add(
             UserAiCreditTransaction(
                 user_id=user.id, amount_usd=Decimal("1.000000"), source="purchase", note="Seed AI budget"

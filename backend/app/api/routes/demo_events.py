@@ -14,7 +14,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentContext, get_current_context, require_app_admin_context
+from app.api.deps import (
+    CurrentContext,
+    get_authenticated_context,
+    get_current_context,
+    require_app_admin_context,
+)
 from app.api.routes.auth import (
     create_session,
     notify_admins_of_auto_approved_registration,
@@ -153,6 +158,44 @@ def enter_event(
     db.refresh(user_session)
     set_session_cookie(response, token)
     return session_response_for(db, user, household, membership, user_session)
+
+
+@router.post("/return", response_model=SessionResponse)
+def return_to_event(
+    response: Response,
+    context: CurrentContext = Depends(get_authenticated_context),
+    db: Session = Depends(get_db),
+) -> SessionResponse:
+    """Back from the demo to tonight: the same guest, cellar and credit, not a new one."""
+    guest = (
+        db.get(User, context.session.resume_user_id)
+        if context.session.resume_user_id is not None
+        else None
+    )
+    now = datetime.now(UTC)
+    if (
+        guest is None
+        or guest.is_blocked
+        or not is_event_visitor(guest)
+        or guest.event_visitor_until is None
+        or guest.event_visitor_until.replace(tzinfo=UTC) <= now
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="The event visit is over"
+        )
+    membership = db.scalar(select(Membership).where(Membership.user_id == guest.id))
+    household = db.get(Household, membership.household_id) if membership is not None else None
+    if membership is None or household is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="The event visit is over"
+        )
+    db.delete(context.session)
+    user_session, token = create_session(db, guest, household)
+    user_session.expires_at = guest.event_visitor_until
+    db.commit()
+    db.refresh(user_session)
+    set_session_cookie(response, token)
+    return session_response_for(db, guest, household, membership, user_session)
 
 
 @router.post("/claim", response_model=SessionResponse)

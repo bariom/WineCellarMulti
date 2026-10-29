@@ -108,6 +108,14 @@ class EventClaimRequest(BaseModel):
     photo_usage_disclaimer_accepted: Literal[True]
 
 
+class SessionEventReturn(BaseModel):
+    """From the demo: the event a guest can go back to."""
+
+    slug: str
+    name: str
+    place: str
+
+
 class SessionEvent(BaseModel):
     """What the app shows a guest: the event's name on the masthead and the features on offer."""
 

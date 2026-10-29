@@ -31,6 +31,8 @@ DEMO_MUTATION_EXCEPTIONS = {
     "/api/v1/auth/logout",
     "/api/v1/auth/legal-acceptance",
     "/api/v1/auth/preferences",
+    # An event guest looking at the demo goes back to tonight.
+    "/api/v1/events/return",
 }
 
 

@@ -200,7 +200,6 @@ const AdminEmailCampaigns = lazy(() => import("./components/AdminEmailCampaigns"
 const AdminEventsPanel = lazy(() => import("./components/AdminEventsPanel"));
 const EventClaimDialog = lazy(() => import("./components/EventClaimDialog"));
 const EventWelcomeView = lazy(() => import("./views/EventWelcomeView"));
-const EVENT_RETURN_SLUG_KEY = "vinaris.event-return-slug";
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const LegalAcceptancePanel = lazy(() => import("./legal/LegalAcceptancePanel"));
@@ -2436,6 +2435,23 @@ export function App() {
     } catch (nextError) {
       await loadData();
       setError(nextError instanceof Error ? nextError.message : (locale === "it" ? "Evento non disponibile" : "Event unavailable"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /** Back from the demo to tonight: the same guest account, not a new one. */
+  async function returnToEvent() {
+    setLoading(true);
+    setError("");
+    try {
+      const nextSession = await api<Session>("/api/v1/events/return", { method: "POST" });
+      setSession(nextSession);
+      applySessionPreferences(nextSession, true);
+      await loadAuthenticatedSessionData(nextSession);
+      openView("event");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : (locale === "it" ? "La serata non è più disponibile" : "Tonight is no longer available"));
     } finally {
       setLoading(false);
     }
@@ -5145,7 +5161,8 @@ export function App() {
   const canAdmin = !offlineMode && (session?.membership_role === "owner" || session?.membership_role === "admin");
   // An event guest: the event on the masthead, only its features in the navigation, one way to stay.
   const eventGuest = session?.event ?? null;
-  const eventReturnSlug = session?.is_demo ? window.sessionStorage.getItem(EVENT_RETURN_SLUG_KEY) : null;
+  // From the demo, the event a guest can go back to: the server remembers them.
+  const eventReturn = session?.is_demo ? session.event_return ?? null : null;
   const eventTitle = eventGuest ? `Vinaris at ${eventGuest.name}${eventGuest.place ? ` · ${eventGuest.place}` : ""}` : "";
   const canAppAdmin = !offlineMode && Boolean(session?.is_app_admin);
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
@@ -9285,7 +9302,7 @@ export function App() {
             ) : null}
             {!session?.is_demo && !eventGuest ? <span>{session?.membership_role}</span> : null}
             {session?.is_demo ? <span className="status-pill">{locale === "it" ? "Demo · sola lettura" : "Demo · read-only"}</span> : null}
-            {session?.is_demo && eventReturnSlug ? <button type="button" className="compact event-keep-button" onClick={() => { window.sessionStorage.removeItem(EVENT_RETURN_SLUG_KEY); void enterEvent(eventReturnSlug); }}>{locale === "it" ? "Torna alla serata" : "Back to tonight"}</button> : null}
+            {eventReturn ? <button type="button" className="compact event-keep-button" onClick={() => void returnToEvent()}>{locale === "it" ? "Torna alla serata" : "Back to tonight"}</button> : null}
             {offlineMode ? <span>{t("offlineMode")}: {offlineFileName}</span> : null}
             {!offlineMode && !session?.is_demo && !eventGuest ? <div className="notification-wrap">
               <button
@@ -10527,11 +10544,7 @@ export function App() {
             event={eventGuest}
             onOpen={openEventFeature}
             onKeep={() => setEventClaimOpen(true)}
-            onExploreDemo={() => {
-              // The demo is a session of its own: remember the event so the guest can come back.
-              window.sessionStorage.setItem(EVENT_RETURN_SLUG_KEY, eventGuest.slug);
-              void enterDemo();
-            }}
+            onExploreDemo={() => void enterDemo()}
           /></Suspense> : null}
 
           {activeView === "sommelier" ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><SommelierHubView

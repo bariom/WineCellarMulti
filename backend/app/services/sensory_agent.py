@@ -456,8 +456,18 @@ def candidate_wines(
 
 
 def worker_context(
-    db: Session, household_id: UUID, user_id: UUID, session_id: UUID
+    db: Session,
+    household_id: UUID,
+    user_id: UUID,
+    session_id: UUID,
+    *,
+    app_admin_only: bool = True,
 ) -> CurrentContext:
+    """Rebuild a request's context inside a background job.
+
+    Sensory research is the app administrator's; features open to every
+    plan (bottle photos, shelf scans) pass ``app_admin_only=False``.
+    """
     user_session = db.scalar(
         select(UserSession).where(
             UserSession.id == session_id,
@@ -491,7 +501,8 @@ def worker_context(
         has_active_entitlement=until is not None,
         entitlement_valid_until=until,
     )
-    return require_app_admin_context(get_current_context(context))
+    context = get_current_context(context)
+    return require_app_admin_context(context) if app_admin_only else context
 
 
 def research_wine_context(wine: Wine) -> dict:

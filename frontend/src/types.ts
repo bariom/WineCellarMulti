@@ -34,8 +34,12 @@ export type DemoEvent = {
   stats: { visitor_count: number; active_visitors: number; conversions: number; granted_usd: string; spent_usd: string };
 };
 
+/** From the demo: the event a guest can go back to. */
+export type SessionEventReturn = { slug: string; name: string; place: string };
+
 export type Session = {
   event?: SessionEvent | null;
+  event_return?: SessionEventReturn | null;
   is_ambassador?: boolean;
   ambassador_until?: string | null;
   authenticated: boolean;

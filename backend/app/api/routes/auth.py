@@ -31,7 +31,9 @@ from app.api.deps import (
     event_for_context,
     get_authenticated_context,
     get_current_context,
+    get_optional_context,
     require_app_admin_context,
+    return_event_for_session,
 )
 from app.core.config import settings
 from app.core.legal import LEGAL_DOCUMENT_VERSION
@@ -89,6 +91,7 @@ from app.services.ai_credits import (
     set_ai_credit_balance,
 )
 from app.services.ambassador import ambassador_expiry, is_ambassador
+from app.services.demo_events import is_event_visitor
 from app.services.email import send_email
 from app.services.notifications import create_user_notification
 from app.services.wine_photo_library import archive_wine_photo
@@ -277,6 +280,7 @@ def session_response_for(db: Session, user: User, household: Household, membersh
                 has_active_entitlement=entitlement_valid_until is not None,
                 entitlement_valid_until=entitlement_valid_until,
                 event=event_for_context(db, user),
+                return_event=return_event_for_session(db, user_session),
             ),
         ),
     )
@@ -888,6 +892,7 @@ def enter_demo(
     response: Response,
     locale: str = Query(default="it", pattern="^(it|en)$"),
     db: Session = Depends(get_db),
+    current: CurrentContext | None = Depends(get_optional_context),
 ) -> SessionResponse:
     enforce_rate_limit(
         request,
@@ -921,6 +926,9 @@ def enter_demo(
     )
     user_session, token = create_session(db, user, household)
     user_session.expires_at = datetime.now(UTC) + timedelta(hours=2)
+    # An event guest looking around: their own session stays, and the demo knows the way back.
+    if current is not None and is_event_visitor(current.user):
+        user_session.resume_user_id = current.user.id
     db.add(UserActivityLog(user_id=user.id, household_id=household.id, action="demo_cellar_visited"))
     db.commit()
     db.refresh(user_session)

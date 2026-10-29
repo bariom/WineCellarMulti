@@ -31,6 +31,12 @@ L'obiettivo è acquisire clienti, non locali: il locale è solo il contesto.
   Segue la stessa verifica e-mail della registrazione; il credito di benvenuto
   è quello di `signup_ai_credit_usd`. L'evento resta come provenienza
   (`users.event_id`), la scadenza della visita viene azzerata.
+- **Esplora la demo**: la demo è una sessione a parte (sola lettura). Se la
+  apre un ospite, `user_sessions.resume_user_id` ricorda l'ospite e la sessione
+  espone `event_return`; **Torna alla serata** chiama
+  `POST /api/v1/events/return` (esente dal blocco scritture della demo), che
+  riapre lo stesso account senza un nuovo ingresso né nuovo credito. Dopo un
+  reload l'ospite resta sulla pagina dell'evento: la sessione porta l'evento.
 - Gli ospiti scaduti che non hanno tenuto l'account vengono eliminati, con la
   loro cantina, al successivo ingresso nello stesso evento o all'apertura della
   lista eventi in admin.

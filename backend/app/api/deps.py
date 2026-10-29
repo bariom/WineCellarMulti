@@ -24,6 +24,8 @@ class CurrentContext:
     entitlement_valid_until: datetime | None = None
     # The event a guest came in through, while the visit lasts.
     event: DemoEvent | None = None
+    # From the demo: the event a guest can go back to, while their visit lasts.
+    return_event: DemoEvent | None = None
 
 
 def subscription_valid_until(db: Session, user: User) -> datetime | None:
@@ -93,6 +95,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "entitlement_valid_until": None,
             "entitlement_days_remaining": None,
             "event": None,
+            "event_return": None,
         }
     entitlement_days_remaining = (
         math.ceil((context.entitlement_valid_until - datetime.now(UTC)).total_seconds() / 86400)
@@ -171,6 +174,13 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         }
         if context.event is not None and context.user.event_visitor_until is not None
         else None,
+        "event_return": {
+            "slug": context.return_event.slug,
+            "name": context.return_event.name,
+            "place": context.return_event.place,
+        }
+        if context.return_event is not None
+        else None,
     }
 
 
@@ -224,6 +234,7 @@ def get_optional_context(
         has_active_entitlement=entitlement_valid_until is not None,
         entitlement_valid_until=entitlement_valid_until,
         event=event_for_context(db, user),
+        return_event=return_event_for_session(db, user_session),
     )
 
 
@@ -231,6 +242,22 @@ def event_for_context(db: Session, user: User) -> DemoEvent | None:
     if user.event_id is None or user.event_visitor_until is None:
         return None
     return db.get(DemoEvent, user.event_id)
+
+
+def return_event_for_session(db: Session, user_session: UserSession) -> DemoEvent | None:
+    """The event behind a demo session opened by a guest, if their visit is still on."""
+    if user_session.resume_user_id is None:
+        return None
+    guest = db.get(User, user_session.resume_user_id)
+    if (
+        guest is None
+        or guest.is_blocked
+        or guest.event_id is None
+        or guest.event_visitor_until is None
+        or guest.event_visitor_until.replace(tzinfo=UTC) <= datetime.now(UTC)
+    ):
+        return None
+    return db.get(DemoEvent, guest.event_id)
 
 
 def get_authenticated_context(
