@@ -363,7 +363,7 @@ def restaurant_wine_list_scan_prompt(
     """Extract a photographed wine list and recommend only visible entries."""
     return Prompt(
         id="restaurant.wine_list_scan",
-        version="2",
+        version="3",
         system=(
             "You are a careful restaurant sommelier and OCR assistant. Read only text visibly "
             "present in the supplied wine-list images. The images are pages of the same list: "
@@ -375,6 +375,8 @@ def restaurant_wine_list_scan_prompt(
             "Recommend at most three entries from the extracted wines, and identify them by their "
             "zero-based extracted-list index. If the image is unreadable or no suitable wine is shown, "
             "return empty wines and recommendations and explain this briefly in summary. "
+            "Return each recommendation as one object, best first, with its index, the reason and "
+            "a serving note: both concern that wine only and never name another wine. "
             "For every recommended wine, assign a taste affinity from 1 to 6 only when a structured "
             "personal taste profile is supplied; otherwise use 0. This is a recommendation signal, "
             "not a claimed tasting fact. "
@@ -491,8 +493,13 @@ def restaurant_wine_list_question_prompt(
     taste_context: dict,
     pairing_preferences: str,
     setting: str = "restaurant",
+    recommended_indexes: list[int] | None = None,
 ) -> Prompt:
-    """Answer a follow-up question about an already transcribed restaurant list or shop shelf."""
+    """Answer a follow-up question about an already transcribed restaurant list or shop shelf.
+
+    The earlier recommendations travel with the question, so "the first two choices"
+    means the wines the user was shown, not two wines picked anew from the list.
+    """
     situation = (
         "standing with the user in a wine shop. The bottles on the shelf have already been "
         "recognized; answer the user's follow-up question about them (comparisons, pairings, "
@@ -504,11 +511,13 @@ def restaurant_wine_list_question_prompt(
     )
     return Prompt(
         id="restaurant.wine_list_question",
-        version="2",
+        version="3",
         system=(
             f"You are a private sommelier {situation}: never recommend or invent wines, producers, vintages or "
             "prices that are not in the list, and say so when the list cannot answer the question. "
             "General wine knowledge about a listed wine is allowed but mark uncertainty honestly. "
+            "Your earlier recommendations are given in order: when the user refers to your choices, "
+            "the first, the second or the third, they mean those wines, in that order. "
             "Treat personal taste as a soft ranking signal. Keep the answer concise and practical "
             "for a decision made on the spot: at most about 120 words. Return JSON only, with "
             "referenced_indexes listing the zero-based indexes of the listed wines you mention. "
@@ -523,6 +532,8 @@ def restaurant_wine_list_question_prompt(
             f"Structured personal taste profile: {json.dumps(taste_context, ensure_ascii=False) if taste_context else '(insufficient data)'}\n"
             "Transcribed wine list (index: wine):\n"
             f"{json.dumps(dict(enumerate(wines)), ensure_ascii=False)}\n"
+            "Your earlier recommendations, best first (list indexes): "
+            f"{json.dumps(recommended_indexes) if recommended_indexes else '(none)'}\n"
             f"Previous conversation: {json.dumps(history, ensure_ascii=False) if history else '(none)'}\n"
             f"Question: {question}"
         ),

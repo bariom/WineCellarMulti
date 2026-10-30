@@ -1005,7 +1005,8 @@ export type RestaurantWineListScanResult = {
   summary: string;
   extracted_text: string;
   wines: Array<{ name: string; producer: string; vintage: string; price_text: string; style: string }>;
-  recommendations: Array<{ name: string; producer: string; vintage: string; price_text: string; style: string; reason: string; serving_note: string; taste_affinity: number }>;
+  /** `list_index` is the choice's place in `wines` (-1 or absent on older results). */
+  recommendations: Array<{ name: string; producer: string; vintage: string; price_text: string; style: string; reason: string; serving_note: string; taste_affinity: number; list_index?: number }>;
   taste_profile_applied: boolean;
   model: string;
   reasoning_effort: string;
@@ -1022,6 +1023,8 @@ export type RestaurantWineListQuestionPayload = {
   max_price_chf: string | null;
   ignore_preferences: boolean;
   setting?: "restaurant" | "shop";
+  /** The choices already shown, best first, as indexes into `wines`. */
+  recommended_indexes?: number[];
 };
 
 export type WineShelfCellarMode = "ignore" | "avoid_owned" | "fill_gaps";

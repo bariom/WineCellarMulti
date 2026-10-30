@@ -283,6 +283,12 @@ export default function PairingView({
       setRestaurantScanError(error instanceof Error ? error.message : (locale === "it" ? "Non è stato possibile analizzare la carta vini." : "The wine list could not be analysed."));
     }
   }
+  // The choices shown, best first, as places in the transcribed list: follow-up
+  // questions such as "compare the first two" are about these wines.
+  const restaurantRecommendedIndexes = (restaurantScan?.recommendations || []).map((choice) => {
+    if (typeof choice.list_index === "number" && choice.list_index >= 0) return choice.list_index;
+    return restaurantScan!.wines.findIndex((wine) => wine.name === choice.name && wine.producer === choice.producer && wine.price_text === choice.price_text);
+  }).filter((index) => index >= 0);
   const restaurantQuestionSuggestions = locale === "it"
     ? [restaurantScan && restaurantScan.recommendations.length > 1 ? "Confronta le prime due scelte" : "Qual è il vino più versatile della carta?", "Cosa abbino al dessert?", "C'è un'alternativa più economica?"]
     : [restaurantScan && restaurantScan.recommendations.length > 1 ? "Compare the first two choices" : "Which is the most versatile wine on the list?", "What goes with dessert?", "Is there a cheaper alternative?"];
@@ -344,7 +350,7 @@ export default function PairingView({
             <div className="restaurant-wine-list-recommendation-head"><span className="restaurant-wine-list-rank">{String(index + 1).padStart(2, "0")}</span><div><strong>{wine.name}</strong><span>{[wine.producer, wine.vintage, wine.style].filter(Boolean).join(" · ")}</span>{wine.taste_affinity > 0 ? <span className="restaurant-taste-affinity" aria-label={locale === "it" ? `Affinità AI con il tuo gusto: ${wine.taste_affinity} su 6` : `AI taste affinity: ${wine.taste_affinity} out of 6`}>{Array.from({ length: 6 }, (_, heart) => <i key={heart} className={heart < wine.taste_affinity ? "filled" : ""} aria-hidden="true">♥</i>)}</span> : null}</div>{wine.price_text ? <b className="restaurant-wine-list-price">{wine.price_text.split(/\s*;\s*/).filter(Boolean).map((part, partIndex) => <span key={partIndex}>{part}</span>)}</b> : null}</div>
             <p>{wine.reason}</p>{wine.serving_note ? <small><span>{locale === "it" ? "Servizio" : "Service"}</span>{wine.serving_note}</small> : null}
           </article>)}</section> : null}
-          {restaurantScan.wines.length ? <WineListChat key={restaurantScanKey} locale={locale} canGenerateAi={canGenerateAi} wines={restaurantScan.wines} dish={restaurantDish} maxPriceChf={restaurantBudget} ignorePreferences={restaurantIgnoreTaste} setting="restaurant" suggestions={restaurantQuestionSuggestions} scope={locale === "it" ? `Risponde solo sui ${restaurantScan.wines.length} vini letti nella carta.` : `Answers only about the ${restaurantScan.wines.length} wines read from the list.`} onAsk={onAskRestaurantWineList} /> : null}
+          {restaurantScan.wines.length ? <WineListChat key={restaurantScanKey} locale={locale} recommendedIndexes={restaurantRecommendedIndexes} canGenerateAi={canGenerateAi} wines={restaurantScan.wines} dish={restaurantDish} maxPriceChf={restaurantBudget} ignorePreferences={restaurantIgnoreTaste} setting="restaurant" suggestions={restaurantQuestionSuggestions} scope={locale === "it" ? `Risponde solo sui ${restaurantScan.wines.length} vini letti nella carta.` : `Answers only about the ${restaurantScan.wines.length} wines read from the list.`} onAsk={onAskRestaurantWineList} /> : null}
           {restaurantScan.wines.length ? <details><summary>{locale === "it" ? `Testo estratto e ${restaurantScan.wines.length} vini rilevati` : `Extracted text and ${restaurantScan.wines.length} detected wines`}</summary><p>{restaurantScan.extracted_text}</p><ul>{restaurantScan.wines.map((wine, index) => <li key={`${wine.name}-${index}`}>{[wine.name, wine.producer, wine.vintage, wine.price_text].filter(Boolean).join(" · ")}</li>)}</ul></details> : null}
         </div> : null}
       </section> : null}

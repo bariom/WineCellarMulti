@@ -5193,23 +5193,23 @@ async def scan_restaurant_wine_list(
                 "summary": {"type": "string"},
                 "extracted_text": {"type": "string"},
                 "wines": {"type": "array", "items": wine_entry_schema},
-                "recommendation_indexes": {"type": "array", "items": {"type": "integer"}},
-                "recommendation_reasons": {"type": "array", "items": {"type": "string"}},
-                "serving_notes": {"type": "array", "items": {"type": "string"}},
-                "recommendation_affinities": {
+                # One object per choice: a serving note can no longer drift to another wine.
+                "recommendations": {
                     "type": "array",
-                    "items": {"type": "integer", "minimum": 0, "maximum": 6},
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "index": {"type": "integer"},
+                            "reason": {"type": "string"},
+                            "serving_note": {"type": "string"},
+                            "taste_affinity": {"type": "integer", "minimum": 0, "maximum": 6},
+                        },
+                        "required": ["index", "reason", "serving_note", "taste_affinity"],
+                    },
                 },
             },
-            "required": [
-                "summary",
-                "extracted_text",
-                "wines",
-                "recommendation_indexes",
-                "recommendation_reasons",
-                "serving_notes",
-                "recommendation_affinities",
-            ],
+            "required": ["summary", "extracted_text", "wines", "recommendations"],
         },
     }
     response, provider_source = create_ai_response(
@@ -5240,38 +5240,25 @@ async def scan_restaurant_wine_list(
         for item in parsed.get("wines", [])[:RESTAURANT_WINE_LIST_MAX_WINES]
         if isinstance(item, dict) and str(item.get("name") or "").strip()
     ]
-    raw_indexes = parsed.get("recommendation_indexes", [])
-    raw_reasons = parsed.get("recommendation_reasons", [])
-    raw_notes = parsed.get("serving_notes", [])
-    raw_affinities = parsed.get("recommendation_affinities", [])
+    raw_recommendations = parsed.get("recommendations", [])
     recommendations: list[RestaurantWineListRecommendation] = []
     seen_indexes: set[int] = set()
-    for position, index in enumerate(raw_indexes if isinstance(raw_indexes, list) else []):
+    for raw in raw_recommendations if isinstance(raw_recommendations, list) else []:
+        if not isinstance(raw, dict):
+            continue
+        index = raw.get("index")
         if not isinstance(index, int) or index in seen_indexes or not 0 <= index < len(wines):
             continue
         seen_indexes.add(index)
         wine = wines[index]
+        affinity = raw.get("taste_affinity")
         recommendations.append(
             RestaurantWineListRecommendation(
                 **wine.model_dump(),
-                reason=str(
-                    raw_reasons[position]
-                    if isinstance(raw_reasons, list) and position < len(raw_reasons)
-                    else ""
-                ).strip()[:500],
-                serving_note=str(
-                    raw_notes[position]
-                    if isinstance(raw_notes, list) and position < len(raw_notes)
-                    else ""
-                ).strip()[:300],
-                taste_affinity=(
-                    int(raw_affinities[position])
-                    if isinstance(raw_affinities, list)
-                    and position < len(raw_affinities)
-                    and isinstance(raw_affinities[position], int)
-                    and 0 <= raw_affinities[position] <= 6
-                    else 0
-                ),
+                list_index=index,
+                reason=str(raw.get("reason") or "").strip()[:500],
+                serving_note=str(raw.get("serving_note") or "").strip()[:300],
+                taste_affinity=affinity if isinstance(affinity, int) and 0 <= affinity <= 6 else 0,
             )
         )
         if len(recommendations) == 3:
@@ -5334,6 +5321,9 @@ def ask_restaurant_wine_list(
         if payload.ignore_preferences
         else (user_settings.pairing_preferences or "").strip(),
         setting=payload.setting,
+        recommended_indexes=[
+            index for index in payload.recommended_indexes if 0 <= index < len(payload.wines)
+        ],
     )
     schema = {
         "name": "restaurant_wine_list_question",

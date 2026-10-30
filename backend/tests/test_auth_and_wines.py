@@ -9516,9 +9516,9 @@ def test_restaurant_wine_list_scan_extracts_and_ranks_only_visible_entries(monke
                 '{"summary":"Due opzioni adatte.","extracted_text":"Barolo 2019 CHF 58",'
                 '"wines":[{"name":"Barolo","producer":"Produttore","vintage":"2019",'
                 '"price_text":"CHF 58","style":"Red"}],'
-                '"recommendation_indexes":[0,9],'
-                '"recommendation_reasons":["Struttura e acidita.","Da ignorare."],'
-                '"serving_notes":["Servire a 18 C.",""]}'
+                '"recommendations":[{"index":0,"reason":"Struttura e acidita.",'
+                '"serving_note":"Servire a 18 C.","taste_affinity":0},'
+                '{"index":9,"reason":"Da ignorare.","serving_note":"","taste_affinity":0}]}'
             ),
             usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
             model="gpt-5.5",
@@ -9535,6 +9535,9 @@ def test_restaurant_wine_list_scan_extracts_and_ranks_only_visible_entries(monke
     assert response.json()["wines"][0]["name"] == "Barolo"
     assert len(response.json()["recommendations"]) == 1
     assert response.json()["recommendations"][0]["reason"] == "Struttura e acidita."
+    # Each choice carries its own serving note and its place in the list.
+    assert response.json()["recommendations"][0]["serving_note"] == "Servire a 18 C."
+    assert response.json()["recommendations"][0]["list_index"] == 0
     audit = client.get("/api/v1/ai/audit")
     assert audit.status_code == 200
     assert audit.json()[0]["feature"] == "restaurant_wine_list_scan"
@@ -9555,9 +9558,8 @@ def test_restaurant_wine_list_scan_reads_several_pages_in_one_request(monkeypatc
             text=(
                 '{"summary":"","extracted_text":"","wines":[{"name":"Barolo","producer":"",'
                 '"vintage":"","price_text":"","style":""},{"name":"Soave","producer":"",'
-                '"vintage":"","price_text":"","style":""}],"recommendation_indexes":[1],'
-                '"recommendation_reasons":["Fresco."],"serving_notes":[""],'
-                '"recommendation_affinities":[0]}'
+                '"vintage":"","price_text":"","style":""}],"recommendations":'
+                '[{"index":1,"reason":"Fresco.","serving_note":"","taste_affinity":0}]}'
             ),
             usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
             model="gpt-5.5",
@@ -9596,6 +9598,8 @@ def test_restaurant_wine_list_question_answers_only_about_listed_wines(monkeypat
         assert "Question: E con il dolce?" in args[2]
         assert '"1": {"name": "Moscato d\'Asti"' in args[2]
         assert "Consiglio il Barolo." in args[2]
+        # "The first two choices" are the wines already shown, in their order.
+        assert "Your earlier recommendations, best first (list indexes): [1, 0]" in args[2]
         return OpenAIResponse(
             text='{"answer":"Con il dolce scegli il Moscato.","referenced_indexes":[1,1,7,-1]}',
             usage=TokenUsage(input_tokens=80, output_tokens=20, total_tokens=100),
@@ -9613,6 +9617,7 @@ def test_restaurant_wine_list_question_answers_only_about_listed_wines(monkeypat
         ],
         "dish": "Brasato",
         "max_price_chf": "80",
+        "recommended_indexes": [1, 0, 9],
     }
     response = client.post("/api/v1/ai/restaurant-wine-list/ask", json=payload)
     assert response.status_code == 200, response.text

@@ -72,7 +72,8 @@ test("a multi-page restaurant wine list can be scanned and questioned", async ({
         sessionStorage.setItem("scan-pages", String((init.body as FormData).getAll("images").length));
         return Response.json({
           summary: "Carta letta su due pagine.", extracted_text: "Barolo 2019 CHF 78", wines, taste_profile_applied: true, model: "test-model", reasoning_effort: "low", estimated_cost_usd: "0.01",
-          recommendations: [{ ...wines[0], reason: "Struttura.", serving_note: "", taste_affinity: 5 }, { ...wines[1], reason: "Freschezza.", serving_note: "", taste_affinity: 4 }],
+          // Best first, not in list order; the second has no list_index, like an older result.
+          recommendations: [{ ...wines[1], reason: "Freschezza.", serving_note: "", taste_affinity: 5, list_index: 1 }, { ...wines[0], reason: "Struttura.", serving_note: "", taste_affinity: 4 }],
         });
       }
       if (path === "/api/v1/ai/restaurant-wine-list/ask" && init?.method === "POST") {
@@ -112,6 +113,8 @@ test("a multi-page restaurant wine list can be scanned and questioned", async ({
   expect(requests).toHaveLength(2);
   expect(requests[0]).toMatchObject({ question: "Confronta le prime due scelte", history: [], ignore_preferences: false });
   expect(requests[0].wines).toHaveLength(3);
+  // "The first two choices" travel with the question, in the order they were shown.
+  expect(requests[0].recommended_indexes).toEqual([1, 0]);
   expect(requests[1].history).toEqual([
     { role: "user", content: "Confronta le prime due scelte" },
     { role: "assistant", content: "Il Barolo è più strutturato, il Soave più fresco." },

@@ -20,6 +20,7 @@ export function WineListChat({
   setting,
   suggestions,
   scope,
+  recommendedIndexes = [],
   onAsk,
 }: {
   locale: "it" | "en";
@@ -31,6 +32,8 @@ export function WineListChat({
   setting: "restaurant" | "shop";
   suggestions: string[];
   scope: string;
+  /** The choices already shown, best first: "the first two" means these. */
+  recommendedIndexes?: number[];
   onAsk: (payload: RestaurantWineListQuestionPayload) => Promise<RestaurantWineListQuestionResult>;
 }) {
   const it = locale === "it";
@@ -54,6 +57,7 @@ export function WineListChat({
         max_price_chf: maxPriceChf.trim() || null,
         ignore_preferences: ignorePreferences,
         setting,
+        recommended_indexes: recommendedIndexes,
       });
       setConversation((current) => [...current, { role: "user", content: trimmed }, { role: "assistant", content: result.answer, wines: result.referenced_indexes }]);
     } catch (nextError) {

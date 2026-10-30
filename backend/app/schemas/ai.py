@@ -318,6 +318,8 @@ class RestaurantWineListEntry(BaseModel):
 
 
 class RestaurantWineListRecommendation(RestaurantWineListEntry):
+    # Its position in `wines`: follow-up questions name the choices by it.
+    list_index: int = -1
     reason: str = ""
     serving_note: str = ""
     taste_affinity: int = Field(default=0, ge=0, le=6)
@@ -358,6 +360,8 @@ class RestaurantWineListQuestionRequest(AiGenerationRequest):
     ignore_preferences: bool = False
     # "shop" answers about bottles recognized on a wine-shop shelf.
     setting: Literal["restaurant", "shop"] = "restaurant"
+    # The choices already shown, best first, as indexes into `wines`.
+    recommended_indexes: list[int] = Field(default_factory=list, max_length=5)
 
 
 WineShelfCellarMode = Literal["ignore", "avoid_owned", "fill_gaps"]
