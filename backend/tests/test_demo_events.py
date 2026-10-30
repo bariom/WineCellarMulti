@@ -106,6 +106,17 @@ def test_every_ai_task_outside_the_event_is_refused():
         with pytest.raises(HTTPException) as refused:
             ensure_event_task_allowed(db, context, "wine_value")
         assert refused.value.status_code == 403
+        # Bottle photos come with the enrichment of what they found, nothing more.
+        event.features = ["bottle_photo"]
+        db.flush()
+        ensure_event_task_allowed(db, context, "wine_full_enrichment")
+        with pytest.raises(HTTPException):
+            ensure_event_task_allowed(db, context, "pairing")
+        # Wine Pulse is read only: it grants no AI task at all.
+        event.features = ["wine_pulse"]
+        db.flush()
+        with pytest.raises(HTTPException):
+            ensure_event_task_allowed(db, context, "structured_extraction")
         # A guest who kept the account is an ordinary user again.
         guest.event_visitor_until = None
         ensure_event_task_allowed(db, context, "wine_value")
@@ -198,6 +209,9 @@ def test_admin_edits_and_rotates_the_qr_address(admin):
     assert updated.status_code == 200, updated.text
     assert updated.json()["slug"] != event["slug"]
     assert updated.json()["features"] == ["restaurant_wine_list", "bottle_photo"]
+    pulse = admin.patch(f"/api/v1/admin/events/{event['id']}", json={"features": ["wine_pulse"]})
+    assert pulse.status_code == 200, pulse.text
+    assert pulse.json()["features"] == ["wine_pulse"]
     assert (
         admin.patch(f"/api/v1/admin/events/{event['id']}", json={"features": ["x"]}).status_code
         == 422

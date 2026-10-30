@@ -7,7 +7,12 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.services.demo_events import EVENT_FEATURES, EVENT_LANDINGS
 
 EventFeature = Literal[
-    "restaurant_wine_list", "dish_pairing", "bottle_photo", "assistant", "buying_advice"
+    "restaurant_wine_list",
+    "dish_pairing",
+    "bottle_photo",
+    "assistant",
+    "buying_advice",
+    "wine_pulse",
 ]
 EventLanding = Literal["pairing-restaurant", "pairing-home", "assistant", "buying", "sommelier"]
 

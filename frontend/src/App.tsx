@@ -7444,6 +7444,8 @@ export function App() {
       setBottlePhotoImportOpen(true);
     } else if (feature === "assistant") {
       openView("assistant");
+    } else if (feature === "wine_pulse") {
+      openView("pulse");
     } else {
       openSommelierFeature("buying");
     }
@@ -9767,7 +9769,7 @@ export function App() {
           <div className="view-tabs">
             <div className="view-tabs-navigation">
             {eventGuest ? <>
-              <button type="button" className={`view-tab${activeView === "event" || aiNavigationActive ? "" : " secondary"}`} onClick={() => openView("event")}>
+              <button type="button" className={`view-tab${activeView === "event" || activeView === "pulse" || aiNavigationActive ? "" : " secondary"}`} onClick={() => openView("event")}>
                 <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
                 {locale === "it" ? "Stasera" : "Tonight"}
               </button>
@@ -9840,7 +9842,7 @@ export function App() {
           ) : null}
           {activeView !== "settings" && eventGuest ? (
             <nav className="mobile-bottom-navigation" aria-label={locale === "it" ? "Navigazione principale" : "Main navigation"}>
-              <button type="button" className={activeView === "event" || aiNavigationActive ? "active" : ""} onClick={() => openView("event")}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{locale === "it" ? "Stasera" : "Tonight"}</span></button>
+              <button type="button" className={activeView === "event" || activeView === "pulse" || aiNavigationActive ? "active" : ""} onClick={() => openView("event")}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{locale === "it" ? "Stasera" : "Tonight"}</span></button>
               <button type="button" onClick={() => setEventClaimOpen(true)}><AppIcon name="star" variant="navigation" detailLevel="rich" /><span>{locale === "it" ? "Tieni la serata" : "Keep tonight"}</span></button>
               <button type="button" className={activeView === "help" ? "active" : ""} onClick={() => openHelp(contextualHelpArticle)}><AppIcon name="grapes" variant="navigation" detailLevel="rich" /><span>{t("help")}</span></button>
             </nav>

@@ -10,7 +10,7 @@ export type SessionEvent = {
   visitor_until: string;
 };
 
-export type EventFeature = "restaurant_wine_list" | "dish_pairing" | "bottle_photo" | "assistant" | "buying_advice";
+export type EventFeature = "restaurant_wine_list" | "dish_pairing" | "bottle_photo" | "assistant" | "buying_advice" | "wine_pulse";
 export type EventLanding = "pairing-restaurant" | "pairing-home" | "assistant" | "buying" | "sommelier";
 
 export type DemoEvent = {

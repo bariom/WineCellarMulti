@@ -36,9 +36,14 @@ GRANT_SOURCE = "event_grant"
 EVENT_FEATURES: dict[str, frozenset[str]] = {
     "restaurant_wine_list": frozenset({"structured_extraction", "pairing"}),
     "dish_pairing": frozenset({"pairing"}),
-    "bottle_photo": frozenset({"structured_extraction", "label_enrichment"}),
+    # Reading the labels, then "complete with AI": the full enrichment of the new wines.
+    "bottle_photo": frozenset(
+        {"structured_extraction", "label_enrichment", "wine_full_enrichment"}
+    ),
     "assistant": frozenset({"cellar_command"}),
     "buying_advice": frozenset({"buying_advice"}),
+    # Wine Pulse is read-only news, already written by the editorial job: no AI call of the guest's.
+    "wine_pulse": frozenset(),
 }
 EVENT_LANDINGS = ("pairing-restaurant", "pairing-home", "assistant", "buying", "sommelier")
 

@@ -16,6 +16,7 @@ const FEATURES: Array<{ id: EventFeature; it: string; en: string }> = [
   { id: "bottle_photo", it: "Foto di una bottiglia", en: "Bottle photo" },
   { id: "assistant", it: "Assistente", en: "Assistant" },
   { id: "buying_advice", it: "Consigli d’acquisto", en: "Buying advice" },
+  { id: "wine_pulse", it: "Wine Pulse (notizie dal mondo del vino)", en: "Wine Pulse (wine news)" },
 ];
 
 type Draft = {

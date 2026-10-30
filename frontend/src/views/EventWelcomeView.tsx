@@ -53,6 +53,12 @@ export default function EventWelcomeView({ locale, event, wines, onOpen, onKeep,
       body: it ? "Consigli d’acquisto su misura: bottiglie da cercare, dove trovarle e a che prezzo." : "Tailored buying advice: bottles to look for, where to find them and at what price.",
       action: it ? "Chiedi un consiglio" : "Ask for advice",
     },
+    wine_pulse: {
+      icon: "pulse",
+      title: it ? "Wine Pulse: le notizie del vino" : "Wine Pulse: the wine news",
+      body: it ? "Le notizie dal mondo del vino scelte e riassunte ogni giorno: produttori, annate, mercati, territori." : "The news from the wine world, selected and summarised every day: producers, vintages, markets, regions.",
+      action: it ? "Leggi le notizie" : "Read the news",
+    },
   };
   const features = event.features.filter((feature): feature is EventFeature => feature in catalogue);
 

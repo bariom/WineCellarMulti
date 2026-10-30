@@ -177,3 +177,19 @@ test("the bottles photographed tonight are listed on the welcome page, with the 
   await bottles.getByRole("button", { name: "Tieni le bottiglie: crea il mio account" }).click();
   await expect(page.getByText(/Le 4 bottiglie fotografate stasera restano nella tua cantina/)).toBeVisible();
 });
+
+test("Wine Pulse, when the event offers it, opens the news and keeps Tonight one tap away", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], true, memberships, [], { ...guestSession, event: { ...guestSession.event, features: ["restaurant_wine_list", "wine_pulse"] } });
+  await page.goto("/");
+  const cards = page.locator(".event-welcome-card");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(1)).toContainText("Wine Pulse: le notizie del vino");
+  await cards.nth(1).click();
+  await expect(page.getByRole("heading", { name: /Wine Pulse/ }).first()).toBeVisible();
+  // No cellar navigation appears for the guest; "Tonight" brings them back.
+  await expect(page.getByRole("button", { name: /^Cantina/ })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.getByRole("button", { name: "Stasera" }).first().click();
+  await expect(page.getByRole("heading", { name: "Il sommelier AI è al tuo tavolo." })).toBeVisible();
+});
