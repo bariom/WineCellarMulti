@@ -8,8 +8,8 @@ const photo = {
   buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEklEQVR4nGP4z8DAwMDAwMDAAAANAAH/1E4GHQAAAABJRU5ErkJggg==", "base64"),
 };
 
-async function setup(page: Page, canGenerate = true) {
-  await mockApi(page, [], true, memberships, [wine], { ...session, locale: "it", has_active_entitlement: true, is_free_tier: false, theme_preference: "light" });
+async function setup(page: Page, canGenerate = true, sessionOverrides: Record<string, unknown> = {}) {
+  await mockApi(page, [], true, memberships, [wine], { ...session, locale: "it", has_active_entitlement: true, is_free_tier: false, theme_preference: "light", ...sessionOverrides });
   await page.addInitScript(({ wine, canGenerate }) => {
     const previous = window.fetch;
     let polls = 0;
@@ -164,4 +164,42 @@ test("a full-resolution camera photo is previewed as a light thumbnail, so it do
   // The original, untouched, is what the recognition receives.
   await dialog.getByRole("button", { name: "Riconosci le bottiglie", exact: true }).click();
   await expect(dialog.getByText("Ho trovato 3 vini.", { exact: false })).toBeVisible();
+});
+
+test("an event guest never sees a bottle price: no price field and no value in the AI report", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setup(page, true, {
+    is_free_tier: true,
+    has_active_entitlement: false,
+    event: { id: "event-1", slug: "market-2026", name: "The Market", place: "Lugano", locale: "it", features: ["bottle_photo"], landing: "pairing-restaurant", visitor_until: "2999-01-01T00:00:00Z" },
+  });
+  await page.addInitScript((base) => {
+    const previous = window.fetch;
+    window.fetch = async (input, init) => {
+      const url = new URL(String(input instanceof Request ? input.url : input), location.href);
+      const done = { ...base, id: "new-2", name: "Rosso della Casa", current_value: "72.00", drink_from: 2025, drink_to: 2030, drink_peak_from: 2026, drink_peak_to: 2028 };
+      if (url.pathname === "/api/v1/wines" && !init?.method) return Response.json([base, { ...done, current_value: null, drink_from: null, drink_to: null }]);
+      if (url.pathname === "/api/v1/ai/wines/new-2/all") return Response.json(done);
+      if (url.pathname.endsWith("/ai/settings") && !init?.method) {
+        const response = await previous(input, init);
+        return Response.json({ ...await response.json(), value_model: "gpt-6-luna" });
+      }
+      return previous(input, init);
+    };
+  }, wine);
+  await page.goto("/");
+  await page.locator(".event-welcome-card").filter({ hasText: "Riconosci le bottiglie" }).click();
+  const dialog = page.getByRole("dialog", { name: "Fotografa le tue bottiglie" });
+  await dialog.locator('input[type="file"][multiple]').setInputFiles(photo);
+  await dialog.getByRole("button", { name: "Riconosci le bottiglie", exact: true }).click();
+  await expect(dialog.getByText("Ho trovato 3 vini.", { exact: false })).toBeVisible();
+  // At a venue the price is not the guest's to give, nor to see.
+  await expect(dialog.getByRole("textbox", { name: /Prezzo/ })).toHaveCount(0);
+  await dialog.getByRole("button", { name: /^Aggiungi 3 vini/ }).click();
+  await dialog.getByRole("button", { name: /^Completa con AI il vino non trovato/ }).click();
+  const report = page.locator(".batch-ai-report");
+  await expect(report.getByText("Arricchimento AI completato")).toBeVisible();
+  await expect(report.locator(".batch-ai-report-rows > li").first()).toContainText("Beva 2025–2030");
+  await expect(report.locator(".batch-ai-report-rows")).not.toContainText("CHF");
+  await expect(report.getByRole("button", { name: "Dettagli" })).toHaveCount(0);
 });

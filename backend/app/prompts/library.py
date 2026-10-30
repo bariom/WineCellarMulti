@@ -716,6 +716,34 @@ def wine_full_enrichment_prompt(
     )
 
 
+def wine_tasting_enrichment_prompt(*, locale: str, wine_context: str) -> Prompt:
+    """The full enrichment for an event guest: what to expect in the glass, no market value.
+
+    At a restaurant the bottle's market price would show the venue's markup, so
+    it is neither researched nor returned.
+    """
+    return Prompt(
+        id="wine.tasting_enrichment",
+        version="1",
+        system=(
+            "You enrich one wine a guest is tasting at an event, in a single pass, and return JSON only. "
+            "Complete practical tasting notes, a conservative drinking window and the exact grape composition. "
+            "Do not research or mention prices, market value or where to buy. "
+            "Use live web search only for the grape composition: one exact query, and stop once a credible source answers. "
+            "Never infer an exact blend from appellation rules or a typical regional blend: return an empty grapes array when the exact producer and vintage are not supported by a credible source. "
+            "Keep the drinking window realistic and internally ordered. "
+            "Write the notes in 3-5 sentences about style, what to expect in the glass and food, and do not invent exact facts. "
+            f"{language_instruction(locale)}"
+        ),
+        user=(
+            "Enrich this wine in one response.\n"
+            "- The grape source URL must support the exact producer and vintage; otherwise leave the grape composition empty.\n"
+            "- Keep all prose concise and useful to someone tasting it tonight.\n\n"
+            f"{wine_context}"
+        ),
+    )
+
+
 def wine_sensory_metadata_prompt(*, wine_context: dict) -> Prompt:
     return Prompt(
         id="wine.sensory_metadata",

@@ -13197,6 +13197,7 @@ export function App() {
       {batchAiRun ? <Suspense fallback={null}><BatchAiReport
         run={batchAiRun}
         locale={locale}
+        hideValue={Boolean(eventGuest)}
         minimized={batchAiMinimized}
         onMinimize={() => setBatchAiMinimized(true)}
         onRestore={() => setBatchAiMinimized(false)}

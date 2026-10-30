@@ -200,8 +200,9 @@ test("the bottles photographed tonight are listed on the welcome page, with the 
   await expect(sheet).toBeVisible();
   await expect(sheet.getByRole("heading", { name: "Quando berlo" })).toBeVisible();
   await expect(sheet.getByText("Ideale fino al 2028")).toBeVisible();
-  await expect(sheet.getByRole("heading", { name: "Quanto vale" })).toBeVisible();
-  await expect(sheet.getByText("CHF 48")).toBeVisible();
+  // No price: at a venue the market value would reveal the restaurant's markup.
+  await expect(sheet.getByRole("heading", { name: "Quanto vale" })).toHaveCount(0);
+  await expect(sheet.getByText(/CHF/)).toHaveCount(0);
   await expect(sheet.getByRole("heading", { name: "Uvaggio" })).toBeVisible();
   await expect(sheet.getByText("Nebbiolo", { exact: true })).toBeVisible();
   await expect(sheet.getByText("Profilo di test")).toBeVisible();
@@ -256,7 +257,7 @@ test("a bottle with missing data can be completed with AI from its page", async 
   await sheet.getByRole("button", { name: "Completa con AI" }).click();
   await expect.poll(() => page.evaluate(() => JSON.parse(window.sessionStorage.getItem("vinaris-test-completed") || "{}").locale)).toBe("it");
   await expect(sheet.getByText("Ideale fino al 2028")).toBeVisible();
-  await expect(sheet.getByText("CHF 48")).toBeVisible();
+  await expect(sheet.getByText(/CHF/)).toHaveCount(0);
   await expect(sheet.getByRole("button", { name: "Completa con AI" })).toHaveCount(0);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.screenshot({ path: testInfo.outputPath("tonight-wine-1440.png") });

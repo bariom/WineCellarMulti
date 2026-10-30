@@ -26,7 +26,7 @@ function hasMarketSources(item: BatchAiItem) {
   return item.entries.some((entry) => (entry.sources || []).some((source) => source?.kind === "market_source"));
 }
 
-function outcome(item: BatchAiItem, feature: WineAiFeature, locale: Locale) {
+function outcome(item: BatchAiItem, feature: WineAiFeature, locale: Locale, hideValue: boolean) {
   const it = locale === "it";
   const wine = item.updated;
   if (item.status === "failed") return item.reason || (it ? "Non completato" : "Not completed");
@@ -37,7 +37,7 @@ function outcome(item: BatchAiItem, feature: WineAiFeature, locale: Locale) {
   }
   if (!wine) return "";
   const parts: string[] = [];
-  if (feature === "value" || feature === "all") {
+  if (!hideValue && (feature === "value" || feature === "all")) {
     const before = item.wine.current_value;
     const after = wine.current_value;
     if (after !== null && after !== undefined) {
@@ -69,9 +69,11 @@ function outcome(item: BatchAiItem, feature: WineAiFeature, locale: Locale) {
  * so results can be read before the last wine is done, and can be folded into a
  * small progress chip to keep using the app.
  */
-export default function BatchAiReport({ run, locale, minimized, onMinimize, onRestore, onClose, onStop, onDetails }: {
+export default function BatchAiReport({ run, locale, hideValue = false, minimized, onMinimize, onRestore, onClose, onStop, onDetails }: {
   run: BatchAiRun;
   locale: Locale;
+  /** An event guest: at a venue the market price would reveal the markup. */
+  hideValue?: boolean;
   minimized: boolean;
   onMinimize: () => void;
   onRestore: () => void;
@@ -134,9 +136,9 @@ export default function BatchAiReport({ run, locale, minimized, onMinimize, onRe
             <span className="batch-ai-report-state" aria-hidden="true" />
             <div>
               <strong>{item.wine.name}{item.wine.vintage ? <small> {item.wine.vintage}</small> : null}</strong>
-              <span>{item.status === "pending" ? (it ? "In attesa" : "Waiting") : item.status === "running" ? (it ? "In corso…" : "In progress…") : outcome(item, run.feature, locale)}</span>
+              <span>{item.status === "pending" ? (it ? "In attesa" : "Waiting") : item.status === "running" ? (it ? "In corso…" : "In progress…") : outcome(item, run.feature, locale, hideValue)}</span>
             </div>
-            {hasMarketSources(item) ? <button type="button" className="secondary compact" onClick={() => onDetails(item)}>{it ? "Dettagli" : "Details"}</button> : null}
+            {!hideValue && hasMarketSources(item) ? <button type="button" className="secondary compact" onClick={() => onDetails(item)}>{it ? "Dettagli" : "Details"}</button> : null}
           </li>;
         })}
       </ol>

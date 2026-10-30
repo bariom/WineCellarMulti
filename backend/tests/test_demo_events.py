@@ -370,3 +370,51 @@ def test_event_guests_pay_the_real_ai_cost_without_the_ai_pack_markup(monkeypatc
     # Tokens plus two web searches, as they cost Vinaris.
     assert charged(guest) == Decimal("0.07")
     assert charged(member) == Decimal("0.14")
+
+
+def test_event_guests_complete_a_wine_without_its_market_value(admin, monkeypatch):
+    from app.services.openai_client import OpenAIResponse, TokenUsage
+
+    monkeypatch.setattr(settings, "openai_api_key", "sk-app")
+    event = create_event(admin, features=["bottle_photo"])
+    guest = TestClient(app)
+    assert guest.post(f"/api/v1/events/{event['slug']}/enter").status_code == 200
+    created = guest.post(
+        "/api/v1/wines",
+        json={"name": "Sfursat 5 Stelle", "producer": "Nino Negri", "vintage": "2020"},
+    )
+    assert created.status_code == 201, created.text
+    calls = []
+
+    def fake_create_response(*args, **kwargs):
+        calls.append(kwargs)
+        schema = kwargs["json_schema"]["schema"]
+        # At a venue the price would reveal the markup: never researched, never asked.
+        assert "value" not in schema["properties"]
+        assert "value" not in schema["required"]
+        assert "market value" in args[1] and "Do not research" in args[1]
+        assert kwargs["max_tool_calls"] == 2
+        return OpenAIResponse(
+            text=(
+                '{"ai_notes":"Rosso secco da uve appassite, pieno e caldo.",'
+                '"drink_window":{"drink_from":2024,"drink_peak_from":2027,"drink_peak_to":2034,'
+                '"drink_to":2040,"notes":"Ancora giovane."},'
+                '"grape_composition":{"grapes":[{"name":"Nebbiolo","percentage_from":100,'
+                '"percentage_to":100}],"notes":"","source_url":"https://example.com/sfursat",'
+                '"source_title":"Sfursat 5 Stelle"}}'
+            ),
+            usage=TokenUsage(input_tokens=200, output_tokens=120, total_tokens=320),
+            web_sources=({"url": "https://example.com/sfursat", "title": "Sfursat 5 Stelle"},),
+            web_search_calls=1,
+        )
+
+    monkeypatch.setattr(ai, "create_response", fake_create_response)
+    generated = guest.post(f"/api/v1/ai/wines/{created.json()['id']}/all", json={"locale": "it"})
+    assert generated.status_code == 200, generated.text
+    wine = generated.json()
+    assert len(calls) == 1
+    assert wine["current_value"] is None
+    assert wine["drink_peak_to"] == 2034
+    assert wine["grapes"][0]["name"] == "Nebbiolo"
+    entry = guest.get("/api/v1/ai/audit").json()[0]
+    assert not any(source.get("kind") == "valuation_market" for source in entry["sources"])

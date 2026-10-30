@@ -265,7 +265,7 @@ export default function BottlePhotoImport({ locale, canAnalyze, eventGuest = fal
                 <input inputMode="numeric" value={row.quantityText} aria-label={it ? "Bottiglie" : "Bottles"} onChange={(event) => update(row.key, { quantityText: event.target.value.replace(/\D/g, "").slice(0, 4) })} />
                 <button type="button" className="secondary compact" aria-label={it ? "Una bottiglia in più" : "One bottle more"} onClick={() => update(row.key, { quantityText: String(quantity(row) + 1) })}>+</button>
               </span></label>
-              <label><span>{it ? "Prezzo (facoltativo)" : "Price (optional)"}</span><input inputMode="decimal" value={row.priceText} placeholder="CHF" onChange={(event) => update(row.key, { priceText: event.target.value })} /></label>
+              {eventGuest ? null : <label><span>{it ? "Prezzo (facoltativo)" : "Price (optional)"}</span><input inputMode="decimal" value={row.priceText} placeholder="CHF" onChange={(event) => update(row.key, { priceText: event.target.value })} /></label>}
             </div>
             <div className="bottle-photo-badges">
               {row.existing_wine ? <label className="bottle-photo-existing"><input type="checkbox" checked={row.addToExisting} onChange={(event) => update(row.key, { addToExisting: event.target.checked })} />

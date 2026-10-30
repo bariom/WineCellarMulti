@@ -9,8 +9,9 @@ import "./EventWineSheet.css";
 
 /**
  * A bottle photographed at an event, as a guest needs it tonight: when to drink
- * it, what it is worth, the blend, the sommelier's notes and its character.
- * Nothing of the cellar (stock, sales, storage, history) belongs here.
+ * it, the blend, the sommelier's notes and its character. Nothing of the cellar
+ * (stock, sales, storage, history) belongs here, and no price: at a restaurant
+ * the market value would reveal the venue's markup.
  */
 export default function EventWineSheet({ locale, wine, canComplete, onClose, onUpdated, onKeep, onRemove }: {
   locale: Locale;
@@ -33,14 +34,11 @@ export default function EventWineSheet({ locale, wine, canComplete, onClose, onU
   }, []);
 
   const hasWindow = Boolean(wine.drink_from && wine.drink_to);
-  const value = wine.current_value ? Number(wine.current_value) : null;
-  const hasValue = value !== null && Number.isFinite(value) && value > 0;
   const grapes = wine.grapes || [];
-  const missing = !hasWindow || !hasValue || !grapes.length || !wine.ai_notes.trim();
+  const missing = !hasWindow || !grapes.length || !wine.ai_notes.trim();
   const identity = [wine.producer, wine.vintage].filter(Boolean).join(" · ");
   const origin = [wine.appellation, wine.region].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index).join(" · ");
   const photo = wine.photo_detail_url || wine.photo_thumbnail_url;
-  const money = (amount: number) => new Intl.NumberFormat(it ? "it-CH" : "en-GB", { style: "currency", currency: wine.currency || "CHF", maximumFractionDigits: 0 }).format(amount);
   const percent = (grape: Wine["grapes"][number]) => {
     const from = grape.percentage_from;
     const to = grape.percentage_to;
@@ -82,14 +80,6 @@ export default function EventWineSheet({ locale, wine, canComplete, onClose, onU
           </> : <p className="event-wine-empty">{it ? "Finestra di beva non ancora stimata." : "Drinking window not estimated yet."}</p>}
         </section>
 
-        <section className="event-wine-card" aria-labelledby="event-wine-value">
-          <h3 id="event-wine-value">{it ? "Quanto vale" : "What it is worth"}</h3>
-          {hasValue ? <>
-            <strong className="event-wine-price">{money(value!)}</strong>
-            <p>{it ? "Prezzo medio di mercato per bottiglia." : "Average market price per bottle."}</p>
-          </> : <p className="event-wine-empty">{wine.value_not_found ? (it ? "Nessun prezzo di mercato verificato." : "No verified market price.") : (it ? "Valore non ancora stimato." : "Value not estimated yet.")}</p>}
-        </section>
-
         <section className="event-wine-card" aria-labelledby="event-wine-grapes">
           <h3 id="event-wine-grapes">{it ? "Uvaggio" : "Grapes"}</h3>
           {grapes.length ? <ul className="event-wine-grapes">
@@ -107,7 +97,7 @@ export default function EventWineSheet({ locale, wine, canComplete, onClose, onU
 
       {missing && canComplete ? <section className="event-wine-complete">
         {completing
-          ? <AiActivity locale={locale} label={it ? "Il sommelier cerca i dati del vino…" : "The sommelier is looking the wine up…"} detail={it ? "Finestra di beva, valore, uvaggio e note: di solito meno di un minuto." : "Drinking window, value, blend and notes: usually under a minute."} />
+          ? <AiActivity locale={locale} label={it ? "Il sommelier cerca i dati del vino…" : "The sommelier is looking the wine up…"} detail={it ? "Finestra di beva, uvaggio e note: di solito meno di un minuto." : "Drinking window, blend and notes: usually under a minute."} />
           : <>
             <p>{it ? "Mancano alcuni dati: il sommelier può cercarli per te." : "Some data is missing: the sommelier can look it up for you."}</p>
             <button type="button" onClick={() => void complete()}>{it ? "Completa con AI" : "Complete with AI"}</button>

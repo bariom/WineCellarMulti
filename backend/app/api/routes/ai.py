@@ -74,6 +74,7 @@ from app.prompts import (
     restaurant_wine_list_scan_prompt,
     wine_full_enrichment_prompt,
     wine_scores_prompt,
+    wine_tasting_enrichment_prompt,
     wine_value_prompt,
     wishlist_advice_prompt,
     wishlist_portfolio_strategy_prompt,
@@ -5924,12 +5925,20 @@ def generate_all_wine_ai(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
+    # An event guest tastes the wine at a venue: its market price would show the
+    # venue's markup, so the value is neither researched nor applied for them.
+    tasting_only = is_event_visitor(context.user)
+    enriched_features = (
+        ("notes", "drink_window", "grapes")
+        if tasting_only
+        else ("notes", "drink_window", "value", "grapes")
+    )
     if not payload.force_refresh:
         cached_facts = {
             feature: get_shared_fact(
                 db, wine, feature, locale=payload.locale, market_country=context.user.market_country
             )
-            for feature in ("notes", "drink_window", "value", "grapes")
+            for feature in enriched_features
         }
         if all(cached_facts.values()):
             applied = []
@@ -5960,11 +5969,19 @@ def generate_all_wine_ai(
                 db.refresh(wine)
                 return ai_wine_response(db, context, wine)
     user_settings = get_or_create_user_ai_settings(db, context)
-    prompt = wine_full_enrichment_prompt(
-        locale=payload.locale,
-        currency_instruction=value_currency_instruction(wine.currency, context.user.market_country),
-        currency=wine.currency,
-        wine_context=wine_market_context(wine),
+    prompt = (
+        wine_tasting_enrichment_prompt(
+            locale=payload.locale, wine_context=wine_market_context(wine)
+        )
+        if tasting_only
+        else wine_full_enrichment_prompt(
+            locale=payload.locale,
+            currency_instruction=value_currency_instruction(
+                wine.currency, context.user.market_country
+            ),
+            currency=wine.currency,
+            wine_context=wine_market_context(wine),
+        )
     )
     schema = {
         "name": "wine_full_enrichment",
@@ -6062,6 +6079,9 @@ def generate_all_wine_ai(
             "required": ["ai_notes", "drink_window", "value", "grape_composition"],
         },
     }
+    if tasting_only:
+        schema["schema"]["properties"].pop("value")
+        schema["schema"]["required"] = ["ai_notes", "drink_window", "grape_composition"]
     # The combined route is cost-first: reuse the value model (Luna by default)
     # with low reasoning; the structured schema keeps the drink window ordered.
     selected_model = request_model(payload, user_settings.value_model)
@@ -6080,12 +6100,12 @@ def generate_all_wine_ai(
         # Snippets, not whole pages, and a few searches: most of the cost and the
         # wait of this call were the search results read back as input tokens.
         web_search_context_size="low",
-        max_output_tokens=6000,
-        max_tool_calls=4,
+        max_output_tokens=3000 if tasting_only else 6000,
+        max_tool_calls=2 if tasting_only else 4,
     )
     result = parse_json_response(response.text)
     drink_window = result.get("drink_window")
-    value_result = result.get("value")
+    value_result = {} if tasting_only else result.get("value")
     grape_result = result.get("grape_composition")
     if (
         not isinstance(drink_window, dict)
@@ -6097,7 +6117,11 @@ def generate_all_wine_ai(
         )
 
     try:
-        current_value = Decimal(str(value_result["current_value"])).quantize(Decimal("0.01"))
+        current_value = (
+            None
+            if tasting_only
+            else Decimal(str(value_result["current_value"])).quantize(Decimal("0.01"))
+        )
         drink_from = int(drink_window["drink_from"])
         drink_peak_from = int(drink_window["drink_peak_from"])
         drink_peak_to = int(drink_window["drink_peak_to"])
@@ -6111,38 +6135,41 @@ def generate_all_wine_ai(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned an invalid drinking window"
         )
 
-    result_currency = str(value_result.get("currency") or wine.currency)[:8]
-    raw_market_sources = value_result.get("market_sources")
-    market_sources = normalize_market_sources(
-        raw_market_sources,
-        default_currency=result_currency,
-        require_url=True,
-    )
-    if not market_sources:
-        wine.value_not_found = True
-        db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="No verified live market price sources found",
+    result_currency = wine.currency
+    market_sources: list[dict[str, Any]] = []
+    if not tasting_only:
+        result_currency = str(value_result.get("currency") or wine.currency)[:8]
+        raw_market_sources = value_result.get("market_sources")
+        market_sources = normalize_market_sources(
+            raw_market_sources,
+            default_currency=result_currency,
+            require_url=True,
         )
-
-    local_value = local_market_source_price(
-        market_sources, currency=result_currency, market_country=context.user.market_country
-    )
-    if contains_hospitality_market_sources(raw_market_sources):
-        retail_value = local_value or median_retail_source_price(
-            market_sources, currency=result_currency
-        )
-        if retail_value is None:
+        if not market_sources:
             wine.value_not_found = True
             db.commit()
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="No uncontaminated retail price estimate could be calculated",
+                detail="No verified live market price sources found",
             )
-        current_value = retail_value
-    if local_value is not None:
-        current_value = local_value
+
+        local_value = local_market_source_price(
+            market_sources, currency=result_currency, market_country=context.user.market_country
+        )
+        if contains_hospitality_market_sources(raw_market_sources):
+            retail_value = local_value or median_retail_source_price(
+                market_sources, currency=result_currency
+            )
+            if retail_value is None:
+                wine.value_not_found = True
+                db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="No uncontaminated retail price estimate could be calculated",
+                )
+            current_value = retail_value
+        if local_value is not None:
+            current_value = local_value
 
     grapes = grape_result.get("grapes", [])
     if isinstance(grapes, list):
@@ -6173,12 +6200,13 @@ def generate_all_wine_ai(
     wine.drink_peak_to = drink_peak_to
     wine.drink_to = drink_to
     wine.drink_window_notes = str(drink_window.get("notes") or "")[:2000]
-    wine.current_value = max(current_value, Decimal("0"))
-    wine.value_not_found = False
-    wine.currency = result_currency
-    wine.ai_value_notes = str(value_result.get("notes") or "")[:2000]
-    wine.ai_value_market_country = context.user.market_country
-    wine.ai_value_estimated_at = datetime.now(UTC)
+    if current_value is not None:
+        wine.current_value = max(current_value, Decimal("0"))
+        wine.value_not_found = False
+        wine.currency = result_currency
+        wine.ai_value_notes = str(value_result.get("notes") or "")[:2000]
+        wine.ai_value_market_country = context.user.market_country
+        wine.ai_value_estimated_at = datetime.now(UTC)
     if saved_verified_grapes:
         wine.grapes = grapes
         wine.grapes_source_url = grape_source_url[:500]
@@ -6190,10 +6218,11 @@ def generate_all_wine_ai(
     else:
         wine.grapes_not_applicable = True
 
-    for feature in ("notes", "drink_window", "value", "grapes"):
+    for feature in enriched_features:
         mark_local_feature(wine, feature)
 
-    record_wine_value_history(db, wine, source="ai")
+    if not tasting_only:
+        record_wine_value_history(db, wine, source="ai")
     extra_cost = web_search_tool_cost_usd(response.web_search_calls)
     note_entry = market_note_source(value_result.get("market_note") or value_result.get("notes"))
     grape_source_entry = (
@@ -6205,9 +6234,14 @@ def generate_all_wine_ai(
         if saved_verified_grapes
         else None
     )
+    valuation_entry = (
+        []
+        if tasting_only
+        else [{"kind": "valuation_market", "country": context.user.market_country}]
+    )
     audit_sources = (
         market_sources
-        + [{"kind": "valuation_market", "country": context.user.market_country}]
+        + valuation_entry
         + web_search_source_entries(response.web_sources)
         + ([note_entry] if note_entry else [])
         + ([grape_source_entry] if grape_source_entry else [])
@@ -6230,21 +6264,22 @@ def generate_all_wine_ai(
         locale=payload.locale,
         model=effective_model,
     )
-    publish_shared_fact(
-        db,
-        wine,
-        "value",
-        {
-            "current_value": str(wine.current_value),
-            "currency": wine.currency,
-            "notes": wine.ai_value_notes,
-        },
-        locale=payload.locale,
-        sources=audit_sources,
-        model=effective_model,
-        market_country=context.user.market_country,
-        prompt_version=prompt.version,
-    )
+    if not tasting_only:
+        publish_shared_fact(
+            db,
+            wine,
+            "value",
+            {
+                "current_value": str(wine.current_value),
+                "currency": wine.currency,
+                "notes": wine.ai_value_notes,
+            },
+            locale=payload.locale,
+            sources=audit_sources,
+            model=effective_model,
+            market_country=context.user.market_country,
+            prompt_version=prompt.version,
+        )
     if saved_verified_grapes:
         publish_shared_fact(
             db,
@@ -6267,8 +6302,8 @@ def generate_all_wine_ai(
         model=effective_model,
         reasoning_effort=response.reasoning_effort or "",
         summary=(
-            f"{wine.currency} {wine.current_value}; "
-            f"drink {wine.drink_from}-{wine.drink_to}; "
+            ("" if tasting_only else f"{wine.currency} {wine.current_value}; ")
+            + f"drink {wine.drink_from}-{wine.drink_to}; "
             f"{len(wine.grapes)} grapes; {wine.ai_notes}"
         ),
         sources=audit_sources,

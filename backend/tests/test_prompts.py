@@ -7,10 +7,11 @@ from app.prompts import (
     pairing_prompt,
     restaurant_wine_list_question_prompt,
     restaurant_wine_list_scan_prompt,
-    wine_shelf_ranking_prompt,
-    wine_shelf_recognition_prompt,
     wine_full_enrichment_prompt,
     wine_sensory_metadata_prompt,
+    wine_shelf_ranking_prompt,
+    wine_shelf_recognition_prompt,
+    wine_tasting_enrichment_prompt,
     wine_value_prompt,
     wine_vineyard_location_prompt,
     wishlist_portfolio_strategy_prompt,
@@ -71,7 +72,9 @@ def test_wine_shelf_prompts_read_only_legible_labels_then_rank_with_the_cellar()
         wine_type="Red",
         ranking_size=3,
         cellar_mode="avoid_owned",
-        cellar_context={"owned_wines": [{"producer": "Vietti", "name": "Barolo", "vintage": "2019"}]},
+        cellar_context={
+            "owned_wines": [{"producer": "Vietti", "name": "Barolo", "vintage": "2019"}]
+        },
         taste_context={"dimensions": {"tannin": 0.7}},
         pairing_preferences="",
     )
@@ -310,6 +313,11 @@ def test_market_value_prompts_keep_currency_and_context_constraints():
     )
     assert (full_prompt.id, full_prompt.version) == ("wine.full_enrichment", "6")
     assert "Never use restaurant, hotel, bar" in full_prompt.system
+
+    tasting_prompt = wine_tasting_enrichment_prompt(locale="it", wine_context="Wine: Example 2020")
+    assert (tasting_prompt.id, tasting_prompt.version) == ("wine.tasting_enrichment", "1")
+    assert "Do not research or mention prices" in tasting_prompt.system
+    assert "Wine: Example 2020" in tasting_prompt.user
 
 
 def test_value_market_instructions_are_explicit_and_currency_independent():
