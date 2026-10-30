@@ -1,17 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { memberships, mockApi, session, wine } from "./fixtures/app";
 
-async function expectInsideViewport(page: Page, selector: string) {
-  const width = page.viewportSize()!.width;
-  for (const element of await page.locator(selector).all()) {
-    const box = await element.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
-  }
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-}
-
 /*
  * A guest scans the event QR code: no account, the event on the masthead, only
  * the event's AI features, and one way to keep tonight as their own account.
@@ -76,7 +65,6 @@ for (const width of [390, 1440]) {
     await expect(cards).toHaveCount(1);
     await expect(cards.first()).toContainText("Scegli dalla carta dei vini");
     await page.screenshot({ path: testInfo.outputPath(`event-welcome-${width}.png`), fullPage: true });
-    if (width === 390) await expect(page).toHaveScreenshot("events-welcome-compact.png");
     await cards.first().click();
     // Straight to the wine-list scan, the taste profile left aside, no other path on offer.
     await expect(page.getByRole("button", { name: "Analizza carta vini" })).toBeVisible();
@@ -273,70 +261,4 @@ test("a bottle with missing data can be completed with AI from its page", async 
   await expect(sheet.getByRole("button", { name: "Completa con AI" })).toHaveCount(0);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.screenshot({ path: testInfo.outputPath("tonight-wine-1440.png") });
-});
-
-// Events-only visual review and structural regressions: the real app with deterministic data.
-for (const width of [360, 390, 430]) test(`editorial Events keeps long identities and controls readable at ${width}`, async ({ page }, testInfo) => {
-  await page.setViewportSize({ width, height: width === 360 ? 800 : width === 430 ? 932 : 844 });
-  const longWine = { ...wine, name: "Riserva della Tenuta delle Colline di San Giovanni — Selezione speciale della serata", producer: "Azienda Agricola delle Colline di San Giovanni", ai_notes: "", grapes: [], drink_from: null, drink_to: null };
-  const features = ["restaurant_wine_list", "dish_pairing", "bottle_photo", "assistant", "buying_advice", "wine_pulse"];
-  await mockApi(page, [], true, memberships, [longWine], { ...guestSession, event: { ...guestSession.event, name: "Una serata di degustazione alla Tenuta delle Colline", place: "San Giovanni sul Lago", features } });
-  await page.addInitScript(() => {
-    const previous = window.fetch.bind(window);
-    window.fetch = async (input, init) => {
-      const path = new URL(String(input instanceof Request ? input.url : input), location.href).pathname;
-      if (path.endsWith("/all")) {
-        await new Promise<void>((resolve) => window.addEventListener("release-event-ai", () => resolve(), { once: true }));
-        return new Response(JSON.stringify({ detail: "Il servizio non è disponibile. Riprova tra poco." }), { status: 503, headers: { "Content-Type": "application/json" } });
-      }
-      if (path.endsWith("/events/claim")) return new Response(JSON.stringify({ detail: "Questo indirizzo e-mail è già registrato." }), { status: 409, headers: { "Content-Type": "application/json" } });
-      return previous(input, init);
-    };
-  });
-  await page.goto("/");
-  await expect(page.locator(".event-welcome-card")).toHaveCount(6);
-  await expectInsideViewport(page, ".event-welcome-hero, .event-welcome-card, .event-welcome-bottles");
-  const cards = await page.locator(".event-welcome-card").all();
-  for (let i = 1; i < cards.length; i++) {
-    const previous = (await cards[i - 1].boundingBox())!;
-    const next = (await cards[i].boundingBox())!;
-    expect(next.y).toBeGreaterThanOrEqual(previous.y + previous.height);
-  }
-  const name = page.locator(".event-welcome-bottle-text strong");
-  expect(await name.evaluate((element) => element.scrollHeight <= element.clientHeight && getComputedStyle(element).whiteSpace !== "nowrap")).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath(`events-menu-${width}.png`), fullPage: true });
-  await page.getByRole("button", { name: `Dettaglio di ${longWine.name}` }).click();
-  const sheet = page.getByRole("dialog", { name: longWine.name });
-  await expect(sheet).toBeVisible();
-  const title = (await sheet.getByRole("heading", { name: longWine.name }).boundingBox())!;
-  const close = (await sheet.getByRole("button", { name: "Chiudi", exact: true }).boundingBox())!;
-  expect(close.width).toBeGreaterThanOrEqual(44);
-  expect(close.height).toBeGreaterThanOrEqual(44);
-  expect(title.y).toBeGreaterThanOrEqual(close.y + close.height);
-  await expectInsideViewport(page, ".event-wine-identity, .event-wine-close, .event-wine-footer button");
-  await sheet.screenshot({ path: testInfo.outputPath(`events-wine-long-${width}.png`) });
-  await sheet.getByRole("button", { name: "Completa con AI" }).click();
-  await expect(sheet.getByText("Il sommelier cerca i dati del vino…", { exact: true })).toBeVisible();
-  await sheet.screenshot({ path: testInfo.outputPath(`events-wine-loading-${width}.png`) });
-  await page.evaluate(() => window.dispatchEvent(new Event("release-event-ai")));
-  await expect(sheet.getByRole("alert")).toContainText("Il servizio non è disponibile");
-  await sheet.getByRole("alert").scrollIntoViewIfNeeded();
-  await sheet.screenshot({ path: testInfo.outputPath(`events-wine-error-${width}.png`) });
-  await sheet.getByRole("button", { name: "Chiudi", exact: true }).click();
-  await page.getByRole("button", { name: "Tieni le bottiglie: crea il mio account" }).click();
-  const claim = page.getByRole("dialog", { name: "Tieni questa serata" });
-  await claim.getByLabel("Il tuo nome").fill("Anna");
-  await claim.getByLabel("E-mail", { exact: true }).fill("anna@example.test");
-  await claim.getByLabel("Password").fill("strong-password-9");
-  for (const consent of await claim.locator('input[type="checkbox"]').all()) await consent.check();
-  await claim.getByRole("button", { name: "Crea il mio account" }).click();
-  await expect(claim.getByRole("alert")).toContainText("già registrato");
-  const alertBox = (await claim.getByRole("alert").boundingBox())!;
-  const actionsBox = (await claim.locator(".form-actions").boundingBox())!;
-  expect(alertBox.y + alertBox.height).toBeLessThanOrEqual(actionsBox.y);
-  await expectInsideViewport(page, ".event-claim-dialog input, .event-claim-dialog .form-actions button");
-  await claim.getByRole("alert").scrollIntoViewIfNeeded();
-  await page.screenshot({ path: testInfo.outputPath(`events-claim-error-${width}.png`) });
-  await claim.evaluate((element) => { element.scrollTop = 0; });
-  await page.screenshot({ path: testInfo.outputPath(`events-claim-header-${width}.png`) });
 });

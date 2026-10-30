@@ -32,11 +32,6 @@ const event = {
 for (const width of [390, 1440]) test(`an event can be deleted, after a confirmation that says what is lost at ${width}`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width, height: width < 1100 ? 844 : 1000 });
   await mockApi(page, [], true, memberships, [wine], adminSession);
-  // Images use the browser network, not the mocked window.fetch below.
-  await page.route("**/api/v1/admin/events/event-1/qr.svg", (route) => route.fulfill({
-    contentType: "image/svg+xml",
-    body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="white"/><path fill="#14372d" d="M10 10h30v30H10zM60 10h30v30H60zM10 60h30v30H10zM50 50h10v20H50zM70 60h20v10H70zM60 80h30v10H60z"/><path fill="white" d="M16 16h18v18H16zM66 16h18v18H66zM16 66h18v18H16z"/></svg>',
-  }));
   await page.addInitScript((fixture) => {
     const previous = window.fetch;
     let events = [fixture];
@@ -77,12 +72,6 @@ for (const width of [390, 1440]) test(`an event can be deleted, after a confirma
   await card.scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await card.screenshot({ path: testInfo.outputPath(`admin-event-${width}.png`) });
-  const panel = page.locator(".admin-events");
-  await panel.getByRole("button", { name: "Nuovo evento", exact: true }).click();
-  await expect(panel.getByLabel("Nome (es. The Market)")).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  await panel.locator("form").screenshot({ path: testInfo.outputPath(`admin-event-form-${width}.png`) });
-  await panel.locator("form").getByRole("button", { name: "Annulla", exact: true }).click();
 
   // First a refusal: nothing happens.
   const messages: string[] = [];

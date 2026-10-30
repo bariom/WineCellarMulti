@@ -66,8 +66,7 @@ export default function EventWelcomeView({ locale, event, wines, onOpen, onKeep,
 
   return <section className="event-welcome" aria-labelledby="event-welcome-title">
     <header className="event-welcome-hero">
-      <div className="event-welcome-masthead"><p className="event-welcome-kicker">Vinaris Events</p><span>{it ? "La tua serata" : "Your evening"}</span></div>
-      <p className="event-welcome-place">{place}</p>
+      <p className="event-welcome-kicker">Vinaris at {place}</p>
       <h1 id="event-welcome-title">{it ? "Il sommelier AI è al tuo tavolo." : "The AI sommelier is at your table."}</h1>
       <p className="event-welcome-lead">{it
         ? "Offerto da Vinaris per questa serata: nessuna registrazione, nessun costo. Scegli da dove partire."
@@ -75,11 +74,10 @@ export default function EventWelcomeView({ locale, event, wines, onOpen, onKeep,
     </header>
 
     <div className={`event-welcome-features count-${features.length}`}>
-      {features.map((feature, index) => {
+      {features.map((feature) => {
         const card = catalogue[feature];
         return <button key={feature} type="button" className="event-welcome-card" onClick={() => onOpen(feature)}>
           <span className="event-welcome-icon"><AppIcon name={card.icon} variant="ai" detailLevel="rich" /></span>
-          <span className="event-welcome-number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
           <span className="event-welcome-text">
             <strong>{card.title}</strong>
             <span>{card.body}</span>
