@@ -43,7 +43,10 @@
 .event-welcome-bottles-count { flex: none; padding: 4px 12px; border-radius: 999px; font-size: .8rem; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); white-space: nowrap; }
 .event-welcome-bottles ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .event-welcome-bottles li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised, var(--surface)); }
-.event-welcome-bottle-text { display: grid; gap: 2px; min-width: 0; }
+.event-welcome-bottle-text { display: grid; gap: 2px; min-width: 0; min-height: 0; margin: -6px -8px; padding: 6px 8px; border: 0; border-radius: 10px; color: inherit; background: transparent; box-shadow: none; text-align: left; font: inherit; cursor: pointer; }
+.event-welcome-bottle-text:hover, .event-welcome-bottle-text:focus-visible { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.event-welcome-bottle-text small { font-size: .78rem; font-weight: 700; color: var(--accent); }
+.event-welcome-bottle-text small i { font-style: normal; }
 .event-welcome-bottle-text strong { font-size: .95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .event-welcome-bottle-text span { font-size: .8rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .event-welcome-bottle-quantity { font-size: .9rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
@@ -82,6 +85,6 @@
   .event-welcome-keep > button, .event-welcome-demo > button { width: 100%; }
   .event-welcome-bottles { padding: 18px; }
   .event-welcome-bottles li { grid-template-columns: minmax(0, 1fr) auto; }
-  .event-welcome-bottles li > button { grid-column: 1 / -1; justify-self: end; }
+  .event-welcome-bottles li > .event-welcome-bottle-remove { grid-column: 1 / -1; justify-self: end; }
   .event-welcome-bottles > button { width: 100%; }
 }

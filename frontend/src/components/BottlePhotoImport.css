@@ -42,6 +42,7 @@
 .bottle-photo-previews { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .bottle-photo-previews li { position: relative; width: 104px; height: 104px; overflow: hidden; border-radius: 14px; border: 1px solid var(--border); }
 .bottle-photo-previews img { width: 100%; height: 100%; object-fit: cover; }
+.bottle-photo-preview-pending { display: block; width: 100%; height: 100%; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
 .bottle-photo-previews button { position: absolute; top: 4px; right: 4px; width: 30px; height: 30px; min-height: 0; padding: 0; border-radius: 50%; }
 .bottle-photo-previews.is-reading li::after {
   content: "";

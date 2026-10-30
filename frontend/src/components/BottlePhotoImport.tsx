@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { BottlePhotoConfirmResult, BottlePhotoRow, Locale } from "../types";
 import { api } from "../services/api";
@@ -17,6 +17,57 @@ type ReviewRow = BottlePhotoRow & {
   priceText: string;
   addToExisting: boolean;
 };
+
+const THUMB_SIDE = 320;
+
+/**
+ * A small preview of a photo. A phone camera file (50 MP and more on recent
+ * phones) shown as-is in a thumbnail makes mobile browsers drop and re-decode it
+ * over and over, and the picture flickers; the original still goes to the AI.
+ */
+async function photoThumbnail(file: File): Promise<string> {
+  if (typeof createImageBitmap !== "function") return URL.createObjectURL(file);
+  try {
+    const probe = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, THUMB_SIDE / Math.max(probe.width, probe.height));
+    const width = Math.max(1, Math.round(probe.width * scale));
+    const height = Math.max(1, Math.round(probe.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext("2d")?.drawImage(probe, 0, 0, width, height);
+    probe.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
+    return blob ? URL.createObjectURL(blob) : URL.createObjectURL(file);
+  } catch {
+    return URL.createObjectURL(file);
+  }
+}
+
+/** One light preview per photo, made once and kept while the photo stays in the list. */
+function usePhotoThumbnails(photos: File[]) {
+  const made = useRef(new Map<File, string>());
+  const [urls, setUrls] = useState<Map<File, string>>(new Map());
+  useEffect(() => {
+    let cancelled = false;
+    const cache = made.current;
+    for (const [file, url] of cache) {
+      if (!photos.includes(file)) { URL.revokeObjectURL(url); cache.delete(file); }
+    }
+    setUrls(new Map(cache));
+    for (const file of photos) {
+      if (cache.has(file)) continue;
+      void photoThumbnail(file).then((url) => {
+        if (cancelled || !photos.includes(file) || cache.has(file)) { URL.revokeObjectURL(url); return; }
+        cache.set(file, url);
+        setUrls(new Map(cache));
+      });
+    }
+    return () => { cancelled = true; };
+  }, [photos]);
+  useEffect(() => () => { made.current.forEach((url) => URL.revokeObjectURL(url)); made.current.clear(); }, []);
+  return urls;
+}
 
 /** The label of one wine, cut from the user's own photo for the review. */
 function LabelThumb({ file, row }: { file: File | undefined; row: BottlePhotoRow }) {
@@ -67,17 +118,18 @@ export default function BottlePhotoImport({ locale, canAnalyze, eventGuest = fal
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<(BottlePhotoConfirmResult & { aiWineIds: string[] }) | null>(null);
-  const previews = useMemo(() => photos.map((photo) => URL.createObjectURL(photo)), [photos]);
+  const thumbnails = usePhotoThumbnails(photos);
 
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
-  useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews]);
 
   function addPhotos(files: FileList | null) {
     if (!files) return;
+    // Copy now: the input is emptied right after, and its FileList with it.
+    const added = Array.from(files).filter((file) => file.type.startsWith("image/"));
     setError("");
-    setPhotos((current) => [...current, ...Array.from(files).filter((file) => file.type.startsWith("image/"))].slice(0, MAX_PHOTOS));
+    setPhotos((current) => [...current, ...added].slice(0, MAX_PHOTOS));
   }
 
   async function read() {
@@ -183,9 +235,9 @@ export default function BottlePhotoImport({ locale, canAnalyze, eventGuest = fal
             <input ref={gallery} type="file" accept="image/*" multiple hidden onChange={(event) => { addPhotos(event.target.files); event.target.value = ""; }} />
           </div>}
         </> : null}
-        {previews.length ? <ol className={`bottle-photo-previews${step === "reading" ? " is-reading" : ""}`} aria-label={it ? "Foto delle bottiglie" : "Bottle photos"}>
-          {previews.map((url, index) => <li key={url}>
-            <img src={url} alt={it ? `Foto ${index + 1}` : `Photo ${index + 1}`} />
+        {photos.length ? <ol className={`bottle-photo-previews${step === "reading" ? " is-reading" : ""}`} aria-label={it ? "Foto delle bottiglie" : "Bottle photos"}>
+          {photos.map((photo, index) => <li key={`${photo.name}-${photo.lastModified}-${index}`}>
+            {thumbnails.get(photo) ? <img src={thumbnails.get(photo)} alt={it ? `Foto ${index + 1}` : `Photo ${index + 1}`} decoding="async" /> : <span className="bottle-photo-preview-pending" role="img" aria-label={it ? `Foto ${index + 1}` : `Photo ${index + 1}`} />}
             {step === "pick" ? <button type="button" className="secondary compact" aria-label={it ? `Rimuovi foto ${index + 1}` : `Remove photo ${index + 1}`} onClick={() => setPhotos((current) => current.filter((_, position) => position !== index))}>×</button> : null}
           </li>)}
         </ol> : null}

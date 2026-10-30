@@ -27768,3 +27768,6 @@ body,
 
 /* The Momenti tab of the Diario: the moments card and the latest polaroids. */
 .diary-moments { display: grid; gap: 16px; }
+
+/* Event guests: only Tonight and Keep tonight, side by side. */
+.mobile-bottom-navigation.event-guest-navigation { grid-template-columns: repeat(2, minmax(0, 1fr)); }

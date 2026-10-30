@@ -6,7 +6,7 @@ import "./EventWelcomeView.css";
  * Where the event QR code lands: the event's name, what the sommelier can do
  * tonight (only the features the event offers), and the way to keep it all.
  */
-export default function EventWelcomeView({ locale, event, wines, onOpen, onKeep, onExploreDemo, onRemoveWine }: {
+export default function EventWelcomeView({ locale, event, wines, onOpen, onKeep, onExploreDemo, onOpenWine, onRemoveWine }: {
   locale: Locale;
   event: SessionEvent;
   /** The bottles the guest photographed tonight: theirs until the visit ends, or for good with an account. */
@@ -15,6 +15,8 @@ export default function EventWelcomeView({ locale, event, wines, onOpen, onKeep,
   onKeep: () => void;
   /** The public demo cellar: what Vinaris does beyond tonight. */
   onExploreDemo: () => void;
+  /** The wine's detail: what the catalogue and the AI found about it. */
+  onOpenWine: (wine: Wine) => void;
   onRemoveWine: (wine: Wine) => void;
 }) {
   const it = locale === "it";
@@ -37,7 +39,7 @@ export default function EventWelcomeView({ locale, event, wines, onOpen, onKeep,
     },
     bottle_photo: {
       icon: "camera",
-      title: it ? "Cosa c’è in queste bottiglie?" : "What is in these bottles?",
+      title: it ? "Riconosci le bottiglie" : "Recognise the bottles",
       body: it ? "Fotografa le etichette: il sommelier le riconosce e le tiene qui per stasera, con produttore, annata e cosa aspettarti nel bicchiere." : "Photograph the labels: the sommelier recognises them and keeps them here for tonight, with producer, vintage and what to expect in the glass.",
       action: it ? "Fotografa le bottiglie" : "Photograph the bottles",
     },
@@ -95,12 +97,13 @@ export default function EventWelcomeView({ locale, event, wines, onOpen, onKeep,
       </header>
       <ul>
         {wines.map((wine) => <li key={wine.id}>
-          <span className="event-welcome-bottle-text">
+          <button type="button" className="event-welcome-bottle-text" aria-label={it ? `Dettaglio di ${wine.name}` : `Details of ${wine.name}`} onClick={() => onOpenWine(wine)}>
             <strong>{wine.name}</strong>
             <span>{[wine.producer, wine.vintage, wine.region].filter(Boolean).join(" · ")}</span>
-          </span>
+            <small>{it ? "Vedi il dettaglio" : "See the details"} <i aria-hidden="true">→</i></small>
+          </button>
           <span className="event-welcome-bottle-quantity">×{wine.quantity}</span>
-          <button type="button" className="secondary compact" aria-label={it ? `Rimuovi ${wine.name}` : `Remove ${wine.name}`} onClick={() => onRemoveWine(wine)}>{it ? "Rimuovi" : "Remove"}</button>
+          <button type="button" className="secondary compact event-welcome-bottle-remove" aria-label={it ? `Rimuovi ${wine.name}` : `Remove ${wine.name}`} onClick={() => onRemoveWine(wine)}>{it ? "Rimuovi" : "Remove"}</button>
         </li>)}
       </ul>
       <p className="event-welcome-bottles-note">{it

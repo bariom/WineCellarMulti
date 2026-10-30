@@ -136,3 +136,32 @@ test("the receipt path opens the purchase import", async ({ page }) => {
   await expect(chooser).toHaveCount(0);
   await expect(page.getByRole("dialog", { name: "Aggiungi un acquisto", exact: true })).toBeVisible();
 });
+
+test("a full-resolution camera photo is previewed as a light thumbnail, so it does not flicker on phones", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setup(page);
+  const chooser = await openChooser(page);
+  await chooser.getByRole("button", { name: /^Inserimento veloce/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Fotografa le tue bottiglie" });
+  // A 4000×3000 photo, as a recent phone camera hands it over.
+  await dialog.locator('input[type="file"][multiple]').evaluate(async (input: HTMLInputElement) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 4000;
+    canvas.height = 3000;
+    const context = canvas.getContext("2d")!;
+    context.fillStyle = "#6b1f33";
+    context.fillRect(0, 0, 4000, 3000);
+    const blob = await new Promise<Blob>((resolve) => canvas.toBlob((value) => resolve(value!), "image/jpeg", 0.9));
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([blob], "camera.jpg", { type: "image/jpeg" }));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  const preview = dialog.locator(".bottle-photo-previews img");
+  await expect(preview).toBeVisible();
+  await expect.poll(() => preview.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(320);
+  expect(await preview.evaluate((image: HTMLImageElement) => image.naturalHeight)).toBe(240);
+  // The original, untouched, is what the recognition receives.
+  await dialog.getByRole("button", { name: "Riconosci le bottiglie", exact: true }).click();
+  await expect(dialog.getByText("Ho trovato 3 vini.", { exact: false })).toBeVisible();
+});

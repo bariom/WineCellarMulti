@@ -75,6 +75,13 @@ for (const width of [390, 1440]) {
     // Nothing of the cellar app: only the sommelier and the way to stay.
     await expect(page.getByRole("button", { name: /^Cantina/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Wishlist" })).toHaveCount(0);
+    // No guide either: tonight explains itself.
+    await expect(page.getByRole("button", { name: "Guida" })).toHaveCount(0);
+    if (width === 390) {
+      await page.getByRole("button", { name: "Apri menu account", exact: true }).click();
+      await expect(page.getByRole("menuitem", { name: "Guida" })).toHaveCount(0);
+      await page.keyboard.press("Escape");
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`event-guest-${width}.png`) });
 
@@ -109,6 +116,7 @@ test("the welcome page returns from a feature and lists every feature the event 
   await page.goto("/e/market-2026");
   const cards = page.locator(".event-welcome-card");
   await expect(cards).toHaveCount(3);
+  await expect(cards.nth(2)).toContainText("Riconosci le bottiglie");
   await cards.nth(1).click();
   // The dish path, with the way back to the list but never "at home".
   await expect(page.getByText("Proposta senza carta").first()).toBeVisible();
@@ -162,7 +170,7 @@ test("a hard refresh keeps the guest on the welcome page, not a cellar dashboard
   await expect(page.getByText("La bottiglia del giorno")).toHaveCount(0);
 });
 
-test("the bottles photographed tonight are listed on the welcome page, with the way to keep them", async ({ page }) => {
+test("the bottles photographed tonight are listed on the welcome page, with the way to keep them", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, [], true, memberships, [wine], { ...guestSession, event: { ...guestSession.event, features: ["bottle_photo"] } });
   await page.goto("/");
@@ -174,6 +182,18 @@ test("the bottles photographed tonight are listed on the welcome page, with the 
   await expect(bottles.getByRole("button", { name: "Rimuovi Nebbiolo di Test" })).toBeVisible();
   // No horizontal overflow on a phone.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("tonight-bottles-390.png"), fullPage: true });
+
+  // Each bottle opens its detail, without per-wine AI analyses the event does not cover.
+  await bottles.getByRole("button", { name: "Dettaglio di Nebbiolo di Test" }).click();
+  const detail = page.getByRole("dialog", { name: /Nebbiolo di Test/ });
+  await expect(detail).toBeVisible();
+  await expect(detail.getByRole("button", { name: "Abbinamento", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("tonight-wine-detail-390.png") });
+  await detail.getByRole("button", { name: "Chiudi" }).click();
+  await expect(detail).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Le bottiglie di stasera" })).toBeVisible();
   await bottles.getByRole("button", { name: "Tieni le bottiglie: crea il mio account" }).click();
   await expect(page.getByText(/Le 4 bottiglie fotografate stasera restano nella tua cantina/)).toBeVisible();
 });

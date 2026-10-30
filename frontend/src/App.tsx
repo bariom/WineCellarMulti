@@ -1296,7 +1296,7 @@ export function App() {
       setWineDetailExpanded(false);
       setWineEditorExpanded(false);
       setPairingWineDetailId(null);
-      if (activeView === "pairing" || (activeView === "history" && historySection === "tastings")) setSelectedWineId(null);
+      if (activeView === "pairing" || activeView === "event" || (activeView === "history" && historySection === "tastings")) setSelectedWineId(null);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
@@ -8273,7 +8273,7 @@ export function App() {
   function closeWineDetailModal() {
     setWineDetailExpanded(false);
     setPairingWineDetailId(null);
-    if (activeView === "pairing" || (activeView === "history" && historySection === "tastings")) setSelectedWineId(null);
+    if (activeView === "pairing" || activeView === "event" || (activeView === "history" && historySection === "tastings")) setSelectedWineId(null);
   }
 
   const activePairingBudget = Number(pairingMaxPrice || 0);
@@ -9066,7 +9066,8 @@ export function App() {
         auditEntries={entityAuditEntries("wine", wine.id)}
         auditHasMore={Boolean(entityAuditPage("wine", wine.id)?.hasMore)}
         onLoadMoreAudit={() => loadMoreEntityAudit("wine", wine.id)}
-        canGenerate={canGenerateAi}
+        // A guest's AI is limited to the event's features: no per-wine analyses here.
+        canGenerate={canGenerateAi && !eventGuest}
         canWrite={canWriteWine}
         saving={saving}
         generating={generatingAi}
@@ -9598,10 +9599,10 @@ export function App() {
                   <AppIcon name="settings" variant="action" detailLevel="compact" />
                   {t("settings")}
                 </button> : null}
-                <button type="button" role="menuitem" onClick={() => { setMobileAccountMenuOpen(false); openHelp(); }}>
+                {!eventGuest ? <button type="button" role="menuitem" onClick={() => { setMobileAccountMenuOpen(false); openHelp(); }}>
                   <AppIcon name="grapes" variant="premium" detailLevel="compact" />
                   {t("help")}
-                </button>
+                </button> : null}
                 {!offlineMode ? <button type="button" role="menuitem" className={newsUnread ? "has-news" : undefined} onClick={() => { setMobileAccountMenuOpen(false); openNews(true, true); }}>
                   <AppIcon name="glass-sparkle" variant="premium" detailLevel="compact" />
                   {locale === "it" ? "Novità" : "What’s new"}
@@ -9777,7 +9778,6 @@ export function App() {
                 <AppIcon name="star" variant="navigation" detailLevel="rich" />
                 {locale === "it" ? "Tieni questa serata" : "Keep tonight"}
               </button>
-              <button type="button" className={`secondary compact help-context-trigger${activeView === "help" ? " is-active" : ""}`} title={locale === "it" ? "Guida, a partire da questa pagina" : "Guide, starting from this page"} onClick={() => openHelp(contextualHelpArticle)}><span aria-hidden="true">?</span>{t("help")}</button>
             </> : <>
             <button type="button" className={`view-tab${activeView === "home" ? "" : " secondary"}`} onClick={() => { leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
               <AppIcon name="dashboard" variant="navigation" detailLevel="rich" />
@@ -9841,10 +9841,9 @@ export function App() {
           </div>
           ) : null}
           {activeView !== "settings" && eventGuest ? (
-            <nav className="mobile-bottom-navigation" aria-label={locale === "it" ? "Navigazione principale" : "Main navigation"}>
+            <nav className="mobile-bottom-navigation event-guest-navigation" aria-label={locale === "it" ? "Navigazione principale" : "Main navigation"}>
               <button type="button" className={activeView === "event" || activeView === "pulse" || aiNavigationActive ? "active" : ""} onClick={() => openView("event")}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{locale === "it" ? "Stasera" : "Tonight"}</span></button>
               <button type="button" onClick={() => setEventClaimOpen(true)}><AppIcon name="star" variant="navigation" detailLevel="rich" /><span>{locale === "it" ? "Tieni la serata" : "Keep tonight"}</span></button>
-              <button type="button" className={activeView === "help" ? "active" : ""} onClick={() => openHelp(contextualHelpArticle)}><AppIcon name="grapes" variant="navigation" detailLevel="rich" /><span>{t("help")}</span></button>
             </nav>
           ) : null}
           {activeView !== "settings" && !eventGuest ? (
@@ -10549,6 +10548,7 @@ export function App() {
             onOpen={openEventFeature}
             onKeep={() => setEventClaimOpen(true)}
             onExploreDemo={() => void enterDemo()}
+            onOpenWine={openWineFromPairing}
             onRemoveWine={(wine) => deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine"))}
           /></Suspense> : null}
 
