@@ -178,12 +178,12 @@ export default function AdminEventsPanel({ locale }: { locale: Locale }) {
             <div><dt>{it ? "Credito concesso" : "Credit granted"}</dt><dd>{money(event.stats.granted_usd)}</dd></div>
             <div><dt>{it ? "Spesa AI" : "AI spend"}</dt><dd>{money(event.stats.spent_usd)}</dd></div>
           </dl>
-          <p className="admin-event-config">
-            {event.features.map((id) => FEATURES.find((feature) => feature.id === id)?.[locale] ?? id).join(" · ")}
-            {" — "}{money(event.credit_per_visitor_usd)}{it ? " per ospite" : " per guest"}{Number(event.budget_usd) > 0 ? `, ${it ? "tetto" : "ceiling"} ${money(event.budget_usd)}` : ""}
-            {", "}{event.max_visitors_per_day}{it ? " ospiti/giorno, visita di " : " guests/day, "}{event.session_hours}h
-            {event.starts_at || event.ends_at ? ` · ${when(event.starts_at)} → ${when(event.ends_at)}` : ""}
-          </p>
+          <div className="admin-event-config">
+            <p>{event.features.map((id) => FEATURES.find((feature) => feature.id === id)?.[locale] ?? id).join(" · ")}</p>
+            <p>{money(event.credit_per_visitor_usd)}{it ? " per ospite" : " per guest"}{Number(event.budget_usd) > 0 ? `, ${it ? "tetto" : "ceiling"} ${money(event.budget_usd)}` : ""}</p>
+            <p>{event.max_visitors_per_day}{it ? " ospiti/giorno · visita di " : " guests/day · visit of "}{event.session_hours}h</p>
+            {event.starts_at || event.ends_at ? <p>{when(event.starts_at)} → {when(event.ends_at)}</p> : null}
+          </div>
           <div className="admin-event-actions">
             <a className="secondary compact" href={event.qr_url} download={`vinaris-${event.slug}.svg`}>{it ? "Scarica QR" : "Download QR"}</a>
             <button type="button" className="secondary compact" disabled={busy} onClick={() => { setEditingId(event.id); setDraft(draftFrom(event)); setFormOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}>{it ? "Modifica" : "Edit"}</button>

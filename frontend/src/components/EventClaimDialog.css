@@ -1,4 +1,4 @@
-.event-claim-dialog .auth-panel { display: grid; gap: 14px; }
+.event-claim-dialog .auth-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; width: auto; min-width: 0; }
 .event-claim-dialog .auth-panel label { display: grid; gap: 6px; min-width: 0; }
 .event-claim-dialog .auth-panel label small { color: var(--text-muted); font-size: .75rem; }
 .event-claim-dialog .auth-panel :is(input:not([type="checkbox"])) { width: 100%; min-width: 0; box-sizing: border-box; }
@@ -6,10 +6,30 @@
 .event-claim-dialog .auth-panel label.event-claim-consent { display: flex; align-items: flex-start; gap: 10px; }
 .event-claim-consent input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; }
 .event-claim-consent span { font-size: .85rem; line-height: 1.45; letter-spacing: 0; text-transform: none; font-weight: 400; }
-.event-claim-consent a { color: var(--accent); }
+.event-claim-consent a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 .event-claim-error { margin: 0; color: var(--danger); overflow-wrap: anywhere; }
 
 /* Event guests: the event, not Vinaris, on the masthead; one way in, one way to stay. */
 .topbar-event-title { overflow-wrap: anywhere; white-space: normal; }
 .event-keep-button { white-space: nowrap; }
 .event-guest-pill { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* The invitation continues inside this dialog; shared authentication stays untouched. */
+.event-claim-dialog .auth-modal-head { position: static; align-items: start; gap: 16px; padding: 24px; background: #14372d; color: #f4ecd8; backdrop-filter: none; }
+.event-claim-dialog .auth-modal-head > div { min-width: 0; }
+.event-claim-dialog .auth-modal-head strong { color: #ddc58f; font-size: .75rem; line-height: 1.5; overflow-wrap: anywhere; }
+.event-claim-dialog .auth-modal-head h2 { margin: 10px 0 0; font: 400 2rem/1.1 var(--font-display); text-wrap: balance; }
+.event-claim-dialog .auth-modal-head button { min-width: 64px; min-height: 44px; flex-shrink: 0; color: #f4ecd8; background: transparent; border: 1px solid #f4ecd850; }
+.event-claim-dialog .event-claim-intro { padding-block: 8px 18px; border-bottom: 1px solid var(--border); line-height: 1.6; }
+.event-claim-dialog .auth-panel { gap: 18px; }
+.event-claim-dialog .auth-panel label.event-claim-consent { margin: 0; padding-block: 4px; }
+.event-claim-dialog .auth-panel input:not([type="checkbox"]) { min-height: 46px; font-size: 1rem; }
+.event-claim-dialog .form-actions { position: static; padding-top: 16px; border-top: 1px solid var(--border); background: var(--surface); backdrop-filter: none; }
+.event-claim-dialog .form-actions button { min-height: 44px; white-space: normal; }
+.event-claim-dialog .event-claim-error { padding: 12px; border-left: 3px solid var(--danger); background: color-mix(in srgb, var(--danger) 5%, var(--surface)); }
+.event-claim-dialog :is(button, input, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.event-claim-dialog .auth-modal-head button:focus-visible { outline-color: #ddc58f; }
+@media (max-width: 480px) {
+  .event-claim-dialog .auth-modal-head { padding: 20px 16px; gap: 12px; }
+  .event-claim-dialog .auth-modal-head h2 { font-size: 1.7rem; }
+}

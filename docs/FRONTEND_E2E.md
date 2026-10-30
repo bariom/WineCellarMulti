@@ -585,3 +585,38 @@ readable generic label replaces the ID. Opening, simulation, consumption,
 valuation and allocation actions are disabled for unavailable wines. The feature
 suite covers Italian/English, consumed/deleted/zero-stock wines, active wines,
 mobile geometry and a reviewed 390 px unavailable-card visual baseline.
+
+### Events: local preview without a production event
+
+Run from `frontend/`:
+
+```powershell
+# This workstation currently uses C:\ERI\node.
+$env:Path = "C:\ERI\node;$env:Path"
+npx.cmd playwright test e2e/event-guest.spec.ts --ui
+```
+
+The UI runner starts Vite automatically. Select a test and inspect its browser
+snapshots. For a live browser with step-by-step interaction use:
+
+```powershell
+npx.cmd playwright test e2e/event-guest.spec.ts --grep "sommelier at 390" --debug
+```
+
+These tests render the real React components with a simulated event and guest
+session. They do not need a local event record or a running backend and do not
+modify production. Opening `/e/market-2026` in a normal browser does not install
+these mocks; it needs an event in the backend used by that frontend.
+
+Run the Events-only regression checks with:
+
+```powershell
+npx.cmd playwright test e2e/event-guest.spec.ts e2e/admin-events.spec.ts
+```
+
+Coverage includes guest entry, available features, demo return, account claim,
+bottle details and completion, administration and its creation form. Responsive
+checks at 360/390/430 px exercise long identities, six enabled features, AI
+loading/failure and account errors, including control bounds and error/action
+separation. Review screenshots under `test-results/`; they are temporary QA
+artifacts and must not be committed.
