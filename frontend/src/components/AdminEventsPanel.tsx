@@ -99,6 +99,24 @@ export default function AdminEventsPanel({ locale }: { locale: Locale }) {
     finally { setBusy(false); }
   }
 
+  /** Gone for good: the QR stops working, guests still visiting lose tonight, kept accounts stay. */
+  async function remove(event: DemoEvent) {
+    const label = `Vinaris at ${event.name}${event.place ? ` · ${event.place}` : ""}`;
+    const visiting = event.stats.active_visitors;
+    const message = it
+      ? `Eliminare “${label}”? Il QR stampato smette di funzionare${visiting ? ` e ${visiting === 1 ? "l’ospite ora in visita perde" : `i ${visiting} ospiti ora in visita perdono`} la serata` : ""}. Gli account già tenuti restano. Per fermarlo solo per un po’ usa “Metti in pausa”.`
+      : `Delete “${label}”? The printed QR code stops working${visiting ? ` and ${visiting === 1 ? "the guest visiting now loses" : `the ${visiting} guests visiting now lose`} tonight` : ""}. Accounts already kept stay. To stop it for a while, use “Pause”.`;
+    if (!window.confirm(message)) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await api<void>(`${endpoint}/${event.id}`, { method: "DELETE" });
+      if (editingId === event.id) { setFormOpen(false); setEditingId(null); setDraft(emptyDraft(locale)); }
+      setNotice(it ? "Evento eliminato." : "Event deleted.");
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : (it ? "Eliminazione non riuscita." : "Delete failed.")); }
+    finally { setBusy(false); }
+  }
+
   async function copy(text: string) {
     try { await navigator.clipboard.writeText(text); setNotice(it ? "Indirizzo copiato." : "Address copied."); } catch { setNotice(text); }
   }
@@ -171,6 +189,7 @@ export default function AdminEventsPanel({ locale }: { locale: Locale }) {
             <button type="button" className="secondary compact" disabled={busy} onClick={() => { setEditingId(event.id); setDraft(draftFrom(event)); setFormOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}>{it ? "Modifica" : "Edit"}</button>
             <button type="button" className="secondary compact" disabled={busy} onClick={() => void patch(event, { is_active: !event.is_active })}>{event.is_active ? (it ? "Metti in pausa" : "Pause") : (it ? "Riattiva" : "Resume")}</button>
             <button type="button" className="secondary compact" disabled={busy} onClick={() => { if (window.confirm(it ? "Il QR stampato smette di funzionare. Continuare?" : "The printed QR code stops working. Continue?")) void patch(event, { rotate_slug: true }); }}>{it ? "Nuovo indirizzo" : "New address"}</button>
+            <button type="button" className="danger compact" disabled={busy} onClick={() => void remove(event)}>{it ? "Elimina" : "Delete"}</button>
           </div>
         </div>
       </article>)}

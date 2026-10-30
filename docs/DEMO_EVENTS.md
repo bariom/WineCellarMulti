@@ -17,6 +17,14 @@ L'obiettivo è acquisire clienti, non locali: il locale è solo il contesto.
   percorsi previsti (carta fotografata e/o proposta dal piatto), mai "A casa".
 - Il QR (SVG scaricabile) codifica `https://<dominio>/e/<slug>`. Lo slug è
   casuale e si può rigenerare ("Nuovo indirizzo") se il QR finisce in giro.
+  È vestito Vinaris (`services/event_qr.py`): correzione d'errore H, puntini
+  verde scuro, occhi color vino, calice al centro, cornice oro e didascalia
+  "Vinaris at <evento> · <luogo>". I moduli sotto il calice sono omessi, non
+  coperti: il codice resta leggibile anche stampato piccolo.
+- **Metti in pausa** ferma i nuovi ingressi per un po'; **Elimina**
+  (`DELETE /api/v1/admin/events/{id}`, con conferma) è definitivo: il QR smette
+  di funzionare, gli ospiti ancora in visita vengono eliminati con la loro
+  cantina, gli account già tenuti restano senza l'evento come provenienza.
 - All'apertura, `POST /api/v1/events/{slug}/enter` crea un utente effimero
   (`event-…@visitor.vinaris.app`) con una cantina vuota tutta sua, il credito
   dell'evento nel wallet standard e una sessione che dura quanto la visita.

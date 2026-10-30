@@ -222,10 +222,41 @@ def test_admin_edits_and_rotates_the_qr_address(admin):
     qr = admin.get(f"/api/v1/admin/events/{event['id']}/qr.svg")
     assert qr.status_code == 200
     assert qr.headers["content-type"].startswith("image/svg+xml")
+    # Dressed as Vinaris: the event on the caption, the glass at the centre.
+    assert "Vinaris at The Market · Lugano" in qr.text
+    assert 'aria-label="Vinaris QR"' in qr.text
     # Guests cannot reach the administration.
     guest = TestClient(app)
     assert guest.post(f"/api/v1/events/{updated.json()['slug']}/enter").status_code == 200
     assert guest.get("/api/v1/admin/events").status_code == 403
+
+
+def test_deleting_an_event_ends_its_visits_and_keeps_the_accounts(admin):
+    event = create_event(admin)
+    visiting = TestClient(app)
+    visitor = visiting.post(f"/api/v1/events/{event['slug']}/enter").json()
+    kept = TestClient(app).post(f"/api/v1/events/{event['slug']}/enter").json()
+    with harness.TestingSessionLocal() as db:
+        db.get(User, UUID(kept["user_id"])).event_visitor_until = None
+        db.commit()
+
+    # Only the administration may delete an event.
+    assert visiting.delete(f"/api/v1/admin/events/{event['id']}").status_code == 403
+    assert admin.delete(f"/api/v1/admin/events/{event['id']}").status_code == 204
+    assert admin.delete(f"/api/v1/admin/events/{event['id']}").status_code == 404
+
+    assert admin.get("/api/v1/admin/events").json() == []
+    assert TestClient(app).post(f"/api/v1/events/{event['slug']}/enter").status_code == 404
+    with harness.TestingSessionLocal() as db:
+        assert db.get(DemoEvent, UUID(event["id"])) is None
+        # The guest still visiting is gone, with the cellar of tonight.
+        assert db.get(User, UUID(visitor["user_id"])) is None
+        assert db.get(Household, UUID(visitor["active_household_id"])) is None
+        # The account kept stays, without the event as provenance.
+        account = db.get(User, UUID(kept["user_id"]))
+        assert account is not None
+        assert account.event_id is None
+    assert visiting.get("/api/v1/session").json()["authenticated"] is False
 
 
 def claim_payload(email: str) -> dict:

@@ -5,13 +5,10 @@ the events and print their QR codes."""
 import secrets
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from io import BytesIO
 from uuid import UUID, uuid4
 
-import qrcode
-import qrcode.image.svg
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -60,8 +57,10 @@ from app.services.demo_events import (
     granted_total_usd,
     grants_since,
     is_event_visitor,
+    purge_event_visitors,
     purge_expired_visitors,
 )
+from app.services.event_qr import event_qr_svg
 from app.services.notifications import create_user_notification
 
 router = APIRouter(prefix="/events")
@@ -180,15 +179,11 @@ def return_to_event(
         or guest.event_visitor_until is None
         or guest.event_visitor_until.replace(tzinfo=UTC) <= now
     ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="The event visit is over"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="The event visit is over")
     membership = db.scalar(select(Membership).where(Membership.user_id == guest.id))
     household = db.get(Household, membership.household_id) if membership is not None else None
     if membership is None or household is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="The event visit is over"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="The event visit is over")
     db.delete(context.session)
     user_session, token = create_session(db, guest, household)
     user_session.expires_at = guest.event_visitor_until
@@ -423,9 +418,26 @@ def event_qr(
     event = db.get(DemoEvent, event_id)
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
-    image = qrcode.make(
-        f"{request_origin(request)}/e/{event.slug}", image_factory=qrcode.image.svg.SvgPathImage
-    )
-    output = BytesIO()
-    image.save(output)
-    return Response(content=output.getvalue(), media_type="image/svg+xml")
+    caption = f"Vinaris at {event.name}{f' · {event.place}' if event.place else ''}"
+    svg = event_qr_svg(f"{request_origin(request)}/e/{event.slug}", caption)
+    return Response(content=svg, media_type="image/svg+xml")
+
+
+@admin_router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_event(
+    event_id: UUID,
+    context: CurrentContext = Depends(event_admin),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Remove an event for good: its QR stops working and its guests' visits end now.
+
+    Guests who kept their account stay, without the event as provenance.
+    """
+    event = db.get(DemoEvent, event_id)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    purge_event_visitors(db, event.id)
+    db.execute(update(User).where(User.event_id == event.id).values(event_id=None))
+    db.delete(event)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

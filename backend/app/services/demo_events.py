@@ -161,10 +161,19 @@ def purge_expired_visitors(db: Session, event_id: UUID | None = None) -> int:
     )
     if event_id is not None:
         query = query.where(User.event_id == event_id)
-    expired = list(db.scalars(query))
-    if not expired:
+    return _delete_visitors(db, list(db.scalars(query)))
+
+
+def purge_event_visitors(db: Session, event_id: UUID) -> int:
+    """End every visit of an event now, kept accounts aside: the event is going away."""
+    query = select(User).where(User.event_id == event_id, User.event_visitor_until.is_not(None))
+    return _delete_visitors(db, list(db.scalars(query)))
+
+
+def _delete_visitors(db: Session, visitors: list[User]) -> int:
+    if not visitors:
         return 0
-    user_ids = [user.id for user in expired]
+    user_ids = [user.id for user in visitors]
     household_ids = list(
         db.scalars(select(Membership.household_id).where(Membership.user_id.in_(user_ids)))
     )
@@ -173,7 +182,7 @@ def purge_expired_visitors(db: Session, event_id: UUID | None = None) -> int:
     if household_ids:
         # A guest's cellar is theirs alone; nobody else can have joined it.
         db.execute(delete(Household).where(Household.id.in_(household_ids)))
-    return len(expired)
+    return len(visitors)
 
 
 def _aware(value: datetime | None) -> datetime | None:
