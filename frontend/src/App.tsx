@@ -126,7 +126,14 @@ function hasUsefulBatchAiResult(feature: WineAiFeature, wine: Wine) {
   if (feature === "drink-window") return Boolean(wine.drink_from && wine.drink_to);
   if (feature === "scores") return wine.scores.length > 0;
   if (feature === "notes") return Boolean(wine.ai_notes.trim());
-  return Boolean(wine.current_value && wine.drink_from && wine.drink_to && wine.grapes.length);
+  // The full analysis is useful as soon as it brings something: the blend is often
+  // left empty without a verified source, and event guests never get a value.
+  return Boolean(
+    wine.ai_notes.trim()
+    || (wine.drink_from && wine.drink_to)
+    || (wine.grapes.length && !wine.grapes_not_applicable)
+    || (wine.current_value !== null && !wine.value_not_found),
+  );
 }
 
 function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentModel: string) {

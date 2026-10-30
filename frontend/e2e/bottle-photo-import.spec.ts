@@ -177,7 +177,8 @@ test("an event guest never sees a bottle price: no price field and no value in t
     const previous = window.fetch;
     window.fetch = async (input, init) => {
       const url = new URL(String(input instanceof Request ? input.url : input), location.href);
-      const done = { ...base, id: "new-2", name: "Rosso della Casa", current_value: "72.00", drink_from: 2025, drink_to: 2030, drink_peak_from: 2026, drink_peak_to: 2028 };
+      // What a guest gets back: notes and drinking window, no value, no verified blend.
+      const done = { ...base, id: "new-2", name: "Rosso della Casa", current_value: "72.00", grapes: [], grapes_not_applicable: true, drink_from: 2025, drink_to: 2030, drink_peak_from: 2026, drink_peak_to: 2028 };
       if (url.pathname === "/api/v1/wines" && !init?.method) return Response.json([base, { ...done, current_value: null, drink_from: null, drink_to: null }]);
       if (url.pathname === "/api/v1/ai/wines/new-2/all") return Response.json(done);
       if (url.pathname.endsWith("/ai/settings") && !init?.method) {
@@ -200,6 +201,9 @@ test("an event guest never sees a bottle price: no price field and no value in t
   const report = page.locator(".batch-ai-report");
   await expect(report.getByText("Arricchimento AI completato")).toBeVisible();
   await expect(report.locator(".batch-ai-report-rows > li").first()).toContainText("Beva 2025–2030");
+  // Notes and a drinking window are a result, not "no usable data".
+  await expect(report.locator(".batch-ai-report-rows > li").first()).toHaveClass(/is-done/);
+  await expect(report).not.toContainText("Nessun dato utilizzabile");
   await expect(report.locator(".batch-ai-report-rows")).not.toContainText("CHF");
   await expect(report.getByRole("button", { name: "Dettagli" })).toHaveCount(0);
 });
