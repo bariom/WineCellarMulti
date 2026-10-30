@@ -38,7 +38,9 @@ export function WineSensorySignaturePanel({ wineId, locale }: { wineId: string; 
   const items = dimensions.map(([key, italian, english]) => {
     const raw = profile.dimensions?.[key];
     const value = typeof raw === "number" && Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : null;
-    return { key, label: it ? italian : english, value };
+    // Sweetness is the sugar left in the wine: an Amarone or a Sfursat from dried grapes is dry.
+    const hint = key === "sweetness" ? (it ? "zuccheri residui" : "residual sugar") : "";
+    return { key, label: it ? italian : english, hint, value };
   });
   const number = (value: number) => new Intl.NumberFormat(it ? "it-CH" : "en-GB", { maximumFractionDigits: 1 }).format(value * 10);
   const sources: Record<string, string> = it
@@ -52,8 +54,8 @@ export function WineSensorySignaturePanel({ wineId, locale }: { wineId: string; 
     <header><span>{it ? "IL CARATTERE DEL VINO" : "THE WINE’S CHARACTER"}</span><h3>{it ? "Impronta sensoriale" : "Sensory signature"}</h3>
       <span className="wine-sensory-estimate">{profileLabel}</span>
       <p>{it ? "Intensità da 0 a 10: dal più delicato al più marcato. Descrive il vino, non il tuo gradimento." : "Intensity from 0 to 10: from subtle to pronounced. Describes the wine, not your liking."}</p></header>
-    <dl className="wine-sensory-indicators">{items.map(({ key, label, value }) => <div className="wine-sensory-indicator" key={key}>
-      <dt>{label}</dt><dd>{value === null ? (it ? "Non disponibile" : "Unavailable") : `${number(value)} / 10`}</dd>
+    <dl className="wine-sensory-indicators">{items.map(({ key, label, hint, value }) => <div className="wine-sensory-indicator" key={key}>
+      <dt>{label}{hint ? <small className="wine-sensory-hint"> · {hint}</small> : null}</dt><dd>{value === null ? (it ? "Non disponibile" : "Unavailable") : `${number(value)} / 10`}</dd>
       <div className="wine-sensory-track" aria-hidden="true"><span style={{ width: `${(value ?? 0) * 100}%` }} /></div>
     </div>)}</dl>
     <footer>{sources[profile.source] || (it ? "Profilo stimato" : "Estimated profile")}

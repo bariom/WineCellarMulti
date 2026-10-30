@@ -411,6 +411,8 @@ test("wine sensory signature shows intensity and missing values across viewports
   const panel = page.locator('.wine-detail:visible').first().getByRole('region', { name: 'Impronta sensoriale' });
   await expect(panel).toBeVisible();
   await expect(panel.locator('.wine-sensory-indicator').filter({ hasText: 'Dolcezza' })).toContainText('0 / 10');
+  // Sweetness says what it measures: a wine from dried grapes can be dry.
+  await expect(panel.locator('.wine-sensory-indicator').filter({ hasText: 'Dolcezza' })).toContainText('zuccheri residui');
   await expect(panel.locator('.wine-sensory-indicator').filter({ hasText: 'Legno' })).toContainText('Non disponibile');
   await expect(panel).toContainText('Affidabilità: 65%');
   await expect(panel.locator('header').getByText('Stima dai metadati', { exact: true })).toBeVisible();
