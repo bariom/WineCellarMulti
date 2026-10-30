@@ -38,10 +38,11 @@ TASK_REASONING_EFFORT = {
     "score_summary": "low",
     "wine_news_editorial": "low",
     "wine_value": "low",
+    # One pass with web search: low reasoning keeps it quick and affordable.
+    "wine_full_enrichment": "low",
     "cellar_command": "none",
     "wishlist_value": "low",
     # Interpretation and decisions that benefit from a moderate reasoning budget.
-    "wine_full_enrichment": "medium",
     "drink_window": "medium",
     "wine_comparison": "medium",
     "pairing": "medium",
@@ -128,9 +129,7 @@ def select_ai_model(
     # opt unrelated AI features into the broader modern-model rollout flag.
     cellar_command_model = settings.openai_cellar_command_model.strip()
     if normalized_task == "cellar_command" and requested == cellar_command_model:
-        return ModelSelection(
-            requested_model=requested, model=cellar_command_model, role="economy"
-        )
+        return ModelSelection(requested_model=requested, model=cellar_command_model, role="economy")
 
     # The autonomous sensory pilot selects its reasoning model independently
     # of the rollout switch for existing AI features. Its own feature flag

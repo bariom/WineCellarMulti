@@ -7,9 +7,9 @@ const wines = [
   { ...wine, id: "wine-batch-3", name: "Château Pontet-Canet", vintage: "2025", price: "75", current_value: null, currency: "CHF" },
 ];
 
-async function setup(page: Page) {
-  await mockApi(page, [], true, memberships, wines, { ...session, locale: "it", has_active_entitlement: true, is_free_tier: false, theme_preference: "light" });
-  await page.addInitScript(({ wines }) => {
+async function setup(page: Page, batch = wines, holdAll = false) {
+  await mockApi(page, [], true, memberships, batch, { ...session, locale: "it", has_active_entitlement: true, is_free_tier: false, theme_preference: "light" });
+  await page.addInitScript(({ wines, holdAll }) => {
     const previous = window.fetch;
     const audit: unknown[] = [{ id: "old-entry", entity_type: "wine", entity_id: "wine-batch-1", feature: "ai_value", model: "gpt-5.4", outcome: "success", summary: "", sources: [], estimated_cost_usd: "0.5", created_at: "2026-01-01T00:00:00Z" }];
     const prices: Record<string, number> = { "wine-batch-1": 112, "wine-batch-2": 44 };
@@ -24,7 +24,7 @@ async function setup(page: Page) {
       if (!match) return previous(input, init);
       const id = match[1];
       // The second wine waits until the test has looked at the report mid-run.
-      if (id === "wine-batch-2") while (!(window as unknown as { releaseSecond?: boolean }).releaseSecond) await new Promise((resolve) => setTimeout(resolve, 50));
+      if (id === "wine-batch-2" || holdAll) while (!(window as unknown as { releaseSecond?: boolean }).releaseSecond) await new Promise((resolve) => setTimeout(resolve, 50));
       audit.unshift({
         id: `entry-${id}`, entity_type: "wine", entity_id: id, feature: "ai_value", model: "gpt-5.4", outcome: "success", summary: "",
         sources: prices[id] ? [{ kind: "market_source", merchant: "Enoteca Test", country: "CH", currency: "CHF", price: prices[id], url: "https://example.com/wine" }] : [],
@@ -34,7 +34,7 @@ async function setup(page: Page) {
       const original = wines.find((item) => item.id === id)!;
       return Response.json({ ...original, current_value: String(prices[id]) });
     };
-  }, { wines });
+  }, { wines: batch, holdAll });
 }
 
 async function openDataQuality(page: Page) {
@@ -54,16 +54,16 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     const report = page.getByRole("dialog", { name: "Valore" });
     await expect(report).toBeVisible();
     const rows = report.locator(".batch-ai-report-rows > li");
-    // The first result is readable while the second wine is still running.
+    // The wines run side by side: the quick ones are readable while the slow one is still running.
     await expect(rows.nth(0)).toHaveClass(/is-done/);
     await expect(rows.nth(0)).toContainText("CHF 112");
     await expect(rows.nth(0)).toContainText("+12.0% sul prezzo d'acquisto");
     await expect(rows.nth(1)).toHaveClass(/is-running/);
-    await expect(rows.nth(2)).toHaveClass(/is-pending/);
-    await expect(report.getByRole("status")).toContainText("1/3");
+    await expect(rows.nth(2)).toHaveClass(/is-no_result/);
+    await expect(report.getByRole("status")).toContainText("2/3");
     await expect(report.getByRole("status")).toContainText("Sto elaborando Chateau Phelan Segur");
     // Only this run's audit entries count toward the cost.
-    await expect(report.locator(".batch-ai-report-stats")).toContainText("$0.0125");
+    await expect(report.locator(".batch-ai-report-stats")).toContainText("$0.0250");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`batch-report-running-${viewport.width}.png`) });
 
@@ -75,7 +75,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     // Folded into a chip, the app stays usable and the chip tracks the run.
     await report.getByRole("button", { name: "Riduci" }).click();
     await expect(report).toHaveCount(0);
-    const chip = page.getByRole("button", { name: /Mostra il resoconto: Valore, 1 di 3/ });
+    const chip = page.getByRole("button", { name: /Mostra il resoconto: Valore, 2 di 3/ });
     await expect(chip).toBeVisible();
     await page.evaluate(() => { (window as unknown as { releaseSecond: boolean }).releaseSecond = true; });
     await expect(page.getByRole("button", { name: /Mostra il resoconto: Valore, 3 di 3/ })).toBeVisible();
@@ -92,16 +92,24 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
   });
 }
 
-test("the batch can be stopped after the current wine", async ({ page }) => {
+test("the batch runs three wines at a time and stops after those in progress", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await setup(page);
+  const five = [
+    ...wines,
+    { ...wine, id: "wine-batch-4", name: "Chateau Lynch-Bages", vintage: "2025", price: "90", current_value: null, currency: "CHF" },
+    { ...wine, id: "wine-batch-5", name: "Chateau Talbot", vintage: "2025", price: "50", current_value: null, currency: "CHF" },
+  ];
+  await setup(page, five, true);
   const check = await openDataQuality(page);
-  await check.getByRole("button", { name: /Completa con AI \(3\)/ }).click();
+  await check.getByRole("button", { name: /Completa con AI \(5\)/ }).click();
   const report = page.getByRole("dialog", { name: "Valore" });
-  await expect(report.locator(".batch-ai-report-rows > li").nth(1)).toHaveClass(/is-running/);
+  const rows = report.locator(".batch-ai-report-rows > li");
+  for (const index of [0, 1, 2]) await expect(rows.nth(index)).toHaveClass(/is-running/);
+  for (const index of [3, 4]) await expect(rows.nth(index)).toHaveClass(/is-pending/);
+  await expect(report.getByRole("status")).toContainText("Sto elaborando 3 vini insieme");
   await report.getByRole("button", { name: "Interrompi" }).click();
-  await expect(report).toContainText("Mi fermo dopo questo vino");
+  await expect(report).toContainText("Mi fermo dopo i vini in corso");
   await page.evaluate(() => { (window as unknown as { releaseSecond: boolean }).releaseSecond = true; });
   await expect(report.getByText("Arricchimento AI interrotto")).toBeVisible();
-  await expect(report.locator(".batch-ai-report-rows > li").nth(2)).toHaveClass(/is-pending/);
+  for (const index of [3, 4]) await expect(rows.nth(index)).toHaveClass(/is-pending/);
 });

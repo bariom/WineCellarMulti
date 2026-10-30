@@ -520,7 +520,11 @@ def research_wine_context(wine: Wine) -> dict:
 def research_costs(
     db: Session, context: CurrentContext, wine: Wine, provider: str, output_tokens: int = 12000
 ):
-    from app.api.routes.ai import maximum_billable_cost_usd, reservation_pricing_model
+    from app.api.routes.ai import (
+        exempt_from_markup,
+        maximum_billable_cost_usd,
+        reservation_pricing_model,
+    )
 
     prompt = wine_sensory_research_prompt(
         wine_context=research_wine_context(wine), locale=context.user.locale
@@ -529,7 +533,7 @@ def research_costs(
 
     def ceiling(input_tokens: int, calls: int) -> Decimal:
         return maximum_billable_cost_usd(
-            user_is_app_admin=context.user.is_app_admin,
+            markup_exempt=exempt_from_markup(context),
             user_has_active_entitlement=context.has_active_entitlement,
             provider_source=provider,
             model=reservation_pricing_model(settings.openai_economy_model, db),
@@ -642,6 +646,7 @@ def _research_wine(
     # Reuse Vinaris provider selection, credit reservation and usage accounting.
     from app.api.routes.ai import (
         create_ai_response,
+        exempt_from_markup,
         get_or_create_user_ai_settings,
         maximum_billable_cost_usd,
         record_ai_audit,
@@ -741,7 +746,7 @@ def _research_wine(
         wine_context=wine_context, feedback=feedback, locale=context.user.locale
     )
     actual_completion_ceiling = maximum_billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
+        markup_exempt=exempt_from_markup(context),
         user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider,
         model=reservation_pricing_model(model, db),

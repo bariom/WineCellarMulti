@@ -86,7 +86,9 @@ export default function BatchAiReport({ run, locale, minimized, onMinimize, onRe
   const noResults = run.items.filter((item) => item.status === "no_result").length;
   const failures = run.items.filter((item) => item.status === "failed").length;
   const cost = run.items.reduce((sum, item) => sum + item.entries.reduce((entrySum, entry) => entrySum + Number(entry.estimated_cost_usd || 0), 0), 0);
-  const current = run.items.find((item) => item.status === "running");
+  // A few wines run side by side: name the one when alone, count them otherwise.
+  const runningItems = run.items.filter((item) => item.status === "running");
+  const current = runningItems.length === 1 ? runningItems[0] : null;
   const percent = total ? Math.round((settled.length / total) * 100) : 0;
   const stopped = run.finished && settled.length < total;
 
@@ -114,7 +116,8 @@ export default function BatchAiReport({ run, locale, minimized, onMinimize, onRe
         <p>
           <strong>{settled.length}/{total}</strong>
           {current ? <span>{it ? "Sto elaborando" : "Working on"} <b>{current.wine.name}</b>{current.wine.vintage ? ` ${current.wine.vintage}` : ""}</span> : null}
-          {run.stopping && !run.finished ? <span>{it ? "Mi fermo dopo questo vino…" : "Stopping after this wine…"}</span> : null}
+          {runningItems.length > 1 ? <span>{it ? `Sto elaborando ${runningItems.length} vini insieme` : `Working on ${runningItems.length} wines at once`}</span> : null}
+          {run.stopping && !run.finished ? <span>{runningItems.length > 1 ? (it ? "Mi fermo dopo i vini in corso…" : "Stopping after the wines in progress…") : (it ? "Mi fermo dopo questo vino…" : "Stopping after this wine…")}</span> : null}
         </p>
       </div>
 

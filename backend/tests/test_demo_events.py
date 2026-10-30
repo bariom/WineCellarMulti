@@ -335,3 +335,38 @@ def test_guest_comes_back_from_the_demo_to_the_same_account(admin):
         db.commit()
     assert guest.get("/api/v1/session").json()["event_return"] is None
     assert guest.post("/api/v1/events/return").status_code == 404
+
+
+def test_event_guests_pay_the_real_ai_cost_without_the_ai_pack_markup(monkeypatch):
+    from decimal import Decimal
+
+    from app.services.openai_client import TokenUsage
+
+    monkeypatch.setattr(settings, "free_tier_ai_pack_markup_percent", "100")
+    monkeypatch.setattr(ai, "estimate_cost_usd", lambda model, usage, db=None: Decimal("0.05"))
+    guest = SimpleNamespace(
+        user=SimpleNamespace(
+            is_app_admin=False,
+            event_id=UUID(int=1),
+            event_visitor_until=datetime.now(UTC) + timedelta(hours=1),
+        )
+    )
+    member = SimpleNamespace(
+        user=SimpleNamespace(is_app_admin=False, event_id=None, event_visitor_until=None)
+    )
+    assert ai.exempt_from_markup(guest) is True
+    assert ai.exempt_from_markup(member) is False
+
+    def charged(context) -> Decimal:
+        return ai.billable_cost_usd(
+            markup_exempt=ai.exempt_from_markup(context),
+            user_has_active_entitlement=False,
+            provider_source="credits",
+            model="gpt-6-luna",
+            usage=TokenUsage(),
+            extra_cost_usd=Decimal("0.02"),
+        )
+
+    # Tokens plus two web searches, as they cost Vinaris.
+    assert charged(guest) == Decimal("0.07")
+    assert charged(member) == Decimal("0.14")

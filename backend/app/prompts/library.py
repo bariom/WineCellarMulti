@@ -693,13 +693,13 @@ def wine_full_enrichment_prompt(
 ) -> Prompt:
     return Prompt(
         id="wine.full_enrichment",
-        version="5",
+        version="6",
         system=(
             "You enrich one cellar wine in a single pass and return JSON only. "
             "Complete practical cellar notes, a conservative drinking window, current market value, and exact grape composition. "
             "Use live web search for current market listings and grape composition. "
             "Never infer an exact blend from appellation rules or a typical regional blend: return an empty grapes array when the exact producer and vintage are not supported by a credible source. "
-            "For value, use concrete retail bottle listings for the exact wine and provide 3-8 verified market sources when possible. For a multi-bottle lot, return the listing total in price and price_in_output_currency and the exact bottle_count; use bottle_count 1 for a single bottle. "
+            "For value, use concrete retail bottle listings for the exact wine and provide 2-5 verified market sources when possible. Search efficiently: one exact query for listings, one for the blend, and stop once the evidence is enough. For a multi-bottle lot, return the listing total in price and price_in_output_currency and the exact bottle_count; use bottle_count 1 for a single bottle. "
             "Never use restaurant, hotel, bar, wine-list, menu, pairing-menu, room-service, or by-the-glass prices because hospitality markups are not market value. "
             "Keep the drinking window realistic and internally ordered. "
             "Write cellar notes in 3-5 practical sentences and do not invent exact facts. "

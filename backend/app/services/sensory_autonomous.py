@@ -64,10 +64,14 @@ def prompt_and_schema(wine: Wine, context: CurrentContext):
 
 
 def call_ceiling(db, context, provider, prompt, schema, history, output_tokens, searches):
-    from app.api.routes.ai import maximum_billable_cost_usd, reservation_pricing_model
+    from app.api.routes.ai import (
+        exempt_from_markup,
+        maximum_billable_cost_usd,
+        reservation_pricing_model,
+    )
 
     return maximum_billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
+        markup_exempt=exempt_from_markup(context),
         user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider,
         model=reservation_pricing_model(settings.openai_sensory_agent_model, db),

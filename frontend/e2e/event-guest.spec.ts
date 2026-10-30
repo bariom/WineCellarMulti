@@ -128,8 +128,8 @@ test("the welcome page returns from a feature and lists every feature the event 
   await expect(page.getByRole("heading", { name: "Il sommelier AI è al tuo tavolo." })).toBeVisible();
 });
 
-test("the demo is one tap away and the guest can come back to tonight", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+for (const width of [390, 1440]) test(`the demo is one tap away and the guest can come back to tonight at ${width}`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
   await mockEvent(page);
   await page.addInitScript((fixture) => {
     const mocked = window.fetch.bind(window);
@@ -139,7 +139,7 @@ test("the demo is one tap away and the guest can come back to tonight", async ({
       if (path.endsWith("/auth/demo")) {
         window.sessionStorage.setItem("vinaris-test-demo-entered", "yes");
         const eventReturn = { slug: fixture.event.slug, name: fixture.event.name, place: fixture.event.place };
-        return new Response(JSON.stringify({ ...fixture, event: null, event_return: eventReturn, is_demo: true, membership_role: "viewer", active_household_name: "Cantina demo" }), { status: 200, headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ ...fixture, event: null, event_return: eventReturn, is_demo: true, membership_role: "viewer", active_household_name: "Vinaris Demo · Collector Cellar" }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (path.endsWith("/events/return")) {
         window.sessionStorage.setItem("vinaris-test-event-returned", "yes");
@@ -152,7 +152,13 @@ test("the demo is one tap away and the guest can come back to tonight", async ({
   await page.getByRole("button", { name: "Esplora la demo" }).click();
   await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("vinaris-test-demo-entered"))).toBe("yes");
   await expect(page.getByText("Demo · sola lettura")).toBeVisible();
-  await page.getByRole("button", { name: "Torna alla serata" }).click();
+  // The cellar name keeps its width: the way back never squeezes the top bar.
+  const title = page.locator(".topbar-brand h1");
+  await expect(title).toHaveText("Vinaris Demo · Collector Cellar");
+  expect((await title.boundingBox())!.width).toBeGreaterThan(100);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath(`demo-return-${width}.png`) });
+  await page.getByRole("button", { name: /Torna alla serata/ }).click();
   // The same guest comes back, through the server's memory of them, not a new QR entry.
   await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("vinaris-test-event-returned"))).toBe("yes");
   await expect(page.getByRole("heading", { name: "Il sommelier AI è al tuo tavolo." })).toBeVisible();
@@ -173,6 +179,10 @@ test("a hard refresh keeps the guest on the welcome page, not a cellar dashboard
 test("the bottles photographed tonight are listed on the welcome page, with the way to keep them", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, [], true, memberships, [wine], { ...guestSession, event: { ...guestSession.event, features: ["bottle_photo"] } });
+  await page.addInitScript(() => window.sessionStorage.setItem("vinaris-test-sensory", JSON.stringify({
+    generation_status: "available", source: "hybrid", confidence: 0.7,
+    dimensions: { body: 0.7, acidity: 0.8, tannin: 0.75, sweetness: 0.05, aromatic_intensity: 0.6, fruit: 0.55, wood: 0.4, spice: 0.35, minerality: 0.5 },
+  })));
   await page.goto("/");
   const bottles = page.locator(".event-welcome-bottles");
   await expect(bottles.getByRole("heading", { name: "Le bottiglie di stasera" })).toBeVisible();
@@ -184,15 +194,24 @@ test("the bottles photographed tonight are listed on the welcome page, with the 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("tonight-bottles-390.png"), fullPage: true });
 
-  // Each bottle opens its detail, without per-wine AI analyses the event does not cover.
+  // Each bottle opens a page made for tonight: no stock, sales or cellar actions.
   await bottles.getByRole("button", { name: "Dettaglio di Nebbiolo di Test" }).click();
-  const detail = page.getByRole("dialog", { name: /Nebbiolo di Test/ });
-  await expect(detail).toBeVisible();
-  await expect(detail.getByRole("button", { name: "Abbinamento", exact: true })).toHaveCount(0);
+  const sheet = page.getByRole("dialog", { name: "Nebbiolo di Test" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("heading", { name: "Quando berlo" })).toBeVisible();
+  await expect(sheet.getByText("Ideale fino al 2028")).toBeVisible();
+  await expect(sheet.getByRole("heading", { name: "Quanto vale" })).toBeVisible();
+  await expect(sheet.getByText("CHF 48")).toBeVisible();
+  await expect(sheet.getByRole("heading", { name: "Uvaggio" })).toBeVisible();
+  await expect(sheet.getByText("Nebbiolo", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("Profilo di test")).toBeVisible();
+  await expect(sheet.getByRole("region", { name: "Impronta sensoriale" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Registra bevuta" })).toHaveCount(0);
+  await expect(sheet.getByRole("button", { name: "Completa con AI" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath("tonight-wine-detail-390.png") });
-  await detail.getByRole("button", { name: "Chiudi" }).click();
-  await expect(detail).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("tonight-wine-390.png") });
+  await sheet.getByRole("button", { name: "Chiudi" }).click();
+  await expect(sheet).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Le bottiglie di stasera" })).toBeVisible();
   await bottles.getByRole("button", { name: "Tieni le bottiglie: crea il mio account" }).click();
   await expect(page.getByText(/Le 4 bottiglie fotografate stasera restano nella tua cantina/)).toBeVisible();
@@ -212,4 +231,33 @@ test("Wine Pulse, when the event offers it, opens the news and keeps Tonight one
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.getByRole("button", { name: "Stasera" }).first().click();
   await expect(page.getByRole("heading", { name: "Il sommelier AI è al tuo tavolo." })).toBeVisible();
+});
+
+test("a bottle with missing data can be completed with AI from its page", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const bare = { ...wine, ai_notes: "", drink_from: null, drink_peak_from: null, drink_peak_to: null, drink_to: null, drink_window_notes: "", current_value: null, grapes: [] };
+  await mockApi(page, [], true, memberships, [bare], { ...guestSession, event: { ...guestSession.event, features: ["bottle_photo"] } });
+  await page.addInitScript((completed) => {
+    const mocked = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (new URL(requestUrl, window.location.origin).pathname.endsWith(`/ai/wines/${completed.id}/all`)) {
+        window.sessionStorage.setItem("vinaris-test-completed", String(init?.body || ""));
+        return new Response(JSON.stringify(completed), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return mocked(input, init);
+    };
+  }, wine);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Dettaglio di Nebbiolo di Test" }).click();
+  const sheet = page.getByRole("dialog", { name: "Nebbiolo di Test" });
+  await expect(sheet.getByText("Finestra di beva non ancora stimata.")).toBeVisible();
+  await expect(sheet.getByText("Uvaggio non ancora verificato.")).toBeVisible();
+  await sheet.getByRole("button", { name: "Completa con AI" }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.sessionStorage.getItem("vinaris-test-completed") || "{}").locale)).toBe("it");
+  await expect(sheet.getByText("Ideale fino al 2028")).toBeVisible();
+  await expect(sheet.getByText("CHF 48")).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Completa con AI" })).toHaveCount(0);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.screenshot({ path: testInfo.outputPath("tonight-wine-1440.png") });
 });

@@ -27771,3 +27771,27 @@ body,
 
 /* Event guests: only Tonight and Keep tonight, side by side. */
 .mobile-bottom-navigation.event-guest-navigation { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* From the demo, a guest's way back to the event: above the phone navigation. */
+.demo-event-return {
+  position: fixed;
+  z-index: 185;
+  left: 50%;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  min-height: 46px;
+  padding: 8px 18px;
+  transform: translateX(-50%);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 999px;
+  color: #f6efe2;
+  background: linear-gradient(145deg, #5a1a2c, #3a0f1d);
+  box-shadow: 0 12px 28px color-mix(in srgb, black 35%, transparent);
+  font-weight: 750;
+  white-space: nowrap;
+}
+.demo-event-return small { overflow: hidden; text-overflow: ellipsis; font-weight: 500; opacity: .75; }
+.demo-event-return small::before { content: "· "; }

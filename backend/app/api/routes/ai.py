@@ -156,7 +156,11 @@ from app.services.critic_scores import (
     score_matches_page,
     supported_ai_scores,
 )
-from app.services.demo_events import ensure_event_feature, ensure_event_task_allowed
+from app.services.demo_events import (
+    ensure_event_feature,
+    ensure_event_task_allowed,
+    is_event_visitor,
+)
 from app.services.free_tier import ensure_free_tier_label_capacity, is_free_tier
 from app.services.grape_names import clean_grape_entries
 from app.services.merchants import get_or_create_merchant
@@ -325,6 +329,12 @@ def model_pricing_usd_per_million_tokens(
             )
         pricing[model.strip()] = normalized_rates
     return pricing
+
+
+def exempt_from_markup(context: CurrentContext) -> bool:
+    """No AI Pack markup for app admins, nor for event guests: their credit is
+    Vinaris' own gift, and a markup would only make tonight look expensive."""
+    return bool(context.user.is_app_admin) or is_event_visitor(context.user)
 
 
 def ai_pack_markup_percent(*, free_tier: bool = False, db: Session | None = None) -> Decimal:
@@ -557,7 +567,7 @@ def web_search_tool_cost_usd(call_count: int) -> Decimal:
 
 def maximum_billable_cost_usd(
     *,
-    user_is_app_admin: bool,
+    markup_exempt: bool,
     user_has_active_entitlement: bool,
     provider_source: str,
     model: str,
@@ -572,7 +582,7 @@ def maximum_billable_cost_usd(
         total_tokens=max(input_tokens, 0) + max(output_tokens, 0),
     )
     return billable_cost_usd(
-        user_is_app_admin=user_is_app_admin,
+        markup_exempt=markup_exempt,
         user_has_active_entitlement=user_has_active_entitlement,
         provider_source=provider_source,
         model=model,
@@ -619,7 +629,7 @@ def reserve_ai_credits(
     prompt_token_budget += max(input_image_count, 0) * 32768
 
     desired_cost = maximum_billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
+        markup_exempt=exempt_from_markup(context),
         user_has_active_entitlement=context.has_active_entitlement,
         provider_source="credits",
         model=model,
@@ -635,12 +645,12 @@ def reserve_ai_credits(
         pricing = pricing_for_model(model, db)
         markup_multiplier = (
             Decimal("1")
-            if context.user.is_app_admin
+            if exempt_from_markup(context)
             else Decimal("1")
             + (ai_pack_markup_percent(free_tier=is_free_tier(context), db=db) / Decimal("100"))
         )
         fixed_cost = maximum_billable_cost_usd(
-            user_is_app_admin=context.user.is_app_admin,
+            markup_exempt=exempt_from_markup(context),
             user_has_active_entitlement=context.has_active_entitlement,
             provider_source="credits",
             model=model,
@@ -668,7 +678,7 @@ def reserve_ai_credits(
                 detail="Insufficient AI credits for this request",
             )
         reserved_cost = maximum_billable_cost_usd(
-            user_is_app_admin=context.user.is_app_admin,
+            markup_exempt=exempt_from_markup(context),
             user_has_active_entitlement=context.has_active_entitlement,
             provider_source="credits",
             model=model,
@@ -742,7 +752,7 @@ def cancel_ai_credit_reservation(
 
 def billable_cost_usd(
     *,
-    user_is_app_admin: bool,
+    markup_exempt: bool,
     user_has_active_entitlement: bool = True,
     provider_source: str,
     model: str,
@@ -751,7 +761,7 @@ def billable_cost_usd(
     db: Session | None = None,
 ) -> Decimal:
     base_cost = quantize_usd(estimate_cost_usd(model, usage, db) + extra_cost_usd)
-    if provider_source != "credits" or user_is_app_admin:
+    if provider_source != "credits" or markup_exempt:
         return base_cost
     markup = ai_pack_markup_percent(
         free_tier=not user_has_active_entitlement,
@@ -929,7 +939,7 @@ def create_ai_response(
             **({"agent_tools": agent_tools, "agent_history": agent_history} if agent_tools else {}),
         )
         actual_cost = billable_cost_usd(
-            user_is_app_admin=context.user.is_app_admin,
+            markup_exempt=exempt_from_markup(context),
             user_has_active_entitlement=context.has_active_entitlement,
             provider_source=provider_source,
             model=response.model or model,
@@ -992,7 +1002,7 @@ def record_ai_audit(
     else:
         base_cost = quantize_usd(estimate_cost_usd(model, token_usage, db) + extra_cost_usd)
         billed_cost = billable_cost_usd(
-            user_is_app_admin=context.user.is_app_admin,
+            markup_exempt=exempt_from_markup(context),
             user_has_active_entitlement=context.has_active_entitlement,
             provider_source=provider_source,
             model=model,
@@ -1008,7 +1018,7 @@ def record_ai_audit(
         source_metadata["charged_cost_usd"] = str(billed_cost)
         if extra_cost_usd > ZERO_USD:
             source_metadata["external_tool_cost_usd"] = str(quantize_usd(extra_cost_usd))
-        if not context.user.is_app_admin:
+        if not exempt_from_markup(context):
             source_metadata["markup_percent"] = str(
                 ai_pack_markup_percent(free_tier=is_free_tier(context), db=db)
             )
@@ -4823,7 +4833,7 @@ def compare_wines(
     )
     result = parse_json_response(response.text)
     charged_cost = billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
+        markup_exempt=exempt_from_markup(context),
         user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider_source,
         model=effective_response_model(response, user_settings.pairing_model),
@@ -5071,7 +5081,7 @@ def pairing_for_request(
     cleaned.model = effective_response_model(response, selected_pairing_model)
     cleaned.reasoning_effort = response.reasoning_effort or ""
     charged_cost = billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
+        markup_exempt=exempt_from_markup(context),
         user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider_source,
         model=effective_response_model(response, selected_pairing_model),
@@ -5638,7 +5648,7 @@ def create_tasting_reflection(
     entry.sommelier_feedback_at = datetime.now(UTC)
     effective_model = effective_response_model(response, selected_model)
     charged_cost = billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
+        markup_exempt=exempt_from_markup(context),
         user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider_source,
         model=effective_model,
@@ -6053,7 +6063,7 @@ def generate_all_wine_ai(
         },
     }
     # The combined route is cost-first: reuse the value model (Luna by default)
-    # and raise reasoning to medium through the task policy for the drink window.
+    # with low reasoning; the structured schema keeps the drink window ordered.
     selected_model = request_model(payload, user_settings.value_model)
     response, provider_source = create_ai_response(
         db,
@@ -6067,9 +6077,11 @@ def generate_all_wine_ai(
         user_prompt=prompt.user,
         json_schema=schema,
         web_search=True,
-        web_search_context_size="medium",
+        # Snippets, not whole pages, and a few searches: most of the cost and the
+        # wait of this call were the search results read back as input tokens.
+        web_search_context_size="low",
         max_output_tokens=6000,
-        max_tool_calls=6,
+        max_tool_calls=4,
     )
     result = parse_json_response(response.text)
     drink_window = result.get("drink_window")
@@ -7316,7 +7328,7 @@ def suggest_regional_gap_targets(
             running += pct
         normalized.append(RegionalGapTarget(region=region, target_pct=pct))
     charged_cost = billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
+        markup_exempt=exempt_from_markup(context),
         user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider_source,
         model=effective_response_model(response, user_settings.wishlist_model),
@@ -7870,7 +7882,7 @@ def generate_cellar_intelligence_plan(
             continue
     model = effective_response_model(response, user_settings.wishlist_model)
     charged_cost = billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
+        markup_exempt=exempt_from_markup(context),
         user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider_source,
         model=model,

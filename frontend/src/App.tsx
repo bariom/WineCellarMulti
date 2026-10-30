@@ -165,6 +165,9 @@ const BottlePhotoImport = lazy(() => import("./components/BottlePhotoImport"));
 const AddWineChooser = lazy(() => import("./components/AddWineChooser"));
 const AppNewsPanel = lazy(() => import("./components/AppNewsPanel"));
 const BatchAiReport = lazy(() => import("./components/BatchAiReport"));
+const EventWineSheet = lazy(() => import("./components/EventWineSheet"));
+/** Wines analysed at the same time by the "run on all" batches. */
+const BATCH_AI_CONCURRENCY = 3;
 const SommelierHubView = lazy(() => import("./views/SommelierHubView"));
 const FeatureSuggestions = lazy(() => import("./components/FeatureSuggestions"));
 const WishlistLiveTasteScanner = lazy(() => import("./components/WishlistLiveTasteScanner"));
@@ -1220,6 +1223,8 @@ export function App() {
     if (open && userInitiated) setNewsFocusToken((token) => token + 1);
   }, []);
   const [pairingWineDetailId, setPairingWineDetailId] = useState<string | null>(null);
+  // An event guest's bottle, on its own page made for tonight.
+  const [eventWineId, setEventWineId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [wishlistConversionItem, setWishlistConversionItem] = useState<WishlistItem | null>(null);
   const [wishlistConversionQuantity, setWishlistConversionQuantity] = useState("1");
@@ -1296,7 +1301,7 @@ export function App() {
       setWineDetailExpanded(false);
       setWineEditorExpanded(false);
       setPairingWineDetailId(null);
-      if (activeView === "pairing" || activeView === "event" || (activeView === "history" && historySection === "tastings")) setSelectedWineId(null);
+      if (activeView === "pairing" || (activeView === "history" && historySection === "tastings")) setSelectedWineId(null);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
@@ -4328,7 +4333,7 @@ export function App() {
   }
 
   async function deleteWine(wine: Wine) {
-    if (!window.confirm(`Delete ${wine.name}?`)) return;
+    if (!window.confirm(locale === "it" ? `Eliminare ${wine.name}?` : `Delete ${wine.name}?`)) return;
     setSaving(true);
     setError("");
     try {
@@ -4762,9 +4767,11 @@ export function App() {
     });
     // Audit entries already there before the run; each wine's new ones are its cost and sources.
     const seenAudit = new Set((await loadAiAudit().catch(() => [] as AiAuditLog[])).map((entry) => entry.id));
-    try {
-      for (const wine of generationItems) {
-        if (batchAiStopRef.current) break;
+    // A few wines at a time: the wait is that of the slowest, not of all of them in a row.
+    const queue = [...generationItems];
+    const runNext = async (): Promise<void> => {
+      while (queue.length && !batchAiStopRef.current) {
+        const wine = queue.shift()!;
         updateItem(wine.id, { status: "running" });
         let patch: Partial<BatchAiItem>;
         try {
@@ -4784,10 +4791,14 @@ export function App() {
           }
         }
         const audit = await loadAiAudit().catch(() => [] as AiAuditLog[]);
+        // Only this wine's entries: the others running alongside read their own.
         const entries = audit.filter((entry) => !seenAudit.has(entry.id) && entry.entity_id === wine.id);
-        audit.forEach((entry) => seenAudit.add(entry.id));
+        entries.forEach((entry) => seenAudit.add(entry.id));
         updateItem(wine.id, { ...patch, entries });
       }
+    };
+    try {
+      await Promise.all(Array.from({ length: Math.min(BATCH_AI_CONCURRENCY, generationItems.length) }, () => runNext()));
       await loadAiUsage().catch(() => undefined);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
@@ -8273,7 +8284,7 @@ export function App() {
   function closeWineDetailModal() {
     setWineDetailExpanded(false);
     setPairingWineDetailId(null);
-    if (activeView === "pairing" || activeView === "event" || (activeView === "history" && historySection === "tastings")) setSelectedWineId(null);
+    if (activeView === "pairing" || (activeView === "history" && historySection === "tastings")) setSelectedWineId(null);
   }
 
   const activePairingBudget = Number(pairingMaxPrice || 0);
@@ -9066,8 +9077,7 @@ export function App() {
         auditEntries={entityAuditEntries("wine", wine.id)}
         auditHasMore={Boolean(entityAuditPage("wine", wine.id)?.hasMore)}
         onLoadMoreAudit={() => loadMoreEntityAudit("wine", wine.id)}
-        // A guest's AI is limited to the event's features: no per-wine analyses here.
-        canGenerate={canGenerateAi && !eventGuest}
+        canGenerate={canGenerateAi}
         canWrite={canWriteWine}
         saving={saving}
         generating={generatingAi}
@@ -9305,7 +9315,7 @@ export function App() {
             ) : null}
             {!session?.is_demo && !eventGuest ? <span>{session?.membership_role}</span> : null}
             {session?.is_demo ? <span className="status-pill">{locale === "it" ? "Demo · sola lettura" : "Demo · read-only"}</span> : null}
-            {eventReturn ? <button type="button" className="compact event-keep-button" onClick={() => void returnToEvent()}>{locale === "it" ? "Torna alla serata" : "Back to tonight"}</button> : null}
+            {eventReturn && !isMobileViewport ? <button type="button" className="compact event-keep-button" onClick={() => void returnToEvent()}>{locale === "it" ? "Torna alla serata" : "Back to tonight"}</button> : null}
             {offlineMode ? <span>{t("offlineMode")}: {offlineFileName}</span> : null}
             {!offlineMode && !session?.is_demo && !eventGuest ? <div className="notification-wrap">
               <button
@@ -10548,7 +10558,7 @@ export function App() {
             onOpen={openEventFeature}
             onKeep={() => setEventClaimOpen(true)}
             onExploreDemo={() => void enterDemo()}
-            onOpenWine={openWineFromPairing}
+            onOpenWine={(wine) => setEventWineId(wine.id)}
             onRemoveWine={(wine) => deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine"))}
           /></Suspense> : null}
 
@@ -13045,6 +13055,26 @@ export function App() {
         </section>
       )}
       {renderCellarSommelierLayer()}
+      {eventReturn && isMobileViewport ? (
+        // On a phone the top bar has no room left: the way back floats above the navigation.
+        <button type="button" className="demo-event-return" onClick={() => void returnToEvent()}>
+          <AppIcon name="glass-sparkle" variant="ai" detailLevel="compact" />
+          <span>{locale === "it" ? "Torna alla serata" : "Back to tonight"}</span>
+          <small>{eventReturn.name}</small>
+        </button>
+      ) : null}
+      {eventGuest && eventWineId && wines.some((wine) => wine.id === eventWineId) ? <Suspense fallback={null}><EventWineSheet
+        locale={locale}
+        wine={wines.find((wine) => wine.id === eventWineId)!}
+        canComplete={eventGuest.features.includes("bottle_photo") && canGenerateAi}
+        onClose={() => setEventWineId(null)}
+        onUpdated={(updated) => {
+          setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+          void loadBilling();
+        }}
+        onKeep={() => { setEventWineId(null); setEventClaimOpen(true); }}
+        onRemove={(wine) => { setEventWineId(null); deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine")); }}
+      /></Suspense> : null}
       {eventClaimOpen && eventGuest ? (
         <Suspense fallback={null}>
           <EventClaimDialog

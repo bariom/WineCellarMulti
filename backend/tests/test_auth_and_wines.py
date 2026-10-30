@@ -9049,8 +9049,8 @@ def test_all_wine_ai_features_use_one_cost_optimized_request(monkeypatch):
         assert "Germany (DE)" in args[1]
         assert kwargs["json_schema"]["name"] == "wine_full_enrichment"
         assert kwargs["web_search"] is True
-        assert kwargs["web_search_context_size"] == "medium"
-        assert kwargs["max_tool_calls"] == 6
+        assert kwargs["web_search_context_size"] == "low"
+        assert kwargs["max_tool_calls"] == 4
         return OpenAIResponse(
             text=(
                 '{"ai_notes":"Rosso strutturato e gastronomico, adatto alla cantina.",'

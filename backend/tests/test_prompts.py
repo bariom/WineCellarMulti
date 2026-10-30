@@ -308,7 +308,7 @@ def test_market_value_prompts_keep_currency_and_context_constraints():
         currency="CHF",
         wine_context="Wine: Example 2020",
     )
-    assert (full_prompt.id, full_prompt.version) == ("wine.full_enrichment", "5")
+    assert (full_prompt.id, full_prompt.version) == ("wine.full_enrichment", "6")
     assert "Never use restaurant, hotel, bar" in full_prompt.system
 
 
