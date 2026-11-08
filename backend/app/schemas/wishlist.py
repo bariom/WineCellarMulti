@@ -5,6 +5,30 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+class WishlistGrape(BaseModel):
+    """One grape of the blend, in the same shape a cellar wine stores."""
+
+    name: str = Field(min_length=1, max_length=120)
+    percentage_from: float | None = Field(default=None, ge=0, le=100)
+    percentage_to: float | None = Field(default=None, ge=0, le=100)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+def validated_grapes(value: object) -> object:
+    """Validate each grape, skip blank rows and store it in the cellar's shape."""
+    if not isinstance(value, list):
+        return value
+    return [
+        WishlistGrape.model_validate(grape).model_dump(exclude_none=True)
+        for grape in value
+        if not (isinstance(grape, dict) and not str(grape.get("name") or "").strip())
+    ]
+
+
 class WishlistBase(BaseModel):
     wishlist_list_id: UUID | None = None
     name: str = Field(min_length=1, max_length=200)
@@ -14,6 +38,12 @@ class WishlistBase(BaseModel):
     type: str = ""
     region: str = ""
     appellation: str = ""
+    country: str = Field(default="", max_length=120)
+    wine_zone: str = Field(default="", max_length=120)
+    grapes: list[dict] = Field(default_factory=list, max_length=12)
+    grapes_source_url: str = Field(default="", max_length=500)
+    grapes_source_title: str = Field(default="", max_length=200)
+    ai_notes: str = Field(default="", max_length=4000)
     target_price: Decimal = Field(default=Decimal("0"), ge=0)
     offer_price: Decimal | None = Field(default=None, ge=0)
     investment_amount: Decimal | None = Field(default=None, ge=0)
@@ -31,6 +61,8 @@ class WishlistBase(BaseModel):
     ai_strategy: str = ""
     ai_purpose_advice: str = ""
 
+    _grapes = field_validator("grapes", mode="before")(validated_grapes)
+
 
 class WishlistCreate(WishlistBase):
     pass
@@ -45,6 +77,12 @@ class WishlistUpdate(BaseModel):
     type: str | None = None
     region: str | None = None
     appellation: str | None = None
+    country: str | None = Field(default=None, max_length=120)
+    wine_zone: str | None = Field(default=None, max_length=120)
+    grapes: list[dict] | None = Field(default=None, max_length=12)
+    grapes_source_url: str | None = Field(default=None, max_length=500)
+    grapes_source_title: str | None = Field(default=None, max_length=200)
+    ai_notes: str | None = Field(default=None, max_length=4000)
     target_price: Decimal | None = Field(default=None, ge=0)
     offer_price: Decimal | None = Field(default=None, ge=0)
     investment_amount: Decimal | None = Field(default=None, ge=0)
@@ -61,6 +99,8 @@ class WishlistUpdate(BaseModel):
     ai_context_note: str | None = None
     ai_strategy: str | None = None
     ai_purpose_advice: str | None = None
+
+    _grapes = field_validator("grapes", mode="before")(validated_grapes)
 
 
 class WishlistConvert(BaseModel):

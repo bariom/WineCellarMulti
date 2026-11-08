@@ -37,6 +37,7 @@ from app.schemas.wishlist import (
     WishlistUpdate,
 )
 from app.services.free_tier import ensure_free_tier_label_capacity
+from app.services.grape_names import clean_grape_entries
 from app.services.merchants import get_or_create_merchant
 from app.services.openai_client import TokenUsage
 from app.services.shared_wine_data import resolve_shared_identity
@@ -458,6 +459,16 @@ def wishlist_ai_generated_dates(
     return dates
 
 
+def wishlist_grapes(grapes: object) -> list[dict]:
+    """Store grapes as the cellar does: cleaned names, percentages only when given."""
+    entries = [
+        {key: value for key, value in grape.items() if value is not None}
+        for grape in (grapes if isinstance(grapes, list) else [])
+        if isinstance(grape, dict)
+    ]
+    return clean_grape_entries(entries)
+
+
 def wishlist_response(
     item: WishlistItem,
     ai_dates: dict[str, datetime] | None = None,
@@ -476,6 +487,12 @@ def wishlist_response(
         "type": item.type,
         "region": item.region,
         "appellation": item.appellation,
+        "country": item.country,
+        "wine_zone": item.wine_zone,
+        "grapes": clean_grape_entries(item.grapes),
+        "grapes_source_url": item.grapes_source_url,
+        "grapes_source_title": item.grapes_source_title,
+        "ai_notes": item.ai_notes,
         "target_price": item.target_price,
         "offer_price": item.offer_price,
         "investment_amount": item.investment_amount,
@@ -806,6 +823,7 @@ def create_wishlist_item(
     data["merchant"] = get_or_create_merchant(db, context, str(data.get("merchant") or ""))
     data["wishlist_list_id"] = wishlist_list_id
     data["type"] = normalize_wine_type(data.get("type"))
+    data["grapes"] = wishlist_grapes(data.get("grapes"))
     item = WishlistItem(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
@@ -834,6 +852,12 @@ def update_wishlist_item(
         get_household_wishlist_list(db, context, updates["wishlist_list_id"])
     if "type" in updates:
         updates["type"] = normalize_wine_type(updates.get("type"))
+    if "grapes" in updates:
+        updates["grapes"] = wishlist_grapes(updates["grapes"])
+        if updates["grapes"] != clean_grape_entries(item.grapes):
+            # A hand-edited blend is no longer the one the cited source verified.
+            updates.setdefault("grapes_source_url", "")
+            updates.setdefault("grapes_source_title", "")
     for field, value in updates.items():
         setattr(item, field, value)
     mark_wishlist_strategy_stale(
@@ -1054,6 +1078,12 @@ def convert_wishlist_item(
         type=normalize_wine_type(item.type),
         region=item.region,
         appellation=item.appellation,
+        wine_zone=item.wine_zone,
+        vineyard_country=item.country,
+        grapes=clean_grape_entries(item.grapes),
+        grapes_source_url=item.grapes_source_url,
+        grapes_source_title=item.grapes_source_title,
+        ai_notes=item.ai_notes,
         merchant=get_or_create_merchant(db, context, item.merchant),
         notes=item.notes,
     )

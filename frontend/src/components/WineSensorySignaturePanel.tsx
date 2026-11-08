@@ -15,8 +15,13 @@ const dimensions = [
   ["minerality", "Mineralità", "Minerality"],
 ] as const;
 
-export function WineSensorySignaturePanel({ wineId, locale }: { wineId: string; locale: Locale }) {
-  const [profile, setProfile] = useState<WineSensorySignature | null>(null);
+type SensorySignatureView = Pick<WineSensorySignature, "dimensions" | "source" | "confidence" | "validated" | "generation_status"> & {
+  /** True when the signature is estimated from grapes or origin rather than a shared profile. */
+  estimated?: boolean;
+};
+
+export function WineSensorySignaturePanel({ wineId, locale, endpoint }: { wineId: string; locale: Locale; endpoint?: string }) {
+  const [profile, setProfile] = useState<SensorySignatureView | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const it = locale === "it";
@@ -24,11 +29,11 @@ export function WineSensorySignaturePanel({ wineId, locale }: { wineId: string; 
     let active = true;
     setProfile(null);
     setFailed(false);
-    api<WineSensorySignature | null>(`/api/v1/taste-profile/wines/${wineId}/sensory`)
+    api<SensorySignatureView | null>(endpoint || `/api/v1/taste-profile/wines/${wineId}/sensory`)
       .then(value => { if (active) setProfile(value); })
       .catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
-  }, [wineId, attempt]);
+  }, [wineId, endpoint, attempt]);
 
   if (failed) return <aside className="wine-sensory-signature" aria-label={it ? "Impronta sensoriale" : "Sensory signature"}>
     <p role="status">{it ? "Impronta sensoriale non caricata." : "Sensory signature could not be loaded."}</p>
@@ -53,7 +58,8 @@ export function WineSensorySignaturePanel({ wineId, locale }: { wineId: string; 
   return <section className="wine-sensory-signature" aria-label={it ? "Impronta sensoriale" : "Sensory signature"}>
     <header><span>{it ? "IL CARATTERE DEL VINO" : "THE WINE’S CHARACTER"}</span><h3>{it ? "Impronta sensoriale" : "Sensory signature"}</h3>
       <span className="wine-sensory-estimate">{profileLabel}</span>
-      <p>{it ? "Intensità da 0 a 10: dal più delicato al più marcato. Descrive il vino, non il tuo gradimento." : "Intensity from 0 to 10: from subtle to pronounced. Describes the wine, not your liking."}</p></header>
+      <p>{it ? "Intensità da 0 a 10: dal più delicato al più marcato. Descrive il vino, non il tuo gradimento." : "Intensity from 0 to 10: from subtle to pronounced. Describes the wine, not your liking."}</p>
+      {profile.estimated ? <p className="wine-sensory-estimated-note">{it ? "Stima indicativa dai vitigni e dall’origine: non ancora un profilo di questo vino." : "Indicative estimate from the grapes and origin: not yet a profile of this wine."}</p> : null}</header>
     <dl className="wine-sensory-indicators">{items.map(({ key, label, hint, value }) => <div className="wine-sensory-indicator" key={key}>
       <dt>{label}{hint ? <small className="wine-sensory-hint"> · {hint}</small> : null}</dt><dd>{value === null ? (it ? "Non disponibile" : "Unavailable") : `${number(value)} / 10`}</dd>
       <div className="wine-sensory-track" aria-hidden="true"><span style={{ width: `${(value ?? 0) * 100}%` }} /></div>

@@ -20,6 +20,7 @@ import { WineLocationPicker, WineStorageSection, WineStrategySection } from "./S
 import LocalizedDateInput from "./LocalizedDateInput";
 import { TastingMemoryPhoto, TastingMemoryPhotoInput } from "./TastingMemoryPhoto";
 import { WineSensorySignaturePanel } from "./WineSensorySignaturePanel";
+import "./WishlistWineProfile.css";
 import { highFetchPriority } from "../utils/fetchPriority";
 const WineLotsSection = lazy(() => import("./WineLotsSection"));
 const PurchaseDocuments = lazy(() => import("./PurchaseDocuments"));
@@ -1906,6 +1907,8 @@ export function WineDetail({
   );
 }
 
+export type WishlistAiFeature = "strategy" | "purpose" | "target-price" | "grapes" | "notes";
+
 export function WishlistDetail({
   item,
   auditEntries,
@@ -1924,7 +1927,7 @@ export function WishlistDetail({
   auditEntries: AiAuditLog[];
   canGenerate: boolean;
   generating: string;
-  onGenerate: (feature: "strategy" | "purpose" | "target-price") => void;
+  onGenerate: (feature: WishlistAiFeature) => void;
   canWrite: boolean;
   saving: boolean;
   onRecordTasting: (payload: ConsumeWineDraft) => Promise<void>;
@@ -1953,6 +1956,10 @@ export function WishlistDetail({
   const strategyLabel = marketAuditEntry ? (locale === "it" ? "Valutazione offerta AI" : "AI offer evaluation") : t("aiStrategy");
   const strategyTitle = strategyGeneratedAt ? `${strategyLabel} - ${t("generatedAt")} ${formatDisplayDate(strategyGeneratedAt)}` : strategyLabel;
   const purposeTitle = purposeGeneratedAt ? `${t("aiPurpose")} - ${t("generatedAt")} ${formatDisplayDate(purposeGeneratedAt)}` : t("aiPurpose");
+  const grapes = item.grapes || [];
+  const grapesSourceUrl = /^https?:\/\//.test(item.grapes_source_url || "") ? item.grapes_source_url || "" : "";
+  // The estimate rests on grapes and origin: refetch it when either changes.
+  const sensoryKey = [item.id, item.type, item.region, item.appellation, grapes.map((grape) => grape.name).join("|")].join("::");
   async function checkTasteCompatibility() {
     setTasteMatchLoading(true);
     try {
@@ -1969,7 +1976,7 @@ export function WishlistDetail({
         <div>
           <p className="eyebrow">{t("wishlistDetail")}</p>
           <h2><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name}</h2>
-          <span>{[item.producer, item.vintage, item.region, item.appellation].filter(Boolean).join(" - ")}</span>
+          <span>{[item.producer, item.vintage, item.region, item.appellation, item.country].filter(Boolean).join(" - ")}</span>
         </div>
         <div className="wishlist-price-block">
           <span>{offerPrice ? (locale === "it" ? "PREZZO OFFERTO" : "OFFER PRICE") : (locale === "it" ? "PREZZO MASSIMO" : "MAXIMUM PRICE")}</span>
@@ -1989,6 +1996,12 @@ export function WishlistDetail({
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("target-price")}>
           <ButtonBusyContent busy={generating === "target-price"} idleLabel={locale === "it" ? "Analizza offerta" : "Analyse offer"} busyLabel={t("generating")} ai />
+        </button>
+        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("grapes")}>
+          <ButtonBusyContent busy={generating === "grapes"} idleLabel={t("grapes")} busyLabel={t("generating")} ai />
+        </button>
+        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("notes")}>
+          <ButtonBusyContent busy={generating === "notes"} idleLabel={t("aiNotes")} busyLabel={t("generating")} ai />
         </button>
       </div>
       {tasteMatch ? <section className="external-tasting-card wishlist-taste-match-card">
@@ -2039,6 +2052,34 @@ export function WishlistDetail({
           {item.ai_purpose_advice ? <DetailNote title={purposeTitle}>{readableLegacyAiText(item.ai_purpose_advice, "purpose")}</DetailNote> : null}
         </div>
       ) : null}
+      <section className="wishlist-wine-profile" aria-label={locale === "it" ? "Profilo del vino" : "Wine profile"}>
+        <h3>{locale === "it" ? "Profilo del vino" : "Wine profile"}</h3>
+        <div className="detail-grid detail-facts-grid" role="group" aria-label={locale === "it" ? "Origine" : "Origin"}>
+          <DetailField label={locale === "it" ? "Paese" : "Country"} value={item.country || ""} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("region")} value={item.region} emptyLabel={t("notSpecified")} />
+          <DetailField label={locale === "it" ? "Zona vitivinicola" : "Wine-growing area"} value={item.wine_zone || ""} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("appellation")} value={item.appellation} emptyLabel={t("notSpecified")} />
+        </div>
+        <div className="detail-section wishlist-grapes">
+          <h3><i className="dashboard-section-icon" aria-hidden="true">{grapesSvgIcon()}</i>{t("grapes")}</h3>
+          {grapes.length ? (
+            <div className="chip-list">
+              {grapes.map((grape, index) => <span key={`${grape.name}-${index}`}>{formatGrape(grape)}</span>)}
+            </div>
+          ) : (
+            <p className="empty-state">{locale === "it" ? "Uvaggio non ancora indicato: modificalo a mano o usa “Uve” per cercarlo con una fonte verificata." : "Blend not set yet: edit it by hand or use “Grapes” to find it with a verified source."}</p>
+          )}
+          {grapes.length && grapesSourceUrl ? (
+            <small>
+              <a href={grapesSourceUrl} target="_blank" rel="noopener noreferrer">
+                {t("verifiedSource")}{item.grapes_source_title ? `: ${item.grapes_source_title}` : ""}
+              </a>
+            </small>
+          ) : null}
+        </div>
+        {item.ai_notes ? <div className="notes-grid"><DetailNote title={t("aiNotes")}>{item.ai_notes}</DetailNote></div> : null}
+      </section>
+      <WineSensorySignaturePanel key={sensoryKey} wineId={item.id} endpoint={`/api/v1/taste-profile/wishlist/${item.id}/sensory`} locale={locale} />
       <div className="detail-grid">
         <DetailField label={t("format")} value={displayValue(item.format, locale, "format")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("type")} value={displayValue(item.type, locale, "type")} emptyLabel={t("notSpecified")} />

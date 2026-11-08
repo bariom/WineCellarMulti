@@ -10,6 +10,7 @@ import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionTrendKpi } 
 import "./components/BottlePhotoCapture.css";
 import { AiActivity } from "./components/AiActivity";
 import { WishlistVintageField, WineStatusBadge, StarRating, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, wineProgressName, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput } from "./components/AppUi";
+import type { WishlistAiFeature } from "./components/AppPanels";
 import { DrinkWindowMini, auditMarketSources, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, CompareWinesModal, MarketValueModal, UserStatsModal, ownershipRows, hasSharedOwnership, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, ContactSupportPanel, DashboardCarousel, TasteHearts } from "./components/AppPanels";
 import { appActionSvgIcon, wishlistActionSvgIcon } from "./components/actionIcons";
 import { formatDisplayDate, formatAiBudget, formatMoney, readableLegacyAiText, wineTone, wineTypeForTone, grapesSvgIcon } from "./components/panelSupport";
@@ -612,6 +613,9 @@ const emptyWishlistDraft: WishlistDraft = {
   type: "",
   region: "",
   appellation: "",
+  country: "",
+  wine_zone: "",
+  grapes: [],
   target_price: "0",
   offer_price: "",
   investment_amount: "",
@@ -1478,8 +1482,11 @@ export function App() {
         producer: item.producer || current.producer,
         region: item.region || current.region,
         appellation: item.appellation || current.appellation,
+        country: item.country || current.country,
+        wine_zone: item.wine_zone || current.wine_zone,
         format: item.format || current.format,
         type: normalizeWineType(item.type || current.type),
+        grapes: current.grapes.length || !item.grapes_text ? current.grapes : grapesFromText(item.grapes_text),
       }));
       return;
     }
@@ -4815,13 +4822,17 @@ export function App() {
     }
   }
 
-  async function generateWishlistAi(item: WishlistItem, feature: "strategy" | "purpose" | "target-price") {
+  async function generateWishlistAi(item: WishlistItem, feature: WishlistAiFeature) {
     const usesValueModel = feature === "target-price";
-    const model = await requestAiModelAdvice(
-      usesValueModel ? t("targetPrice") : t("wishlist"),
-      "balanced",
-      usesValueModel ? (aiSettings?.value_model || aiSettingsDraft.value_model) : (aiSettings?.wishlist_model || aiSettingsDraft.wishlist_model),
-    );
+    const model = feature === "grapes"
+      ? await requestAiModelAdvice(t("grapes"), "economy", aiSettings?.grape_model || aiSettingsDraft.grape_model)
+      : feature === "notes"
+        ? await requestAiModelAdvice(t("aiNotes"), "economy", aiSettings?.ai_notes_model || aiSettingsDraft.ai_notes_model)
+        : await requestAiModelAdvice(
+          usesValueModel ? t("targetPrice") : t("wishlist"),
+          "balanced",
+          usesValueModel ? (aiSettings?.value_model || aiSettingsDraft.value_model) : (aiSettings?.wishlist_model || aiSettingsDraft.wishlist_model),
+        );
     if (!model) return;
     setGeneratingAi(`wishlist-${feature}`);
     setError("");
@@ -11538,6 +11549,83 @@ export function App() {
                     <span>{t("appellation")}</span>
                     <input value={wishlistDraft.appellation} onChange={(event) => setWishlistDraft({ ...wishlistDraft, appellation: event.target.value })} disabled={!canWriteWine} />
                   </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>{locale === "it" ? "Paese" : "Country"}</span>
+                    <input value={wishlistDraft.country} maxLength={120} onChange={(event) => setWishlistDraft({ ...wishlistDraft, country: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>{locale === "it" ? "Zona vitivinicola" : "Wine-growing area"}</span>
+                    <input value={wishlistDraft.wine_zone} maxLength={120} onChange={(event) => setWishlistDraft({ ...wishlistDraft, wine_zone: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <div className="ownership-editor wishlist-grapes-editor">
+                  <div className="section-heading">
+                    <h3><i className="dashboard-section-icon" aria-hidden="true">{grapesSvgIcon()}</i>{t("grapes")}</h3>
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      aria-label={locale === "it" ? "Aggiungi vitigno" : "Add grape"}
+                      disabled={!canWriteWine || wishlistDraft.grapes.length >= 12}
+                      onClick={() => setWishlistDraft({ ...wishlistDraft, grapes: [...wishlistDraft.grapes, { name: "", percentage_from: "", percentage_to: "" }] })}
+                    >
+                      +
+                    </button>
+                  </div>
+                  {wishlistDraft.grapes.length ? wishlistDraft.grapes.map((grape, index) => (
+                    <div className="grape-edit-row" key={index}>
+                      <input
+                        value={grape.name}
+                        maxLength={120}
+                        onChange={(event) => setWishlistDraft({
+                          ...wishlistDraft,
+                          grapes: wishlistDraft.grapes.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item),
+                        })}
+                        placeholder={t("grapeName")}
+                        aria-label={t("grapeName")}
+                        disabled={!canWriteWine}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={grape.percentage_from}
+                        onChange={(event) => setWishlistDraft({
+                          ...wishlistDraft,
+                          grapes: wishlistDraft.grapes.map((item, itemIndex) => itemIndex === index ? { ...item, percentage_from: event.target.value } : item),
+                        })}
+                        placeholder={t("fromPercent")}
+                        aria-label={t("fromPercent")}
+                        disabled={!canWriteWine}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={grape.percentage_to}
+                        onChange={(event) => setWishlistDraft({
+                          ...wishlistDraft,
+                          grapes: wishlistDraft.grapes.map((item, itemIndex) => itemIndex === index ? { ...item, percentage_to: event.target.value } : item),
+                        })}
+                        placeholder={t("toPercent")}
+                        aria-label={t("toPercent")}
+                        disabled={!canWriteWine}
+                      />
+                      <button
+                        type="button"
+                        className="danger compact"
+                        disabled={!canWriteWine}
+                        onClick={() => setWishlistDraft({ ...wishlistDraft, grapes: wishlistDraft.grapes.filter((_, itemIndex) => itemIndex !== index) })}
+                      >
+                        {t("delete")}
+                      </button>
+                    </div>
+                  )) : (
+                    <p className="empty-state">{locale === "it" ? "Uvaggio non ancora indicato. Aggiungilo a mano, usa “Cerca dati con AI” oppure, dopo il salvataggio, “Uve” nella scheda." : "Blend not set yet. Add it by hand, use “Search wine data with AI” or, once saved, “Grapes” on the wine card."}</p>
+                  )}
                 </div>
                 <div className="form-row wishlist-merchant-row">
                   <label>

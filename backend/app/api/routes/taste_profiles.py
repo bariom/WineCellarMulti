@@ -19,7 +19,10 @@ from app.api.deps import (
     require_write_context,
 )
 from app.api.routes.wines import get_household_wine, user_can_see_wine
-from app.api.routes.wishlist import enrich_external_tasting_sensory_profile
+from app.api.routes.wishlist import (
+    enrich_external_tasting_sensory_profile,
+    get_household_wishlist_item,
+)
 from app.core.config import settings
 from app.core.wine_types import (
     CANONICAL_WINE_TYPES,
@@ -71,6 +74,7 @@ from app.schemas.taste_profile import (
     TasteProfileCollectionResponse,
     TasteProfileEvidence,
     TasteProfileResponse,
+    WishlistSensorySignatureResponse,
 )
 from app.services.openai_client import OpenAIResponse, create_response
 from app.services.shared_wine_data import (
@@ -566,6 +570,46 @@ def wine_sensory_profile(
     if profile is None or profile.generation_status != "available":
         return None
     return sensory_response(profile)
+
+
+# Estimates resting on the wine type alone say nothing about this particular wine.
+WISHLIST_SENSORY_ESTIMATE_SOURCES = frozenset({"grape", "appellation", "region", "hybrid"})
+
+
+@router.get("/wishlist/{item_id}/sensory", response_model=WishlistSensorySignatureResponse | None)
+def wishlist_sensory_profile(
+    item_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> WishlistSensorySignatureResponse | None:
+    """Read the shared signature of a wishlist wine, or estimate it from grapes and origin.
+
+    Read-only and free: it never creates identities, profiles or AI requests.
+    """
+    item = get_household_wishlist_item(db, context, item_id)
+    parts = identity_parts(item)
+    if parts is not None:
+        profile = db.scalar(
+            select(WineSensoryProfile)
+            .join(SharedWineIdentity, WineSensoryProfile.identity_id == SharedWineIdentity.id)
+            .where(SharedWineIdentity.identity_key == wine_identity_key(parts))
+        )
+        if profile is not None and profile.generation_status == "available":
+            return WishlistSensorySignatureResponse(
+                dimensions=profile.dimensions or {},
+                source=profile.source,
+                confidence=profile.confidence,
+                validated=profile.validated,
+            )
+    dimensions, source, confidence = infer_sensory_profile(db, item)
+    if not dimensions or source not in WISHLIST_SENSORY_ESTIMATE_SOURCES:
+        return None
+    return WishlistSensorySignatureResponse(
+        dimensions=dict(dimensions),
+        source=source,
+        confidence=confidence,
+        estimated=True,
+    )
 
 
 @router.get("/wines/{wine_id}/match", response_model=TasteMatchResponse)

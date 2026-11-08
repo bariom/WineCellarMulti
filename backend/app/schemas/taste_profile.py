@@ -26,6 +26,17 @@ class SensoryProfileResponse(BaseModel):
     generated_at: datetime
 
 
+class WishlistSensorySignatureResponse(BaseModel):
+    """The character of a wishlist wine: a shared profile, or an estimate from its grapes."""
+
+    dimensions: dict[str, float | None] = Field(default_factory=dict)
+    source: str
+    confidence: float
+    validated: bool = False
+    generation_status: str = "available"
+    estimated: bool = False
+
+
 class SensoryMetadataEnrichmentResponse(SensoryProfileResponse):
     metadata_updated: list[str] = Field(default_factory=list)
     estimated_cost_usd: str = "0"

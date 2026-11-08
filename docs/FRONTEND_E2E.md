@@ -26,7 +26,8 @@ cover 360, 390, 430 and 1440 px; the reviewed source cards have a 390 px baselin
 
 Wishlist: `npm run test:e2e:wishlist` checks the guided save/offer/planning choices,
 deferred AI generation, purchase quantities, tasting without stock changes,
-read-only access, vintage entry and taste scanning. Responsive checks cover
+read-only access, vintage entry, taste scanning and the wine profile (grape
+blend editing, origin, AI notes and sensory signature). Responsive checks cover
 360, 390, 430 and 1440 px. `wishlist-overview-compact.png` protects the reviewed
 390 px overview; fixed navigation is hidden only for this section capture.
 

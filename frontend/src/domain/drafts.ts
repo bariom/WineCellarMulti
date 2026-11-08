@@ -118,6 +118,13 @@ export function wishlistToDraft(item: WishlistItem): WishlistDraft {
     type: normalizeWineType(item.type),
     region: item.region,
     appellation: item.appellation,
+    country: item.country || "",
+    wine_zone: item.wine_zone || "",
+    grapes: (item.grapes || []).map((grape) => ({
+      name: grape.name || "",
+      percentage_from: grape.percentage_from === undefined || grape.percentage_from === null ? "" : String(grape.percentage_from),
+      percentage_to: grape.percentage_to === undefined || grape.percentage_to === null ? "" : String(grape.percentage_to),
+    })),
     target_price: String(item.target_price),
     offer_price: item.offer_price === null ? "" : String(item.offer_price),
     investment_amount: item.investment_amount === null ? "" : String(item.investment_amount),
@@ -141,6 +148,15 @@ export function wishlistPayload(draft: WishlistDraft) {
     type: normalizeWineType(draft.type),
     region: draft.region.trim(),
     appellation: draft.appellation.trim(),
+    country: draft.country.trim(),
+    wine_zone: draft.wine_zone.trim(),
+    grapes: draft.grapes
+      .map((grape) => ({
+        name: grape.name.trim(),
+        percentage_from: grape.percentage_from === "" ? undefined : Number(grape.percentage_from),
+        percentage_to: grape.percentage_to === "" ? undefined : Number(grape.percentage_to),
+      }))
+      .filter((grape) => grape.name),
     target_price: Number(draft.target_price || 0),
     offer_price: draft.offer_price === "" ? null : Number(draft.offer_price),
     investment_amount: draft.investment_amount === "" ? null : Number(draft.investment_amount),

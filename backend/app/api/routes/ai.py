@@ -4093,7 +4093,7 @@ def wine_market_context(wine: Wine) -> str:
     )
 
 
-def wine_lookup_context(wine: Wine) -> str:
+def wine_lookup_context(wine: Wine | WishlistItem) -> str:
     """Keep web lookups focused on wine identity, not cellar metadata."""
     return "\n".join(
         [
@@ -7047,6 +7047,209 @@ def generate_wishlist_strategy(
     db.refresh(item)
     ai_dates = wishlist_ai_generated_dates(db, context, [item])
     return wishlist_response(item, ai_dates.get(item.id))
+
+
+def wishlist_item_response(db: Session, context: CurrentContext, item: WishlistItem) -> dict:
+    ai_dates = wishlist_ai_generated_dates(db, context, [item])
+    return wishlist_response(item, ai_dates.get(item.id))
+
+
+def reuse_shared_wishlist_feature(
+    db: Session,
+    context: CurrentContext,
+    item: WishlistItem,
+    feature: Literal["grapes", "notes"],
+    *,
+    locale: str,
+) -> bool:
+    """Fill a wishlist wine from facts Vinaris already verified for the same wine."""
+    fact = get_shared_fact(db, item, feature, locale=locale)
+    if fact is None:
+        return False
+    payload = fact.payload or {}
+    if feature == "grapes":
+        grapes = clean_grape_entries(payload.get("grapes"))
+        if not grapes:
+            return False
+        item.grapes = grapes
+        item.grapes_source_url = str(payload.get("source_url") or "")[:500]
+        item.grapes_source_title = str(payload.get("source_title") or "")[:200]
+    else:
+        notes = str(payload.get("ai_notes") or "").strip()[:4000]
+        if not notes:
+            return False
+        item.ai_notes = notes
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wishlist",
+        entity_id=item.id,
+        feature=f"shared_{feature}",
+        model=fact.model or default_model_for_field("ai_notes_model"),
+        summary=f"Reused Vinaris data for {feature}",
+        sources=(fact.sources or [])
+        + [{"kind": "shared_data", "verified_at": fact.verified_at.isoformat()}],
+        provider_source="shared_cache",
+    )
+    db.commit()
+    db.refresh(item)
+    return True
+
+
+@router.post("/wishlist/{item_id}/grapes", response_model=WishlistResponse)
+def generate_wishlist_grapes(
+    item_id: UUID,
+    payload: AiGenerationRequest = AiGenerationRequest(),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> dict:
+    """Research the verified blend of a wishlist wine, as the cellar card does."""
+    item = get_household_wishlist_item(db, context, item_id)
+    if item.grapes and item.grapes_source_url and not payload.force_refresh:
+        return wishlist_item_response(db, context, item)
+    if not payload.force_refresh and reuse_shared_wishlist_feature(
+        db, context, item, "grapes", locale=payload.locale
+    ):
+        return wishlist_item_response(db, context, item)
+    user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = grape_composition_prompt(locale=payload.locale, wine_context=wine_lookup_context(item))
+    schema = {
+        "name": "grape_composition",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "grapes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "name": {"type": "string"},
+                            "percentage_from": {"type": "integer"},
+                            "percentage_to": {"type": "integer"},
+                        },
+                        "required": ["name", "percentage_from", "percentage_to"],
+                    },
+                },
+                "notes": {"type": "string"},
+            },
+            "required": ["grapes", "notes"],
+        },
+    }
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=request_model(payload, user_settings.grape_model),
+        task_type="grape_inference",
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
+        json_schema=schema,
+        web_search=True,
+        web_search_context_size="medium",
+        max_tool_calls=5,
+    )
+    effective_model = effective_response_model(response, user_settings.grape_model)
+    result = parse_json_response(response.text)
+    grapes = result.get("grapes", [])
+    if not isinstance(grapes, list):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid grapes"
+        )
+    grapes = clean_grape_entries(grapes)
+    verified_source = response.web_sources[0] if response.web_sources else {}
+    # Like the cellar card, only a blend backed by a cited page is kept.
+    saved_verified_grapes = bool(grapes and verified_source.get("url"))
+    if saved_verified_grapes:
+        item.grapes = grapes
+        item.grapes_source_url = str(verified_source.get("url") or "")[:500]
+        item.grapes_source_title = str(verified_source.get("title") or "")[:200]
+        publish_shared_fact(
+            db,
+            item,
+            "grapes",
+            {
+                "grapes": item.grapes,
+                "source_url": item.grapes_source_url,
+                "source_title": item.grapes_source_title,
+            },
+            sources=web_search_source_entries(response.web_sources),
+            model=effective_model,
+        )
+    note = str(result.get("notes") or "").strip()
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wishlist",
+        entity_id=item.id,
+        feature="grapes",
+        model=effective_model,
+        reasoning_effort=response.reasoning_effort or "",
+        summary=note
+        or (
+            "Verified grape composition saved"
+            if saved_verified_grapes
+            else "No verified grape composition found"
+        ),
+        sources=web_search_source_entries(response.web_sources),
+        usage=response.usage,
+        provider_source=provider_source,
+    )
+    db.commit()
+    db.refresh(item)
+    return wishlist_item_response(db, context, item)
+
+
+@router.post("/wishlist/{item_id}/notes", response_model=WishlistResponse)
+def generate_wishlist_notes(
+    item_id: UUID,
+    payload: AiGenerationRequest = AiGenerationRequest(),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> dict:
+    """Describe a wishlist wine with the same notes a cellar wine receives."""
+    item = get_household_wishlist_item(db, context, item_id)
+    if not payload.force_refresh and reuse_shared_wishlist_feature(
+        db, context, item, "notes", locale=payload.locale
+    ):
+        return wishlist_item_response(db, context, item)
+    user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = ai_notes_prompt(locale=payload.locale, wine_context=wine_lookup_context(item))
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=request_model(payload, user_settings.ai_notes_model),
+        task_type="ai_notes",
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
+    )
+    effective_model = effective_response_model(response, user_settings.ai_notes_model)
+    item.ai_notes = response.text[:4000]
+    publish_shared_fact(
+        db,
+        item,
+        "notes",
+        {"ai_notes": item.ai_notes},
+        locale=payload.locale,
+        model=effective_model,
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wishlist",
+        entity_id=item.id,
+        feature="ai_notes",
+        model=effective_model,
+        summary=item.ai_notes,
+        reasoning_effort=response.reasoning_effort or "",
+        usage=response.usage,
+        provider_source=provider_source,
+    )
+    db.commit()
+    db.refresh(item)
+    return wishlist_item_response(db, context, item)
 
 
 @router.post("/wishlist/{item_id}/purpose", response_model=WishlistResponse)

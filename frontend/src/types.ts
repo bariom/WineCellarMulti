@@ -532,6 +532,12 @@ export type WishlistItem = {
   type: string;
   region: string;
   appellation: string;
+  country?: string;
+  wine_zone?: string;
+  grapes?: Array<{ name: string; percentage_from?: number; percentage_to?: number }>;
+  grapes_source_url?: string;
+  grapes_source_title?: string;
+  ai_notes?: string;
   target_price: string;
   offer_price: string | null;
   investment_amount: string | null;
@@ -632,6 +638,9 @@ export type WishlistDraft = {
   type: string;
   region: string;
   appellation: string;
+  country: string;
+  wine_zone: string;
+  grapes: Array<{ name: string; percentage_from: string; percentage_to: string }>;
   target_price: string;
   offer_price: string;
   investment_amount: string;

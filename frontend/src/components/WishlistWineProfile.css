@@ -1,0 +1,58 @@
+/* The identity of a wishlist wine: origin, blend and description, styled like the cellar card's blocks. */
+.wishlist-wine-profile {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 68%, var(--accent));
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 86%, transparent), color-mix(in srgb, var(--surface-muted) 90%, transparent));
+  box-shadow:
+    0 12px 28px color-mix(in srgb, var(--collector-depth) 42%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 62%, transparent);
+}
+
+.wishlist-wine-profile > h3 {
+  margin: 0;
+}
+
+.wishlist-wine-profile .detail-grid {
+  margin: 0;
+}
+
+.wishlist-wine-profile .detail-section {
+  gap: 8px;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+.wishlist-wine-profile .detail-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.wishlist-wine-profile .detail-section .empty-state {
+  margin: 0;
+}
+
+.wishlist-wine-profile a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.wishlist-wine-profile .notes-grid {
+  margin: 0;
+}
+
+.wine-sensory-estimated-note {
+  font-style: italic;
+}

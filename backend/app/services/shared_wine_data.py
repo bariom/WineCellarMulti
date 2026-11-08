@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AiAuditLog, SharedWineFact, SharedWineIdentity, Wine
+from app.models import AiAuditLog, SharedWineFact, SharedWineIdentity, Wine, WishlistItem
 from app.services.critic_scores import score_has_weak_evidence
 
 SHARED_FEATURES = ("notes", "drink_window", "value", "grapes", "scores")
@@ -83,7 +83,7 @@ def resolve_shared_identity(db: Session, wine: Any, *, create: bool) -> SharedWi
     return identity
 
 
-def fact_scope(wine: Wine, feature: str, locale: str) -> tuple[str, str, str]:
+def fact_scope(wine: Wine | WishlistItem, feature: str, locale: str) -> tuple[str, str, str]:
     return (
         locale if feature in LOCALE_FEATURES else "",
         normalize_format(wine.format) if feature in FORMAT_FEATURES else "",
@@ -92,7 +92,12 @@ def fact_scope(wine: Wine, feature: str, locale: str) -> tuple[str, str, str]:
 
 
 def get_shared_fact(
-    db: Session, wine: Wine, feature: str, *, locale: str = "it", market_country: str = ""
+    db: Session,
+    wine: Wine | WishlistItem,
+    feature: str,
+    *,
+    locale: str = "it",
+    market_country: str = "",
 ) -> SharedWineFact | None:
     if feature not in SHARED_FEATURES:
         return None
@@ -113,9 +118,13 @@ def get_shared_fact(
     )
     if fact is None:
         return None
-    if feature == "value" and not market_country and not any(
-        isinstance(source, dict) and source.get("kind") == "valuation_market"
-        for source in (fact.sources or [])
+    if (
+        feature == "value"
+        and not market_country
+        and not any(
+            isinstance(source, dict) and source.get("kind") == "valuation_market"
+            for source in (fact.sources or [])
+        )
     ):
         # Legacy estimates used a fixed Swiss search location; they are not international.
         return None
@@ -130,7 +139,7 @@ def get_shared_fact(
 
 def publish_shared_fact(
     db: Session,
-    wine: Wine,
+    wine: Wine | WishlistItem,
     feature: str,
     payload: dict[str, Any],
     *,
@@ -217,9 +226,7 @@ def apply_shared_fact(wine: Wine, fact: SharedWineFact, *, only_missing: bool) -
             changed = True
     elif feature == "drink_window" and (
         not only_missing
-        or not any(
-            (wine.drink_from, wine.drink_peak_from, wine.drink_peak_to, wine.drink_to)
-        )
+        or not any((wine.drink_from, wine.drink_peak_from, wine.drink_peak_to, wine.drink_to))
     ):
         try:
             values = [
@@ -348,11 +355,7 @@ def promote_existing_verified_wine_data(
 
     def evidence(candidate: Wine, *features: str) -> AiAuditLog | None:
         return next(
-            (
-                audit
-                for audit in audits_by_wine.get(candidate.id, [])
-                if audit.feature in features
-            ),
+            (audit for audit in audits_by_wine.get(candidate.id, []) if audit.feature in features),
             None,
         )
 
@@ -384,9 +387,7 @@ def promote_existing_verified_wine_data(
         window_is_audited = bool(
             window_audit
             and (
-                window_summary.startswith(
-                    f"{candidate.drink_from}-{candidate.drink_to}: "
-                )
+                window_summary.startswith(f"{candidate.drink_from}-{candidate.drink_to}: ")
                 or (
                     window_audit.feature == "wine_full_enrichment"
                     and f"drink {candidate.drink_from}-{candidate.drink_to}" in window_summary
