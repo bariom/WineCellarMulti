@@ -14,14 +14,14 @@ test("Italian guide exposes crawlable SEO metadata and a clear conversion path",
     "https://vinaris.app/en/guides/which-wine-to-drink-today/",
   );
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Quale vino bere oggi dalla tua cantina?");
-  await expect(page.getByRole("link", { name: "Crea la tua cantina" }).first()).toHaveAttribute("href", "/#access");
+  await expect(page.getByRole("link", { name: "Crea la tua cantina" }).first()).toHaveAttribute("href", "/?signup=1&lang=it");
   await expect(page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).resolves.toBe(true);
 });
 
 test("English guide index links to distinct English article URLs", async ({ page }) => {
   await page.goto("/en/guides/");
 
-  await expect(page).toHaveTitle(/Guides for organising and enjoying your wine cellar/);
+  await expect(page).toHaveTitle(/Wine cellar guides for collectors/);
   await expect(page.getByRole("link", { name: "Read the guide" }).first()).toHaveAttribute(
     "href",
     "/en/guides/which-wine-to-drink-today/",

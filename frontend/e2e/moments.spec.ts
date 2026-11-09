@@ -297,10 +297,15 @@ test("portrait memories keep search, captions and navigation visible without ver
       const vertical = await book.evaluate(element => ({ scroll: element.scrollHeight, client: element.clientHeight }));
       expect(vertical.scroll, `${viewport.width}px, filtered=${filtered}, client=${vertical.client}`).toBeLessThanOrEqual(vertical.client);
       expect(await book.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
-      const navigation = (await book.getByRole("navigation", { name: "Sfoglia ricordi" }).boundingBox())!;
-      const memory = (await book.locator(".memory-book-page").boundingBox())!;
-      expect(navigation.y).toBeGreaterThanOrEqual(memory.y + memory.height);
-      expect(navigation.y + navigation.height).toBeLessThanOrEqual(viewport.height);
+      // The memory page remounts after a search or a reset: measure again until both boxes exist.
+      await expect(async () => {
+        const navigation = await book.getByRole("navigation", { name: "Sfoglia ricordi" }).boundingBox();
+        const memory = await book.locator(".memory-book-page").boundingBox();
+        expect(navigation, "navigation box").not.toBeNull();
+        expect(memory, "memory page box").not.toBeNull();
+        expect(navigation!.y).toBeGreaterThanOrEqual(memory!.y + memory!.height);
+        expect(navigation!.y + navigation!.height).toBeLessThanOrEqual(viewport.height);
+      }).toPass({ timeout: 5000 });
       if (!filtered && [390, 777].includes(viewport.width)) await page.screenshot({ path: testInfo.outputPath(`portrait-memory-${viewport.width}-review.png`) });
       if (filtered) {
         await book.getByRole("button", { name: "Mostra tutti i ricordi" }).click();
