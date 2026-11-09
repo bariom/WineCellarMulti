@@ -738,8 +738,10 @@ def import_storage_destination(
 # CellarTracker writes these when a bottle has no real location or bin.
 CELLARTRACKER_EMPTY_STORAGE = {"", "unknown", "none", "n/a", "-"}
 
-# One wine from the export, the bottles per (location, bin) it holds.
-CellarTrackerWine = tuple[dict[str, Any], dict[tuple[str, str], int]]
+# One imported wine (the Wine fields plus its tags) and the bottles it holds
+# per (location name, bin name). Shared by every file import that creates wines.
+ImportedWine = tuple[dict[str, Any], dict[tuple[str, str], int]]
+CellarTrackerWine = ImportedWine
 
 
 def cellartracker_storage_name(value: Any) -> str:
@@ -1634,20 +1636,22 @@ def preview_cellartracker_import(
     )
 
 
-@router.post("/cellartracker", response_model=LegacyImportResult)
-def import_cellartracker(
-    payload: CellarTrackerImportPayload,
-    mode: str = Query(default="skip_duplicates", pattern="^(add_all|skip_duplicates|update_existing|replace_all)$"),
-    db: Session = Depends(get_db),
-    context: CurrentContext = Depends(require_admin_context),
-) -> LegacyImportResult:
-    rows = cellartracker_rows(payload)
-    result = LegacyImportResult(wines_imported=0, wishlist_imported=0)
-    if mode == "replace_all":
-        result.wines_deleted, result.wishlist_deleted = clear_household_cellar(db, context)
-        db.flush()
+def persist_imported_wines(
+    db: Session,
+    context: CurrentContext,
+    wines: list[ImportedWine],
+    mode: str,
+    result: LegacyImportResult,
+) -> None:
+    """Write imported wines into the active household's cellar.
+
+    `mode` follows the import modes: skip_duplicates leaves existing wines alone,
+    update_existing overwrites their fields, add_all and replace_all always add.
+    Each wine keeps the free-tier label limit, its tags, a catalog proposal, its
+    locations and bins, and an imported value point. The caller commits.
+    """
     wine_keys = existing_wine_keys(db, context)
-    for data, allocations in cellartracker_wines(rows, context):
+    for data, allocations in wines:
         key = wine_duplicate_key(data)
         existing = wine_keys.get(key)
         if mode == "skip_duplicates" and existing is not None:
@@ -1670,7 +1674,7 @@ def import_cellartracker(
         db.flush()
         set_user_wine_tags(db, context, wine, data["tags"])
         propose_wine_catalog_entry(db, wine, source="cellar_import")
-        # Locations from the export replace the wine's current ones; an export
+        # Locations from the file replace the wine's current ones; a file
         # without locations leaves the positions already set in Vinaris alone.
         if allocations:
             db.query(WineStorageAllocation).filter(WineStorageAllocation.wine_id == wine.id).delete(
@@ -1683,6 +1687,21 @@ def import_cellartracker(
         sync_storage_to_wine_quantity(db, wine)
         if wine.current_value is not None:
             db.add(WineValueHistory(wine_id=wine.id, value=wine.current_value, currency=wine.currency, source="imported"))
+
+
+@router.post("/cellartracker", response_model=LegacyImportResult)
+def import_cellartracker(
+    payload: CellarTrackerImportPayload,
+    mode: str = Query(default="skip_duplicates", pattern="^(add_all|skip_duplicates|update_existing|replace_all)$"),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_admin_context),
+) -> LegacyImportResult:
+    rows = cellartracker_rows(payload)
+    result = LegacyImportResult(wines_imported=0, wishlist_imported=0)
+    if mode == "replace_all":
+        result.wines_deleted, result.wishlist_deleted = clear_household_cellar(db, context)
+        db.flush()
+    persist_imported_wines(db, context, cellartracker_wines(rows, context), mode, result)
     db.commit()
     return result
 
