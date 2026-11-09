@@ -435,3 +435,66 @@ def split_position(value: str, separator: str | None) -> tuple[str, str]:
         location, _, slot = text.partition(separator)
         return location.strip()[:80], slot.strip()[:80]
     return text[:80], ""
+
+
+# --- ratings, yes/no and drinking windows -----------------------------------
+
+# Verbal judgements on the Vinaris 0-6 scale (decided 9.11.2026); the user can
+# change them in the preview, and the words stay in the tasting note.
+VERBAL_RATINGS = {
+    "discreto": 3.0,
+    "buono": 4.0,
+    "molto buono": 5.0,
+    "ottimo": 5.5,
+    "eccellente": 6.0,
+    "fair": 3.0,
+    "good": 4.0,
+    "very good": 5.0,
+    "excellent": 5.5,
+    "great": 5.5,
+    "outstanding": 6.0,
+}
+
+
+def parse_verbal_rating(value: Any) -> float | None:
+    return VERBAL_RATINGS.get(normalize_label(value)) if isinstance(value, str) else None
+
+
+YES_WORDS = {"si", "sì", "yes", "y", "oui", "ja", "x", "ricomprare", "da ricomprare", "ok"}
+NO_WORDS = {"no", "n", "non", "nein"}
+MAYBE_WORDS = {"forse", "maybe", "peut etre", "vielleicht", "boh"}
+
+
+def parse_yes_no(value: Any) -> bool | None:
+    """True, False, or None for "maybe" and anything else."""
+    if isinstance(value, bool):
+        return value
+    text = normalize_label(value)
+    if text in YES_WORDS:
+        return True
+    if text in NO_WORDS:
+        return False
+    return None
+
+
+def is_yes_no_word(value: Any) -> bool:
+    return parse_yes_no(value) is not None or normalize_label(value) in MAYBE_WORDS
+
+
+WINDOW_YEARS = re.compile(r"(?:19|20)\d{2}")
+
+
+def parse_drink_window(value: Any) -> tuple[int | None, int | None]:
+    """'2025-2030', '2025 / 2030', 'dal 2027', 'entro 2030', 2028 -> (from, to)."""
+    if isinstance(value, int | float) and not isinstance(value, bool):
+        year = parse_year(value)
+        return year, None
+    text = normalize_label(value)
+    years = [int(year) for year in WINDOW_YEARS.findall(text)]
+    if len(years) >= 2:
+        return min(years[:2]), max(years[:2])
+    if len(years) == 1:
+        if re.search(r"\b(entro|by|until|bis|avant|fino|to)\b", text):
+            return None, years[0]
+        return years[0], None
+    return None, None

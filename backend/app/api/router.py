@@ -25,6 +25,7 @@ from app.api.routes import (
     sensory_agent,
     sensory_references,
     session,
+    spreadsheet_imports,
     storage,
     support,
     tags,
@@ -46,6 +47,7 @@ api_router.include_router(ai.router, tags=["ai"])
 api_router.include_router(households.router, tags=["household"])
 api_router.include_router(imports.router, tags=["imports"])
 api_router.include_router(purchase_imports.router, tags=["imports"])
+api_router.include_router(spreadsheet_imports.router, tags=["imports"])
 api_router.include_router(bottle_photos.router, tags=["imports"])
 api_router.include_router(intelligence.router, tags=["intelligence"])
 api_router.include_router(inventory.router, tags=["inventory"])

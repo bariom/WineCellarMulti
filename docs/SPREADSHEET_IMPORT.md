@@ -113,15 +113,16 @@ Nuovo pacchetto `backend/app/services/spreadsheet_import/`:
 | Modulo | Compito |
 |---|---|
 | `reader.py` | Porta ogni formato nello stesso modello di cartella (fogli, celle con valore, formula sì/no, formato numerico, celle unite, tabelle, riquadri bloccati, convalide). `.xlsx`/`.xlsm` con `openpyxl`, aperto due volte: `data_only=True` per i valori salvati e senza per sapere quali celle sono formule. `.xls` con `xlrd` (valori, formati e celle unite; niente tabelle). `.ods` con `odfpy` (valori e celle unite). `.csv` come un foglio senza formati, con rilevamento di separatore e codifica. |
-| `tables.py` | Trova la tabella in ogni foglio: tabella Excel, poi riquadri bloccati, poi un punteggio per riga (celle testuali, celle piene, tipi coerenti sotto). Scarta titoli, righe vuote e totali. Raggruppa i fogli con intestazioni equivalenti. |
+| `tables.py` | Trova le tabelle in ogni foglio: tabella Excel, poi riquadri bloccati, poi un punteggio per riga (celle testuali, celle piene, tipi coerenti sotto). Scarta titoli, righe vuote e totali. Gestisce l'intestazione su due righe (gruppo unito sopra le sottovoci: "Prezzo" sopra "Acquisto \| Attuale"), più tabelle nello stesso foglio (affiancate, separate da colonne vuote, o impilate, separate da una riga vuota) e le righe di sezione unite dentro i dati ("Rossi", "Scaffale 2"), che diventano la colonna "Sezione". Raggruppa le tabelle con intestazioni equivalenti. |
 | `sheet_kind.py` | Propone il tipo di foglio dalle colonne riconosciute: data in testa con punteggio o note di degustazione = diario; budget o prezzo obiettivo = wishlist; formule su altri fogli e poche righe = riepilogo; entrata/uscita = registro (fase 2). |
 | `columns.py` | Dizionario dei sinonimi IT/EN/FR/DE per campo, più un profilo dei valori per colonna (anni plausibili, numeri, date, valute, tipi di vino, valori ripetuti, testo libero). Il punteggio finale combina nome e valori; un nome che porta a un campo smentito dai valori perde. |
 | `names.py` | Separa produttore, nome e annata (vedi sotto). |
 | `values.py` | Normalizza numeri (`1'250.–`, `1.250,00`, `24.9`), date (Excel, ISO, `dd.mm.yyyy`, `dd/mm/yy`, americane), valute, tipi (rosso/red/rouge/rot, bollicine/sparkling/Champagne, rosé), formati (750, 0.75, 75cl, magnum), quantità a parole ("3 bottles"), ubicazioni e bin. |
+| `analysis.py` | Mette insieme tabelle, colonne e tipo di foglio nella risposta di `analyze`: campo proposto con confidenza ed esempi, valuta, domande ("$", ordine delle date, giudizi a parole, divisione dell'ubicazione), avvisi e impronta della struttura. |
 | `plan.py` | Trasforma file + mappatura confermata in un piano d'import tipizzato: vini con allocazioni, voci di wishlist, degustazioni, avvisi, totali. |
 | `persist.py` | Scrive il piano riusando quello che c'è già, vedi sotto. |
 
-Rotte in `backend/app/api/routes/imports.py`, sotto `/api/v1/imports/spreadsheet`:
+Rotte in `backend/app/api/routes/spreadsheet_imports.py` (file a parte, `imports.py` è già molto lungo), sotto `/api/v1/imports/spreadsheet`:
 
 | Rotta | Input | Output |
 |---|---|---|
@@ -252,9 +253,9 @@ funzioni AI.
 ## Ordine di lavoro
 
 1. Estrarre `persist_imported_wines` dall'import CellarTracker, a comportamento
-   invariato.
-2. `reader.py`, `tables.py`, `values.py` con le fixture dei dieci file.
-3. `columns.py` e `sheet_kind.py`; rotta `analyze`.
+   invariato. **Fatto.**
+2. `reader.py`, `tables.py`, `values.py` con le fixture dei dieci file. **Fatto.**
+3. `columns.py` e `sheet_kind.py`; rotta `analyze`. **Fatto**, con intestazioni su due righe e più tabelle per foglio.
 4. `names.py` con catalogo; rotte `preview` e import; migrazione delle mappature
    salvate.
 5. Frontend del wizard.
