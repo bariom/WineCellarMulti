@@ -176,9 +176,9 @@ function FeatureVisual({ id, story, locale }: { id: StoryFeatureId; story: Landi
   </div>;
   if (id === "memories") {
     const photos = ["/images/home-tasting-v1.jpg", "/images/home-evening-tasting-v1.jpg", "/images/home-vineyard-v1.jpg"];
-    return <div className="story-visual story-memories" aria-hidden="true">
+    return <div className="story-visual story-memories">
       {v.memories.map((memory, index) => <div className={`story-polaroid is-${index + 1}`} key={memory.title}>
-        <img src={photos[index]} alt="" loading="lazy" decoding="async" />
+        <img src={photos[index]} alt={memory.alt} loading="lazy" decoding="async" />
         <p>{memory.title}</p><small>{memory.meta}</small>
       </div>)}
     </div>;

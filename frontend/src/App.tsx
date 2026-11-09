@@ -2676,6 +2676,18 @@ export function App() {
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
   }, [session?.authenticated]);
 
+  // The static pricing and guide pages link to /?signup=1: open the sign-up
+  // panel for signed-out visitors, then drop the parameter from the address.
+  useEffect(() => {
+    if (!session || session.authenticated) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("signup")) return;
+    params.delete("signup");
+    const rest = params.toString();
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
+    openAuthPanel("register");
+  }, [session?.authenticated, Boolean(session)]);
+
   useEffect(() => {
     const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const applyTheme = () => {

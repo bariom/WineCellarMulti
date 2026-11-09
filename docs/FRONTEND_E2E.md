@@ -100,6 +100,7 @@ light/dark themes and desktop in the private-cellar theme.
 | Installed PWA manifest orientation and smartphone landscape navigation | `npm run test:e2e:pwa-landscape` |
 | Wine Pulse desktop width, IT/EN reading tools, responsive layout, pagination and errors | `npm run test:e2e:wine-pulse` |
 | Public landing, registration, consent, email-confirmation entry and demo (IT/EN, mobile/desktop) | `npx playwright test e2e/landing.spec.ts` |
+| Static pricing pages (/pricing/, /it/prezzi/): prices, billing toggle, comparison table, 360-1440px layout; the /?signup=1 sign-up link | `npx playwright test e2e/pricing-page.spec.ts` |
 | Wine Detail, sensory signature, detail geometry and baseline | `npm run test:e2e:wine-detail` |
 | Admin shared catalog metadata editing and global catalog recovery | `npx playwright test e2e/admin-catalog-metadata.spec.ts` |
 | AI analysis animation, IT/EN, mobile/desktop/landscape geometry, reduced motion, batch progress and error dismissal | `npx playwright test e2e/ai-generation.spec.ts` |

@@ -27,7 +27,7 @@ export type LandingStory = {
     scan: { shop: string; lines: string[]; total: string; rows: Array<{ name: string; count: string; price: string; note?: string }>; confirm: string };
     sommelier: { question: string; label: string; answer: string; picks: Array<{ name: string; place: string; window: string; tone: string }> };
     taste: { axes: [string, string, string, string, string, string]; title: string; matches: Array<{ name: string; score: string }> };
-    memories: Array<{ title: string; meta: string }>;
+    memories: Array<{ title: string; meta: string; alt: string }>;
     ownership: { title: string; owners: string; people: Array<{ initials: string; name: string; bottles: string; share: number; tone: string }> };
     shelf: { label: string; caption: string; picks: Array<{ name: string; meta: string; price: string; note?: string }>; alt: string };
     restaurantAlt: string;
@@ -43,7 +43,7 @@ const SPARKLING = "#b39550";
 export const landingStory: Record<Locale, LandingStory> = {
   it: {
     hero: {
-      eyebrow: "L’app per i vini che possiedi",
+      eyebrow: "Per collezionisti di vino · L’app per i vini che possiedi",
       titleLines: ["Sai cosa hai.", "Sai cosa aprire.", "Sai quanto vale."],
       title: "Sai cosa hai. Sai cosa aprire. Sai quanto vale.",
       lead: "Vinaris è la tua cantina digitale: ogni bottiglia con la sua finestra di beva, il suo valore e la sua storia. Dal computer o dal telefono, senza installare nulla.",
@@ -63,8 +63,8 @@ export const landingStory: Record<Locale, LandingStory> = {
       title: "Quattro cose che una cantina chiede ogni giorno.",
       items: [
         { title: "Ritrova", body: "Ogni bottiglia con annata, formato, quantità e posizione esatta. Anche quando sono centinaia.", chip: "Cantina -1 · Ripiano 2" },
-        { title: "Apri al momento giusto", body: "La finestra di beva dice quando aspettare, quando è il momento ideale e quando non rimandare.", chip: "Ideale fino al 2028" },
-        { title: "Segui il valore", body: "Prezzo pagato, valore attuale e andamento nel tempo, per vino e per l’intera collezione.", chip: "CHF 140 → CHF 180" },
+        { title: "Apri al momento giusto", body: "Nessuna bottiglia dimenticata in fondo alla cantina: la finestra di beva dice quando aspettare, quando è il momento ideale e quando non rimandare.", chip: "Ideale fino al 2028" },
+        { title: "Segui il valore", body: "Prezzo pagato, valore attuale e andamento nel tempo, per vino e per l’intera collezione. Le stime partono dai prezzi attuali delle enoteche nel mercato che scegli, con il link a ogni fonte.", chip: "CHF 140 → CHF 180" },
         { title: "Ricorda", body: "Note, voti, occasioni e foto della serata restano anche quando la bottiglia è finita.", chip: "Una cena, un vino, una storia" },
       ],
     },
@@ -98,10 +98,10 @@ export const landingStory: Record<Locale, LandingStory> = {
       features: [
         { id: "scan", tag: "Dalla fattura alla cantina", title: "Fotografi lo scontrino. Le bottiglie entrano da sole.", body: "Scatta una foto a fattura o scontrino, oppure carica un PDF: Vinaris riconosce vini, annate, quantità e prezzi. Tu controlli e confermi.", points: ["Ogni acquisto resta collegato al documento originale", "Lotti e prezzi separati per ogni acquisto", "Riconosce i vini che hai già in cantina"] },
         { id: "sommelier", tag: "Sommelier della tua cantina", title: "Un consiglio che parte dai vini che hai già.", body: "Descrivi il piatto o l’occasione. Il Sommelier sceglie tra le tue bottiglie quelle nel momento giusto, e ti avvisa quando una merita di essere aperta.", points: ["Abbinamenti solo con vini presenti in cantina", "Tiene conto di maturità e preferenze", "Al ristorante, ti aiuta a scegliere dalla carta"] },
+        { id: "ownership", tag: "Una cantina, più proprietari", title: "Le bottiglie condivise, finalmente chiare.", body: "Una cassa comprata in tre, una cantina di famiglia, un acquisto tra amici: Vinaris tiene conto delle quote di ognuno e delle bottiglie che spettano a chi.", points: ["Quote in percentuale per ogni vino", "Inviti con accesso completo o in sola lettura", "Valore e bottiglie calcolati sulla tua parte"] },
         { id: "shelf", tag: "In enoteca, con Vinaris Riserva", title: "Davanti allo scaffale, una foto basta.", body: "Fotografa la parete di bottiglie: Vinaris legge le etichette e ti dice quale comprare per il tuo gusto, il tuo budget e la tua cantina. Le scelte migliori te le indica direttamente sulla foto.", points: ["Prima, seconda e terza scelta cerchiate sulla foto", "Budget, tipologia e occasione: i limiti li decidi tu", "Evita i vini che hai già, o riempie i buchi della cantina"] },
         { id: "taste", tag: "Il tuo gusto, misurato", title: "Vinaris impara cosa ti piace davvero.", body: "Dalle tue valutazioni nasce un’impronta sensoriale personale: corpo, acidità, tannini, aromi. E ogni vino ti dice quanto è in sintonia con te.", points: ["Profilo che si affina bevuta dopo bevuta", "Le regioni e le uve che ami, in evidenza", "Nuove scoperte coerenti con il tuo palato"] },
         { id: "memories", tag: "Ricordi, non solo note", title: "Il vino finisce. La serata resta.", body: "Aggiungi una foto alla bevuta: persone, luogo, occasione. I tuoi brindisi diventano un album da sfogliare, su un tavolo di polaroid o su una mappa del mondo.", points: ["Ogni ricordo collegato al vino e alla sua scheda", "Cerca per mese o per occasione", "Ritrovi le serate anche su una mappa dei luoghi"] },
-        { id: "ownership", tag: "Una cantina, più proprietari", title: "Le bottiglie condivise, finalmente chiare.", body: "Una cassa comprata in tre, una cantina di famiglia, un acquisto tra amici: Vinaris tiene conto delle quote di ognuno e delle bottiglie che spettano a chi.", points: ["Quote in percentuale per ogni vino", "Inviti con accesso completo o in sola lettura", "Valore e bottiglie calcolati sulla tua parte"] },
         { id: "restaurant", tag: "Anche per il ristorante", title: "Dalla cantina privata alla carta dei vini.", body: "La stessa Vinaris, in modalità ristorante: carta dei vini pubblica, vendite a bottiglia e al calice, margini e scorte da riordinare, in un unico spazio.", points: ["Carta dei vini sempre aggiornata, da condividere con un link", "Ricavi, costi e margini per periodo", "Avvisi sulle referenze in esaurimento"] },
       ],
       moreTitle: "E ancora",
@@ -137,9 +137,9 @@ export const landingStory: Record<Locale, LandingStory> = {
         matches: [{ name: "Chablis 1er Cru", score: "92% in sintonia" }, { name: "Nebbiolo Langhe", score: "86% in sintonia" }, { name: "Amarone", score: "54% in sintonia" }],
       },
       memories: [
-        { title: "Il compleanno di Marta", meta: "Barolo Riserva 2016 · marzo" },
-        { title: "Una sera sul lago", meta: "Chablis 1er Cru · luglio" },
-        { title: "In cantina dal produttore", meta: "Langhe · settembre" },
+        { title: "Il compleanno di Marta", meta: "Barolo Riserva 2016 · marzo", alt: "Foto ricordo: un calice di rosso e una bottiglia sul davanzale di pietra, con le vigne al tramonto" },
+        { title: "Una sera sul lago", meta: "Chablis 1er Cru · luglio", alt: "Foto ricordo: due calici e una bottiglia su una botte in cantina, alla luce di una lanterna" },
+        { title: "In cantina dal produttore", meta: "Langhe · settembre", alt: "Foto ricordo: colline di vigne e una casa di pietra al tramonto" },
       ],
       ownership: {
         title: "Sassicaia 2019 · cassa da 6", owners: "3 proprietari",
@@ -163,7 +163,7 @@ export const landingStory: Record<Locale, LandingStory> = {
   },
   en: {
     hero: {
-      eyebrow: "The app for the wines you own",
+      eyebrow: "For wine collectors · The app for the wines you own",
       titleLines: ["Know what you have.", "Know what to open.", "Know what it’s worth."],
       title: "Know what you have. Know what to open. Know what it’s worth.",
       lead: "Vinaris is your digital cellar: every bottle with its drinking window, its value and its story. On your computer or phone, with nothing to install.",
@@ -183,8 +183,8 @@ export const landingStory: Record<Locale, LandingStory> = {
       title: "Four things a cellar asks of you every day.",
       items: [
         { title: "Find", body: "Every bottle with vintage, format, quantity and exact location. Even when there are hundreds.", chip: "Cellar -1 · Rack 2" },
-        { title: "Open at the right time", body: "The drinking window tells you when to wait, when it is ideal and when not to put it off.", chip: "Ideal until 2028" },
-        { title: "Follow the value", body: "Price paid, current value and its trend over time, per wine and for the whole collection.", chip: "CHF 140 → CHF 180" },
+        { title: "Open at the right time", body: "No more bottles forgotten at the back of the cellar: the drinking window tells you when to wait, when it is ideal and when not to put it off.", chip: "Ideal until 2028" },
+        { title: "Follow the value", body: "Price paid, current value and its trend over time, per wine and for the whole collection. Estimates start from current wine-shop prices in the market you choose, with a link to each source.", chip: "CHF 140 → CHF 180" },
         { title: "Remember", body: "Notes, scores, occasions and photos of the evening stay even after the bottle is gone.", chip: "One dinner, one wine, one story" },
       ],
     },
@@ -218,10 +218,10 @@ export const landingStory: Record<Locale, LandingStory> = {
       features: [
         { id: "scan", tag: "From invoice to cellar", title: "Photograph the receipt. The bottles add themselves.", body: "Take a photo of an invoice or receipt, or upload a PDF: Vinaris recognises wines, vintages, quantities and prices. You check and confirm.", points: ["Every purchase stays linked to its original document", "Separate lots and prices for each purchase", "Recognises the wines already in your cellar"] },
         { id: "sommelier", tag: "Your cellar’s sommelier", title: "Advice that starts from the wines you already own.", body: "Describe the dish or the occasion. The Sommelier picks the bottles in your cellar that are at the right moment, and tells you when one deserves to be opened.", points: ["Pairings only with wines in your cellar", "Takes maturity and preferences into account", "At a restaurant, helps you choose from the list"] },
+        { id: "ownership", tag: "One cellar, several owners", title: "Shared bottles, finally clear.", body: "A case bought by three, a family cellar, a purchase among friends: Vinaris keeps track of everyone’s share and which bottles belong to whom.", points: ["Percentage shares for every wine", "Invitations with full or read-only access", "Value and bottles calculated on your share"] },
         { id: "shelf", tag: "In the wine shop, with Vinaris Riserva", title: "In front of the shelf, one photo is enough.", body: "Photograph the wall of bottles: Vinaris reads the labels and tells you which one to buy for your taste, your budget and your cellar. It marks the best choices right on the photo.", points: ["First, second and third choice circled on the photo", "Budget, type and occasion: you set the limits", "Skips wines you already own, or fills the gaps in your cellar"] },
         { id: "taste", tag: "Your taste, measured", title: "Vinaris learns what you really like.", body: "Your ratings build a personal sensory signature: body, acidity, tannins, aromas. And every wine shows how well it matches you.", points: ["A profile that sharpens with every bottle", "The regions and grapes you love, highlighted", "New discoveries that suit your palate"] },
         { id: "memories", tag: "Memories, not just notes", title: "The wine ends. The evening stays.", body: "Add a photo to a tasting: people, place, occasion. Your toasts become an album to browse, on a table of polaroids or on a world map.", points: ["Every memory linked to the wine and its record", "Search by month or occasion", "Find your evenings on a map of places"] },
-        { id: "ownership", tag: "One cellar, several owners", title: "Shared bottles, finally clear.", body: "A case bought by three, a family cellar, a purchase among friends: Vinaris keeps track of everyone’s share and which bottles belong to whom.", points: ["Percentage shares for every wine", "Invitations with full or read-only access", "Value and bottles calculated on your share"] },
         { id: "restaurant", tag: "For restaurants too", title: "From private cellar to wine list.", body: "The same Vinaris in restaurant mode: a public wine list, sales by the bottle and by the glass, margins and stock to reorder, in one place.", points: ["An always up-to-date wine list to share with a link", "Revenue, costs and margins by period", "Alerts on references running low"] },
       ],
       moreTitle: "And more",
@@ -257,9 +257,9 @@ export const landingStory: Record<Locale, LandingStory> = {
         matches: [{ name: "Chablis 1er Cru", score: "92% match" }, { name: "Nebbiolo Langhe", score: "86% match" }, { name: "Amarone", score: "54% match" }],
       },
       memories: [
-        { title: "Marta’s birthday", meta: "Barolo Riserva 2016 · March" },
-        { title: "An evening by the lake", meta: "Chablis 1er Cru · July" },
-        { title: "At the producer’s cellar", meta: "Langhe · September" },
+        { title: "Marta’s birthday", meta: "Barolo Riserva 2016 · March", alt: "Tasting memory photo: a glass of red and a bottle on a stone windowsill, vineyards at sunset behind" },
+        { title: "An evening by the lake", meta: "Chablis 1er Cru · July", alt: "Tasting memory photo: two glasses and a bottle on a barrel in a candle-lit cellar" },
+        { title: "At the producer’s cellar", meta: "Langhe · September", alt: "Tasting memory photo: terraced vineyards and a stone farmhouse at sunset" },
       ],
       ownership: {
         title: "Sassicaia 2019 · case of 6", owners: "3 owners",

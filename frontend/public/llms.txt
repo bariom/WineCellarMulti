@@ -1,0 +1,34 @@
+# Vinaris
+
+> Vinaris is a private digital wine cellar for collectors, used in the browser on computer or phone with nothing to install. It tracks every bottle you own with its location, drinking window, value and tasting history, and its AI Sommelier suggests only bottles that are already in your cellar. Italian and English. Prices in Swiss francs (CHF).
+
+## Product
+
+- [Home](https://vinaris.app/): what Vinaris does: find bottles, open them at the right time, follow their value, keep tasting memories.
+- [Pricing (EN)](https://vinaris.app/pricing/): Tasting is free for up to 15 active labels; Reserve is CHF 6 a month or CHF 60 a year; AI features run on a prepaid AI Pack.
+- [Prezzi (IT)](https://vinaris.app/it/prezzi/): the same pricing page in Italian.
+- [Demo](https://vinaris.app/): "Explore the demo" on the home page opens a populated cellar without an account.
+- [Help](https://vinaris.app/help): how to use the app.
+
+## Guides (EN)
+
+- [Guides index](https://vinaris.app/en/guides/)
+- [Which wine to drink from your cellar today](https://vinaris.app/en/guides/which-wine-to-drink-today/)
+- [Wine drinking windows](https://vinaris.app/en/guides/wine-drinking-windows/)
+- [How to organise a wine cellar](https://vinaris.app/en/guides/how-to-organise-a-wine-cellar/)
+- [Wine cellar spreadsheet or app?](https://vinaris.app/en/guides/wine-cellar-spreadsheet-vs-app/)
+
+## Guide (IT)
+
+- [Indice delle guide](https://vinaris.app/it/guide/)
+- [Quale vino bere oggi](https://vinaris.app/it/guide/quale-vino-bere-oggi/)
+- [Finestre di beva del vino](https://vinaris.app/it/guide/finestre-di-beva-vino/)
+- [Come organizzare la cantina](https://vinaris.app/it/guide/come-organizzare-cantina-vino/)
+- [Excel o app per la cantina?](https://vinaris.app/it/guide/excel-o-app-per-cantina-vino/)
+
+## Facts
+
+- Import from a CellarTracker CSV or a Vinaris backup; export at any time.
+- Value estimates come from a web search of current wine-shop prices in the market the user chooses, with a link to each source.
+- AI features run on OpenAI models; payments are handled by Stripe.
+- Shared cellars: invite people with full or read-only access and track percentage ownership per wine.

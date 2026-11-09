@@ -122,8 +122,14 @@ for (const locale of ["it", "en"] as const) {
     await expect(page.locator("#product").getByRole("listitem")).toHaveCount(3);
     const plans = page.locator("#access");
     await expect(plans.getByRole("article").first()).toContainText("23");
+    // Plans carry visible prices and link to the dedicated pricing page.
+    await expect(plans.getByRole("article").nth(1)).toContainText("CHF 6");
+    await expect(plans.getByRole("article").nth(1)).toContainText("CHF 60");
+    await expect(plans.getByRole("link", { name: locale === "it" ? /Confronta i piani/ : /Compare plans/ })).toHaveAttribute("href", locale === "it" ? "/it/prezzi/" : "/pricing/");
+    await expect(plans).toContainText("Stripe");
     const faq = plans.locator("details");
-    await expect(faq).toHaveCount(6);
+    await expect(faq).toHaveCount(10);
+    await expect(faq.filter({ hasText: locale === "it" ? "Da dove vengono le stime di valore?" : "Where do the value estimates come from?" })).toHaveCount(1);
     const aiPack = faq.filter({ has: page.locator("summary", { hasText: locale === "it" ? "Che cos’è un AI Pack?" : "What is an AI Pack?" }) });
     await aiPack.locator("summary").click();
     await expect(aiPack.locator("p")).toBeVisible();
@@ -158,8 +164,9 @@ for (const locale of ["it", "en"] as const) {
         }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-      // The landing now presents the essentials and the distinctive features; keep it bounded.
-      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThan(viewport.width <= 430 ? 15500 : viewport.width <= 900 ? 12500 : 10500);
+      // The landing now presents the essentials, the distinctive features and priced plans
+      // with their FAQ; keep it bounded.
+      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThan(viewport.width <= 430 ? 15500 : viewport.width <= 900 ? 13000 : 10500);
       if ([390, 1440].includes(viewport.width)) {
         await page.screenshot({ path: testInfo.outputPath(`landing-${locale}-${viewport.width}.png`) });
         await page.screenshot({ path: testInfo.outputPath(`full-landing-${locale}-${viewport.width}.png`), fullPage: true });
@@ -168,6 +175,7 @@ for (const locale of ["it", "en"] as const) {
       if (viewport.width < 1161) await page.getByRole("button", { name: locale === "it" ? "Apri menu" : "Open menu" }).click();
       const nav = page.locator("#marketing-navigation").getByRole("navigation");
       await expect(nav.getByRole("link")).toHaveCount(3);
+      await expect(nav.getByRole("link", { name: locale === "it" ? "Prezzi" : "Pricing" })).toHaveAttribute("href", locale === "it" ? "/it/prezzi/" : "/pricing/");
       await nav.getByRole("link", { name: locale === "it" ? "Come funziona" : "How it works" }).click();
       await expect(page).toHaveURL(/#product$/);
     }

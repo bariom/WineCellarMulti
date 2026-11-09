@@ -6,6 +6,7 @@ import NewsPanel from "./landing/NewsPanel";
 import { landingCopy } from "./landing/content";
 import { HeroPhone, StoryBeyond, StoryEssentials, StoryPillars } from "./landing/LandingStory";
 import { landingStory } from "./landing/story";
+import { landingProof } from "./landing/proof";
 import "./PublicLanding.css";
 
 type PublicLandingProps = {
@@ -71,12 +72,15 @@ export default function PublicLanding({
       tiers: copy.closing.tiers.map((tier) => ({
         ...tier,
         body: tier.body.replace(labelLimitPattern, String(freeTierLabelLimit)),
+        altPrice: tier.altPrice.replace(labelLimitPattern, String(freeTierLabelLimit)),
       })),
     },
   };
   const faqs = copy.conversion.faq.map((item) => ({ ...item, answer: item.answer.replace(labelLimitPattern, String(freeTierLabelLimit)) }));
   const desktopDemoImage = locale === "it" ? "/landing/vinaris-demo-desktop-it.png" : "/landing/vinaris-demo-desktop-en.png";
   const openingLabel = locale === "it" ? "Apertura…" : "Opening…";
+  const pricingHref = locale === "it" ? "/it/prezzi/" : "/pricing/";
+  const { founder, usage, testimonials, press } = landingProof;
 
   useEffect(() => {
     let active = true;
@@ -147,6 +151,8 @@ export default function PublicLanding({
             <div className="marketing-hero-proof">
               <span id="hero-free-note"><i />{dynamicCopy.hero.signal}</span>
               <span>{dynamicCopy.hero.web}</span>
+              <span>{copy.hero.safety}</span>
+              {usage ? <span>{usage.line[locale]}</span> : null}
             </div>
           </div>
           <HeroPhone story={story} />
@@ -167,14 +173,32 @@ export default function PublicLanding({
           </ol>
         </section>
 
+        {testimonials.length ? <section className="marketing-section marketing-testimonials" aria-labelledby="testimonials-title">
+          <h2 id="testimonials-title">{locale === "it" ? "Chi lo usa, nella sua cantina." : "Collectors using it, in their own cellars."}</h2>
+          <div className="marketing-testimonials-grid">
+            {testimonials.map((item) => <figure key={item.firstName}>
+              <blockquote>“{item.quote[locale]}”</blockquote>
+              <figcaption>{item.photo ? <img src={item.photo} alt="" width="44" height="44" loading="lazy" /> : null}<span><strong>{item.firstName}</strong><small>{item.cellar[locale]}</small></span></figcaption>
+            </figure>)}
+          </div>
+        </section> : null}
+
         <section id="access" className="marketing-section marketing-plans" aria-labelledby="plans-title">
-          <div className="marketing-section-copy"><p className="marketing-kicker">{copy.nav.pricing}</p><h2 id="plans-title">{copy.conversion.planTitle}</h2><p>{copy.conversion.planBody}</p></div>
+          <div className="marketing-section-copy"><p className="marketing-kicker">{copy.nav.pricing}</p><h2 id="plans-title">{copy.conversion.planTitle}</h2><p>{copy.conversion.planBody} {copy.conversion.currencyNote}</p></div>
           <div className="marketing-plans-grid">
-            {dynamicCopy.closing.tiers.map((tier) => <article key={tier.name}>
-              <span className="marketing-kicker">{tier.label}</span><h3>{tier.name}</h3><p>{tier.body}</p><small>{tier.note}</small>
+            {dynamicCopy.closing.tiers.map((tier) => <article key={tier.name} className={tier.badge ? "is-recommended" : undefined}>
+              <span className="marketing-kicker">{tier.label}{tier.badge ? <em className="marketing-plan-badge">{tier.badge}</em> : null}</span>
+              <h3>{tier.name}</h3>
+              <p className="marketing-plan-price"><strong>{tier.price}</strong>{tier.period ? <span> {tier.period}</span> : null}</p>
+              <small className="marketing-plan-alt">{tier.altPrice}</small>
+              <p>{tier.body}</p><small>{tier.note}</small>
             </article>)}
           </div>
-          <p className="marketing-plan-note">{copy.closing.aiNote}</p>
+          <p className="marketing-plan-note">{copy.closing.aiNote} <a href={pricingHref}>{copy.conversion.pricingLink} →</a></p>
+          <ul className="marketing-plan-safety">
+            <li>{copy.conversion.safety}</li>
+            <li>{copy.conversion.dataNote}</li>
+          </ul>
           <div className="marketing-faq" aria-labelledby="faq-title">
             <h3 id="faq-title">{copy.conversion.faqTitle}</h3>
             {faqs.map(({ question, answer }) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}
@@ -182,7 +206,18 @@ export default function PublicLanding({
         </section>
 
         <section className="marketing-section marketing-trust" aria-labelledby="trust-title">
-          <div><h2 id="trust-title">{copy.conversion.trustTitle}</h2><p>{copy.conversion.trustBody}</p></div>
+          <div>
+            <h2 id="trust-title">{copy.conversion.trustTitle}</h2>
+            <p>{copy.conversion.trustBody}</p>
+            {founder ? <div className="marketing-founder">
+              <img src={founder.photo} alt={founder.name} width="64" height="64" loading="lazy" />
+              <span><strong>{founder.name}</strong><small>{founder.credential[locale]}</small><a href={founder.profileUrl} rel="me noopener" target="_blank">{founder.profileLabel}</a></span>
+            </div> : null}
+            <p className="marketing-trust-contact"><RestaurantContactButton label={copy.conversion.trustContact} /></p>
+            {press.length ? <ul className="marketing-press">{press.map((item) => <li key={item.url}>
+              <a href={item.url} target="_blank" rel="noopener">{item.source}</a> · <time dateTime={item.date}>{item.date}</time> — “{item.quote[locale]}”
+            </li>)}</ul> : null}
+          </div>
         </section>
 
         <section className="marketing-conversion-close" aria-labelledby="closing-title">
@@ -199,12 +234,13 @@ export default function PublicLanding({
       <footer className="marketing-footer">
         <a className="marketing-brand" href="#top" aria-label="Vinaris"><img src="/icons/icon-192.png" alt="" width="38" height="38" /><span><strong>Vinaris</strong><small>{copy.footer.statement}</small></span></a>
         <nav aria-label={locale === "it" ? "Informazioni legali" : "Legal information"}>
+          <a href={pricingHref}>{copy.footer.pricing}</a>
           <a href={locale === "it" ? "/it/guide/" : "/en/guides/"}>{copy.footer.guides}</a>
           <a href={`/privacy?lang=${locale}`}>{copy.footer.privacy}</a>
           <a href={`/privacy?lang=${locale}#cookies`}>{copy.footer.cookies}</a>
           <a href={`/terms?lang=${locale}`}>{copy.footer.terms}</a>
         </nav>
-        <small>© {new Date().getFullYear()} Vinaris</small>
+        <small>© {new Date().getFullYear()} Vinaris{founder ? ` · ${founder.name}` : ""}</small>
       </footer>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
     </div>
