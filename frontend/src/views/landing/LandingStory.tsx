@@ -31,7 +31,7 @@ export function HeroPhone({ story }: { story: LandingStory }) {
   const { phone } = story;
   return <div className="story-phone" role="img" aria-label={phone.label}>
     <div className="story-phone-screen">
-      <div className="story-phone-head"><small>VINARIS</small><strong>{phone.title}</strong><span>{phone.summary}</span></div>
+      <div className="story-phone-head"><small>VINARIS <em className="story-phone-demo">{phone.demo}</em></small><strong>{phone.title}</strong><span>{phone.summary}</span></div>
       <div className="story-phone-list">
         {phone.rows.map((row) => <div className="story-row" key={row.name} style={{ "--tone": row.tone } as CSSProperties}>
           <Glass tone={row.tone} />

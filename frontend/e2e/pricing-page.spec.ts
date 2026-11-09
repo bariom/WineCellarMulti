@@ -24,6 +24,7 @@ for (const item of pages) {
     await expect(reserve.locator(".price-annual")).toContainText(item.annualNote);
     await expect(reserve.locator(".price-monthly")).toBeHidden();
     await expect(page.locator(".plan.is-recommended")).toHaveCount(1);
+    await expect(reserve.locator(".price-anchor")).toContainText("Barolo");
     await expect(page.locator(".safety")).toContainText("Stripe");
     await expect(page.locator(".compare table tbody tr")).toHaveCount(8);
     const structured = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!);

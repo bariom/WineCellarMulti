@@ -457,6 +457,9 @@
 .marketing-plans-grid .marketing-plan-alt { margin-top: -6px; color: var(--mk-green); font-weight: 650; }
 .marketing-plan-note a { color: var(--mk-wine); font-weight: 700; text-underline-offset: 3px; }
 .marketing-plan-safety { display: grid; gap: 6px; margin: 0; padding: 0 0 0 18px; color: var(--mk-muted); font-size: .78rem; line-height: 1.6; }
+.marketing-credibility { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0; padding: 12px 16px; border: 1px solid var(--mk-line); border-radius: 12px; color: var(--mk-ink); font-size: .82rem; font-weight: 650; }
+.marketing-credibility small { color: var(--mk-muted); font-weight: 500; }
+.marketing-credibility a { color: var(--mk-wine); }
 .marketing-testimonials-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; margin-top: 18px; }
 .marketing-testimonials-grid figure { display: grid; gap: 14px; margin: 0; padding: 22px; border: 1px solid var(--mk-line); border-radius: var(--radius-card); background: #fffaf0; }
 .marketing-testimonials-grid blockquote { margin: 0; color: var(--mk-ink); font: 400 1.05rem/1.5 var(--font-display); }

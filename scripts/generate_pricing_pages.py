@@ -7,7 +7,9 @@ import html
 import json
 from pathlib import Path
 
-public = Path(__file__).resolve().parents[1] / "frontend" / "public"
+root = Path(__file__).resolve().parents[1]
+public = root / "frontend" / "public"
+PROOF = json.loads((root / "frontend" / "src" / "views" / "landing" / "proof.json").read_text(encoding="utf-8"))
 e = html.escape
 
 PAGES = {
@@ -42,6 +44,7 @@ PAGES = {
                 "name": "Reserve", "label": "For collectors", "badge": "Recommended",
                 "monthly": ("CHF 6", "/ month"), "annual": ("CHF 60", "/ year"),
                 "note_monthly": "Or CHF 60 a year: save 17%", "note_annual": "CHF 5 a month, billed yearly: you save CHF 12",
+                "anchor": "Each month, less than one glass of the Barolo in your cellar.",
                 "points": [
                     "More than 15 active labels",
                     "Premium features, including photo memories",
@@ -82,6 +85,8 @@ PAGES = {
             ("Can I try it first?", "Yes. The demo opens a populated cellar without an account, and Tasting is free for up to 15 active labels."),
         ],
         "demo": "Explore the demo",
+        "testimonials_title": "Collectors using it, in their own cellars",
+        "updated": "updated",
         "privacy": "Privacy", "terms": "Terms",
     },
     "it": {
@@ -115,6 +120,7 @@ PAGES = {
                 "name": "Riserva", "label": "Per collezionisti", "badge": "Consigliato",
                 "monthly": ("CHF 6", "/ mese"), "annual": ("CHF 60", "/ anno"),
                 "note_monthly": "Oppure CHF 60 all’anno: risparmi il 17%", "note_annual": "CHF 5 al mese, fatturati all’anno: risparmi CHF 12",
+                "anchor": "Ogni mese, meno di un calice del Barolo che hai in cantina.",
                 "points": [
                     "Oltre 15 etichette attive",
                     "Funzioni Premium, inclusi i ricordi fotografici",
@@ -155,6 +161,8 @@ PAGES = {
             ("Posso provarlo prima?", "Sì. La demo apre una cantina già popolata senza account, e Degustazione è gratis fino a 15 etichette attive."),
         ],
         "demo": "Esplora la demo",
+        "testimonials_title": "Chi lo usa, nella sua cantina",
+        "updated": "aggiornato",
         "privacy": "Privacy", "terms": "Condizioni d’uso",
     },
 }
@@ -193,10 +201,11 @@ def page(lang: str, c: dict) -> str:
             return (f'<div class="price-{kind}"><p class="price"><strong>{e(amount)}</strong>{period_html}</p>'
                     f'<p class="price-note">{e(plan["note_" + kind])}</p></div>')
         points = "".join(f"<li>{e(point)}</li>" for point in plan["points"])
+        anchor = f'<p class="price-anchor">{e(plan["anchor"])}</p>' if plan.get("anchor") else ""
         plans_html.append(
             f'<article class="{cls}" aria-labelledby="plan-{e(plan["name"].lower())}">{badge}'
             f'<p class="eyebrow">{e(plan["label"])}</p><h2 id="plan-{e(plan["name"].lower())}">{e(plan["name"])}</h2>'
-            f'{price("monthly")}{price("annual")}<ul>{points}</ul>'
+            f'{price("monthly")}{price("annual")}{anchor}<ul>{points}</ul>'
             f'<a class="plan-cta" href="{signup}">{e(plan["cta"])}</a></article>'
         )
     head_cells = "".join(f'<th scope="col">{e(cell)}</th>' for cell in c["compare_head"])
@@ -207,6 +216,24 @@ def page(lang: str, c: dict) -> str:
     faq = "".join(f"<details><summary>{e(q)}</summary><p>{e(a)}</p></details>" for q, a in c["faq"])
     safety = "".join(f"<li>{e(line)}</li>" for line in c["safety"])
     ai_body = "".join(f"<p>{e(line)}</p>" for line in c["ai_body"])
+    # Real proof only, shared with the homepage (frontend/src/views/landing/proof.json).
+    testimonials = ""
+    if PROOF["testimonials"]:
+        quotes = "".join(
+            f'<figure><blockquote>“{e(item["quote"][lang])}”</blockquote><figcaption>'
+            + (f'<img src="{e(item["photo"])}" alt="" width="44" height="44" loading="lazy">' if item.get("photo") else "")
+            + f'<span><strong>{e(item["firstName"])}</strong><small>{e(item["cellar"][lang])}</small></span></figcaption></figure>'
+            for item in PROOF["testimonials"]
+        )
+        testimonials = f'<section class="testimonials" aria-labelledby="testimonials-title"><h2 id="testimonials-title">{e(c["testimonials_title"])}</h2><div>{quotes}</div></section>'
+    signals = []
+    if PROOF["usage"]:
+        usage = PROOF["usage"]
+        signals.append(f'<span>{e(usage["line"][lang])} <small>· {e(c["updated"])} <time datetime="{e(usage["updated"])}">{e(usage["updated"])}</time></small></span>')
+    if PROOF["press"]:
+        item = PROOF["press"][0]
+        signals.append(f'<span><a href="{e(item["url"])}" rel="noopener">{e(item["source"])}</a> <small>· <time datetime="{e(item["date"])}">{e(item["date"])}</time></small></span>')
+    credibility = f'<p class="credibility">{"".join(signals)}</p>' if signals else ""
     return f"""<!doctype html>
 <html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="robots" content="index,follow"><title>{e(c["title"])}</title><meta name="description" content="{e(c["description"])}"><link rel="canonical" href="{c["url"]}"><link rel="alternate" hreflang="{lang}" href="{c["url"]}"><link rel="alternate" hreflang="{c["alt_lang"]}" href="{c["alt_url"]}"><link rel="alternate" hreflang="x-default" href="https://vinaris.app/pricing/"><meta property="og:type" content="website"><meta property="og:site_name" content="Vinaris"><meta property="og:title" content="{e(c["title"])}"><meta property="og:description" content="{e(c["description"])}"><meta property="og:url" content="{c["url"]}"><meta property="og:image" content="https://vinaris.app/landing/vinaris-demo-desktop-{lang}.png"><link rel="icon" href="/icons/icon-192.png" type="image/png"><link rel="stylesheet" href="/guides.css"><link rel="stylesheet" href="/pricing.css"><script type="application/ld+json">{json.dumps(structured, ensure_ascii=False)}</script></head>
 <body><header><a class="brand" href="/?lang={lang}">Vinaris <span>· {e(c["brand_tag"])}</span></a><nav><a href="{c["guides_href"]}">{e(c["guides"])}</a><a href="{c["alt_href"]}" lang="{c["alt_lang"]}">{c["alt_label"]}</a><a class="header-cta" href="{signup}">{e(c["cta_header"])}</a></nav></header>
@@ -217,7 +244,9 @@ def page(lang: str, c: dict) -> str:
 <div class="billing-toggle"><label for="billing-monthly">{e(c["monthly"])}</label><label for="billing-annual">{e(c["annual"])} <small>{e(c["save"])}</small></label></div>
 <div class="plans">{"".join(plans_html)}</div>
 <ul class="safety">{safety}</ul>
+{credibility}
 </section>
+{testimonials}
 <section class="ai-pack" aria-labelledby="ai-pack-title"><h2 id="ai-pack-title">{e(c["ai_title"])}</h2>{ai_body}</section>
 <section class="compare" aria-labelledby="compare-title"><h2 id="compare-title">{e(c["compare_title"])}</h2><div class="compare-wrap"><table><thead><tr>{head_cells}</tr></thead><tbody>{rows}</tbody></table></div></section>
 <section class="pricing-faq" aria-labelledby="faq-title"><h2 id="faq-title">{e(c["faq_title"])}</h2>{faq}</section>

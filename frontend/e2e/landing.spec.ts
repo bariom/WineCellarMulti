@@ -119,6 +119,12 @@ for (const locale of ["it", "en"] as const) {
     await expect(register).toHaveClass(/primary/);
     await expect(demo).toHaveClass(/secondary/);
     await expect(hero.locator("#hero-free-note")).toContainText("23");
+    // A named, reachable founder stands behind the trust note.
+    const trust = page.locator(".marketing-trust");
+    await expect(trust).toContainText("Omar Bariffi");
+    await expect(trust.getByRole("link", { name: "LinkedIn" })).toHaveAttribute("href", "https://www.linkedin.com/in/omarbariffi/");
+    // The hero figures are sample data and say so.
+    await expect(hero.locator(".story-phone-demo")).toHaveText(locale === "it" ? "Cantina di esempio" : "Example cellar");
     await expect(page.locator("#product").getByRole("listitem")).toHaveCount(3);
     const plans = page.locator("#access");
     await expect(plans.getByRole("article").first()).toContainText("23");

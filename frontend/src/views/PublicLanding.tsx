@@ -199,6 +199,10 @@ export default function PublicLanding({
             <li>{copy.conversion.safety}</li>
             <li>{copy.conversion.dataNote}</li>
           </ul>
+          {usage || press.length ? <p className="marketing-credibility">
+            {usage ? <span>{usage.line[locale]} <small>· {locale === "it" ? "aggiornato" : "updated"} <time dateTime={usage.updated}>{usage.updated}</time></small></span> : null}
+            {press[0] ? <span><a href={press[0].url} target="_blank" rel="noopener">{press[0].source}</a> <small>· <time dateTime={press[0].date}>{press[0].date}</time></small></span> : null}
+          </p> : null}
           <div className="marketing-faq" aria-labelledby="faq-title">
             <h3 id="faq-title">{copy.conversion.faqTitle}</h3>
             {faqs.map(({ question, answer }) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}
@@ -210,7 +214,7 @@ export default function PublicLanding({
             <h2 id="trust-title">{copy.conversion.trustTitle}</h2>
             <p>{copy.conversion.trustBody}</p>
             {founder ? <div className="marketing-founder">
-              <img src={founder.photo} alt={founder.name} width="64" height="64" loading="lazy" />
+              {founder.photo ? <img src={founder.photo} alt={founder.name} width="64" height="64" loading="lazy" /> : null}
               <span><strong>{founder.name}</strong><small>{founder.credential[locale]}</small><a href={founder.profileUrl} rel="me noopener" target="_blank">{founder.profileLabel}</a></span>
             </div> : null}
             <p className="marketing-trust-contact"><RestaurantContactButton label={copy.conversion.trustContact} /></p>

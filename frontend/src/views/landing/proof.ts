@@ -1,13 +1,16 @@
-// Real-world proof for the landing page: the founder, customer quotes, usage
-// figures and third-party mentions. Every slot is empty on purpose and the page
-// renders nothing for an empty slot: only add entries that are real, with the
-// person's consent, never placeholder or demo content.
+// Real-world proof for the public site: the founder, customer quotes, usage
+// figures and third-party mentions. The data lives in proof.json, which also
+// feeds the static pricing pages (scripts/generate_pricing_pages.py; rerun it
+// after editing the file). Every slot is empty on purpose and the pages render
+// nothing for an empty slot: only add entries that are real, with the person's
+// consent, never placeholder or demo content.
+import proofData from "./proof.json";
 
 export type LandingFounder = {
   name: string;
   /** Path under /public, e.g. "/images/founder.jpg". */
-  photo: string;
-  /** One line of cellar credibility, per language. */
+  photo?: string;
+  /** One line of cellar credibility, per language, e.g. "Collezionista di vino in Ticino". */
   credential: { it: string; en: string };
   /** LinkedIn or X profile. */
   profileUrl: string;
@@ -32,14 +35,11 @@ export type LandingUsage = {
 
 export type LandingPress = { source: string; date: string; quote: { it: string; en: string }; url: string };
 
-export const landingProof: {
+export type LandingProof = {
   founder: LandingFounder | null;
   usage: LandingUsage | null;
   testimonials: LandingTestimonial[];
   press: LandingPress[];
-} = {
-  founder: null,
-  usage: null,
-  testimonials: [],
-  press: [],
 };
+
+export const landingProof = proofData as LandingProof;
