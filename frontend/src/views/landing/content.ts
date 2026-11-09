@@ -1,7 +1,7 @@
 import type { Locale } from "../../types";
 
 export type LandingCopy = {
-  nav: { product: string; dashboard: string; maturity: string; sommelier: string; insights: string; pricing: string; news: string };
+  nav: { product: string; dashboard: string; maturity: string; sommelier: string; insights: string; pricing: string; guides: string; news: string };
   conversion: {
     benefits: string; planTitle: string; planBody: string; faqTitle: string;
     stepsTitle: string; steps: Array<{ title: string; body: string }>;
@@ -118,13 +118,13 @@ export type LandingCopy = {
     tiers: Array<{ label: string; name: string; price: string; period: string; altPrice: string; badge: string; body: string; note: string }>;
     aiNote: string;
   };
-  footer: { statement: string; guides: string; pricing: string; privacy: string; cookies: string; terms: string; login: string };
+  footer: { statement: string; guides: string; pricing: string; about: string; contact: string; privacy: string; cookies: string; terms: string; login: string };
   meta: { title: string; description: string };
 };
 
 export const landingCopy: Record<Locale, LandingCopy> = {
   it: {
-    nav: { product: "Come funziona", dashboard: "La tua dashboard", maturity: "Finestra di beva", sommelier: "Sommelier", insights: "Analisi", pricing: "Prezzi", news: "Novità" },
+    nav: { product: "Come funziona", dashboard: "La tua dashboard", maturity: "Finestra di beva", sommelier: "Sommelier", insights: "Analisi", pricing: "Prezzi", guides: "Guide", news: "Novità" },
     conversion: {
       benefits: "Più piacere di scegliere. Meno cose da ricordare.",
       stepsTitle: "La tua cantina prende forma in tre passi.",
@@ -332,11 +332,11 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       ],
       aiNote: "AI Pack è disponibile quando vuoi, anche con Degustazione.",
     },
-    footer: { statement: "La cantina digitale per collezionisti di vino.", guides: "Guide", pricing: "Prezzi", privacy: "Privacy", cookies: "Cookie", terms: "Condizioni d’uso", login: "Accesso" },
+    footer: { statement: "La cantina digitale per collezionisti di vino.", guides: "Guide", pricing: "Prezzi", about: "Chi siamo", contact: "Contatti", privacy: "Privacy", cookies: "Cookie", terms: "Condizioni d’uso", login: "Accesso" },
     meta: { title: "Vinaris | Cantina digitale e sommelier AI per collezionisti", description: "Gestisci bottiglie, finestre di beva, valore, consegne, wishlist e memoria degustativa in una cantina privata e intelligente." },
   },
   en: {
-    nav: { product: "How it works", dashboard: "Your dashboard", maturity: "Drinking window", sommelier: "Sommelier", insights: "Insights", pricing: "Pricing", news: "What’s new" },
+    nav: { product: "How it works", dashboard: "Your dashboard", maturity: "Drinking window", sommelier: "Sommelier", insights: "Insights", pricing: "Pricing", guides: "Guides", news: "What’s new" },
     conversion: {
       benefits: "More joy in choosing. Less to keep track of.",
       stepsTitle: "Your cellar takes shape in three steps.",
@@ -544,7 +544,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       ],
       aiNote: "An AI Pack is available whenever you need it, including with Tasting.",
     },
-    footer: { statement: "The digital wine cellar for collectors.", guides: "Guides", pricing: "Pricing", privacy: "Privacy", cookies: "Cookies", terms: "Terms", login: "Log in" },
+    footer: { statement: "The digital wine cellar for collectors.", guides: "Guides", pricing: "Pricing", about: "About", contact: "Contact", privacy: "Privacy", cookies: "Cookies", terms: "Terms", login: "Log in" },
     meta: { title: "Vinaris | Digital wine cellar management and AI sommelier", description: "Vinaris is the private digital wine cellar for collectors: track bottles, drinking windows, value and an AI sommelier in your browser." },
   },
 };

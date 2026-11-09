@@ -149,6 +149,13 @@ if changed_since_update deploy/nginx \
   SERVICES_UPDATED=true
 fi
 
+if changed_since_update frontend/public/sitemap.xml && command -v node >/dev/null 2>&1; then
+  PREVIOUS_SITEMAP="$(mktemp)"
+  git -C "$ROOT_DIR" show "$PREVIOUS_REVISION:frontend/public/sitemap.xml" > "$PREVIOUS_SITEMAP" 2>/dev/null || true
+  node "$FRONTEND_DIR/scripts/indexnow-ping.mjs" "$PREVIOUS_SITEMAP" || echo "IndexNow ping failed; search engines will pick the changes up from the sitemap."
+  rm -f "$PREVIOUS_SITEMAP"
+fi
+
 echo "Update complete"
 if [[ "$SERVICES_UPDATED" == "false" ]]; then
   echo "No runtime service restart was needed."

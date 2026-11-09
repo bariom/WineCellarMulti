@@ -152,6 +152,8 @@ server {
 }
 ```
 
+The production file `deploy/nginx/vinaris.app.conf` goes further than this sample: it sends the security headers from `deploy/nginx/snippets/security-headers.conf` in every location (nginx drops server-level `add_header` in a location that sets its own), serves the React shell only on app routes (`/`, `/help`, `/e/`, `/wine-list/`, `/privacy`, `/terms`, `/monitor`) and returns the static `404.html` with status 404 for every other unknown path.
+
 ## Start commands
 
 Build the frontend; nginx serves the generated `dist` directory directly:

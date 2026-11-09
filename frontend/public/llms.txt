@@ -8,7 +8,7 @@
 - [Pricing (EN)](https://vinaris.app/pricing/): Tasting is free for up to 15 active labels; Reserve is CHF 6 a month or CHF 60 a year; AI features run on a prepaid AI Pack.
 - [Prezzi (IT)](https://vinaris.app/it/prezzi/): the same pricing page in Italian.
 - [Demo](https://vinaris.app/): "Explore the demo" on the home page opens a populated cellar without an account.
-- [Help](https://vinaris.app/help): how to use the app.
+- [About](https://vinaris.app/about/): who builds Vinaris (Omar Bariffi, a wine collector in Ticino, Switzerland) and how to contact us (info@vinaris.app). Italian: [Chi siamo](https://vinaris.app/it/chi-siamo/).
 
 ## Guides (EN)
 

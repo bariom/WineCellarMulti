@@ -64,6 +64,8 @@
             "name": "Vinaris",
             "url": "https://vinaris.app/",
             "logo": "https://vinaris.app/icons/icon-512.png",
+            "email": "info@vinaris.app",
+            "address": { "@type": "PostalAddress", "addressRegion": "Ticino", "addressCountry": "CH" },
             "founder": { "@type": "Person", "name": "Omar Bariffi", "sameAs": "https://www.linkedin.com/in/omarbariffi/" }
           },
           {
@@ -96,10 +98,24 @@
     <script type="module" src="/src/main.tsx"></script>
   </head>
   <body>
-    <div id="root"><div class="vinaris-splash" aria-hidden="true">VINARIS<i></i></div></div>
+    <div id="root">
+      <div class="vinaris-splash" aria-hidden="true">VINARIS<i></i></div>
+      <!-- Same headline and links as the landing page, under the splash until the app mounts and replaces it. -->
+      <main>
+        <h1>Sai cosa hai. Sai cosa aprire. Sai quanto vale.</h1>
+        <p>Vinaris è la cantina digitale privata per collezionisti di vino: bottiglie, finestre di beva, valore e un sommelier AI per scegliere cosa aprire.</p>
+        <nav aria-label="Vinaris">
+          <a href="/it/prezzi/">Prezzi</a> <a href="/pricing/" lang="en">Pricing</a>
+          <a href="/it/guide/">Guide</a> <a href="/en/guides/" lang="en">Guides</a>
+          <a href="/it/chi-siamo/">Chi siamo</a> <a href="/about/" lang="en">About</a>
+          <a href="mailto:info@vinaris.app">Contatti</a>
+          <a href="/privacy">Privacy</a> <a href="/terms">Condizioni d’uso</a>
+        </nav>
+      </main>
+    </div>
     <noscript>
       <main>
-        <h1>Vinaris · Cantina digitale per collezionisti di vino</h1>
+        <p><strong>Vinaris · Cantina digitale per collezionisti di vino</strong></p>
         <p>Gestisci la tua wine cellar, le bottiglie, le annate, il valore e le finestre di beva. Usa il sommelier AI per scegliere cosa aprire dalla tua cantina.</p>
         <h2>Regioni vinicole</h2>
         <p>Ticino, Piemonte, Toscana, Veneto, Borgogna, Bordeaux, Champagne, Rodano, Rioja e Napa Valley.</p>

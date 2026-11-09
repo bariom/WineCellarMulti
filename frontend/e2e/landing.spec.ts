@@ -180,7 +180,8 @@ for (const locale of ["it", "en"] as const) {
       }
       if (viewport.width < 1161) await page.getByRole("button", { name: locale === "it" ? "Apri menu" : "Open menu" }).click();
       const nav = page.locator("#marketing-navigation").getByRole("navigation");
-      await expect(nav.getByRole("link")).toHaveCount(3);
+      await expect(nav.getByRole("link")).toHaveCount(4);
+      await expect(nav.getByRole("link", { name: locale === "it" ? "Guide" : "Guides" })).toHaveAttribute("href", locale === "it" ? "/it/guide/" : "/en/guides/");
       await expect(nav.getByRole("link", { name: locale === "it" ? "Prezzi" : "Pricing" })).toHaveAttribute("href", locale === "it" ? "/it/prezzi/" : "/pricing/");
       await nav.getByRole("link", { name: locale === "it" ? "Come funziona" : "How it works" }).click();
       await expect(page).toHaveURL(/#product$/);

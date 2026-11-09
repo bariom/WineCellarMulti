@@ -17,7 +17,7 @@ PAGES = {
         "path": "pricing/index.html",
         "url": "https://vinaris.app/pricing/",
         "alt_lang": "it", "alt_url": "https://vinaris.app/it/prezzi/", "alt_href": "/it/prezzi/", "alt_label": "IT",
-        "title": "Vinaris pricing - free up to 15 labels, CHF 6/month for collectors",
+        "title": "Vinaris pricing: free, or CHF 6 a month",
         "description": "Vinaris pricing in Swiss francs: Tasting is free for up to 15 active labels; Reserve is CHF 6 a month or CHF 60 a year for larger cellars and Premium features.",
         "brand_tag": "Digital cellar for collectors",
         "guides_href": "/en/guides/", "guides": "Guides",
@@ -87,14 +87,14 @@ PAGES = {
         "demo": "Explore the demo",
         "testimonials_title": "Collectors using it, in their own cellars",
         "updated": "updated",
-        "privacy": "Privacy", "terms": "Terms",
+        "privacy": "Privacy", "terms": "Terms", "pricing": "Pricing", "about": "About", "about_href": "/about/", "contact": "Contact",
     },
     "it": {
         "path": "it/prezzi/index.html",
         "url": "https://vinaris.app/it/prezzi/",
         "alt_lang": "en", "alt_url": "https://vinaris.app/pricing/", "alt_href": "/pricing/", "alt_label": "EN",
-        "title": "Prezzi Vinaris - gratis fino a 15 etichette, CHF 6/mese per collezionisti",
-        "description": "I prezzi di Vinaris in franchi svizzeri: Degustazione è gratis fino a 15 etichette attive; Riserva costa CHF 6 al mese o CHF 60 all’anno per cantine più grandi e funzioni Premium.",
+        "title": "Prezzi Vinaris: gratis, o CHF 6 al mese",
+        "description": "Prezzi di Vinaris in franchi svizzeri: Degustazione è gratis fino a 15 etichette attive; Riserva costa CHF 6 al mese o CHF 60 all’anno.",
         "brand_tag": "Cantina digitale per collezionisti",
         "guides_href": "/it/guide/", "guides": "Guide",
         "home": "Vinaris", "crumb": "Prezzi",
@@ -163,7 +163,7 @@ PAGES = {
         "demo": "Esplora la demo",
         "testimonials_title": "Chi lo usa, nella sua cantina",
         "updated": "aggiornato",
-        "privacy": "Privacy", "terms": "Condizioni d’uso",
+        "privacy": "Privacy", "terms": "Condizioni d’uso", "pricing": "Prezzi", "about": "Chi siamo", "about_href": "/it/chi-siamo/", "contact": "Contatti",
     },
 }
 
@@ -235,7 +235,7 @@ def page(lang: str, c: dict) -> str:
         signals.append(f'<span><a href="{e(item["url"])}" rel="noopener">{e(item["source"])}</a> <small>· <time datetime="{e(item["date"])}">{e(item["date"])}</time></small></span>')
     credibility = f'<p class="credibility">{"".join(signals)}</p>' if signals else ""
     return f"""<!doctype html>
-<html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="robots" content="index,follow"><title>{e(c["title"])}</title><meta name="description" content="{e(c["description"])}"><link rel="canonical" href="{c["url"]}"><link rel="alternate" hreflang="{lang}" href="{c["url"]}"><link rel="alternate" hreflang="{c["alt_lang"]}" href="{c["alt_url"]}"><link rel="alternate" hreflang="x-default" href="https://vinaris.app/pricing/"><meta property="og:type" content="website"><meta property="og:site_name" content="Vinaris"><meta property="og:title" content="{e(c["title"])}"><meta property="og:description" content="{e(c["description"])}"><meta property="og:url" content="{c["url"]}"><meta property="og:image" content="https://vinaris.app/landing/vinaris-demo-desktop-{lang}.png"><link rel="icon" href="/icons/icon-192.png" type="image/png"><link rel="stylesheet" href="/guides.css"><link rel="stylesheet" href="/pricing.css"><script type="application/ld+json">{json.dumps(structured, ensure_ascii=False)}</script></head>
+<html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="robots" content="index,follow"><title>{e(c["title"])}</title><meta name="description" content="{e(c["description"])}"><link rel="canonical" href="{c["url"]}"><link rel="alternate" hreflang="{lang}" href="{c["url"]}"><link rel="alternate" hreflang="{c["alt_lang"]}" href="{c["alt_url"]}"><link rel="alternate" hreflang="x-default" href="https://vinaris.app/pricing/"><meta property="og:type" content="website"><meta property="og:site_name" content="Vinaris"><meta property="og:title" content="{e(c["title"])}"><meta property="og:description" content="{e(c["description"])}"><meta property="og:url" content="{c["url"]}"><meta property="og:image" content="https://vinaris.app/og/pricing-{lang}.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="{e(c["title"])}"><meta name="twitter:description" content="{e(c["description"])}"><meta name="twitter:image" content="https://vinaris.app/og/pricing-{lang}.jpg"><link rel="icon" href="/icons/icon-192.png" type="image/png"><link rel="stylesheet" href="/guides.css"><link rel="stylesheet" href="/pricing.css"><script type="application/ld+json">{json.dumps(structured, ensure_ascii=False)}</script></head>
 <body><header><a class="brand" href="/?lang={lang}">Vinaris <span>· {e(c["brand_tag"])}</span></a><nav><a href="{c["guides_href"]}">{e(c["guides"])}</a><a href="{c["alt_href"]}" lang="{c["alt_lang"]}">{c["alt_label"]}</a><a class="header-cta" href="{signup}">{e(c["cta_header"])}</a></nav></header>
 <main><nav class="crumb" aria-label="Breadcrumb"><a href="/?lang={lang}">{e(c["home"])}</a><span>/</span><span>{e(c["crumb"])}</span></nav>
 <section class="pricing-hero"><p class="eyebrow">{e(c["eyebrow"])}</p><h1>{e(c["h1"])}</h1><p class="lead">{e(c["lead"])}</p></section>
@@ -251,7 +251,7 @@ def page(lang: str, c: dict) -> str:
 <section class="compare" aria-labelledby="compare-title"><h2 id="compare-title">{e(c["compare_title"])}</h2><div class="compare-wrap"><table><thead><tr>{head_cells}</tr></thead><tbody>{rows}</tbody></table></div></section>
 <section class="pricing-faq" aria-labelledby="faq-title"><h2 id="faq-title">{e(c["faq_title"])}</h2>{faq}</section>
 <section class="cta"><p class="eyebrow">Vinaris</p><h2>{e(c["h1"])}</h2><p>{e(c["lead"])}</p><a href="{signup}">{e(c["cta_header"])}</a> <a href="/?lang={lang}">{e(c["demo"])}</a></section>
-</main><footer><a href="/privacy?lang={lang}">{e(c["privacy"])}</a><a href="/terms?lang={lang}">{e(c["terms"])}</a><span>© 2026 Vinaris</span></footer></body></html>
+</main><footer><a href="{c["guides_href"]}">{e(c["guides"])}</a><a href="{c["url"]}">{e(c["pricing"])}</a><a href="{c["about_href"]}">{e(c["about"])}</a><a href="mailto:info@vinaris.app">{e(c["contact"])}</a><a href="/privacy?lang={lang}">{e(c["privacy"])}</a><a href="/terms?lang={lang}">{e(c["terms"])}</a><span>© 2026 Vinaris · Omar Bariffi</span></footer></body></html>
 """
 
 

@@ -61,6 +61,7 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
     ["#product", copy.nav.product],
     ["#news", copy.nav.news],
     [locale === "it" ? "/it/prezzi/" : "/pricing/", copy.nav.pricing],
+    [locale === "it" ? "/it/guide/" : "/en/guides/", copy.nav.guides],
   ];
 
   return (

@@ -240,6 +240,8 @@ export default function PublicLanding({
         <nav aria-label={locale === "it" ? "Informazioni legali" : "Legal information"}>
           <a href={pricingHref}>{copy.footer.pricing}</a>
           <a href={locale === "it" ? "/it/guide/" : "/en/guides/"}>{copy.footer.guides}</a>
+          <a href={locale === "it" ? "/it/chi-siamo/" : "/about/"}>{copy.footer.about}</a>
+          <a href="mailto:info@vinaris.app">{copy.footer.contact}</a>
           <a href={`/privacy?lang=${locale}`}>{copy.footer.privacy}</a>
           <a href={`/privacy?lang=${locale}#cookies`}>{copy.footer.cookies}</a>
           <a href={`/terms?lang=${locale}`}>{copy.footer.terms}</a>
