@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
+import { analytics } from "@heycatch/sdk";
 import { CookieConsentBanner } from "./components/CookieConsentBanner";
 import { readCookieConsent } from "./services/cookieConsent";
 import { updateGoogleConsent } from "./services/googleAds";
@@ -10,6 +11,15 @@ import "./monitor.css";
 
 const storedCookieConsent = readCookieConsent();
 if (storedCookieConsent) updateGoogleConsent(storedCookieConsent);
+
+// HeyCatch product analytics. It captures nothing until the visitor accepts
+// analytics cookies; the banner opts in or out when the choice changes.
+analytics.init({
+  projectKey: "hck_pk_ReYnCnP_IDBPiL4ph4SBuNBMEk6Drc9y",
+  install: { framework: "vite-react", frameworkVersion: "18", agent: "claude-code" },
+  optOutCapturingByDefault: storedCookieConsent?.analytics !== true,
+});
+if (storedCookieConsent?.analytics) analytics.optInCapturing();
 
 const monitorOnly = import.meta.env.VITE_VINARIS_MONITOR === "true";
 const App = monitorOnly

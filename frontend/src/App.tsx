@@ -60,6 +60,7 @@ import { selectFeaturedWines } from "./domain/featuredSelection";
 import { CollectorOverview } from "./components/CollectorOverview";
 import { LEGAL_DOCUMENT_VERSION } from "./legal/legalDocuments";
 import { reportGoogleAdsCheckoutConversion } from "./services/googleAds";
+import { analytics } from "@heycatch/sdk";
 import "./styles.css";
 import "./components/CollectorOverview.css";
 import "./components/CollectorEditorial.css";
@@ -966,6 +967,24 @@ function notificationSvgIcon(kind: string) {
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
+  // HeyCatch: tie the visit to the signed-in user, and start anonymous again
+  // after sign-out. The shared demo account is never identified.
+  const analyticsUserId = session?.authenticated && !session.is_demo ? session.user_id || null : null;
+  const analyticsPlan = session?.has_active_entitlement ? "reserve" : "free";
+  const identifiedAnalyticsUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (analyticsUserId) {
+      analytics.setIdentity(analyticsUserId, {
+        email: session?.user_email || undefined,
+        name: session?.user_display_name || undefined,
+        plan: analyticsPlan,
+      });
+    } else if (identifiedAnalyticsUser.current) {
+      analytics.resetIdentity();
+    }
+    identifiedAnalyticsUser.current = analyticsUserId;
+    // Only a change of user or plan is reported, never every render.
+  }, [analyticsUserId, analyticsPlan]);
   const [wines, setWines] = useState<Wine[]>([]);
   const [merchants, setMerchants] = useState<Array<{ id: string; name: string }>>([]);
   const wineMerchantOptionsId = useId();
@@ -2809,6 +2828,7 @@ export function App() {
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
       if (authMode === "register") {
+        analytics.trackEvent("signup_completed");
         setEmailVerificationConfirmed(false);
         setRegistrationEmail(authDraft.email.trim());
         setResendVerificationEmail(authDraft.email.trim());

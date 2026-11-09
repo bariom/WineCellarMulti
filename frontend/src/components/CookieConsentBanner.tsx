@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { analytics as heycatch } from "@heycatch/sdk";
 
 import { COOKIE_CONSENT_SETTINGS_EVENT, readCookieConsent, saveCookieConsent } from "../services/cookieConsent";
 import { updateGoogleConsent } from "../services/googleAds";
@@ -27,6 +28,8 @@ export function CookieConsentBanner() {
   function save(marketingEnabled: boolean, analyticsEnabled: boolean) {
     const nextConsent = saveCookieConsent(marketingEnabled, analyticsEnabled);
     updateGoogleConsent(nextConsent);
+    if (nextConsent.analytics) heycatch.optInCapturing();
+    else heycatch.optOutCapturing();
     setConsent(nextConsent);
     setMarketing(nextConsent.marketing);
     setAnalytics(nextConsent.analytics);

@@ -43,6 +43,7 @@ export type Session = {
   is_ambassador?: boolean;
   ambassador_until?: string | null;
   authenticated: boolean;
+  user_id?: string | null;
   user_display_name: string | null;
   user_email: string | null;
   active_household_id: string | null;
