@@ -16,7 +16,7 @@ export type LandingStory = {
   essentials: {
     eyebrow: string; title: string; body: string;
     items: Array<{ icon: EssentialIcon; title: string; body: string }>;
-    switchTitle: string; switchBody: string; switchAction: string;
+    switchTitle: string; switchBody: string; switchAction: string; switchCompare: string; switchCompareHref: string;
   };
   beyond: {
     eyebrow: string; title: string; titleAccent: string; body: string;
@@ -46,7 +46,7 @@ export const landingStory: Record<Locale, LandingStory> = {
       eyebrow: "Per collezionisti di vino · L’app per i vini che possiedi",
       titleLines: ["Sai cosa hai.", "Sai cosa aprire.", "Sai quanto vale."],
       title: "Sai cosa hai. Sai cosa aprire. Sai quanto vale.",
-      lead: "Vinaris è la tua cantina digitale: ogni bottiglia con la sua finestra di beva, il suo valore e la sua storia. Dal computer o dal telefono, senza installare nulla.",
+      lead: "Vinaris è la cantina digitale per chi colleziona qualche centinaio di bottiglie: ognuna con la sua finestra di beva, il suo valore e la sua storia. Dal computer o dal telefono, senza installare nulla.",
     },
     phone: {
       label: "Esempio dell’elenco della cantina in Vinaris su telefono", demo: "Cantina di esempio",
@@ -71,7 +71,7 @@ export const landingStory: Record<Locale, LandingStory> = {
     essentials: {
       eyebrow: "Le basi, fatte con cura",
       title: "Tutto quello che serve per gestire una cantina.",
-      body: "Gli strumenti che ti aspetti, pensati per lavorare insieme e restare semplici, che tu abbia 20 bottiglie o più di 1.000.",
+      body: "Gli strumenti che ti aspetti, pensati per lavorare insieme e restare semplici con qualche centinaio di bottiglie. Con Riserva non c’è limite di etichette, anche oltre le 1.000 bottiglie.",
       items: [
         { icon: "list", title: "Inventario completo", body: "Produttore, annata, formato, quantità e stato." },
         { icon: "pin", title: "Posizioni e scaffali", body: "Sai dove si trova ogni bottiglia e la sposti in un tocco." },
@@ -89,6 +89,8 @@ export const landingStory: Record<Locale, LandingStory> = {
       switchTitle: "Arrivi da un’altra app o da un foglio di calcolo?",
       switchBody: "Importi la tua cantina e riparti da dove eri.",
       switchAction: "Crea il tuo account e importa",
+      switchCompare: "Vinaris e CellarTracker a confronto",
+      switchCompareHref: "/it/guide/alternativa-a-cellartracker/",
     },
     beyond: {
       eyebrow: "Perché Vinaris",
@@ -166,7 +168,7 @@ export const landingStory: Record<Locale, LandingStory> = {
       eyebrow: "For wine collectors · The app for the wines you own",
       titleLines: ["Know what you have.", "Know what to open.", "Know what it’s worth."],
       title: "Know what you have. Know what to open. Know what it’s worth.",
-      lead: "Vinaris is your digital cellar: every bottle with its drinking window, its value and its story. On your computer or phone, with nothing to install.",
+      lead: "Vinaris is the digital cellar for the collector with a few hundred bottles: each one with its drinking window, its value and its story. On your computer or phone, with nothing to install.",
     },
     phone: {
       label: "Example of the Vinaris cellar list on a phone", demo: "Example cellar",
@@ -191,7 +193,7 @@ export const landingStory: Record<Locale, LandingStory> = {
     essentials: {
       eyebrow: "The essentials, done with care",
       title: "Everything you need to run a cellar.",
-      body: "The tools you expect, designed to work together and stay simple, whether you have 20 bottles or more than 1,000.",
+      body: "The tools you expect, designed to work together and stay simple with a few hundred bottles. On Reserve there is no label limit, even past 1,000 bottles.",
       items: [
         { icon: "list", title: "Complete inventory", body: "Producer, vintage, format, quantity and status." },
         { icon: "pin", title: "Locations and racks", body: "Know where every bottle is and move it in a tap." },
@@ -209,6 +211,8 @@ export const landingStory: Record<Locale, LandingStory> = {
       switchTitle: "Coming from another app or a spreadsheet?",
       switchBody: "Import your cellar and pick up where you left off.",
       switchAction: "Create your account and import",
+      switchCompare: "Vinaris and CellarTracker compared",
+      switchCompareHref: "/en/guides/cellartracker-alternative/",
     },
     beyond: {
       eyebrow: "Why Vinaris",

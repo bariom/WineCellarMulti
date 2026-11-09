@@ -79,7 +79,7 @@ export function StoryEssentials({ story, onRegister }: { story: LandingStory; on
         </li>)}
       </ul>
       <div className="story-switch">
-        <p><b>{essentials.switchTitle}</b> {essentials.switchBody}</p>
+        <p><b>{essentials.switchTitle}</b> {essentials.switchBody} <a className="story-switch-compare" href={essentials.switchCompareHref}>{essentials.switchCompare} →</a></p>
         <button type="button" className="marketing-button secondary compact" onClick={onRegister}>{essentials.switchAction}</button>
       </div>
     </div>

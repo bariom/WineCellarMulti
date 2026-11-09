@@ -9,8 +9,9 @@ const guides = [
   "/it/guide/finestre-di-beva-vino/", "/en/guides/wine-drinking-windows/",
   "/it/guide/come-organizzare-cantina-vino/", "/en/guides/how-to-organise-a-wine-cellar/",
   "/it/guide/excel-o-app-per-cantina-vino/", "/en/guides/wine-cellar-spreadsheet-vs-app/",
+  "/it/guide/alternativa-a-cellartracker/", "/en/guides/cellartracker-alternative/",
 ];
-const otherPages = ["/it/guide/", "/en/guides/", "/about/", "/it/chi-siamo/", "/pricing/", "/it/prezzi/"];
+const otherPages = ["/it/guide/", "/en/guides/", "/about/", "/it/chi-siamo/", "/features/", "/it/funzioni/", "/pricing/", "/it/prezzi/"];
 
 async function expectHeadBasics(page: Page) {
   const title = await page.title();
@@ -44,15 +45,18 @@ for (const path of guides) {
     expect(words).toBeGreaterThanOrEqual(800);
     const questions = (await page.locator("article h2").allInnerTexts()).filter((heading) => heading.trim().endsWith("?"));
     expect(questions.length).toBeGreaterThanOrEqual(4);
-    const data = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!);
-    expect(data["@type"]).toBe("BlogPosting");
+    const raw = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!);
+    const nodes: Array<Record<string, any>> = raw["@graph"] ?? [raw];
+    const data = nodes.find((node) => node["@type"] === "BlogPosting")!;
+    expect(data).toBeTruthy();
     expect(data.headline).toBeTruthy();
     expect(data.datePublished).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(data.author).toMatchObject({ "@type": "Person", name: "Omar Bariffi" });
     expect(data.image[0]).toMatch(/^https:\/\/vinaris\.app\/og\/.+\.jpg$/);
     expect(data.publisher).toMatchObject({ name: "Vinaris", url: "https://vinaris.app/" });
     expect(data.publisher.logo.url).toBeTruthy();
-    await expect(page.locator(".related a")).toHaveCount(4);
+    await expect(page.locator(".related > div a")).toHaveCount(guides.length / 2 - 1);
+    await expect(page.locator(".related-all a")).toHaveCount(1);
     await expectFitsPhones(page);
   });
 }
@@ -72,3 +76,19 @@ test("the sitemap lists every public page with a lastmod and leaves out in-app h
   for (const path of [...guides, ...otherPages, "/"]) expect(urls).toContain(`https://vinaris.app${path}`);
   expect(urls.some((url) => url.includes("/help"))).toBe(false);
 });
+
+for (const path of ["/en/guides/cellartracker-alternative/", "/it/guide/alternativa-a-cellartracker/"]) {
+  test(`${path} compares honestly, shows CHF 60 a year and marks up its FAQ`, async ({ page }) => {
+    await page.goto(`${path}index.html`);
+    const table = page.locator("table.compare");
+    await expect(table.locator("tbody tr")).toHaveCount(7);
+    await expect(table).toContainText("CHF 60");
+    await expect(table).toContainText("CellarTracker");
+    const raw = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!);
+    const faq = raw["@graph"].find((node: { "@type": string }) => node["@type"] === "FAQPage");
+    expect(faq.mainEntity.length).toBe(await page.locator(".faq details").count());
+    expect(faq.mainEntity.length).toBeGreaterThanOrEqual(5);
+    await page.setViewportSize({ width: 375, height: 812 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+}

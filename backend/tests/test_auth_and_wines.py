@@ -10738,6 +10738,87 @@ def test_cellartracker_csv_import_maps_cellar_data():
     assert next(wine for wine in wines if wine["producer"] == "Krug")["vintage"] == "NV"
 
 
+def _cellartracker_positions(wine: dict) -> dict[tuple[str, str], int]:
+    return {
+        (item["location_name"], item["bin_name"]): item["quantity"]
+        for item in wine["storage_allocations"]
+    }
+
+
+def test_cellartracker_csv_import_keeps_locations_and_bins():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    header = '"iWine","Color","Size","Quantity","Vintage","Wine","Producer","Location","Bin"\n'
+    csv_text = header + (
+        '"1","Red","750ml","4","2016","Barolo Riserva","Giacosa","Cantina","A3-2"\n'
+        '"1","Red","750ml","2","2016","Barolo Riserva","Giacosa","Frigo cucina",""\n'
+        '"2","White","750ml","3","2021","Fendant","Bonvin","Unknown","Unknown"\n'
+    )
+    preview = client.post("/api/v1/imports/cellartracker/preview", json={"csv_text": csv_text})
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["wines_total"] == 2
+
+    imported = client.post("/api/v1/imports/cellartracker", json={"csv_text": csv_text})
+    assert imported.status_code == 200, imported.text
+    assert imported.json()["wines_imported"] == 2
+    wines = {wine["name"]: wine for wine in client.get("/api/v1/wines").json()}
+    barolo = wines["Barolo Riserva"]
+    assert barolo["quantity"] == 6
+    assert _cellartracker_positions(barolo) == {("Cantina", "A3-2"): 4, ("Frigo cucina", ""): 2}
+    fendant = wines["Fendant"]
+    assert fendant["quantity"] == 3
+    assert _cellartracker_positions(fendant) == {("", ""): 3}
+
+    # A second import of the same export does not create duplicate locations.
+    again = client.post(
+        "/api/v1/imports/cellartracker?mode=update_existing", json={"csv_text": csv_text}
+    )
+    assert again.status_code == 200, again.text
+    locations = client.get("/api/v1/storage/locations").json()
+    assert sorted(location["name"] for location in locations) == ["Cantina", "Frigo cucina"]
+    assert [bin_["name"] for location in locations if location["name"] == "Cantina" for bin_ in location["bins"]] == ["A3-2"]
+    barolo = next(wine for wine in client.get("/api/v1/wines").json() if wine["name"] == "Barolo Riserva")
+    assert _cellartracker_positions(barolo) == {("Cantina", "A3-2"): 4, ("Frigo cucina", ""): 2}
+
+
+def test_cellartracker_bottle_export_counts_one_bottle_per_row():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    csv_text = (
+        '"iInventory","iWine","Color","Size","Vintage","Wine","Producer","Location","Bin"\n'
+        '"10","1","Red","750ml","2019","Merlot del Ticino","Gialdi","Cantina","B1"\n'
+        '"11","1","Red","750ml","2019","Merlot del Ticino","Gialdi","Cantina","B1"\n'
+        '"12","1","Red","750ml","2019","Merlot del Ticino","Gialdi","Cantina","B2"\n'
+    )
+    imported = client.post("/api/v1/imports/cellartracker", json={"csv_text": csv_text})
+    assert imported.status_code == 200, imported.text
+    assert imported.json()["wines_imported"] == 1
+    merlot = client.get("/api/v1/wines").json()[0]
+    assert merlot["quantity"] == 3
+    assert _cellartracker_positions(merlot) == {("Cantina", "B1"): 2, ("Cantina", "B2"): 1}
+
+
+def test_cellartracker_update_without_locations_keeps_vinaris_positions():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with_location = (
+        '"iWine","Color","Size","Quantity","Vintage","Wine","Producer","Location","Bin"\n'
+        '"1","Red","750ml","3","2018","Chianti Classico","Fontodi","Cantina","C1"\n'
+    )
+    assert client.post("/api/v1/imports/cellartracker", json={"csv_text": with_location}).status_code == 200
+    without_location = (
+        '"iWine","Color","Size","Quantity","Vintage","Wine","Producer"\n'
+        '"1","Red","750ml","5","2018","Chianti Classico","Fontodi"\n'
+    )
+    updated = client.post(
+        "/api/v1/imports/cellartracker?mode=update_existing", json={"csv_text": without_location}
+    )
+    assert updated.status_code == 200, updated.text
+    chianti = client.get("/api/v1/wines").json()[0]
+    assert chianti["quantity"] == 5
+    assert _cellartracker_positions(chianti) == {("Cantina", "C1"): 3, ("", ""): 2}
+
+
 def test_merchant_directory_registers_and_reuses_wine_and_wishlist_merchants():
     client = TestClient(app)
     assert register(client).status_code == 201

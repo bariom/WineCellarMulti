@@ -87,7 +87,7 @@ PAGES = {
         "demo": "Explore the demo",
         "testimonials_title": "Collectors using it, in their own cellars",
         "updated": "updated",
-        "privacy": "Privacy", "terms": "Terms", "pricing": "Pricing", "about": "About", "about_href": "/about/", "contact": "Contact",
+        "privacy": "Privacy", "terms": "Terms", "pricing": "Pricing", "features": "Features", "features_href": "/features/", "about": "About", "about_href": "/about/", "contact": "Contact",
     },
     "it": {
         "path": "it/prezzi/index.html",
@@ -163,7 +163,7 @@ PAGES = {
         "demo": "Esplora la demo",
         "testimonials_title": "Chi lo usa, nella sua cantina",
         "updated": "aggiornato",
-        "privacy": "Privacy", "terms": "Condizioni d’uso", "pricing": "Prezzi", "about": "Chi siamo", "about_href": "/it/chi-siamo/", "contact": "Contatti",
+        "privacy": "Privacy", "terms": "Condizioni d’uso", "pricing": "Prezzi", "features": "Funzioni", "features_href": "/it/funzioni/", "about": "Chi siamo", "about_href": "/it/chi-siamo/", "contact": "Contatti",
     },
 }
 
@@ -251,7 +251,7 @@ def page(lang: str, c: dict) -> str:
 <section class="compare" aria-labelledby="compare-title"><h2 id="compare-title">{e(c["compare_title"])}</h2><div class="compare-wrap"><table><thead><tr>{head_cells}</tr></thead><tbody>{rows}</tbody></table></div></section>
 <section class="pricing-faq" aria-labelledby="faq-title"><h2 id="faq-title">{e(c["faq_title"])}</h2>{faq}</section>
 <section class="cta"><p class="eyebrow">Vinaris</p><h2>{e(c["h1"])}</h2><p>{e(c["lead"])}</p><a href="{signup}">{e(c["cta_header"])}</a> <a href="/?lang={lang}">{e(c["demo"])}</a></section>
-</main><footer><a href="{c["guides_href"]}">{e(c["guides"])}</a><a href="{c["url"]}">{e(c["pricing"])}</a><a href="{c["about_href"]}">{e(c["about"])}</a><a href="mailto:info@vinaris.app">{e(c["contact"])}</a><a href="/privacy?lang={lang}">{e(c["privacy"])}</a><a href="/terms?lang={lang}">{e(c["terms"])}</a><span>© 2026 Vinaris · Omar Bariffi</span></footer></body></html>
+</main><footer><a href="{c["features_href"]}">{e(c["features"])}</a><a href="{c["guides_href"]}">{e(c["guides"])}</a><a href="{c["url"]}">{e(c["pricing"])}</a><a href="{c["about_href"]}">{e(c["about"])}</a><a href="mailto:info@vinaris.app">{e(c["contact"])}</a><a href="/privacy?lang={lang}">{e(c["privacy"])}</a><a href="/terms?lang={lang}">{e(c["terms"])}</a><span>© 2026 Vinaris · Omar Bariffi</span></footer></body></html>
 """
 
 

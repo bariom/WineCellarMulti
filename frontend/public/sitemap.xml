@@ -31,6 +31,18 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://vinaris.app/features/</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/it/funzioni/</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://vinaris.app/it/guide/</loc>
     <lastmod>2026-11-09</lastmod>
     <changefreq>weekly</changefreq>
@@ -86,6 +98,18 @@
   </url>
   <url>
     <loc>https://vinaris.app/en/guides/wine-cellar-spreadsheet-vs-app/</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/it/guide/alternativa-a-cellartracker/</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/en/guides/cellartracker-alternative/</loc>
     <lastmod>2026-11-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>

@@ -8,6 +8,7 @@
 - [Pricing (EN)](https://vinaris.app/pricing/): Tasting is free for up to 15 active labels; Reserve is CHF 6 a month or CHF 60 a year; AI features run on a prepaid AI Pack.
 - [Prezzi (IT)](https://vinaris.app/it/prezzi/): the same pricing page in Italian.
 - [Demo](https://vinaris.app/): "Explore the demo" on the home page opens a populated cellar without an account.
+- [Features](https://vinaris.app/features/): everything the app does, with the features that need Reserve. Italian: [Funzioni](https://vinaris.app/it/funzioni/).
 - [About](https://vinaris.app/about/): who builds Vinaris (Omar Bariffi, a wine collector in Ticino, Switzerland) and how to contact us (info@vinaris.app). Italian: [Chi siamo](https://vinaris.app/it/chi-siamo/).
 
 ## Guides (EN)
@@ -17,6 +18,7 @@
 - [Wine drinking windows](https://vinaris.app/en/guides/wine-drinking-windows/)
 - [How to organise a wine cellar](https://vinaris.app/en/guides/how-to-organise-a-wine-cellar/)
 - [Wine cellar spreadsheet or app?](https://vinaris.app/en/guides/wine-cellar-spreadsheet-vs-app/)
+- [CellarTracker alternative: Vinaris compared](https://vinaris.app/en/guides/cellartracker-alternative/): honest comparison table, what the CellarTracker CSV import carries over (including locations and bins), prices.
 
 ## Guide (IT)
 
@@ -25,10 +27,11 @@
 - [Finestre di beva del vino](https://vinaris.app/it/guide/finestre-di-beva-vino/)
 - [Come organizzare la cantina](https://vinaris.app/it/guide/come-organizzare-cantina-vino/)
 - [Excel o app per la cantina?](https://vinaris.app/it/guide/excel-o-app-per-cantina-vino/)
+- [Alternativa a CellarTracker](https://vinaris.app/it/guide/alternativa-a-cellartracker/)
 
 ## Facts
 
-- Import from a CellarTracker CSV or a Vinaris backup; export at any time.
+- Import from a CellarTracker CSV (with locations and bins) or a Vinaris backup; export at any time.
 - Value estimates come from a web search of current wine-shop prices in the market the user chooses, with a link to each source.
 - AI features run on OpenAI models; payments are handled by Stripe.
 - Shared cellars: invite people with full or read-only access and track percentage ownership per wine.

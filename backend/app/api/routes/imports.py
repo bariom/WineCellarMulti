@@ -694,6 +694,87 @@ def cellartracker_scores(row: dict[str, str]) -> list[dict[str, str]]:
     return scores
 
 
+def import_storage_destination(
+    db: Session, context: CurrentContext, location_value: Any, bin_value: Any
+) -> tuple[UUID | None, UUID | None]:
+    """Find or create the named location and bin in the active household."""
+    location_name = clean_storage_name(as_str(location_value))[:80]
+    if not location_name:
+        return None, None
+    location = db.scalar(
+        select(CellarLocation).where(
+            CellarLocation.household_id == context.household.id,
+            CellarLocation.normalized_name == normalized_storage_name(location_name),
+        )
+    )
+    if location is None:
+        location = CellarLocation(
+            household_id=context.household.id,
+            name=location_name,
+            normalized_name=normalized_storage_name(location_name),
+        )
+        db.add(location)
+        db.flush()
+    bin_name = clean_storage_name(as_str(bin_value))[:80]
+    if not bin_name:
+        return location.id, None
+    cellar_bin = db.scalar(
+        select(CellarBin).where(
+            CellarBin.location_id == location.id,
+            CellarBin.normalized_name == normalized_storage_name(bin_name),
+        )
+    )
+    if cellar_bin is None:
+        cellar_bin = CellarBin(
+            location_id=location.id,
+            name=bin_name,
+            normalized_name=normalized_storage_name(bin_name),
+        )
+        db.add(cellar_bin)
+        db.flush()
+    return location.id, cellar_bin.id
+
+
+# CellarTracker writes these when a bottle has no real location or bin.
+CELLARTRACKER_EMPTY_STORAGE = {"", "unknown", "none", "n/a", "-"}
+
+# One wine from the export, the bottles per (location, bin) it holds.
+CellarTrackerWine = tuple[dict[str, Any], dict[tuple[str, str], int]]
+
+
+def cellartracker_storage_name(value: Any) -> str:
+    name = clean_storage_name(as_str(value))
+    return "" if name.casefold() in CELLARTRACKER_EMPTY_STORAGE else name[:80]
+
+
+def cellartracker_wines(rows: list[dict[str, str]], context: CurrentContext) -> list[CellarTrackerWine]:
+    """Group export rows into wines and count their bottles per location and bin.
+
+    The My Cellar export has one row per wine with a Quantity column; the bottle
+    export has one row per bottle and no Quantity. Rows of the same wine (same
+    name, producer, vintage, size and type) are merged and their quantities
+    summed, so bottles split across several locations keep each location.
+    """
+    per_bottle = bool(rows) and "Quantity" not in rows[0]
+    grouped: dict[tuple[str, str, str, str, str], CellarTrackerWine] = {}
+    for row in rows:
+        row_data = cellartracker_wine_data(row, context)
+        quantity = 1 if per_bottle else int(row_data["quantity"])
+        key = wine_duplicate_key(row_data)
+        if key in grouped:
+            data, allocations = grouped[key]
+            data["quantity"] += quantity
+        else:
+            row_data["quantity"] = quantity
+            data, allocations = row_data, {}
+            grouped[key] = (data, allocations)
+        location = cellartracker_storage_name(row.get("Location"))
+        if quantity > 0 and location:
+            spot = (location, cellartracker_storage_name(row.get("Bin")))
+            allocations[spot] = allocations.get(spot, 0) + quantity
+    return list(grouped.values())
+
+
 def cellartracker_rows(payload: CellarTrackerImportPayload) -> list[dict[str, str]]:
     csv_text = payload.csv_text
     if payload.csv_base64:
@@ -993,41 +1074,7 @@ def import_vinaris_json_payload(
     imported_wishlist_ids: dict[UUID, UUID] = {}
 
     def imported_storage_destination(raw: dict[str, Any]) -> tuple[UUID | None, UUID | None]:
-        location_name = clean_storage_name(as_str(raw.get("location_name")))
-        if not location_name:
-            return None, None
-        location = db.scalar(
-            select(CellarLocation).where(
-                CellarLocation.household_id == context.household.id,
-                CellarLocation.normalized_name == normalized_storage_name(location_name),
-            )
-        )
-        if location is None:
-            location = CellarLocation(
-                household_id=context.household.id,
-                name=location_name,
-                normalized_name=normalized_storage_name(location_name),
-            )
-            db.add(location)
-            db.flush()
-        bin_name = clean_storage_name(as_str(raw.get("bin_name")))
-        if not bin_name:
-            return location.id, None
-        cellar_bin = db.scalar(
-            select(CellarBin).where(
-                CellarBin.location_id == location.id,
-                CellarBin.normalized_name == normalized_storage_name(bin_name),
-            )
-        )
-        if cellar_bin is None:
-            cellar_bin = CellarBin(
-                location_id=location.id,
-                name=bin_name,
-                normalized_name=normalized_storage_name(bin_name),
-            )
-            db.add(cellar_bin)
-            db.flush()
-        return location.id, cellar_bin.id
+        return import_storage_destination(db, context, raw.get("location_name"), raw.get("bin_name"))
 
     for raw_wine in payload_list(payload, "wines") if "wines" in blocks else []:
         data = legacy_wine_data(raw_wine, context)
@@ -1572,16 +1619,16 @@ def preview_cellartracker_import(
     rows = cellartracker_rows(payload)
     wine_keys = existing_wine_keys(db, context)
     duplicates: list[str] = []
-    wines = [cellartracker_wine_data(row, context) for row in rows]
+    wines = [data for data, _ in cellartracker_wines(rows, context)]
     for data in wines:
         if wine_duplicate_key(data) in wine_keys:
             duplicates.append(data["name"])
     return LegacyImportPreview(
         format="cellartracker",
         included_blocks=["wines"],
-        wines_total=len(rows), wishlist_total=0,
+        wines_total=len(wines), wishlist_total=0,
         wine_duplicates=len(duplicates), wishlist_duplicates=0,
-        wine_new=len(rows) - len(duplicates), wishlist_new=0,
+        wine_new=len(wines) - len(duplicates), wishlist_new=0,
         sample_wine_duplicates=duplicates[:5],
         **cellartracker_free_tier_capacity(db, context, wines),
     )
@@ -1600,8 +1647,7 @@ def import_cellartracker(
         result.wines_deleted, result.wishlist_deleted = clear_household_cellar(db, context)
         db.flush()
     wine_keys = existing_wine_keys(db, context)
-    for row in rows:
-        data = cellartracker_wine_data(row, context)
+    for data, allocations in cellartracker_wines(rows, context):
         key = wine_duplicate_key(data)
         existing = wine_keys.get(key)
         if mode == "skip_duplicates" and existing is not None:
@@ -1624,6 +1670,17 @@ def import_cellartracker(
         db.flush()
         set_user_wine_tags(db, context, wine, data["tags"])
         propose_wine_catalog_entry(db, wine, source="cellar_import")
+        # Locations from the export replace the wine's current ones; an export
+        # without locations leaves the positions already set in Vinaris alone.
+        if allocations:
+            db.query(WineStorageAllocation).filter(WineStorageAllocation.wine_id == wine.id).delete(
+                synchronize_session=False
+            )
+            db.flush()
+            for (location_name, bin_name), quantity in allocations.items():
+                location_id, bin_id = import_storage_destination(db, context, location_name, bin_name)
+                add_to_storage(db, wine, quantity, location_id=location_id, bin_id=bin_id)
+        sync_storage_to_wine_quantity(db, wine)
         if wine.current_value is not None:
             db.add(WineValueHistory(wine_id=wine.id, value=wine.current_value, currency=wine.currency, source="imported"))
     db.commit()

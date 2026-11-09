@@ -118,7 +118,7 @@ export type LandingCopy = {
     tiers: Array<{ label: string; name: string; price: string; period: string; altPrice: string; badge: string; body: string; note: string }>;
     aiNote: string;
   };
-  footer: { statement: string; guides: string; pricing: string; about: string; contact: string; privacy: string; cookies: string; terms: string; login: string };
+  footer: { statement: string; guides: string; pricing: string; features: string; about: string; contact: string; privacy: string; cookies: string; terms: string; login: string };
   meta: { title: string; description: string };
 };
 
@@ -146,7 +146,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       faq: [
         { question: "Che cos’è Vinaris?", answer: "È una web app per la tua cantina privata: organizzi i vini che possiedi, segui acquisti e degustazioni e trovi le bottiglie da aprire." },
         { question: "Che cosa comprende l’account gratuito?", answer: "Il piano Degustazione permette di gestire fino a 15 etichette attive. Le funzioni Premium richiedono un abbonamento; il credito AI è disponibile anche per il piano gratuito." },
-        { question: "Perché 15 etichette e non bottiglie illimitate?", answer: "Il limite conta le etichette, non le bottiglie: sei bottiglie dello stesso Barolo 2016 sono un’etichetta sola, e i vini che hai finito di bere non contano più. Per molte cantine agli inizi 15 etichette bastano; quando la collezione cresce, Riserva costa CHF 6 al mese o CHF 60 all’anno." },
+        { question: "Perché 15 etichette e non bottiglie illimitate?", answer: "Il limite conta le etichette, non le bottiglie: sei bottiglie dello stesso Barolo 2016 sono un’etichetta sola, e i vini che hai finito di bere non contano più. Per molte cantine agli inizi 15 etichette bastano; quando la collezione cresce, Riserva costa CHF 6 al mese o CHF 60 all’anno e non ha limiti di etichette." },
         { question: "Da dove vengono le stime di valore?", answer: "Quando chiedi una stima, Vinaris cerca sul web i prezzi attuali della bottiglia presso le enoteche del mercato che hai scelto, per esempio la Svizzera, e ti mostra il link a ogni fonte. Il valore si aggiorna quando richiedi una nuova stima. Il Sommelier usa modelli di OpenAI e propone solo bottiglie presenti nella tua cantina." },
         { question: "Posso disdire l’abbonamento?", answer: "Sì. Gestisci o disdici l’abbonamento dal portale di fatturazione nell’app. I pagamenti passano da Stripe: Vinaris non vede né conserva i dati della tua carta." },
         { question: "Vinaris fa per me?", answer: "Sì, se vuoi seguire i vini che possiedi: dove sono, quando aprirli, quanto valgono. Se cerchi soprattutto un’app per votare i vini bevuti fuori casa o per scoprire etichette nuove, senza una cantina da gestire, un’app di degustazione ti servirà meglio." },
@@ -332,7 +332,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       ],
       aiNote: "AI Pack è disponibile quando vuoi, anche con Degustazione.",
     },
-    footer: { statement: "La cantina digitale per collezionisti di vino.", guides: "Guide", pricing: "Prezzi", about: "Chi siamo", contact: "Contatti", privacy: "Privacy", cookies: "Cookie", terms: "Condizioni d’uso", login: "Accesso" },
+    footer: { statement: "La cantina digitale per collezionisti di vino.", guides: "Guide", pricing: "Prezzi", features: "Funzioni", about: "Chi siamo", contact: "Contatti", privacy: "Privacy", cookies: "Cookie", terms: "Condizioni d’uso", login: "Accesso" },
     meta: { title: "Vinaris | Cantina digitale e sommelier AI per collezionisti", description: "Gestisci bottiglie, finestre di beva, valore, consegne, wishlist e memoria degustativa in una cantina privata e intelligente." },
   },
   en: {
@@ -358,7 +358,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       faq: [
         { question: "What is Vinaris?", answer: "A web app for your private wine cellar: organise the wines you own, keep track of purchases and tastings, and find bottles to open." },
         { question: "What does the free account include?", answer: "The Tasting plan lets you manage up to 15 active labels. Premium features require a subscription; AI credit is also available on the free plan." },
-        { question: "Why 15 labels and not unlimited bottles?", answer: "The limit counts labels, not bottles: six bottles of the same Barolo 2016 are one label, and wines you have finished no longer count. For many cellars that are just starting, 15 labels are enough; when the collection grows, Reserve costs CHF 6 a month or CHF 60 a year." },
+        { question: "Why 15 labels and not unlimited bottles?", answer: "The limit counts labels, not bottles: six bottles of the same Barolo 2016 are one label, and wines you have finished no longer count. For many cellars that are just starting, 15 labels are enough; when the collection grows, Reserve costs CHF 6 a month or CHF 60 a year and has no label limit." },
         { question: "Where do the value estimates come from?", answer: "When you ask for an estimate, Vinaris searches the web for the bottle’s current prices at wine shops in the market you choose, for example Switzerland, and shows a link to each source. The value updates when you request a new estimate. The Sommelier runs on OpenAI models and only suggests bottles that are in your cellar." },
         { question: "Can I cancel my subscription?", answer: "Yes. Manage or cancel your subscription from the billing portal in the app. Payments go through Stripe: Vinaris never sees or stores your card details." },
         { question: "Is Vinaris for me?", answer: "Yes, if you want to keep track of the wines you own: where they are, when to open them, what they are worth. If you mostly want to rate wines you drink out or discover new labels, with no cellar to manage, a tasting app will suit you better." },
@@ -544,7 +544,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       ],
       aiNote: "An AI Pack is available whenever you need it, including with Tasting.",
     },
-    footer: { statement: "The digital wine cellar for collectors.", guides: "Guides", pricing: "Pricing", about: "About", contact: "Contact", privacy: "Privacy", cookies: "Cookies", terms: "Terms", login: "Log in" },
+    footer: { statement: "The digital wine cellar for collectors.", guides: "Guides", pricing: "Pricing", features: "Features", about: "About", contact: "Contact", privacy: "Privacy", cookies: "Cookies", terms: "Terms", login: "Log in" },
     meta: { title: "Vinaris | Digital wine cellar management and AI sommelier", description: "Vinaris is the private digital wine cellar for collectors: track bottles, drinking windows, value and an AI sommelier in your browser." },
   },
 };

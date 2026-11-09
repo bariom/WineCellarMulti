@@ -238,6 +238,7 @@ export default function PublicLanding({
       <footer className="marketing-footer">
         <a className="marketing-brand" href="#top" aria-label="Vinaris"><img src="/icons/icon-192.png" alt="" width="38" height="38" /><span><strong>Vinaris</strong><small>{copy.footer.statement}</small></span></a>
         <nav aria-label={locale === "it" ? "Informazioni legali" : "Legal information"}>
+          <a href={locale === "it" ? "/it/funzioni/" : "/features/"}>{copy.footer.features}</a>
           <a href={pricingHref}>{copy.footer.pricing}</a>
           <a href={locale === "it" ? "/it/guide/" : "/en/guides/"}>{copy.footer.guides}</a>
           <a href={locale === "it" ? "/it/chi-siamo/" : "/about/"}>{copy.footer.about}</a>

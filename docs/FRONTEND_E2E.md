@@ -101,7 +101,8 @@ light/dark themes and desktop in the private-cellar theme.
 | Wine Pulse desktop width, IT/EN reading tools, responsive layout, pagination and errors | `npm run test:e2e:wine-pulse` |
 | Public landing, registration, consent, email-confirmation entry and demo (IT/EN, mobile/desktop) | `npx playwright test e2e/landing.spec.ts` |
 | Static pricing pages (/pricing/, /it/prezzi/): prices, billing toggle, comparison table, 360-1440px layout; the /?signup=1 sign-up link | `npx playwright test e2e/pricing-page.spec.ts` |
-| Static SEO pages (guides, guide indexes, about, pricing): title 30-60 chars, description 110-160, one H1, social card, question headings, 800+ words, BlogPosting author/date/image, footer contact, sitemap lastmod; regenerate with `npm run generate:seo-guides` | `npx playwright test e2e/seo-pages.spec.ts` |
+| Static SEO pages (guides incl. the CellarTracker comparison, guide indexes, about, features, pricing): title 30-60 chars, description 110-160, one H1, social card, question headings, 800+ words, BlogPosting author/date/image, footer contact, sitemap lastmod; regenerate with `npm run generate:seo-guides` | `npx playwright test e2e/seo-pages.spec.ts` |
+| Mobile checks at 375x812 for the homepage (IT/EN) and the static pricing pages: hero legibility, CTA above the fold, 44px tap targets, stacked plan cards, 16px form inputs, no sound autoplay | `npx playwright test e2e/mobile-375.spec.ts` |
 | Wine Detail, sensory signature, detail geometry and baseline | `npm run test:e2e:wine-detail` |
 | Admin shared catalog metadata editing and global catalog recovery | `npx playwright test e2e/admin-catalog-metadata.spec.ts` |
 | AI analysis animation, IT/EN, mobile/desktop/landscape geometry, reduced motion, batch progress and error dismissal | `npx playwright test e2e/ai-generation.spec.ts` |
