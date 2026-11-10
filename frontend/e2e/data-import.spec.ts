@@ -57,22 +57,43 @@ for (const locale of ["it", "en"] as const) {
     await mode.selectOption("skip_duplicates");
     await card.getByLabel(it ? "Carica CSV CellarTracker" : "Upload CellarTracker CSV", { exact: true }).setInputFiles({ name: "my-cellar.csv", mimeType: "text/csv", buffer: Buffer.from("Wine,Vintage,Quantity\nBarolo,2020,3") });
     await expect(card.getByText("CellarTracker My Cellar CSV", { exact: true })).toBeVisible();
-    await expect(card.getByText(/my-cellar.csv/, { exact: false })).toBeVisible();
+    await expect(card.getByText(/: my-cellar.csv$/)).toBeVisible();
     await expect(card.getByText("Barolo 2020", { exact: true })).toBeVisible();
     await expect(confirm).toBeEnabled();
     expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("data-import-calls") || "[]").map((call: { path: string }) => call.path))).toEqual(["/api/v1/imports/cellartracker/preview"]);
+    // While a file is being imported the sources close, and the import takes their place.
+    const sources = card.getByRole("group", { name: it ? "Origine dei dati" : "Data source", exact: true });
+    const current = card.getByRole("region", { name: it ? "Importa da CellarTracker" : "Import from CellarTracker", exact: true });
+    await expect(sources).toHaveCount(0);
+    await expect(current.getByText("my-cellar.csv", { exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const top = (await current.boundingBox())!.y;
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(top).toBeLessThan(844);
+    await page.screenshot({ path: testInfo.outputPath(`data-import-current-${locale}-390.png`) });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await current.getByRole("button", { name: it ? "Chiudi" : "Close", exact: true }).click();
+    await expect(sources).toBeVisible();
+    await expect(confirm).toBeDisabled();
     // A Vinaris backup replaces the previous choice, so confirmation uses its own endpoint.
     const payload = { wines: [], wishlist: [] };
     await card.getByLabel(it ? "Carica backup JSON Vinaris" : "Upload Vinaris JSON backup", { exact: true }).setInputFiles({ name: "vinaris-backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(payload)) });
     await expect(card.getByText("Vinaris export v2", { exact: true })).toBeVisible();
-    await expect(card.getByText(/vinaris-backup.json/, { exact: false })).toBeVisible();
+    await expect(card.getByText(/: vinaris-backup.json$/)).toBeVisible();
     await expect(card.getByText("CellarTracker My Cellar CSV", { exact: true })).toHaveCount(0);
     await confirm.click();
     await expect(card.getByText(it ? "Riepilogo import" : "Import summary", { exact: true })).toBeVisible();
+    // The summary stays in place of the sources until the user is done with it.
+    await expect(sources).toHaveCount(0);
+    await expect(confirm).toHaveCount(0);
     const calls = await page.evaluate(() => JSON.parse(sessionStorage.getItem("data-import-calls") || "[]"));
     expect(calls).toHaveLength(3);
     expect(calls[0].body.csv_base64).toBe(Buffer.from("Wine,Vintage,Quantity\nBarolo,2020,3").toString("base64"));
     expect(calls[2]).toMatchObject({ path: "/api/v1/imports/json", mode: "skip_duplicates", body: { ...payload, import_blocks: ["wines"] } });
+    await card.getByRole("button", { name: it ? "Fine" : "Done", exact: true }).click();
+    await expect(sources).toBeVisible();
+    await expect(card.getByText(it ? "Riepilogo import" : "Import summary", { exact: true })).toHaveCount(0);
     await expect(confirm).toBeDisabled();
     // CellarTracker also completes its own import after explicit confirmation.
     await card.getByLabel(it ? "Carica CSV CellarTracker" : "Upload CellarTracker CSV", { exact: true }).setInputFiles({ name: "my-cellar.csv", mimeType: "text/csv", buffer: Buffer.from("Wine,Quantity\nBarolo,3") });

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { appActionSvgIcon } from "../../components/actionIcons";
 import { ButtonBusyContent, LoadingState } from "../../components/AppUi";
 import { translate, type TranslationKey } from "../../i18n";
@@ -29,6 +29,7 @@ type DataSettingsTabProps = {
   exportJson: () => void;
   emptyCellar: () => void;
   reloadAfterImport: () => Promise<unknown>;
+  clearImport: () => void;
 };
 
 /** Settings → Data: import from CellarTracker, a spreadsheet or a backup, export the cellar, or empty it. */
@@ -55,6 +56,7 @@ export default function DataSettingsTab({
   exportJson,
   emptyCellar,
   reloadAfterImport,
+  clearImport,
 }: DataSettingsTabProps) {
   const t = (key: TranslationKey) => translate(locale, key);
   const [spreadsheetFile, setSpreadsheetFile] = useState<File | null>(null);
@@ -63,6 +65,35 @@ export default function DataSettingsTab({
     event.target.value = "";
     if (file) setSpreadsheetFile(file);
   };
+  // The CellarTracker or backup file being imported, so the sources can close around it.
+  const [pickedFile, setPickedFile] = useState<{ name: string; source: "cellartracker" | "vinaris" } | null>(null);
+  const pickFile = (source: "cellartracker" | "vinaris", handler: (event: ChangeEvent<HTMLInputElement>) => void) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const name = event.target.files?.[0]?.name;
+      if (name) setPickedFile({ name, source });
+      handler(event);
+    };
+  const fileImportOpen = Boolean(pickedFile && (saving || importPreview || importResult));
+  useEffect(() => {
+    // The file could not be read: back to the sources (the error is shown by the app).
+    if (pickedFile && !fileImportOpen) setPickedFile(null);
+  }, [pickedFile, fileImportOpen]);
+  const closeFileImport = () => {
+    clearImport();
+    setPickedFile(null);
+  };
+  const importOpen = spreadsheetFile ? "spreadsheet" : fileImportOpen ? "file" : "";
+  const currentImportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const current = currentImportRef.current;
+    if (!importOpen || !current) return;
+    // Bring the import that just started into view, where the sources were.
+    const top = current.getBoundingClientRect().top;
+    if (top < 0 || top > window.innerHeight * 0.6) {
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      current.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+    }
+  }, [importOpen]);
   return (
     <>
       <section className="settings-card data-import-card" aria-labelledby="data-import-title">
@@ -72,13 +103,14 @@ export default function DataSettingsTab({
             <h3 id="data-import-title">{t("importSection")}</h3>
           </div>
         </div>
-        <p className="data-import-intro">{t("importSupports")}</p>
+        {importOpen ? null : <p className="data-import-intro">{t("importSupports")}</p>}
+        {importOpen ? null : (
         <div className="data-import-sources" role="group" aria-label={locale === "it" ? "Origine dei dati" : "Data source"}>
           <section className="data-import-source data-import-source--cellartracker" aria-labelledby="cellartracker-import-title">
             <span className="data-import-source-tag">{locale === "it" ? "Vieni da CellarTracker?" : "Coming from CellarTracker?"}</span>
             <h4 id="cellartracker-import-title">{locale === "it" ? "Importa da CellarTracker" : "Import from CellarTracker"}</h4>
             <p>{locale === "it" ? "Esporta la tua collezione “My Cellar” da CellarTracker in formato CSV e carica qui il file." : "Export your “My Cellar” collection from CellarTracker as a CSV file and upload it here."}</p>
-            <label><span>{locale === "it" ? "Carica CSV CellarTracker" : "Upload CellarTracker CSV"}</span><input type="file" accept="text/csv,.csv" onChange={importCellarTrackerFile} disabled={saving} /></label>
+            <label><span>{locale === "it" ? "Carica CSV CellarTracker" : "Upload CellarTracker CSV"}</span><input type="file" accept="text/csv,.csv" onChange={pickFile("cellartracker", importCellarTrackerFile)} disabled={saving} /></label>
           </section>
           <section className="data-import-source data-import-source--spreadsheet" aria-labelledby="spreadsheet-import-title">
             <span className="data-import-source-tag">{locale === "it" ? "Tieni la cantina in Excel?" : "Keep your cellar in a spreadsheet?"}</span>
@@ -92,9 +124,11 @@ export default function DataSettingsTab({
             <h4 id="vinaris-import-title">{locale === "it" ? "Ripristina un backup" : "Restore a backup"}</h4>
             <p>{locale === "it" ? "Carica un file JSON esportato da Vinaris o un backup precedente compatibile." : "Upload a JSON file exported from Vinaris or a compatible older backup."}</p>
             <small>{t("exportHistoryIncluded")}</small>
-            <label><span>{locale === "it" ? "Carica backup JSON Vinaris" : "Upload Vinaris JSON backup"}</span><input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} /></label>
+            <label><span>{locale === "it" ? "Carica backup JSON Vinaris" : "Upload Vinaris JSON backup"}</span><input type="file" accept="application/json,.json" onChange={pickFile("vinaris", importLegacyFile)} disabled={saving} /></label>
           </section>
         </div>
+        )}
+        <div ref={currentImportRef} className="data-import-current">
         {spreadsheetFile ? (
           <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
             <SpreadsheetImportWizard
@@ -109,6 +143,21 @@ export default function DataSettingsTab({
         ) : null}
         {/* The CellarTracker / backup controls would only confuse while the Excel wizard is open. */}
         {spreadsheetFile ? null : (
+          <div className={fileImportOpen ? "spreadsheet-wizard data-import-file" : "data-import-file"} aria-labelledby={fileImportOpen ? "data-import-file-title" : undefined} role={fileImportOpen ? "region" : undefined}>
+        {fileImportOpen && pickedFile ? (
+          <header className="spreadsheet-wizard-header">
+            <div>
+              <span className="data-import-source-tag">{pickedFile.name}</span>
+              <h4 id="data-import-file-title">{pickedFile.source === "cellartracker"
+                ? (locale === "it" ? "Importa da CellarTracker" : "Import from CellarTracker")
+                : (locale === "it" ? "Ripristina un backup" : "Restore a backup")}</h4>
+            </div>
+            <button type="button" className="secondary compact" onClick={closeFileImport} disabled={saving}>
+              {importResult ? (locale === "it" ? "Fine" : "Done") : (locale === "it" ? "Chiudi" : "Close")}
+            </button>
+          </header>
+        ) : null}
+        {fileImportOpen && importResult ? null : (
           <>
         <p className="data-import-preview-help">{locale === "it" ? "Il caricamento prepara solo un’anteprima: vedrai i vini nuovi e i possibili duplicati prima di confermare." : "Uploading only prepares a preview: review new wines and possible duplicates before confirming."}</p>
         <label>
@@ -193,6 +242,8 @@ export default function DataSettingsTab({
             <ButtonBusyContent busy={saving && Boolean(importPayload || cellarTrackerCsvText)} idleLabel={t("importRun")} busyLabel={t("loadingData")} icon={appActionSvgIcon("import")} />
           </button>
         </div>
+          </>
+        )}
         {importResult ? (
           <div className="token-box">
             <strong>{t("importSummary")}</strong>
@@ -207,8 +258,9 @@ export default function DataSettingsTab({
             {(importResult.ai_audit_imported || importResult.ai_audit_updated || importResult.ai_audit_skipped) ? <span>{t("aiAudit")}: +{importResult.ai_audit_imported}, {t("updatedItems")} {importResult.ai_audit_updated}, {t("skipped")} {importResult.ai_audit_skipped}</span> : null}
           </div>
         ) : null}
-          </>
+          </div>
         )}
+        </div>
         <div className="token-box">
           <strong>{t("exportData")}</strong>
           <span>{t("exportFullCellarHelp")}</span>

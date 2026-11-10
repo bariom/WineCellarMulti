@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { appActionSvgIcon } from "../../components/actionIcons";
 import { AppIcon } from "../../components/AppIcon";
 import { ButtonBusyContent, LoadingState } from "../../components/AppUi";
@@ -226,6 +226,18 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
   const [aiRefs, setAiRefs] = useState<ReadonlySet<string>>(new Set());
   const [aiFreeLeft, setAiFreeLeft] = useState<number | null>(null);
 
+  // A new step starts at the top of the wizard, not where the button that led to it was.
+  const wizardRef = useRef<HTMLElement>(null);
+  const shownStep = useRef(step);
+  useEffect(() => {
+    if (shownStep.current === step) return;
+    shownStep.current = step;
+    const wizard = wizardRef.current;
+    if (!wizard || wizard.getBoundingClientRect().top >= 0) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    wizard.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+  }, [step]);
+
   const describeError = (caught: unknown) => {
     if (caught instanceof SpreadsheetApiError && ERROR_LABELS[caught.code]) return pick(ERROR_LABELS[caught.code]);
     return caught instanceof Error ? caught.message : String(caught);
@@ -421,7 +433,7 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
   ];
 
   return (
-    <section className="spreadsheet-wizard" aria-labelledby="spreadsheet-wizard-title">
+    <section ref={wizardRef} className="spreadsheet-wizard" aria-labelledby="spreadsheet-wizard-title">
       <header className="spreadsheet-wizard-header">
         <div>
           <span className="data-import-source-tag">{file.name}</span>

@@ -84,6 +84,9 @@ for (const locale of ["it", "en"] as const) {
     const wizard = card.getByRole("region", { name: it ? "Importa dal tuo Excel" : "Import from your spreadsheet", exact: true });
     // The CellarTracker / backup confirmation does not apply to the spreadsheet.
     await expect(card.getByRole("button", { name: it ? "Conferma importazione" : "Confirm import" })).toHaveCount(0);
+    // The sources close, so the wizard is right where the file was chosen.
+    await expect(card.getByRole("group", { name: it ? "Origine dei dati" : "Data source", exact: true })).toHaveCount(0);
+    await expect(wizard).toBeInViewport();
     await expect(wizard.getByText("Vini in casa", { exact: true })).toBeVisible();
     await expect(wizard.getByText("Da comprare", { exact: true })).toBeVisible();
     const kinds = wizard.getByRole("combobox", { name: it ? "Contiene" : "Holds" });
