@@ -159,11 +159,19 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     news: {
       eyebrow: "Novità in Vinaris",
       title: "Meno gestione. Più piacere di collezionare.",
-      body: "Cinque novità per vivere la tua cantina, a modo tuo.",
+      body: "Sei novità per vivere la tua cantina, a modo tuo.",
       order: "Le ultime novità, dalla più recente",
       action: "Registrati gratis",
       note: "Inizia gratis con fino a 15 etichette. Scegli poi le funzioni che fanno per te.",
       entries: [
+        {
+          id: "spreadsheet-import", date: "2026-11-10", dateLabel: "Novembre 2026", label: "Import da Excel", tab: "Import da Excel", featured: false,
+          title: "Il tuo Excel, così com’è.",
+          body: "Carica il foglio con cui hai sempre seguito la cantina, anche .xls, .ods o CSV: Vinaris riconosce fogli e colonne, divide produttore, vino e annata, e porta con sé wishlist, degustazioni e bevute. Prima vedi l’anteprima.",
+          availability: "Per tutti, anche nel piano gratuito.",
+          action: "Crea il tuo account gratis",
+          memberAction: "Importa il tuo Excel",
+        },
         {
           id: "bottle-photo", date: "2026-10-23", dateLabel: "Ottobre 2026", label: "La grande novità · Inserimento veloce", tab: "Inserimento veloce", featured: true,
           title: "Una foto. Tutta la cantina dentro.",
@@ -371,11 +379,19 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     news: {
       eyebrow: "What’s new in Vinaris",
       title: "Less admin. More joy in collecting.",
-      body: "Five new ways to enjoy your cellar, your way.",
+      body: "Six new ways to enjoy your cellar, your way.",
       order: "Latest additions first",
       action: "Sign up for free",
       note: "Start free with up to 15 labels. Then choose the features that suit you.",
       entries: [
+        {
+          id: "spreadsheet-import", date: "2026-11-10", dateLabel: "November 2026", label: "Spreadsheet import", tab: "Spreadsheet import", featured: false,
+          title: "Your spreadsheet, just as it is.",
+          body: "Upload the sheet you have always kept your cellar in, including .xls, .ods or CSV: Vinaris recognises sheets and columns, splits producer, wine and vintage, and brings along your wishlist, tastings and bottles drunk. You see a preview first.",
+          availability: "For everyone, including the free plan.",
+          action: "Create your free account",
+          memberAction: "Import your spreadsheet",
+        },
         {
           id: "bottle-photo", date: "2026-10-23", dateLabel: "October 2026", label: "Our big new arrival · Quick add", tab: "Quick add", featured: true,
           title: "One photo. Your whole cellar in.",

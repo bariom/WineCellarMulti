@@ -5416,6 +5416,8 @@ export function App() {
     } else if (id === "personal-dashboard") {
       leaveHelpFor("home");
       setDashboardFocus("personal");
+    } else if (id === "spreadsheet-import") {
+      setActiveView("settings"); setSettingsTab("data"); loadSettingsTabData("data");
     }
   }
 

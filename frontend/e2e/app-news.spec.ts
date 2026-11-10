@@ -24,7 +24,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 360, height: 800 }
     await page.clock.runFor(6000);
     await expect(news).toBeVisible();
     const article = news.getByRole("article");
-    await expect(article.getByRole("heading")).toHaveText("Una foto. Tutta la cantina dentro.");
+    await expect(article.getByRole("heading")).toHaveText("Il tuo Excel, così com’è.");
     // Signed in, the update leads to the feature instead of the sign-up.
     await expect(news.getByRole("button", { name: /Crea il tuo account/ })).toHaveCount(0);
     await expect(page.locator("#news-signup-note")).toHaveCount(0);
@@ -53,6 +53,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 360, height: 800 }
       await page.getByRole("button", { name: "Novità", exact: true }).click();
     }
     await expect(news).toBeVisible();
+    await news.getByRole("button", { name: "Inserimento veloce", exact: true }).click();
     await news.getByRole("button", { name: /^Prova l'inserimento veloce/ }).click();
     await expect(news).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: "Fotografa le tue bottiglie" })).toBeVisible();
@@ -69,6 +70,18 @@ test("the shelf scanner update opens the buying view on the shelf", async ({ pag
   await news.getByRole("button", { name: /^Apri lo Scaffale AI/ }).click();
   await expect(page.locator(".buying-view")).toBeVisible();
   await expect(page.locator(".buying-place-switch button").nth(1)).toHaveAttribute("aria-pressed", "true");
+});
+
+test("the spreadsheet import update opens the data settings on the import", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await setup(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Novità", exact: true }).click();
+  const news = page.getByRole("region", { name: "Meno gestione. Più piacere di collezionare." });
+  await news.getByRole("button", { name: /^Importa il tuo Excel/ }).click();
+  await expect(news).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Dati", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("region", { name: "Importa la tua cantina", exact: true })).toBeVisible();
 });
 
 test("the updates tab can be hidden for a week, and returns with something new", async ({ page }) => {
