@@ -6,6 +6,7 @@ import { runBottlePhotoScan } from "../services/bottlePhotoScan";
 import { AppIcon } from "./AppIcon";
 import { AiActivity } from "./AiActivity";
 import { formatAiBudget } from "./panelSupport";
+import { photoPreview } from "../utils/photoPreview";
 import "./BottlePhotoImport.css";
 
 const MAX_PHOTOS = 3;
@@ -20,30 +21,6 @@ type ReviewRow = BottlePhotoRow & {
 
 const THUMB_SIDE = 320;
 
-/**
- * A small preview of a photo. A phone camera file (50 MP and more on recent
- * phones) shown as-is in a thumbnail makes mobile browsers drop and re-decode it
- * over and over, and the picture flickers; the original still goes to the AI.
- */
-async function photoThumbnail(file: File): Promise<string> {
-  if (typeof createImageBitmap !== "function") return URL.createObjectURL(file);
-  try {
-    const probe = await createImageBitmap(file, { imageOrientation: "from-image" });
-    const scale = Math.min(1, THUMB_SIDE / Math.max(probe.width, probe.height));
-    const width = Math.max(1, Math.round(probe.width * scale));
-    const height = Math.max(1, Math.round(probe.height * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    canvas.getContext("2d")?.drawImage(probe, 0, 0, width, height);
-    probe.close();
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
-    return blob ? URL.createObjectURL(blob) : URL.createObjectURL(file);
-  } catch {
-    return URL.createObjectURL(file);
-  }
-}
-
 /** One light preview per photo, made once and kept while the photo stays in the list. */
 function usePhotoThumbnails(photos: File[]) {
   const made = useRef(new Map<File, string>());
@@ -57,7 +34,7 @@ function usePhotoThumbnails(photos: File[]) {
     setUrls(new Map(cache));
     for (const file of photos) {
       if (cache.has(file)) continue;
-      void photoThumbnail(file).then((url) => {
+      void photoPreview(file, THUMB_SIDE).then((url) => {
         if (cancelled || !photos.includes(file) || cache.has(file)) { URL.revokeObjectURL(url); return; }
         cache.set(file, url);
         setUrls(new Map(cache));

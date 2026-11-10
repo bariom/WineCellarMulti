@@ -22,8 +22,8 @@
   display: grid;
   place-items: center;
   padding: 14px;
-  background: rgba(7, 8, 7, .88);
-  backdrop-filter: blur(14px);
+  /* No backdrop blur: over the live camera video it makes Android phones flicker. */
+  background: rgba(7, 8, 7, .94);
 }
 
 .wishlist-live-scan-modal {
@@ -70,7 +70,8 @@
 .wishlist-live-scan-reticle i:nth-child(2) { top: 0; right: 0; border-width: 3px 3px 0 0; border-radius: 0 12px 0 0; }
 .wishlist-live-scan-reticle i:nth-child(3) { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-radius: 0 0 0 12px; }
 .wishlist-live-scan-reticle i:nth-child(4) { right: 0; bottom: 0; border-width: 0 3px 3px 0; border-radius: 0 0 12px; }
-.wishlist-live-scan-reticle.analysing { animation: wishlist-reticle-pulse 1.2s ease-in-out infinite; }
+/* Opacity only, on its own layer: the corners stay still over the video. */
+.wishlist-live-scan-reticle.analysing { will-change: opacity; animation: wishlist-reticle-pulse 1.2s ease-in-out infinite; }
 .wishlist-live-scan-reticle.result { opacity: .28; }
 
 .wishlist-live-scan-status {
@@ -86,8 +87,7 @@
   border: 1px solid rgba(255,255,255,.2);
   border-radius: var(--radius-pill);
   color: white;
-  background: rgba(7, 10, 8, .72);
-  backdrop-filter: blur(10px);
+  background: rgba(7, 10, 8, .82);
   font-size: .76rem;
   font-weight: 800;
   text-align: center;
@@ -112,7 +112,6 @@
   color: #fffaf0;
   background: linear-gradient(135deg, rgba(50,16,29,.95), rgba(12,18,14,.94));
   box-shadow: 0 18px 45px rgba(0,0,0,.42);
-  backdrop-filter: blur(14px);
   overflow: auto;
 }
 
@@ -158,7 +157,7 @@
 .wishlist-live-scan-modal header button { flex-shrink: 0; }
 
 @keyframes wishlist-live-pulse { 50% { opacity: .35; transform: scale(.72); } }
-@keyframes wishlist-reticle-pulse { 50% { transform: scale(.985); opacity: .62; } }
+@keyframes wishlist-reticle-pulse { 50% { opacity: .62; } }
 
 @media (max-width: 540px) {
   .wishlist-live-scan-layer { padding: 0; }

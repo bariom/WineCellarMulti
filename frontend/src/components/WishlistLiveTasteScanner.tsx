@@ -2,6 +2,7 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Locale, TasteMatch, WineImageRecognitionCandidate, WineImageRecognitionResult } from "../types";
 import { AppIcon } from "./AppIcon";
+import { photoPreview } from "../utils/photoPreview";
 import "./WishlistLiveTasteScanner.css";
 
 export type WishlistLiveTasteScan = {
@@ -50,9 +51,12 @@ async function resetCameraZoom(stream: MediaStream) {
   }
 }
 
+// The longest side of what the stage shows: sharp on a phone, light to decode.
+const PREVIEW_SIDE = 1600;
+
 function frameBlob(video: HTMLVideoElement): Promise<{ blob: Blob; previewUrl: string }> {
   const canvas = document.createElement("canvas");
-  const maxWidth = 1600;
+  const maxWidth = PREVIEW_SIDE;
   const scale = Math.min(1, maxWidth / video.videoWidth);
   canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
   canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
@@ -191,7 +195,8 @@ export function WishlistLiveTasteScanner({
     if (!file) return;
     clearPreview();
     analysisStartedRef.current = false;
-    await analyse(file, URL.createObjectURL(file));
+    // The original goes to the AI; the stage shows a light copy (see photoPreview).
+    await analyse(file, await photoPreview(file, PREVIEW_SIDE));
   }
 
   useEffect(() => () => {

@@ -54,6 +54,7 @@
 .wine-shelf-thumbs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .wine-shelf-thumbs li { position: relative; width: 86px; height: 86px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--shelf-gold) 40%, var(--line)); border-radius: 12px; }
 .wine-shelf-thumbs img { width: 100%; height: 100%; object-fit: cover; }
+.wine-shelf-thumb-pending { display: block; width: 100%; height: 100%; background: color-mix(in srgb, var(--shelf-gold) 12%, var(--surface, transparent)); }
 .wine-shelf-thumbs button { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; min-width: 30px; min-height: 30px; padding: 0; }
 
 .wine-shelf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }

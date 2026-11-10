@@ -1,8 +1,9 @@
-import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useRef, useState } from "react";
 import { AppIcon } from "./AppIcon";
 import { WineListChat } from "./WineListChat";
 import type { RestaurantWineListQuestionPayload, RestaurantWineListQuestionResult, WineShelfBottle, WineShelfCellarMode, WineShelfScanResult } from "../types";
 import { WishlistDestinationPicker } from "./WishlistDestinationPicker";
+import { usePhotoPreviews } from "../utils/photoPreview";
 import "./WineShelfScanner.css";
 
 const maxPhotos = 3;
@@ -82,9 +83,9 @@ export function WineShelfScanner({
   const [savedBottles, setSavedBottles] = useState<Map<number, string>>(() => new Map());
   const [savingBottle, setSavingBottle] = useState<number | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
-  // The photos stay on the device: the result is drawn on the local previews.
-  const previews = useMemo(() => photos.map((photo) => URL.createObjectURL(photo)), [photos]);
-  useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews]);
+  // The photos stay on the device: the result is drawn on light local copies,
+  // big enough for the 3× zoom (see photoPreview).
+  const previews = usePhotoPreviews(photos, 2560);
   useEffect(() => {
     const dialog = zoomDialogRef.current;
     if (!dialog) return;
@@ -169,7 +170,7 @@ export function WineShelfScanner({
   }
 
   function renderShelfFrame(url: string, photoIndex: number, variant: "inline" | "zoom") {
-    if (!result) return null;
+    if (!result || !url) return null;
     return <div className={`wine-shelf-photo-frame is-${variant}`} style={variant === "zoom" && zoom > 1 ? { width: `${zoom * 100}%` } : undefined}>
       <img src={url} alt={it ? `Scaffale, foto ${photoIndex + 1}` : `Shelf, photo ${photoIndex + 1}`} onClick={variant === "inline" ? () => openZoom(photoIndex) : undefined} />
       {result.bottles.map((bottle, bottleIndex) => {
@@ -216,7 +217,7 @@ export function WineShelfScanner({
       </header>
       {result.summary ? <p className="wine-shelf-summary">{result.summary}</p> : null}
       {previews.length ? <div className="wine-shelf-photos">
-        {previews.map((url, photoIndex) => <figure key={url} className="wine-shelf-photo">
+        {previews.map((url, photoIndex) => <figure key={photoIndex} className="wine-shelf-photo">
           {renderShelfFrame(url, photoIndex, "inline")}
           <figcaption>
             {previews.length > 1 ? <span>{it ? `Foto ${photoIndex + 1}` : `Photo ${photoIndex + 1}`}</span> : null}
@@ -293,7 +294,7 @@ export function WineShelfScanner({
     <div className="wine-shelf-capture">
       <label className="wine-shelf-camera"><span><AppIcon name="camera" size="1.3rem" /><b>{photos.length ? (it ? "Scatta un'altra foto" : "Take another photo") : (it ? "Fotografa lo scaffale" : "Photograph the shelf")}</b></span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => addPhotos(event.currentTarget)} disabled={disabled || photos.length >= maxPhotos} /></label>
       <label className="wine-shelf-upload"><span><AppIcon name="import" size="1.05rem" /><b>{it ? "Carica foto" : "Upload photos"}</b></span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => addPhotos(event.currentTarget)} disabled={disabled || photos.length >= maxPhotos} /></label>
-      {previews.length ? <ol className="wine-shelf-thumbs" aria-label={it ? "Foto dello scaffale" : "Shelf photos"}>{previews.map((url, index) => <li key={url}><img src={url} alt="" /><button type="button" className="secondary compact" aria-label={it ? `Rimuovi foto ${index + 1}` : `Remove photo ${index + 1}`} onClick={() => { setPhotos((current) => current.filter((_, position) => position !== index)); setResult(null); }} disabled={scanning}><AppIcon name="delete" size="0.9rem" /></button></li>)}</ol> : null}
+      {previews.length ? <ol className="wine-shelf-thumbs" aria-label={it ? "Foto dello scaffale" : "Shelf photos"}>{previews.map((url, index) => <li key={index}>{url ? <img src={url} alt="" /> : <span className="wine-shelf-thumb-pending" />}<button type="button" className="secondary compact" aria-label={it ? `Rimuovi foto ${index + 1}` : `Remove photo ${index + 1}`} onClick={() => { setPhotos((current) => current.filter((_, position) => position !== index)); setResult(null); }} disabled={scanning}><AppIcon name="delete" size="0.9rem" /></button></li>)}</ol> : null}
       <small>{it ? `Fino a ${maxPhotos} foto, una per tratto di parete. Avvicinati quanto basta per leggere le etichette. Le foto non vengono archiviate.` : `Up to ${maxPhotos} photos, one per stretch of wall. Get close enough to read the labels. Photos are not stored.`}</small>
     </div>
     <div className="wine-shelf-fields">
