@@ -33,6 +33,7 @@ from app.models.sensory_batch import SensoryBatchRun
 from app.models.sensory_refinement import SensoryRefinementRun
 from app.models.session import UserSession
 from app.models.shared_wine_data import SharedWineFact, SharedWineIdentity
+from app.models.spreadsheet_import import SpreadsheetImportMap
 from app.models.storage import CellarBin, CellarLocation, WineStorageAllocation, WineStorageMovement
 from app.models.tags import UserTag, UserWineTag
 from app.models.taste_profile import (
@@ -68,6 +69,7 @@ from app.models.wishlist import ExternalWineTasting, WishlistItem, WishlistList
 __all__ = [
     "AssistantFeedback",
     "PurchaseImport",
+    "SpreadsheetImportMap",
     "PurchaseDocumentWine",
     "SensoryRefinementRun",
     "SensoryAgentRun",

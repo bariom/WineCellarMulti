@@ -27757,6 +27757,56 @@ body,
 .data-import-source input[type="file"] { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; min-height: 44px; font-size: .8rem; }
 .data-import-preview-help { font-size: .85rem; color: var(--text-muted); }
 
+/* Settings → Data → Excel import wizard */
+.spreadsheet-wizard { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 18px; border: 1px solid color-mix(in srgb, var(--primary) 55%, var(--border)); border-radius: var(--radius-card); background: linear-gradient(160deg, color-mix(in srgb, var(--primary) 9%, var(--surface)), var(--surface) 55%); }
+.spreadsheet-wizard-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+.spreadsheet-wizard-header > div { min-width: 0; }
+.spreadsheet-wizard-header .data-import-source-tag { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spreadsheet-wizard-header h4 { margin: 2px 0 0; font-size: 1.05rem; }
+.spreadsheet-wizard-steps { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.spreadsheet-wizard-steps li { flex: 1 1 0; min-width: 0; padding: 6px 4px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); font-size: .75rem; font-weight: 700; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spreadsheet-wizard-steps li.is-current { border-color: var(--primary); color: var(--text); background: color-mix(in srgb, var(--primary) 16%, var(--surface)); }
+.spreadsheet-wizard-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.spreadsheet-wizard-note { margin: 0; font-size: .85rem; line-height: 1.5; color: var(--text-muted); }
+.spreadsheet-wizard-note.is-warning { color: var(--text); padding: 8px 12px; border-left: 3px solid var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); border-radius: 6px; }
+.spreadsheet-wizard-error { margin: 0; padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--text); font-size: .85rem; }
+.spreadsheet-wizard-hint { color: var(--text-muted); font-size: .78rem; line-height: 1.45; }
+.spreadsheet-table-list, .spreadsheet-column-list, .spreadsheet-name-list { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.spreadsheet-table-card, .spreadsheet-column, .spreadsheet-name { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.spreadsheet-table-card > div, .spreadsheet-column-head { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.spreadsheet-table-card strong, .spreadsheet-column-head strong { overflow-wrap: anywhere; }
+.spreadsheet-table-card small, .spreadsheet-column-head small, .spreadsheet-name small { color: var(--text-muted); font-size: .78rem; overflow-wrap: anywhere; }
+.spreadsheet-column.is-uncertain, .spreadsheet-name.is-uncertain { border-color: color-mix(in srgb, var(--primary) 70%, var(--border)); box-shadow: inset 3px 0 0 var(--primary); }
+.spreadsheet-wizard select, .spreadsheet-wizard input:not([type="checkbox"]) { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; }
+.spreadsheet-wizard label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.spreadsheet-wizard label > span { font-size: .78rem; color: var(--text-muted); }
+.spreadsheet-wizard .spreadsheet-inline-check { flex-direction: row; align-items: center; gap: 8px; }
+.spreadsheet-inline-check input { width: 20px; height: 20px; flex: none; }
+.spreadsheet-wizard .spreadsheet-inline-check span { color: var(--text); font-size: .82rem; }
+.spreadsheet-columns { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.spreadsheet-columns h5, .spreadsheet-names h5 { margin: 6px 0 0; font-size: .95rem; overflow-wrap: anywhere; }
+.spreadsheet-columns h5 span { margin-left: 6px; color: var(--primary); font-size: .78rem; font-weight: 700; }
+.spreadsheet-table-option { padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; }
+.spreadsheet-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 10px; margin: 0; }
+.spreadsheet-summary > div { min-width: 0; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); }
+.spreadsheet-summary dt { color: var(--text-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.spreadsheet-summary dd { margin: 4px 0 0; font-size: 1rem; font-weight: 700; overflow-wrap: anywhere; }
+.spreadsheet-names { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.spreadsheet-name-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
+.spreadsheet-wizard-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.spreadsheet-wizard-actions button { min-height: 44px; }
+@media (min-width: 720px) {
+  .spreadsheet-table-card { grid-template-columns: minmax(0, 1fr) minmax(200px, 260px); align-items: center; }
+  .spreadsheet-table-card > small { grid-column: 1 / -1; }
+  .spreadsheet-column { grid-template-columns: minmax(0, 1fr) minmax(200px, 260px); align-items: start; }
+  .spreadsheet-column > label + label, .spreadsheet-column > .spreadsheet-inline-check { grid-column: 1 / -1; }
+  .spreadsheet-name-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 96px; }
+}
+@media (max-width: 480px) {
+  .spreadsheet-wizard { padding: 14px; }
+  .spreadsheet-wizard-actions button { flex: 1 1 auto; }
+}
+
 /* Personal ratings retain their half star in both read and edit views. */
 .star-rating .half-filled,
 .rating-input button.half-filled > span {

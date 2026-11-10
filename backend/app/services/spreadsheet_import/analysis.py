@@ -277,4 +277,5 @@ def analyze_workbook(workbook: Workbook) -> SpreadsheetAnalysis:
         fingerprint=layout_fingerprint(groups),
         tables=[analyze_group(f"t{index}", group) for index, group in enumerate(groups)],
         skipped_sheets=skipped,
+        fields_by_kind={kind: list(fields) for kind, fields in FIELDS_BY_KIND.items()},
     )

@@ -1,8 +1,10 @@
-import type { ChangeEvent, Dispatch, SetStateAction } from "react";
+import { lazy, Suspense, useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { appActionSvgIcon } from "../../components/actionIcons";
 import { ButtonBusyContent, LoadingState } from "../../components/AppUi";
 import { translate, type TranslationKey } from "../../i18n";
 import type { ExportSelection, ImportMode, ImportPreview, ImportResult, ImportSelection, Locale, Session } from "../../types";
+
+const SpreadsheetImportWizard = lazy(() => import("./SpreadsheetImportWizard"));
 
 type DataSettingsTabProps = {
   locale: Locale;
@@ -26,9 +28,10 @@ type DataSettingsTabProps = {
   hasSelectedExportBlock: boolean;
   exportJson: () => void;
   emptyCellar: () => void;
+  reloadAfterImport: () => Promise<unknown>;
 };
 
-/** Settings → Data: import from CellarTracker or a backup, export the cellar, or empty it. */
+/** Settings → Data: import from CellarTracker, a spreadsheet or a backup, export the cellar, or empty it. */
 export default function DataSettingsTab({
   locale,
   session,
@@ -51,8 +54,15 @@ export default function DataSettingsTab({
   hasSelectedExportBlock,
   exportJson,
   emptyCellar,
+  reloadAfterImport,
 }: DataSettingsTabProps) {
   const t = (key: TranslationKey) => translate(locale, key);
+  const [spreadsheetFile, setSpreadsheetFile] = useState<File | null>(null);
+  const chooseSpreadsheet = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (file) setSpreadsheetFile(file);
+  };
   return (
     <>
       <section className="settings-card data-import-card" aria-labelledby="data-import-title">
@@ -70,6 +80,13 @@ export default function DataSettingsTab({
             <p>{locale === "it" ? "Esporta la tua collezione “My Cellar” da CellarTracker in formato CSV e carica qui il file." : "Export your “My Cellar” collection from CellarTracker as a CSV file and upload it here."}</p>
             <label><span>{locale === "it" ? "Carica CSV CellarTracker" : "Upload CellarTracker CSV"}</span><input type="file" accept="text/csv,.csv" onChange={importCellarTrackerFile} disabled={saving} /></label>
           </section>
+          <section className="data-import-source data-import-source--spreadsheet" aria-labelledby="spreadsheet-import-title">
+            <span className="data-import-source-tag">{locale === "it" ? "Tieni la cantina in Excel?" : "Keep your cellar in a spreadsheet?"}</span>
+            <h4 id="spreadsheet-import-title">{locale === "it" ? "Importa da Excel" : "Import from Excel"}</h4>
+            <p>{locale === "it" ? "Carica il tuo file così com’è: Vinaris riconosce fogli e colonne e ti chiede conferma prima di importare." : "Upload your file as it is: Vinaris recognises sheets and columns and asks you to confirm before importing."}</p>
+            <small>{locale === "it" ? "Excel (.xlsx, .xls), LibreOffice (.ods) o CSV, fino a 5 MB." : "Excel (.xlsx, .xls), LibreOffice (.ods) or CSV, up to 5 MB."}</small>
+            <label><span>{locale === "it" ? "Carica file Excel" : "Upload spreadsheet"}</span><input type="file" accept=".xlsx,.xlsm,.xls,.ods,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.oasis.opendocument.spreadsheet,text/csv" onChange={chooseSpreadsheet} disabled={saving} /></label>
+          </section>
           <section className="data-import-source" aria-labelledby="vinaris-import-title">
             <span className="data-import-source-tag">{locale === "it" ? "Hai un backup Vinaris?" : "Have a Vinaris backup?"}</span>
             <h4 id="vinaris-import-title">{locale === "it" ? "Ripristina un backup" : "Restore a backup"}</h4>
@@ -78,6 +95,18 @@ export default function DataSettingsTab({
             <label><span>{locale === "it" ? "Carica backup JSON Vinaris" : "Upload Vinaris JSON backup"}</span><input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} /></label>
           </section>
         </div>
+        {spreadsheetFile ? (
+          <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
+            <SpreadsheetImportWizard
+              key={`${spreadsheetFile.name}-${spreadsheetFile.lastModified}-${spreadsheetFile.size}`}
+              locale={locale}
+              file={spreadsheetFile}
+              isFreeTier={Boolean(session?.is_free_tier)}
+              onClose={() => setSpreadsheetFile(null)}
+              onImported={reloadAfterImport}
+            />
+          </Suspense>
+        ) : null}
         <p className="data-import-preview-help">{locale === "it" ? "Il caricamento prepara solo un’anteprima: vedrai i vini nuovi e i possibili duplicati prima di confermare." : "Uploading only prepares a preview: review new wines and possible duplicates before confirming."}</p>
         <label>
           <span>{t("importMode")}</span>

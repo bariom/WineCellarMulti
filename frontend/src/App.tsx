@@ -13172,6 +13172,7 @@ export function App() {
                     hasSelectedExportBlock={hasSelectedExportBlock}
                     exportJson={exportJson}
                     emptyCellar={emptyCellar}
+                    reloadAfterImport={() => Promise.all([loadWines(), loadWishlist(), loadWishlistLists(), loadTags()])}
                   />
                 </Suspense>
               ) : null}

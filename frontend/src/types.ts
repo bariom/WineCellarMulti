@@ -2022,3 +2022,127 @@ export type EmailCampaignSummary = {
   created_at: string;
   finished_at: string | null;
 };
+
+// Generic spreadsheet import (backend/app/schemas/spreadsheet_import.py).
+export type SpreadsheetSheetKind = "inventory" | "wishlist" | "tasting" | "movements" | "summary" | "ignore";
+export type SpreadsheetConfidence = "high" | "medium" | "low";
+
+export type SpreadsheetColumn = {
+  key: string;
+  header: string;
+  field: string;
+  confidence: SpreadsheetConfidence;
+  source: string;
+  alternatives: string[];
+  samples: string[];
+  filled: number;
+  formulas_without_values: number;
+  rejected_field: string;
+  name_order: "" | "producer_first" | "wine_first";
+  position_separator: string;
+  currency: string;
+  currency_ambiguous: boolean;
+  date_order: "" | "dmy" | "mdy";
+  score_scale: number | null;
+};
+
+export type SpreadsheetQuestion = {
+  code: "currency" | "date_order" | "rating_words" | "position_split" | string;
+  column: string;
+  default: string;
+  options: string[];
+  examples: string[];
+};
+
+export type SpreadsheetTableAnalysis = {
+  id: string;
+  sheets: string[];
+  title: string;
+  header_row: number;
+  row_count: number;
+  kind: SpreadsheetSheetKind;
+  kind_confidence: SpreadsheetConfidence;
+  allowed_fields: string[];
+  columns: SpreadsheetColumn[];
+  currency: string;
+  questions: SpreadsheetQuestion[];
+  warnings: string[];
+};
+
+export type SpreadsheetNameOverride = { producer: string; name: string; vintage: string };
+
+export type SpreadsheetTableMapping = {
+  id: string;
+  kind: SpreadsheetSheetKind;
+  columns: Record<string, string>;
+  currency: string;
+  date_orders: Record<string, "dmy" | "mdy">;
+  split_positions: Record<string, boolean>;
+  rating_words: "standard" | "notes_only";
+  buy_again_to_wishlist: boolean;
+  name_overrides: Record<string, SpreadsheetNameOverride>;
+};
+
+export type SpreadsheetMapping = { fingerprint: string; tables: SpreadsheetTableMapping[] };
+
+export type SpreadsheetAnalysis = {
+  file_format: "xlsx" | "xls" | "ods" | "csv";
+  fingerprint: string;
+  tables: SpreadsheetTableAnalysis[];
+  skipped_sheets: { name: string; reason: "no_table" }[];
+  saved_mapping: SpreadsheetMapping | null;
+  default_currency: string;
+  fields_by_kind: Record<string, string[]>;
+};
+
+export type SpreadsheetNameRow = {
+  ref: string;
+  table_id: string;
+  sheet: string;
+  row: number;
+  raw: string;
+  producer: string;
+  name: string;
+  vintage: string;
+  rule: string;
+};
+
+export type SpreadsheetWarning = {
+  code: string;
+  table_id: string;
+  sheet: string;
+  row: number | null;
+  column: string;
+  value: string;
+};
+
+export type SpreadsheetPreview = {
+  tables: { id: string; kind: SpreadsheetSheetKind; rows: number; wines: number; bottles: number; wishlist: number; tastings: number; skipped_rows: number }[];
+  names: SpreadsheetNameRow[];
+  unresolved_names: number;
+  wines_total: number;
+  wine_new: number;
+  wine_duplicates: number;
+  sample_wine_duplicates: string[];
+  bottles_total: number;
+  wishlist_total: number;
+  wishlist_new: number;
+  wishlist_duplicates: number;
+  tastings_total: number;
+  tastings_linked: number;
+  warnings: SpreadsheetWarning[];
+  free_tier_label_limit: number | null;
+  free_tier_active_labels: number | null;
+  free_tier_labels_required: number | null;
+  free_tier_importable_wines: number | null;
+};
+
+export type SpreadsheetImportResult = {
+  wines_imported: number;
+  wines_updated: number;
+  wines_skipped: number;
+  wines_over_free_tier: number;
+  wishlist_imported: number;
+  wishlist_skipped: number;
+  tastings_imported: number;
+};

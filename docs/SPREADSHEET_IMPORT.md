@@ -257,8 +257,13 @@ funzioni AI.
 2. `reader.py`, `tables.py`, `values.py` con le fixture dei dieci file. **Fatto.**
 3. `columns.py` e `sheet_kind.py`; rotta `analyze`. **Fatto**, con intestazioni su due righe e più tabelle per foglio.
 4. `names.py` con catalogo; rotte `preview` e import; migrazione delle mappature
-   salvate.
-5. Frontend del wizard.
+   salvate. **Fatto** (`plan.py` costruisce il piano; la scrittura è nella rotta,
+   che riusa `persist_imported_wines`). Sul piano gratuito si importano i vini fino
+   al limite di etichette e il risultato dice quanti sono rimasti fuori. I fogli di
+   movimenti vengono riconosciuti ma non importati (fase 2).
+5. Frontend del wizard. **Fatto**: `SpreadsheetImportWizard` in Impostazioni › Dati,
+   passi Fogli → Colonne → Anteprima (con correzione dei nomi) → Fatto; E2E in
+   `e2e/spreadsheet-import.spec.ts`.
 6. Divisione dei nomi con l'AI (rotta `names`).
 7. Fase 2.
 
