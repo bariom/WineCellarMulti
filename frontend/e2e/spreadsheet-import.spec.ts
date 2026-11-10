@@ -18,6 +18,8 @@ const preview = {
   warnings: [{ code: "quantity_assumed", table_id: "t0", sheet: "Vini in casa", row: 4, column: "", value: "" }],
   free_tier_label_limit: null, free_tier_active_labels: 0, free_tier_labels_required: 0, free_tier_importable_wines: null,
   ai_free_names_left: 15,
+  movements_total: 0, movements_linked: 0, movements_drunk: 0, movements_unmatched: 0,
+  balance_questions: [], balance_example: null,
 };
 
 const nameSplit = {
@@ -25,7 +27,7 @@ const nameSplit = {
   unsplit: 0, free_names_used: 1, ai_free_names_left: 14, needs_credits: 0, charged_cost_usd: "0",
 };
 
-const result = { wines_imported: 4, wines_updated: 0, wines_skipped: 1, wines_over_free_tier: 0, wishlist_imported: 2, wishlist_skipped: 0, tastings_imported: 0 };
+const result = { wines_imported: 4, wines_updated: 0, wines_skipped: 1, wines_over_free_tier: 0, wishlist_imported: 2, wishlist_skipped: 0, tastings_imported: 0, movements_imported: 0 };
 
 type Call = { path: string; mode: string | null; file: string; mapping: Record<string, unknown> | null; names: string[] | null };
 

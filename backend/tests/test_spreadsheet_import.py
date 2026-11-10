@@ -26,12 +26,15 @@ from app.models import (
     SpreadsheetImportMap,
     User,
     Wine,
+    WineStockLot,
+    WineStockMovement,
     WineTastingEntry,
     WishlistItem,
 )
 from app.services import free_tier
 from app.services.ai_credits import ai_credit_balance, set_ai_credit_balance
 from app.services.openai_client import OpenAIResponse, TokenUsage
+from app.services.spreadsheet_import.movements import direction_from_names, movement_type_of
 from app.services.spreadsheet_import.names import split_names, verified_ai_split
 
 PRODUCERS = {
@@ -121,6 +124,7 @@ def proposed_mapping(analysis: dict[str, Any], **table_options: Any) -> dict[str
                     for question in table["questions"]
                     if question["code"] == "position_split"
                 },
+                "movement_direction": table["movement_direction"],
                 **table_options,
             }
             for table in analysis["tables"]
@@ -292,7 +296,6 @@ def test_wishlists_cases_owners_and_movements():
     analysis = analyze(client, content)
     preview = send(client, "preview", content, proposed_mapping(analysis))
     assert preview["bottles_total"] == 8
-    assert "movements_not_imported" in {warning["code"] for warning in preview["warnings"]}
     send(client, "", content, proposed_mapping(analysis))
     masi = wines_by_name(client)["Masi Campofiorin"]
     assert masi["quantity"] == 6
@@ -497,3 +500,101 @@ def test_ai_name_split_gives_the_free_names_back_when_the_provider_fails(
     content = build_xlsx(ALL_SHAPES["personal_cellar"]())
     preview = send(client, "preview", content, proposed_mapping(analyze(client, content)))
     assert preview["ai_free_names_left"] == 15
+
+
+# --- movement registers -------------------------------------------------------------
+
+
+def ledger(name: str) -> list[tuple[str, int, str]]:
+    with TestingSessionLocal() as db:
+        wine = db.scalars(select(Wine).where(Wine.name == name)).one()
+        movements = db.scalars(
+            select(WineStockMovement)
+            .where(WineStockMovement.wine_id == wine.id)
+            .order_by(WineStockMovement.occurred_on, WineStockMovement.created_at)
+        ).all()
+        lots = db.scalars(select(WineStockLot).where(WineStockLot.wine_id == wine.id)).all()
+        assert sum(lot.quantity_remaining for lot in lots) == wine.quantity
+        return [
+            (movement.movement_type, movement.quantity_delta, movement.occurred_on.isoformat())
+            for movement in movements
+        ]
+
+
+def test_movement_words_and_directions():
+    assert movement_type_of("Acquisto") == "purchase"
+    assert movement_type_of("bevuta a cena") == "consumption"
+    assert movement_type_of("Regalo") == "complimentary"
+    assert movement_type_of("sa di tappo") == "breakage"
+    assert movement_type_of("Sold") == "adjustment_out"
+    assert movement_type_of("spostato in cantina") == "moved"
+    assert movement_type_of("cena") is None
+    assert direction_from_names(["Taken out"]) == "out"
+    assert direction_from_names(["Acquisti 2025"]) == "in"
+
+
+def test_a_purchase_register_works_out_the_balance_the_formula_lost():
+    client = client_with_cellar()
+    content = build_xlsx(ALL_SHAPES["movement_register"]())
+    analysis = analyze(client, content)
+    assert [table["kind"] for table in analysis["tables"]] == ["movements", "inventory"]
+    preview = send(client, "preview", content, proposed_mapping(analysis))
+    # The balance sheet's "Rimaste" is a formula Excel never saved: +6 -2 from the register.
+    assert (preview["wines_total"], preview["bottles_total"]) == (1, 4)
+    assert (preview["movements_total"], preview["movements_linked"]) == (3, 2)
+    assert (preview["movements_drunk"], preview["movements_unmatched"]) == (1, 1)
+    # Nothing to ask: the sheet states no count the register could already include.
+    assert preview["balance_questions"] == [] and preview["balance_example"] is None
+    codes = {warning["code"] for warning in preview["warnings"]}
+    assert "movement_without_wine" in codes
+
+    result = send(client, "", content, proposed_mapping(analysis))
+    assert (result["wines_imported"], result["movements_imported"]) == (1, 2)
+    wine = next(wine for wine in wines_by_name(client).values() if "Soave" in wine["name"])
+    assert (wine["producer"], wine["name"]) == ("", "Pieropan Soave Classico")
+    assert (wine["quantity"], wine["vintage"]) == (4, "2023")
+    assert positions(wine) == {("B2", ""): 4}
+    assert ledger(wine["name"]) == [
+        ("purchase", 6, "2025-06-02"),
+        ("consumption", -2, "2025-08-15"),
+    ]
+    with TestingSessionLocal() as db:
+        tasting = db.scalars(select(WineTastingEntry)).one()
+        assert (tasting.consumed_at.isoformat(), tasting.occasion) == ("2025-08-15", "pranzo")
+    # The same file again: the wine is there, its register is not counted twice.
+    again = send(client, "", content, proposed_mapping(analysis))
+    assert (again["wines_skipped"], again["movements_imported"]) == (1, 0)
+    assert wines_by_name(client)[wine["name"]]["quantity"] == 4
+
+
+@pytest.mark.parametrize(("answer", "bottles"), [(None, 6), ("yes", 6), ("no", 4)])
+def test_outflows_follow_the_answer_about_the_cellar_counts(answer: str | None, bottles: int):
+    client = client_with_cellar()
+    content = build_xlsx(ALL_SHAPES["shared_stash"]())
+    analysis = analyze(client, content)
+    assert analysis["tables"][1]["movement_direction"] == "out"
+    preview = send(client, "preview", content, proposed_mapping(analysis))
+    assert preview["balance_questions"] == ["t1"]
+    example = preview["balance_example"]
+    assert example == {
+        "table_id": "t1",
+        "wine": "Masi Campofiorin 2020",
+        "stock": 6,
+        "stock_sheet": "Our bottles",
+        "movements_sheet": "Taken out",
+        "steps": [{"date": "2026-05-11", "delta": -2}],
+        "if_included": 6,
+        "if_applied": 4,
+    }
+    mapping = proposed_mapping(analysis, stock_includes_movements=answer)
+    answered = send(client, "preview", content, mapping)
+    assert answered["balance_questions"] == ([] if answer else ["t1"])
+    assert answered["bottles_total"] == bottles + 2
+    send(client, "", content, mapping)
+    masi = wines_by_name(client)["Masi Campofiorin"]
+    assert masi["quantity"] == bottles
+    expected_opening = 8 if bottles == 6 else 6
+    assert ledger("Masi Campofiorin") == [
+        ("initial_purchase", expected_opening, "2026-05-11"),
+        ("consumption", -2, "2026-05-11"),
+    ]

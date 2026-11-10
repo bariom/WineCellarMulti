@@ -27779,12 +27779,12 @@ body,
 .spreadsheet-table-card strong, .spreadsheet-column-head strong { overflow-wrap: anywhere; }
 .spreadsheet-table-card small, .spreadsheet-column-head small, .spreadsheet-name small { color: var(--text-muted); font-size: .78rem; overflow-wrap: anywhere; }
 .spreadsheet-column.is-uncertain, .spreadsheet-name.is-uncertain { border-color: color-mix(in srgb, var(--primary) 70%, var(--border)); box-shadow: inset 3px 0 0 var(--primary); }
-.spreadsheet-wizard select, .spreadsheet-wizard input:not([type="checkbox"]) { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; }
+.spreadsheet-wizard select, .spreadsheet-wizard input:not([type="checkbox"]):not([type="radio"]) { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; }
 .spreadsheet-wizard label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .spreadsheet-wizard label > span { font-size: .78rem; color: var(--text-muted); }
 .spreadsheet-wizard .spreadsheet-inline-check { flex-direction: row; align-items: center; gap: 8px; }
-.spreadsheet-inline-check input { width: 20px; height: 20px; flex: none; }
-.spreadsheet-wizard .spreadsheet-inline-check span { color: var(--text); font-size: .82rem; }
+.spreadsheet-inline-check input { width: 20px; height: 20px; flex: none; margin: 0; accent-color: var(--primary); }
+.spreadsheet-wizard .spreadsheet-inline-check span { color: var(--text); font-size: .85rem; font-weight: 500; line-height: 1.4; letter-spacing: normal; text-transform: none; }
 .spreadsheet-columns { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .spreadsheet-columns h5, .spreadsheet-names h5 { margin: 6px 0 0; font-size: .95rem; overflow-wrap: anywhere; }
 .spreadsheet-columns h5 span { margin-left: 6px; color: var(--primary); font-size: .78rem; font-weight: 700; }
@@ -27794,6 +27794,10 @@ body,
 .spreadsheet-summary dt { color: var(--text-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .spreadsheet-summary dd { margin: 4px 0 0; font-size: 1rem; font-weight: 700; overflow-wrap: anywhere; }
 .spreadsheet-names { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.spreadsheet-balance { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.spreadsheet-balance.is-uncertain { border-color: color-mix(in srgb, var(--primary) 70%, var(--border)); box-shadow: inset 3px 0 0 var(--primary); }
+.spreadsheet-balance h5 { margin: 0; font-size: .95rem; overflow-wrap: anywhere; }
+.spreadsheet-balance-options { display: flex; flex-direction: column; gap: 8px; }
 .spreadsheet-name-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
 .spreadsheet-wizard-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .spreadsheet-wizard-actions button { min-height: 44px; }

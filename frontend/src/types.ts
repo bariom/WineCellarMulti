@@ -2067,6 +2067,7 @@ export type SpreadsheetTableAnalysis = {
   currency: string;
   questions: SpreadsheetQuestion[];
   warnings: string[];
+  movement_direction: "in" | "out";
 };
 
 export type SpreadsheetNameOverride = { producer: string; name: string; vintage: string };
@@ -2081,6 +2082,8 @@ export type SpreadsheetTableMapping = {
   rating_words: "standard" | "notes_only";
   buy_again_to_wishlist: boolean;
   name_overrides: Record<string, SpreadsheetNameOverride>;
+  movement_direction: "in" | "out";
+  stock_includes_movements: "yes" | "no" | null;
 };
 
 export type SpreadsheetMapping = { fingerprint: string; tables: SpreadsheetTableMapping[] };
@@ -2117,7 +2120,7 @@ export type SpreadsheetWarning = {
 };
 
 export type SpreadsheetPreview = {
-  tables: { id: string; kind: SpreadsheetSheetKind; rows: number; wines: number; bottles: number; wishlist: number; tastings: number; skipped_rows: number }[];
+  tables: { id: string; kind: SpreadsheetSheetKind; rows: number; wines: number; bottles: number; wishlist: number; tastings: number; movements: number; skipped_rows: number }[];
   names: SpreadsheetNameRow[];
   unresolved_names: number;
   wines_total: number;
@@ -2136,6 +2139,23 @@ export type SpreadsheetPreview = {
   free_tier_labels_required: number | null;
   free_tier_importable_wines: number | null;
   ai_free_names_left: number;
+  movements_total: number;
+  movements_linked: number;
+  movements_drunk: number;
+  movements_unmatched: number;
+  balance_questions: string[];
+  balance_example: SpreadsheetBalanceExample | null;
+};
+
+export type SpreadsheetBalanceExample = {
+  table_id: string;
+  wine: string;
+  stock: number;
+  stock_sheet: string;
+  movements_sheet: string;
+  steps: { date: string; delta: number }[];
+  if_included: number;
+  if_applied: number;
 };
 
 export type SpreadsheetNameSuggestion = { raw: string; producer: string; name: string; vintage: string; confidence: string };
@@ -2157,4 +2177,5 @@ export type SpreadsheetImportResult = {
   wishlist_imported: number;
   wishlist_skipped: number;
   tastings_imported: number;
+  movements_imported: number;
 };

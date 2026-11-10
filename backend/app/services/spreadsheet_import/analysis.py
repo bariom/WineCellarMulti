@@ -25,6 +25,7 @@ from app.services.spreadsheet_import.columns import (
     propose_columns,
     score_scale,
 )
+from app.services.spreadsheet_import.movements import direction_from_names
 from app.services.spreadsheet_import.reader import Cell, Workbook
 from app.services.spreadsheet_import.sheet_kind import FIELDS_BY_KIND, detect_kind, remap_field
 from app.services.spreadsheet_import.tables import (
@@ -253,6 +254,7 @@ def analyze_group(table_id: str, group: TableGroup) -> SpreadsheetTableAnalysis:
         currency=table_currency(columns, cells_by_key),
         questions=questions,
         warnings=warnings,
+        movement_direction=direction_from_names(names),  # type: ignore[arg-type]
     )
 
 

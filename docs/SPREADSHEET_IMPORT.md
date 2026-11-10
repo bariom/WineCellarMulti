@@ -260,7 +260,7 @@ funzioni AI.
    salvate. **Fatto** (`plan.py` costruisce il piano; la scrittura è nella rotta,
    che riusa `persist_imported_wines`). Sul piano gratuito si importano i vini fino
    al limite di etichette e il risultato dice quanti sono rimasti fuori. I fogli di
-   movimenti vengono riconosciuti ma non importati (fase 2).
+   movimenti si importano dalla fase 2 (punto 7).
 5. Frontend del wizard. **Fatto**: `SpreadsheetImportWizard` in Impostazioni › Dati,
    passi Fogli → Colonne → Anteprima (con correzione dei nomi) → Fatto; E2E in
    `e2e/spreadsheet-import.spec.ts`.
@@ -276,7 +276,26 @@ funzioni AI.
    (`verified_ai_split`) e se l'AI non la segna come incerta; nell'anteprima appare
    come "Proposto dall'AI, controlla". Sotto il wizard aperto, i controlli
    dell'import CellarTracker/backup sono nascosti.
-7. Fase 2.
+7. Fase 2, registro dei movimenti. **Fatto** in `movements.py`, tranne
+   l'arricchimento dopo l'import (regione, vitigni, finestra di beva con il costo
+   in crediti), che resta da fare come funzione a sé.
+   - Ogni riga del registro diventa un movimento: il tipo si legge dalla colonna
+     "cosa è successo" (acquisto, bevuto, regalo, rotto/tappo, venduto; "spostato"
+     non muove bottiglie), il verso dalle colonne entrate/uscite, dal segno, o dal
+     nome del foglio ("Uscite", "Taken out"), confermabile tra le colonne.
+   - Il movimento va al vino del foglio cantina con lo stesso nome (anche senza
+     annata, se il vino è uno solo); un vino che il registro compra ma nessun
+     foglio elenca viene creato dal registro. Uscite di vini sconosciuti e righe
+     che corrispondono a più annate restano fuori, con un avviso.
+   - Il saldo si rigioca in ordine di data e un'uscita non supera mai le bottiglie
+     presenti. Se il foglio cantina non dà la quantità (formula senza valore, file
+     5) il saldo è quello del registro. Se la dà, l'anteprima chiede "le quantità
+     tengono già conto delle uscite?" con un vino del file come esempio, e l'import
+     aspetta la risposta: sì = il numero del foglio resta e il registro diventa la
+     sua storia (con una rettifica se non torna); no = le uscite si tolgono.
+   - Il registro scrive lotti e movimenti di magazzino solo per i vini creati da
+     questo import; le bevute con data finiscono anche nel diario. Reimportare lo
+     stesso file non conta due volte le bottiglie.
 
 ## Decisioni aperte
 

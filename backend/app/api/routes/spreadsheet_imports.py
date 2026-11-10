@@ -51,6 +51,7 @@ from app.schemas.spreadsheet_import import (
 from app.services.free_tier import is_free_tier
 from app.services.openai_client import parse_json_response
 from app.services.spreadsheet_import.analysis import analyze_workbook
+from app.services.spreadsheet_import.movements import StockPlan
 from app.services.spreadsheet_import.names import known_producers, squeeze, verified_ai_split
 from app.services.spreadsheet_import.plan import ImportPlan, PlannedTasting, build_plan
 from app.services.spreadsheet_import.reader import (
@@ -58,6 +59,7 @@ from app.services.spreadsheet_import.reader import (
     SpreadsheetError,
     read_workbook,
 )
+from app.services.stock_ledger import add_inbound_stock, remove_fifo_stock
 from app.services.wine_consumption import normalize_tasting_history
 
 router = APIRouter(prefix="/imports/spreadsheet")
@@ -65,6 +67,8 @@ router = APIRouter(prefix="/imports/spreadsheet")
 DEFAULT_WISHLIST_NAME = "Wishlist"
 # Names per household the application splits by AI for free, once and not per import.
 AI_FREE_NAMES = 15
+IMPORT_NOTE = "Excel"
+ADJUSTMENT_NOTE = "Excel: aligned with the cellar sheet"
 
 
 async def read_upload(file: UploadFile) -> tuple[bytes, str]:
@@ -348,6 +352,12 @@ async def preview_spreadsheet(
         ),
         warnings=plan.warnings[:200],
         ai_free_names_left=ai_free_names_left(context.household),
+        movements_total=plan.movements_total,
+        movements_linked=sum(len(wine_stock.steps) for wine_stock in plan.stock),
+        movements_drunk=len(plan.movement_tastings),
+        movements_unmatched=plan.movements_unmatched,
+        balance_questions=sorted(plan.balance_questions),
+        balance_example=plan.balance_example,
         **cellartracker_free_tier_capacity(db, context, wines),
     )
 
@@ -521,9 +531,113 @@ async def import_spreadsheet(
         wine = index.get(tasting.name, tasting.producer, tasting.vintage)
         if add_tasting(db, context, tasting, wine if isinstance(wine, Wine) else None):
             result.tastings_imported += 1
+    # Registers only write the history of wines this import created (see movements.py).
+    created = {
+        data["id"]: wine
+        for data, _ in wines
+        if (wine := db.get(Wine, data["id"])) is not None
+        and wine.household_id == context.household.id
+    }
+    for wine_stock in plan.stock:
+        wine = created.get(wine_stock.wine["id"])
+        if wine is not None:
+            result.movements_imported += write_stock_history(db, context, wine, wine_stock)
+    for wine_stock, tasting in plan.movement_tastings:
+        wine = created.get(wine_stock.wine["id"])
+        if wine is not None and add_tasting(db, context, tasting, wine):
+            result.tastings_imported += 1
     remember_mapping(db, context, confirmed)
     db.commit()
     return result
+
+
+def write_stock_history(
+    db: Session, context: CurrentContext, wine: Wine, wine_stock: StockPlan
+) -> int:
+    """Replay a register into the ledger of a wine the import just created.
+
+    persist_imported_wines already set the final count and the locations; the
+    replay starts from the opening stock, so lots and movements end on that same
+    count without touching the locations again.
+    """
+    final_quantity, final_status = wine.quantity, wine.status
+    steps = wine_stock.steps
+    first = steps[0].occurred_on if steps and steps[0].occurred_on else None
+    opened_on = (
+        min(day for day in (wine.order_date, first) if day)
+        if (wine.order_date or first)
+        else datetime.now(UTC).date()
+    )
+    wine.quantity = 0
+    common = {"user_id": context.user.id, "update_storage": False}
+    if wine_stock.opening > 0:
+        add_inbound_stock(
+            db,
+            wine,
+            movement_type="initial_purchase",
+            quantity=wine_stock.opening,
+            occurred_on=opened_on,
+            unit_cost=None,
+            supplier=wine.merchant or "",
+            reference="",
+            note=IMPORT_NOTE,
+            **common,
+        )
+    for step in steps:
+        day = step.occurred_on or opened_on
+        if step.direction == "in":
+            add_inbound_stock(
+                db,
+                wine,
+                movement_type=step.movement_type,
+                quantity=step.quantity,
+                occurred_on=day,
+                unit_cost=None,
+                supplier="",
+                reference="",
+                note=step.note or IMPORT_NOTE,
+                **common,
+            )
+        else:
+            # remove_fifo_stock adds an opening lot to a wine whose ledger it finds
+            # empty: the lots written above must be visible to it.
+            db.flush()
+            remove_fifo_stock(
+                db,
+                wine,
+                movement_type=step.movement_type,
+                quantity=step.quantity,
+                occurred_on=day,
+                note=step.note or IMPORT_NOTE,
+                **common,
+            )
+    last = steps[-1].occurred_on if steps and steps[-1].occurred_on else opened_on
+    if wine_stock.adjustment > 0:
+        add_inbound_stock(
+            db,
+            wine,
+            movement_type="adjustment_in",
+            quantity=wine_stock.adjustment,
+            occurred_on=last,
+            unit_cost=None,
+            supplier="",
+            reference="",
+            note=ADJUSTMENT_NOTE,
+            **common,
+        )
+    elif wine_stock.adjustment < 0:
+        db.flush()
+        remove_fifo_stock(
+            db,
+            wine,
+            movement_type="adjustment_out",
+            quantity=-wine_stock.adjustment,
+            occurred_on=last,
+            note=ADJUSTMENT_NOTE,
+            **common,
+        )
+    wine.quantity, wine.status = final_quantity, final_status
+    return len(steps)
 
 
 def ai_free_names_left(household: Household) -> int:

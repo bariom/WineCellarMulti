@@ -40,7 +40,7 @@
     "test:e2e:batch-ai-report": "playwright test e2e/batch-ai-report.spec.ts",
     "test:e2e:ambassador": "playwright test e2e/ambassador.spec.ts",
     "test:e2e:purchase-import": "playwright test e2e/purchase-import.spec.ts e2e/purchase-documents.spec.ts",
-    "test:e2e:data-import": "playwright test e2e/data-import.spec.ts e2e/spreadsheet-import.spec.ts",
+    "test:e2e:data-import": "playwright test e2e/data-import.spec.ts e2e/spreadsheet-import.spec.ts e2e/spreadsheet-movements.spec.ts",
     "test:e2e:taste-profile-layout": "playwright test e2e/taste-profile-layout.spec.ts",
     "test:e2e:wine-detail": "playwright test e2e/wine-detail.spec.ts",
     "test:e2e:update": "playwright test e2e/wine-detail.spec.ts --update-snapshots",

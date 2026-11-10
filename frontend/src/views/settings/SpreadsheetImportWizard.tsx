@@ -26,7 +26,7 @@ type Props = {
   onImported: () => Promise<unknown> | void;
 };
 
-const IMPORTED_KINDS: SpreadsheetSheetKind[] = ["inventory", "wishlist", "tasting"];
+const IMPORTED_KINDS: SpreadsheetSheetKind[] = ["inventory", "wishlist", "tasting", "movements"];
 const KIND_OPTIONS: SpreadsheetSheetKind[] = ["inventory", "wishlist", "tasting", "movements", "ignore"];
 const MULTI_FIELDS = new Set(["notes", "tags", "ignore"]);
 const CURRENCIES = ["CHF", "EUR", "USD", "GBP", "CAD", "AUD", "NZD", "SEK", "NOK", "DKK", "JPY"];
@@ -82,7 +82,7 @@ const KIND_LABELS: Record<SpreadsheetSheetKind, [string, string]> = {
   inventory: ["Cantina", "Cellar"],
   wishlist: ["Wishlist", "Wishlist"],
   tasting: ["Degustazioni", "Tastings"],
-  movements: ["Movimenti (non ancora importati)", "Movements (not imported yet)"],
+  movements: ["Registro movimenti", "Movement register"],
   summary: ["Riepilogo (non importato)", "Summary (not imported)"],
   ignore: ["Ignora", "Ignore"],
 };
@@ -104,7 +104,23 @@ const WARNING_LABELS: Record<string, [string, string]> = {
     "Quantities from formulas with no saved value: imported as 0. Open and save the file in Excel, then try again.",
   ],
   tasting_without_date: ["Degustazioni senza data: non importate", "Tastings without a date: not imported"],
-  movements_not_imported: ["Il registro dei movimenti non viene ancora importato", "Movement registers are not imported yet"],
+  movement_without_wine: [
+    "Movimenti di vini che il file non elenca in cantina e senza acquisti: non importati",
+    "Movements of wines the file does not list in the cellar and never bought: not imported",
+  ],
+  movement_ambiguous_wine: [
+    "Movimenti che corrispondono a più vini (annate diverse): non importati. Aggiungi l'annata nel registro.",
+    "Movements matching several wines (different vintages): not imported. Add the vintage in the register.",
+  ],
+  movement_more_than_stock: [
+    "Uscite di più bottiglie di quelle presenti: ridotte a quelle disponibili",
+    "Bottles taken out beyond those in stock: reduced to the ones available",
+  ],
+  movement_without_date: ["Movimenti senza data: messi dopo il movimento precedente", "Movements without a date: placed after the previous one"],
+  stock_adjusted: [
+    "Il registro non spiega tutte le bottiglie del foglio cantina: aggiunta una rettifica per tenere il numero del foglio",
+    "The register does not explain every bottle of the cellar sheet: an adjustment keeps the sheet's count",
+  ],
   unknown_format: ["Formato bottiglia non riconosciuto: lasciato vuoto", "Bottle size not recognised: left empty"],
   unreadable_value: ["Valori non leggibili: importati a 0", "Unreadable values: imported as 0"],
 };
@@ -178,6 +194,8 @@ function initialMapping(analysis: SpreadsheetAnalysis): { mapping: SpreadsheetMa
       rating_words: "standard",
       buy_again_to_wishlist: true,
       name_overrides: {},
+      movement_direction: table.movement_direction,
+      stock_includes_movements: null,
     })),
   } };
 }
@@ -313,6 +331,25 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
     if (aiRefs.has(row.ref)) setAiRefs((current) => new Set([...current].filter((ref) => ref !== row.ref)));
   };
 
+  // "Do the cellar counts already include the register?" Asked in the preview with an
+  // example from the file; the import waits for the answer.
+  const balanceExample = preview?.balance_example ?? null;
+  const balanceTable = mapping?.tables.find((table) => table.id === balanceExample?.table_id);
+  const needsBalanceAnswer = Boolean(preview?.balance_questions?.length);
+  const formatDay = (iso: string) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString(it ? "it-CH" : "en-GB") : "");
+  const balanceSteps = (balanceExample?.steps ?? [])
+    .map((step) => `${formatDay(step.date)} ${step.delta > 0 ? "+" : "−"}${Math.abs(step.delta)}`.trim())
+    .join(", ");
+  const answerBalance = (answer: "yes" | "no") => {
+    if (!mapping) return;
+    const next = {
+      ...mapping,
+      tables: mapping.tables.map((table) => (table.kind === "movements" ? { ...table, stock_includes_movements: answer } : table)),
+    };
+    setMapping(next);
+    void runPreview(next);
+  };
+
   /** Names the rules could not split and the user has not corrected yet. */
   const openNames = (preview?.names ?? []).filter(
     (row) => row.rule === "unresolved" && !mapping?.tables.find((table) => table.id === row.table_id)?.name_overrides[row.ref],
@@ -445,7 +482,9 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
                   </label>
                   {table.kind === "movements" ? (
                     <small className="spreadsheet-wizard-hint">
-                      {it ? "Il registro di entrate e uscite arriverà in un secondo momento: per ora non viene importato." : "Registers of bottles in and out will come later: for now they are not imported."}
+                      {it
+                        ? "Acquisti e bottiglie uscite diventano la storia di magazzino dei vini importati; le bevute finiscono anche nel diario."
+                        : "Purchases and bottles taken out become the stock history of the imported wines; bottles drunk also go to the diary."}
                     </small>
                   ) : null}
                 </li>
@@ -566,6 +605,15 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
                     </select>
                   </label>
                 ) : null}
+                {table.kind === "movements" && !fields.some((field) => ["quantity_in", "quantity_out", "movement_kind"].includes(field)) ? (
+                  <label className="spreadsheet-table-option">
+                    <span>{it ? "Le righe di questo foglio sono" : "The rows of this sheet are"}</span>
+                    <select value={table.movement_direction} onChange={(event) => updateTable(table.id, (current) => ({ ...current, movement_direction: event.target.value as "in" | "out" }))}>
+                      <option value="out">{it ? "Bottiglie uscite (bevute, regalate…)" : "Bottles taken out (drunk, given…)"}</option>
+                      <option value="in">{it ? "Bottiglie entrate (acquisti)" : "Bottles in (purchases)"}</option>
+                    </select>
+                  </label>
+                ) : null}
                 {table.kind === "tasting" && fields.includes("buy_again") ? (
                   <label className="spreadsheet-inline-check">
                     <input type="checkbox" checked={table.buy_again_to_wishlist} onChange={(event) => updateTable(table.id, (current) => ({ ...current, buy_again_to_wishlist: event.target.checked }))} />
@@ -607,6 +655,15 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
                 {preview.wishlist_duplicates ? `, ${preview.wishlist_duplicates} ${it ? "già presenti" : "already there"}` : ""}
               </dd>
             </div>
+            {preview.movements_total ? (
+              <div>
+                <dt>{it ? "Movimenti" : "Movements"}</dt>
+                <dd>
+                  {preview.movements_linked}
+                  {preview.movements_drunk ? ` (${preview.movements_drunk} ${it ? (preview.movements_drunk === 1 ? "bevuta" : "bevute") : "drunk"})` : ""}
+                </dd>
+              </div>
+            ) : null}
             <div>
               <dt>{it ? "Degustazioni" : "Tastings"}</dt>
               <dd>
@@ -628,9 +685,37 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
           ).map(([code, count]) => (
             <p key={code} className="spreadsheet-wizard-note is-warning">
               {pick(WARNING_LABELS[code], code)}
-              {count > 1 && code !== "movements_not_imported" ? ` (${count})` : ""}
+              {count > 1 ? ` (${count})` : ""}
             </p>
           ))}
+          {balanceExample && balanceTable ? (
+            <section className={`spreadsheet-balance${needsBalanceAnswer ? " is-uncertain" : ""}`} aria-label={it ? "Uscite e quantità" : "Outflows and counts"}>
+              <h5>{it ? "Le quantità della cantina tengono già conto delle uscite?" : "Do the cellar counts already include the outflows?"}</h5>
+              <p className="spreadsheet-wizard-note">
+                {it
+                  ? `Per esempio ${balanceExample.wine}: nel foglio «${balanceExample.stock_sheet}» ne risultano ${balanceExample.stock}; nel foglio «${balanceExample.movements_sheet}» ${balanceSteps}.`
+                  : `For example ${balanceExample.wine}: the “${balanceExample.stock_sheet}” sheet says ${balanceExample.stock}; the “${balanceExample.movements_sheet}” sheet has ${balanceSteps}.`}
+              </p>
+              <div className="spreadsheet-balance-options" role="radiogroup" aria-label={it ? "Risposta" : "Answer"}>
+                <label className="spreadsheet-inline-check">
+                  <input type="radio" name="stock-includes-movements" checked={balanceTable.stock_includes_movements === "yes"} onChange={() => answerBalance("yes")} disabled={busy} />
+                  <span>
+                    {it
+                      ? `Sì, le quantità sono già aggiornate: restano ${balanceExample.if_included}`
+                      : `Yes, the counts are up to date: ${balanceExample.if_included} left`}
+                  </span>
+                </label>
+                <label className="spreadsheet-inline-check">
+                  <input type="radio" name="stock-includes-movements" checked={balanceTable.stock_includes_movements === "no"} onChange={() => answerBalance("no")} disabled={busy} />
+                  <span>
+                    {it
+                      ? `No, le uscite vanno ancora tolte: restano ${balanceExample.if_applied}`
+                      : `No, the outflows still need taking off: ${balanceExample.if_applied} left`}
+                  </span>
+                </label>
+              </div>
+            </section>
+          ) : null}
           {preview.names.length ? (
             <section className="spreadsheet-names" aria-label={it ? "Produttore, vino e annata" : "Producer, wine and vintage"}>
               <h5>{it ? "Produttore, vino e annata" : "Producer, wine and vintage"}</h5>
@@ -727,7 +812,7 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
             <button type="button" className="secondary" onClick={() => void runPreview()} disabled={busy}>
               {it ? "Aggiorna anteprima" : "Refresh preview"}
             </button>
-            <button type="button" onClick={() => void runImport()} disabled={busy}>
+            <button type="button" onClick={() => void runImport()} disabled={busy || needsBalanceAnswer}>
               <ButtonBusyContent busy={busy} idleLabel={it ? "Importa" : "Import"} busyLabel={it ? "Importo…" : "Importing…"} icon={appActionSvgIcon("import")} />
             </button>
           </div>
@@ -756,6 +841,12 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
               <dt>{it ? "Degustazioni" : "Tastings"}</dt>
               <dd>+{result.tastings_imported}</dd>
             </div>
+            {result.movements_imported ? (
+              <div>
+                <dt>{it ? "Movimenti" : "Movements"}</dt>
+                <dd>+{result.movements_imported}</dd>
+              </div>
+            ) : null}
           </dl>
           {result.wines_over_free_tier ? (
             <p className="spreadsheet-wizard-note is-warning">

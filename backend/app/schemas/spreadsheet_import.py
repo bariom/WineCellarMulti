@@ -58,6 +58,9 @@ class SpreadsheetTableAnalysis(BaseModel):
     questions: list[SpreadsheetQuestion] = Field(default_factory=list)
     # formulas_without_values, header_rejected, type_from_sheet_name, no_name_column
     warnings: list[str] = Field(default_factory=list)
+    # For a movement register with only a "how many" column: the sheet name says
+    # which way ("Uscite", "Taken out" -> out; "Acquisti", "Entrate" -> in).
+    movement_direction: Literal["in", "out"] = "out"
 
 
 class SpreadsheetSkippedSheet(BaseModel):
@@ -86,6 +89,11 @@ class SpreadsheetTableMapping(BaseModel):
     buy_again_to_wishlist: bool = True
     # Row ref (see SpreadsheetNameRow.ref) -> corrected producer / name / vintage.
     name_overrides: dict[str, SpreadsheetNameOverride] = Field(default_factory=dict)
+    # Movements: which way a plain "how many" column goes when nothing else says so.
+    movement_direction: Literal["in", "out"] = "out"
+    # Movements: do the cellar quantities in the file already include them? The
+    # preview asks; None until the user answers, read as "yes" (quantities untouched).
+    stock_includes_movements: Literal["yes", "no"] | None = None
 
 
 class SpreadsheetMapping(BaseModel):
@@ -140,7 +148,27 @@ class SpreadsheetTablePreview(BaseModel):
     bottles: int = 0
     wishlist: int = 0
     tastings: int = 0
+    movements: int = 0
     skipped_rows: int = 0
+
+
+class SpreadsheetBalanceStep(BaseModel):
+    # ISO date, empty when the row has none.
+    date: str
+    delta: int
+
+
+class SpreadsheetBalanceExample(BaseModel):
+    """One wine from the file, to make "already included?" concrete."""
+
+    table_id: str
+    wine: str
+    stock: int
+    stock_sheet: str
+    movements_sheet: str
+    steps: list[SpreadsheetBalanceStep]
+    if_included: int
+    if_applied: int
 
 
 class SpreadsheetPreview(BaseModel):
@@ -164,6 +192,14 @@ class SpreadsheetPreview(BaseModel):
     free_tier_importable_wines: int | None = None
     # Names the household can still have split by AI for free.
     ai_free_names_left: int = 0
+    movements_total: int = 0
+    # Linked to a cellar wine of this file (or creating one from purchases).
+    movements_linked: int = 0
+    movements_drunk: int = 0
+    movements_unmatched: int = 0
+    # Movement tables whose "already included?" question still waits for an answer.
+    balance_questions: list[str] = Field(default_factory=list)
+    balance_example: SpreadsheetBalanceExample | None = None
 
 
 class SpreadsheetNameSplitRequest(BaseModel):
@@ -199,3 +235,5 @@ class SpreadsheetImportResult(BaseModel):
     wishlist_imported: int = 0
     wishlist_skipped: int = 0
     tastings_imported: int = 0
+    # Stock movements written to the ledger of the wines this import created.
+    movements_imported: int = 0

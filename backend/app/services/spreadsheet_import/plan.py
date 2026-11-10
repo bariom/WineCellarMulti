@@ -15,6 +15,7 @@ from decimal import Decimal
 from typing import Any
 
 from app.schemas.spreadsheet_import import (
+    SpreadsheetBalanceExample,
     SpreadsheetMapping,
     SpreadsheetNameRow,
     SpreadsheetTableMapping,
@@ -31,6 +32,13 @@ from app.services.spreadsheet_import.columns import (
     name_order,
     profile_column,
     score_scale,
+)
+from app.services.spreadsheet_import.movements import (
+    PlannedMovement,
+    StockPlan,
+    balance_example,
+    movement_rows,
+    settle_movements,
 )
 from app.services.spreadsheet_import.names import NameSplit, split_names
 from app.services.spreadsheet_import.reader import Cell, SpreadsheetError, Workbook
@@ -76,7 +84,8 @@ PRIORITIES = {
     "basse": "Low",
     "niedrig": "Low",
 }
-NAME_KINDS = {"inventory", "wishlist", "tasting"}
+UNMATCHED_MOVEMENTS = {"movement_without_wine", "movement_ambiguous_wine"}
+NAME_KINDS = {"inventory", "wishlist", "tasting", "movements"}
 
 
 @dataclass
@@ -100,6 +109,18 @@ class ImportPlan:
     names: list[SpreadsheetNameRow] = field(default_factory=list)
     warnings: list[SpreadsheetWarning] = field(default_factory=list)
     tables: list[SpreadsheetTablePreview] = field(default_factory=list)
+    # Movement registers (movements.py): the ledger of each wine they touch, the
+    # bottles they say were drunk, and what the preview must still ask.
+    movements_total: int = 0
+    movements_unmatched: int = 0
+    stock: list[StockPlan] = field(default_factory=list)
+    movement_tastings: list[tuple[StockPlan, PlannedTasting]] = field(default_factory=list)
+    balance_questions: set[str] = field(default_factory=set)
+    balance_example: SpreadsheetBalanceExample | None = None
+    # id() of planned wines whose quantity the file does not state (a formula with
+    # no saved value, or a wine only the register knows).
+    unknown_quantity: set[int] = field(default_factory=set)
+    unknown_rows: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -305,6 +326,7 @@ def quantity_of(row: Row, plan: ImportPlan) -> int:
         return cases * size + (parse_quantity(row.cell("loose").value) or 0)
     if row.has("quantity"):
         warn("formula_without_value", row.key("quantity"))
+        plan.unknown_rows.add(row.rows.ref(row.index))
         return 0
     warn("quantity_assumed")
     return 1
@@ -507,6 +529,11 @@ def build_plan(
     check_mapping(groups, mapping)
     plan = ImportPlan()
     grouped: dict[tuple[str, ...], tuple[dict[str, Any], dict[tuple[str, str], int]]] = {}
+    movements: list[PlannedMovement] = []
+    previews: dict[str, SpreadsheetTablePreview] = {}
+    # Cellar sheet of each planned wine, and where wines with no stated count stand.
+    stock_sheets: dict[int, str] = {}
+    unplaced: dict[int, tuple[str, str]] = {}
     for table_mapping in mapping.tables:
         group = groups[int(table_mapping.id[1:])]
         rows = table_rows(table_mapping.id, group)
@@ -514,17 +541,8 @@ def build_plan(
             id=table_mapping.id, kind=table_mapping.kind, rows=rows.count
         )
         plan.tables.append(preview)
+        previews[table_mapping.id] = preview
         kind = table_mapping.kind
-        if kind == "movements":
-            plan.warnings.append(
-                SpreadsheetWarning(
-                    code="movements_not_imported",
-                    table_id=table_mapping.id,
-                    sheet=", ".join(group.sheets),
-                )
-            )
-            preview.skipped_rows = rows.count
-            continue
         if kind not in NAME_KINDS:
             continue
         splits = wine_identity(
@@ -549,7 +567,12 @@ def build_plan(
                 )
             )
             row = Row(rows, table_mapping, index)
-            if kind == "inventory":
+            if kind == "movements":
+                found = movement_rows(row, split, table_mapping, plan)
+                if not found:
+                    preview.skipped_rows += 1
+                movements.extend(found)
+            elif kind == "inventory":
                 data, position = inventory_row(row, split, plan, context_ids, currency)
                 key = (
                     normalize_label(data["name"]),
@@ -564,6 +587,12 @@ def build_plan(
                     grouped[key] = (data, {})
                     plan.wines.append(grouped[key])
                     preview.wines += 1
+                    stock_sheets[id(data)] = rows.sheets[index]
+                wine_id = id(grouped[key][0])
+                if rows.ref(index) in plan.unknown_rows:
+                    plan.unknown_quantity.add(wine_id)
+                    if position[0]:
+                        unplaced.setdefault(wine_id, position)
                 if data["quantity"] > 0 and position[0]:
                     allocations = grouped[key][1]
                     allocations[position] = allocations.get(position, 0) + data["quantity"]
@@ -579,4 +608,23 @@ def build_plan(
                 tasting.buy_again = tasting.buy_again and table_mapping.buy_again_to_wishlist
                 plan.tastings.append(tasting)
                 preview.tastings += 1
+    if movements:
+        plan.movements_total = len(movements)
+        plan.balance_example = balance_example(plan, movements, stock_sheets)
+        settle_movements(
+            plan,
+            movements,
+            {table.id: table for table in mapping.tables},
+            previews,
+            context_ids=context_ids,
+            currency=default_currency,
+        )
+        plan.movements_unmatched = sum(
+            1 for warning in plan.warnings if warning.code in UNMATCHED_MOVEMENTS
+        )
+        # A count the register worked out goes where the cellar sheet put the wine.
+        for data, allocations in plan.wines:
+            position = unplaced.get(id(data))
+            if position and not allocations and data["quantity"] > 0:
+                allocations[position] = data["quantity"]
     return plan

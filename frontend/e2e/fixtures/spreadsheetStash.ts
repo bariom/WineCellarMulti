@@ -1,0 +1,526 @@
+// Analysis of a made-up shared stash (backend fixture shared_stash): a cellar sheet and a "Taken out" register, as the API returns it.
+export const stashAnalysis = {
+  "file_format": "xlsx",
+  "fingerprint": "992659a9921d1130c54d11df149df6d5",
+  "tables": [
+    {
+      "id": "t0",
+      "sheets": [
+        "Our bottles"
+      ],
+      "title": "Cases and loose bottles",
+      "header_row": 4,
+      "row_count": 2,
+      "kind": "inventory",
+      "kind_confidence": "high",
+      "allowed_fields": [
+        "name",
+        "producer",
+        "vintage",
+        "type",
+        "format",
+        "region",
+        "country",
+        "appellation",
+        "grapes",
+        "quantity",
+        "cases",
+        "case_size",
+        "loose",
+        "consumed_count",
+        "price",
+        "current_value",
+        "currency",
+        "merchant",
+        "order_date",
+        "drink_from",
+        "drink_to",
+        "drink_window",
+        "location",
+        "bin",
+        "owners",
+        "notes",
+        "tags",
+        "ignore"
+      ],
+      "columns": [
+        {
+          "key": "c0",
+          "header": "Whose",
+          "field": "owners",
+          "confidence": "high",
+          "source": "header",
+          "alternatives": [],
+          "samples": [
+            "Sam",
+            "Alex"
+          ],
+          "filled": 2,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c1",
+          "header": "Wine / brand",
+          "field": "name",
+          "confidence": "medium",
+          "source": "header_and_values",
+          "alternatives": [],
+          "samples": [
+            "Masi Campofiorin",
+            "Cloudy Bay Sauvignon Blanc"
+          ],
+          "filled": 2,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c2",
+          "header": "Year",
+          "field": "vintage",
+          "confidence": "high",
+          "source": "header_and_values",
+          "alternatives": [],
+          "samples": [
+            "2020",
+            "2023"
+          ],
+          "filled": 2,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c3",
+          "header": "Origin",
+          "field": "country",
+          "confidence": "high",
+          "source": "header",
+          "alternatives": [],
+          "samples": [
+            "Italy",
+            "NZ"
+          ],
+          "filled": 2,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c4",
+          "header": "Style",
+          "field": "type",
+          "confidence": "high",
+          "source": "header_and_values",
+          "alternatives": [],
+          "samples": [
+            "Red",
+            "White"
+          ],
+          "filled": 2,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c5",
+          "header": "Cases",
+          "field": "cases",
+          "confidence": "high",
+          "source": "header_and_values",
+          "alternatives": [],
+          "samples": [
+            "1",
+            "0"
+          ],
+          "filled": 2,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c6",
+          "header": "Case size",
+          "field": "case_size",
+          "confidence": "high",
+          "source": "header_and_values",
+          "alternatives": [
+            "format"
+          ],
+          "samples": [
+            "6"
+          ],
+          "filled": 2,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c7",
+          "header": "Loose",
+          "field": "loose",
+          "confidence": "high",
+          "source": "header_and_values",
+          "alternatives": [],
+          "samples": [
+            "0",
+            "2"
+          ],
+          "filled": 2,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c8",
+          "header": "Total bottles",
+          "field": "quantity",
+          "confidence": "high",
+          "source": "header",
+          "alternatives": [],
+          "samples": [],
+          "filled": 0,
+          "formulas_without_values": 2,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c9",
+          "header": "Where",
+          "field": "location",
+          "confidence": "high",
+          "source": "header",
+          "alternatives": [],
+          "samples": [
+            "Garage A1",
+            "Fridge"
+          ],
+          "filled": 2,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c10",
+          "header": "Notes",
+          "field": "notes",
+          "confidence": "high",
+          "source": "header",
+          "alternatives": [],
+          "samples": [
+            "dinner"
+          ],
+          "filled": 1,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        }
+      ],
+      "currency": "",
+      "questions": [],
+      "warnings": [
+        "formulas_without_values"
+      ],
+      "movement_direction": "out"
+    },
+    {
+      "id": "t1",
+      "sheets": [
+        "Taken out"
+      ],
+      "title": "",
+      "header_row": 1,
+      "row_count": 1,
+      "kind": "movements",
+      "kind_confidence": "low",
+      "allowed_fields": [
+        "event_date",
+        "name",
+        "producer",
+        "vintage",
+        "type",
+        "format",
+        "region",
+        "country",
+        "appellation",
+        "grapes",
+        "movement_kind",
+        "quantity_in",
+        "quantity_out",
+        "quantity",
+        "owners",
+        "occasion",
+        "location",
+        "notes",
+        "ignore"
+      ],
+      "columns": [
+        {
+          "key": "c0",
+          "header": "Date",
+          "field": "event_date",
+          "confidence": "high",
+          "source": "header_and_values",
+          "alternatives": [],
+          "samples": [
+            "2026-05-11"
+          ],
+          "filled": 1,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c1",
+          "header": "Who",
+          "field": "notes",
+          "confidence": "low",
+          "source": "fallback",
+          "alternatives": [
+            "tags"
+          ],
+          "samples": [
+            "Sam"
+          ],
+          "filled": 1,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c2",
+          "header": "Wine",
+          "field": "name",
+          "confidence": "high",
+          "source": "header_and_values",
+          "alternatives": [],
+          "samples": [
+            "Masi Campofiorin"
+          ],
+          "filled": 1,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c3",
+          "header": "How many",
+          "field": "quantity",
+          "confidence": "high",
+          "source": "header_and_values",
+          "alternatives": [],
+          "samples": [
+            "2"
+          ],
+          "filled": 1,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        },
+        {
+          "key": "c4",
+          "header": "For what",
+          "field": "occasion",
+          "confidence": "high",
+          "source": "header",
+          "alternatives": [],
+          "samples": [
+            "dinner"
+          ],
+          "filled": 1,
+          "formulas_without_values": 0,
+          "rejected_field": "",
+          "name_order": "",
+          "position_separator": "",
+          "currency": "",
+          "currency_ambiguous": false,
+          "date_order": "",
+          "score_scale": null
+        }
+      ],
+      "currency": "",
+      "questions": [],
+      "warnings": [],
+      "movement_direction": "out"
+    }
+  ],
+  "skipped_sheets": [],
+  "saved_mapping": null,
+  "default_currency": "CHF",
+  "fields_by_kind": {
+    "inventory": [
+      "name",
+      "producer",
+      "vintage",
+      "type",
+      "format",
+      "region",
+      "country",
+      "appellation",
+      "grapes",
+      "quantity",
+      "cases",
+      "case_size",
+      "loose",
+      "consumed_count",
+      "price",
+      "current_value",
+      "currency",
+      "merchant",
+      "order_date",
+      "drink_from",
+      "drink_to",
+      "drink_window",
+      "location",
+      "bin",
+      "owners",
+      "notes",
+      "tags",
+      "ignore"
+    ],
+    "wishlist": [
+      "name",
+      "producer",
+      "vintage",
+      "type",
+      "format",
+      "region",
+      "country",
+      "appellation",
+      "grapes",
+      "quantity",
+      "target_price",
+      "currency",
+      "merchant",
+      "priority",
+      "notes",
+      "tags",
+      "ignore"
+    ],
+    "tasting": [
+      "event_date",
+      "name",
+      "producer",
+      "vintage",
+      "type",
+      "format",
+      "region",
+      "country",
+      "appellation",
+      "grapes",
+      "quantity",
+      "score",
+      "rating_words",
+      "occasion",
+      "pairing",
+      "companions",
+      "buy_again",
+      "notes",
+      "ignore"
+    ],
+    "movements": [
+      "event_date",
+      "name",
+      "producer",
+      "vintage",
+      "type",
+      "format",
+      "region",
+      "country",
+      "appellation",
+      "grapes",
+      "movement_kind",
+      "quantity_in",
+      "quantity_out",
+      "quantity",
+      "owners",
+      "occasion",
+      "location",
+      "notes",
+      "ignore"
+    ],
+    "summary": [
+      "ignore"
+    ],
+    "ignore": [
+      "ignore"
+    ]
+  }
+};
