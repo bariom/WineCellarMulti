@@ -16,7 +16,7 @@ export type LandingStory = {
   essentials: {
     eyebrow: string; title: string; body: string;
     items: Array<{ icon: EssentialIcon; title: string; body: string }>;
-    switchTitle: string; switchBody: string; switchAction: string; switchCompare: string; switchCompareHref: string;
+    switchTitle: string; switchBody: string; switchAction: string; switchCompare: string; switchCompareHref: string; switchGuide: string; switchGuideHref: string;
   };
   beyond: {
     eyebrow: string; title: string; titleAccent: string; body: string;
@@ -82,15 +82,17 @@ export const landingStory: Record<Locale, LandingStory> = {
         { icon: "heart", title: "Wishlist", body: "Prezzi obiettivo e priorità prima di comprare." },
         { icon: "truck", title: "Ordini e consegne", body: "En primeur, ritiri e arrivi su una timeline." },
         { icon: "filter", title: "Filtri e statistiche", body: "Per regione, stato, maturità, valore, formato." },
-        { icon: "import", title: "Import ed esportazione", body: "Da CSV di CellarTracker o da un backup Vinaris." },
+        { icon: "import", title: "Import ed esportazione", body: "Dal tuo foglio Excel così com’è, da CellarTracker o da un backup Vinaris." },
         { icon: "house", title: "Più cantine", body: "Casa, seconda casa, cantina di famiglia: un solo account." },
         { icon: "devices", title: "Computer e telefono", body: "Nel browser, senza installare nulla." },
       ],
       switchTitle: "Arrivi da un’altra app o da un foglio di calcolo?",
-      switchBody: "Importi la tua cantina e riparti da dove eri.",
+      switchBody: "Vinaris legge il tuo Excel così com’è, con fogli, nomi, voti e registro delle bevute, e ti mostra l’anteprima prima di importare.",
       switchAction: "Crea il tuo account e importa",
       switchCompare: "Vinaris e CellarTracker a confronto",
       switchCompareHref: "/it/guide/alternativa-a-cellartracker/",
+      switchGuide: "Come funziona l’import da Excel",
+      switchGuideHref: "/it/guide/importare-cantina-da-excel/",
     },
     beyond: {
       eyebrow: "Perché Vinaris",
@@ -204,15 +206,17 @@ export const landingStory: Record<Locale, LandingStory> = {
         { icon: "heart", title: "Wishlist", body: "Target prices and priorities before you buy." },
         { icon: "truck", title: "Orders and deliveries", body: "En primeur, collections and arrivals on a timeline." },
         { icon: "filter", title: "Filters and statistics", body: "By region, status, maturity, value, format." },
-        { icon: "import", title: "Import and export", body: "From a CellarTracker CSV or a Vinaris backup." },
+        { icon: "import", title: "Import and export", body: "From your spreadsheet as it is, from CellarTracker or from a Vinaris backup." },
         { icon: "house", title: "Several cellars", body: "Home, second home, family cellar: one account." },
         { icon: "devices", title: "Computer and phone", body: "In your browser, nothing to install." },
       ],
       switchTitle: "Coming from another app or a spreadsheet?",
-      switchBody: "Import your cellar and pick up where you left off.",
+      switchBody: "Vinaris reads your spreadsheet as it is, with its sheets, names, scores and register of bottles drunk, and shows you a preview before importing.",
       switchAction: "Create your account and import",
       switchCompare: "Vinaris and CellarTracker compared",
       switchCompareHref: "/en/guides/cellartracker-alternative/",
+      switchGuide: "How the spreadsheet import works",
+      switchGuideHref: "/en/guides/import-wine-cellar-from-excel/",
     },
     beyond: {
       eyebrow: "Why Vinaris",

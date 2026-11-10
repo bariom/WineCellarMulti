@@ -18,6 +18,7 @@
 - [Wine drinking windows](https://vinaris.app/en/guides/wine-drinking-windows/)
 - [How to organise a wine cellar](https://vinaris.app/en/guides/how-to-organise-a-wine-cellar/)
 - [Wine cellar spreadsheet or app?](https://vinaris.app/en/guides/wine-cellar-spreadsheet-vs-app/)
+- [Import your wine cellar from a spreadsheet](https://vinaris.app/en/guides/import-wine-cellar-from-excel/): what the Excel/.ods/CSV import reads (sheets, columns, names, scores, purchase and consumption registers), the preview and the free tier.
 - [CellarTracker alternative: Vinaris compared](https://vinaris.app/en/guides/cellartracker-alternative/): honest comparison table, what the CellarTracker CSV import carries over (including locations and bins), prices.
 
 ## Guide (IT)
@@ -27,11 +28,12 @@
 - [Finestre di beva del vino](https://vinaris.app/it/guide/finestre-di-beva-vino/)
 - [Come organizzare la cantina](https://vinaris.app/it/guide/come-organizzare-cantina-vino/)
 - [Excel o app per la cantina?](https://vinaris.app/it/guide/excel-o-app-per-cantina-vino/)
+- [Importare la cantina da Excel](https://vinaris.app/it/guide/importare-cantina-da-excel/)
 - [Alternativa a CellarTracker](https://vinaris.app/it/guide/alternativa-a-cellartracker/)
 
 ## Facts
 
-- Import from a CellarTracker CSV (with locations and bins) or a Vinaris backup; export at any time.
+- Import from your own spreadsheet as it is (.xlsx, .xlsm, .xls, .ods, .csv, up to 5 MB), from a CellarTracker CSV (with locations and bins) or a Vinaris backup; export at any time. The spreadsheet import recognises sheets and columns in Italian, English, French and German, splits producer, wine and vintage (AI optional: first 15 names per cellar free), turns a register of purchases and bottles drunk into stock history, and shows a preview before anything is written.
 - Value estimates come from a web search of current wine-shop prices in the market the user chooses, with a link to each source.
 - AI features run on OpenAI models; payments are handled by Stripe.
 - Shared cellars: invite people with full or read-only access and track percentage ownership per wine.

@@ -13,6 +13,7 @@ import drinkingWindows from "./seo-guides/drinking-windows.mjs";
 import cellarOrganisation from "./seo-guides/cellar-organisation.mjs";
 import spreadsheetVsApp from "./seo-guides/spreadsheet-vs-app.mjs";
 import cellartrackerAlternative from "./seo-guides/cellartracker-alternative.mjs";
+import spreadsheetImport from "./seo-guides/spreadsheet-import.mjs";
 // The features and about pages reuse the landing copy so the two never drift apart.
 import { landingStory } from "../src/views/landing/story.ts";
 import { landingCopy } from "../src/views/landing/content.ts";
@@ -33,7 +34,7 @@ const organization = {
 // The guides first went live on this date (git: "Add consent mode and SEO guides").
 const guidesPublished = "2026-09-02";
 
-const guides = [drinkNext, drinkingWindows, cellarOrganisation, spreadsheetVsApp, cellartrackerAlternative];
+const guides = [drinkNext, drinkingWindows, cellarOrganisation, spreadsheetVsApp, spreadsheetImport, cellartrackerAlternative];
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -158,11 +159,11 @@ function guidePage(locale, guide) {
 
 function guideIndex(locale) {
   const copy = locale === "it"
-    ? { title: "Guide per organizzare e vivere meglio la cantina", h1: "Guide per organizzare e vivere meglio la cantina", description: "Quattro guide pratiche per collezionisti: quale bottiglia aprire oggi, come leggere le finestre di beva, come organizzare la cantina, Excel o app.", eyebrow: "Guide Vinaris", lead: "Strumenti pratici per trasformare bottiglie, annate e memoria degustativa in decisioni più semplici.", read: "Leggi la guida" }
-    : { title: "Wine cellar guides for collectors", h1: "Guides for organising and enjoying your wine cellar", description: "Four practical guides for collectors: which bottle to open today, how drinking windows work, how to organise a cellar, and spreadsheet or app.", eyebrow: "Vinaris guides", lead: "Practical tools for turning bottles, vintages, and tasting memory into simpler decisions.", read: "Read the guide" };
+    ? { title: "Guide per organizzare e vivere meglio la cantina", h1: "Guide per organizzare e vivere meglio la cantina", description: "Guide pratiche per collezionisti: quale bottiglia aprire oggi, finestre di beva, organizzare la cantina, Excel o app e come importare il tuo foglio.", eyebrow: "Guide Vinaris", lead: "Strumenti pratici per trasformare bottiglie, annate e memoria degustativa in decisioni più semplici.", read: "Leggi la guida" }
+    : { title: "Wine cellar guides for collectors", h1: "Guides for organising and enjoying your wine cellar", description: "Practical guides for collectors: which bottle to open today, drinking windows, organising a cellar, spreadsheet or app, and importing your spreadsheet.", eyebrow: "Vinaris guides", lead: "Practical tools for turning bottles, vintages, and tasting memory into simpler decisions.", read: "Read the guide" };
   const categories = locale === "it"
-    ? { "drink-next": "Bere bene oggi", "drinking-windows": "Finestre di beva", "cellar-organisation": "Gestione della cantina", "spreadsheet-vs-app": "Scegli il tuo sistema", "cellartracker-alternative": "Cambiare app" }
-    : { "drink-next": "Drink well today", "drinking-windows": "Drinking windows", "cellar-organisation": "Cellar management", "spreadsheet-vs-app": "Choose your system", "cellartracker-alternative": "Switching apps" };
+    ? { "drink-next": "Bere bene oggi", "drinking-windows": "Finestre di beva", "cellar-organisation": "Gestione della cantina", "spreadsheet-vs-app": "Scegli il tuo sistema", "spreadsheet-import": "Dal foglio alla cantina", "cellartracker-alternative": "Cambiare app" }
+    : { "drink-next": "Drink well today", "drinking-windows": "Drinking windows", "cellar-organisation": "Cellar management", "spreadsheet-vs-app": "Choose your system", "spreadsheet-import": "From sheet to cellar", "cellartracker-alternative": "Switching apps" };
   const cards = guides.map((guide) => `<article><p class="eyebrow">${categories[guide.id]}</p><h2>${escapeHtml(guide[locale].title)}</h2><p>${escapeHtml(guide[locale].description)}</p><a href="${pathFor(locale, guide)}">${copy.read} <span aria-hidden="true">→</span></a></article>`).join("");
   const otherLocale = locale === "it" ? "en" : "it";
   const structuredData = {
@@ -242,8 +243,8 @@ function featuresPage(locale) {
   const otherLocale = locale === "it" ? "en" : "it";
   const story = landingStory[locale];
   const copy = locale === "it"
-    ? { title: "Funzioni di Vinaris, la app per la cantina", description: "Le funzioni di Vinaris: inventario, posizioni, finestre di beva, valore con fonti, sommelier AI, ricordi e import da CellarTracker. Gratis fino a 15 etichette.", eyebrow: "Funzioni", h1: "Cosa fa Vinaris per la tua cantina", essentials: "Le basi", beyond: "Oltre l’inventario", more: "E inoltre", plans: "Alcune funzioni, come i ricordi fotografici e la scelta allo scaffale, richiedono Riserva (CHF 6 al mese o CHF 60 all’anno). Le funzioni AI usano un AI Pack prepagato.", cta: "Vedi i prezzi" }
-    : { title: "Vinaris features: the wine cellar app in detail", description: "Every Vinaris feature: inventory, locations, drinking windows, value with sources, AI sommelier, memories and CellarTracker import. Free up to 15 labels.", eyebrow: "Features", h1: "What Vinaris does for your cellar", essentials: "The essentials", beyond: "Beyond inventory", more: "And more", plans: "Some features, such as photo memories and the shelf scan, need Reserve (CHF 6 a month or CHF 60 a year). AI features use a prepaid AI Pack.", cta: "See pricing" };
+    ? { title: "Funzioni di Vinaris, la app per la cantina", description: "Funzioni di Vinaris: inventario, posizioni, finestre di beva, valore con fonti, sommelier AI, ricordi, import da Excel e CellarTracker. Gratis per 15 etichette.", eyebrow: "Funzioni", h1: "Cosa fa Vinaris per la tua cantina", essentials: "Le basi", beyond: "Oltre l’inventario", more: "E inoltre", plans: "Alcune funzioni, come i ricordi fotografici e la scelta allo scaffale, richiedono Riserva (CHF 6 al mese o CHF 60 all’anno). Le funzioni AI usano un AI Pack prepagato.", cta: "Vedi i prezzi" }
+    : { title: "Vinaris features: the wine cellar app in detail", description: "Vinaris features: inventory, locations, drinking windows, value with sources, AI sommelier, memories, Excel and CellarTracker import. Free up to 15 labels.", eyebrow: "Features", h1: "What Vinaris does for your cellar", essentials: "The essentials", beyond: "Beyond inventory", more: "And more", plans: "Some features, such as photo memories and the shelf scan, need Reserve (CHF 6 a month or CHF 60 a year). AI features use a prepaid AI Pack.", cta: "See pricing" };
   const pillars = story.pillars.items.map((item) => `<section><h2>${escapeHtml(item.title)}</h2><p>${escapeHtml(item.body)}</p></section>`).join("");
   const essentials = `<section><h2>${copy.essentials}</h2><p>${escapeHtml(story.essentials.body)}</p><ul>${story.essentials.items.map((item) => `<li><strong>${escapeHtml(item.title)}.</strong> ${escapeHtml(item.body)}</li>`).join("")}</ul></section>`;
   const beyond = story.beyond.features.map((feature) => `<section><p class="eyebrow">${escapeHtml(feature.tag)}</p><h2>${escapeHtml(feature.title)}</h2><p>${escapeHtml(feature.body)}</p><ul>${feature.points.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}</ul></section>`).join("");

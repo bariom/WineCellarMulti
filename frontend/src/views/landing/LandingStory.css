@@ -121,6 +121,7 @@
 .story-switch { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 26px; padding: 18px 22px; border-radius: 14px; background: var(--story-gold-soft); }
 .story-switch p { margin: 0; font-size: .97rem; }
 .story-switch b { font-weight: 600; }
+.story-switch-links { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; }
 .story-switch-compare { display: inline-block; color: var(--story-cellar); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 
 /* beyond */
