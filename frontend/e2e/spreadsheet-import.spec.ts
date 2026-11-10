@@ -89,7 +89,7 @@ for (const locale of ["it", "en"] as const) {
     await expect(wizard).toBeInViewport();
     await expect(wizard.getByText("Vini in casa", { exact: true })).toBeVisible();
     await expect(wizard.getByText("Da comprare", { exact: true })).toBeVisible();
-    const kinds = wizard.getByRole("combobox", { name: it ? "Contiene" : "Holds" });
+    const kinds = wizard.getByRole("combobox", { name: it ? "Importa come" : "Import as" });
     await expect(kinds.nth(0)).toHaveValue("inventory");
     await expect(kinds.nth(1)).toHaveValue("wishlist");
     await expectNoHorizontalOverflow(page);

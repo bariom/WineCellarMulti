@@ -84,7 +84,7 @@ const KIND_LABELS: Record<SpreadsheetSheetKind, [string, string]> = {
   tasting: ["Degustazioni", "Tastings"],
   movements: ["Registro movimenti", "Movement register"],
   summary: ["Riepilogo (non importato)", "Summary (not imported)"],
-  ignore: ["Ignora", "Ignore"],
+  ignore: ["Non importare", "Don't import"],
 };
 
 const RULE_LABELS: Record<string, [string, string]> = {
@@ -465,7 +465,7 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
             </p>
           ) : (
             <p className="spreadsheet-wizard-note">
-              {it ? "Per ogni tabella trovata nel file scegli che cosa contiene. I fogli con le stesse colonne sono già uniti." : "Choose what each table found in the file holds. Sheets with the same columns are already merged."}
+              {it ? "Per ogni tabella trovata nel file scegli come importarla. I fogli con le stesse colonne sono già uniti." : "Choose how to import each table found in the file. Sheets with the same columns are already merged."}
             </p>
           )}
           <ul className="spreadsheet-table-list">
@@ -483,7 +483,7 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
                     </small>
                   </div>
                   <label>
-                    <span>{it ? "Contiene" : "Holds"}</span>
+                    <span>{it ? "Importa come" : "Import as"}</span>
                     <select value={table.kind} onChange={(event) => changeKind(table.id, event.target.value as SpreadsheetSheetKind)}>
                       {KIND_OPTIONS.map((kind) => (
                         <option key={kind} value={kind}>

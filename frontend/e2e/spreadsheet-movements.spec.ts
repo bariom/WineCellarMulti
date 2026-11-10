@@ -87,7 +87,7 @@ for (const locale of ["it", "en"] as const) {
     });
 
     const wizard = card.getByRole("region", { name: it ? "Importa dal tuo Excel" : "Import from your spreadsheet", exact: true });
-    const kinds = wizard.getByRole("combobox", { name: it ? "Contiene" : "Holds" });
+    const kinds = wizard.getByRole("combobox", { name: it ? "Importa come" : "Import as" });
     await expect(kinds.nth(1)).toHaveValue("movements");
     await expect(wizard.getByText(it ? "Acquisti e bottiglie uscite diventano la storia" : "Purchases and bottles taken out become the stock history", { exact: false })).toBeVisible();
     await wizard.getByRole("button", { name: it ? "Avanti" : "Next", exact: true }).click();
