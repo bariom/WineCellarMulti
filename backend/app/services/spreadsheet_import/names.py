@@ -219,3 +219,27 @@ def split_names(
         )
         for raw, producer, vintage in zip(raws, producer_values, vintage_values, strict=True)
     ]
+
+
+def squeeze(text: str) -> str:
+    return " ".join(str(text or "").split())
+
+
+def verified_ai_split(raw: str, producer: str, name: str, vintage: str) -> NameSplit | None:
+    """An AI proposal, kept only if every part is written in the label itself.
+
+    The model may not invent a producer, translate a name or guess a vintage: what
+    it returns has to be read back from the user's own text.
+    """
+    label = squeeze(raw)
+    folded = label.casefold()
+    producer, name, vintage = squeeze(producer), squeeze(name).strip(" -–—/,|"), squeeze(vintage)
+    if not name or name.casefold() not in folded:
+        return None
+    if producer and producer.casefold() not in folded:
+        return None
+    if vintage and not (len(vintage) == 4 and vintage.isdigit() and vintage in label):
+        return None
+    if not producer:
+        return None
+    return NameSplit(raw=label, producer=producer, name=name, vintage=vintage, rule="ai")

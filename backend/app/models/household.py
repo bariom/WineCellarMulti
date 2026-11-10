@@ -19,6 +19,8 @@ class Household(Base):
     restaurant_service_loss_ml: Mapped[int] = mapped_column(Integer, default=50)
     restaurant_default_reorder_threshold: Mapped[int] = mapped_column(Integer, default=2)
     cellar_intelligence_preferences: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Names split by AI in the spreadsheet import: the first ones are on the app.
+    spreadsheet_ai_names_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     public_wine_list_token: Mapped[str | None] = mapped_column(
         String(80), unique=True, nullable=True
     )

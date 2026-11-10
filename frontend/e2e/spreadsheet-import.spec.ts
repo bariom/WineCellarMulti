@@ -17,15 +17,21 @@ const preview = {
   tastings_total: 0, tastings_linked: 0,
   warnings: [{ code: "quantity_assumed", table_id: "t0", sheet: "Vini in casa", row: 4, column: "", value: "" }],
   free_tier_label_limit: null, free_tier_active_labels: 0, free_tier_labels_required: 0, free_tier_importable_wines: null,
+  ai_free_names_left: 15,
+};
+
+const nameSplit = {
+  suggestions: [{ raw: "Planeta La Segreta Rosso", producer: "Planeta", name: "La Segreta Rosso", vintage: "", confidence: "high" }],
+  unsplit: 0, free_names_used: 1, ai_free_names_left: 14, needs_credits: 0, charged_cost_usd: "0",
 };
 
 const result = { wines_imported: 4, wines_updated: 0, wines_skipped: 1, wines_over_free_tier: 0, wishlist_imported: 2, wishlist_skipped: 0, tastings_imported: 0 };
 
-type Call = { path: string; mode: string | null; file: string; mapping: Record<string, unknown> | null };
+type Call = { path: string; mode: string | null; file: string; mapping: Record<string, unknown> | null; names: string[] | null };
 
 /** Answers the spreadsheet endpoints in the page, ahead of the app-wide API mock. */
 async function mockSpreadsheetApi(page: Page) {
-  await page.addInitScript(({ analysis, previewBody, resultBody }) => {
+  await page.addInitScript(({ analysis, previewBody, resultBody, namesBody }) => {
     const mockedFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url, location.href);
@@ -39,12 +45,14 @@ async function mockSpreadsheetApi(page: Page) {
         mode: url.searchParams.get("mode"),
         file: file instanceof File ? file.name : "",
         mapping: typeof mapping === "string" ? JSON.parse(mapping) : null,
+        names: typeof init?.body === "string" ? JSON.parse(init.body).names : null,
       });
       sessionStorage.setItem("spreadsheet-calls", JSON.stringify(calls));
-      const body = url.pathname.endsWith("/analyze") ? analysis : url.pathname.endsWith("/preview") ? previewBody : resultBody;
+      const path = url.pathname;
+      const body = path.endsWith("/analyze") ? analysis : path.endsWith("/preview") ? previewBody : path.endsWith("/names") ? namesBody : resultBody;
       return Response.json(body);
     };
-  }, { analysis: spreadsheetAnalysis, previewBody: preview, resultBody: result });
+  }, { analysis: spreadsheetAnalysis, previewBody: preview, resultBody: result, namesBody: nameSplit });
   return async (): Promise<Call[]> => page.evaluate(() => JSON.parse(sessionStorage.getItem("spreadsheet-calls") || "[]"));
 }
 
@@ -72,6 +80,8 @@ for (const locale of ["it", "en"] as const) {
     });
 
     const wizard = card.getByRole("region", { name: it ? "Importa dal tuo Excel" : "Import from your spreadsheet", exact: true });
+    // The CellarTracker / backup confirmation does not apply to the spreadsheet.
+    await expect(card.getByRole("button", { name: it ? "Conferma importazione" : "Confirm import" })).toHaveCount(0);
     await expect(wizard.getByText("Vini in casa", { exact: true })).toBeVisible();
     await expect(wizard.getByText("Da comprare", { exact: true })).toBeVisible();
     const kinds = wizard.getByRole("combobox", { name: it ? "Contiene" : "Holds" });
@@ -99,11 +109,19 @@ for (const locale of ["it", "en"] as const) {
     await expect(wizard.getByText(it ? "4 nuovi, 1 già presenti" : "4 new, 1 already there", { exact: true })).toBeVisible();
     await expect(wizard.getByText(it ? "Righe senza quantità: contata 1 bottiglia ciascuna" : "Rows without a quantity: counted as 1 bottle each", { exact: true })).toBeVisible();
     const names = wizard.getByRole("region", { name: it ? "Produttore, vino e annata" : "Producer, wine and vintage", exact: true });
-    // Unresolved names come first, ready to be corrected.
+    // Unresolved names come first; AI can propose a split from the label alone.
     const firstProducer = names.getByRole("textbox", { name: it ? "Produttore" : "Producer", exact: true }).first();
     await expect(firstProducer).toHaveValue("");
-    await firstProducer.fill("Planeta");
-    await names.getByRole("textbox", { name: it ? "Vino" : "Wine", exact: true }).first().fill("La Segreta Rosso");
+    await expect(names.getByText(it ? "I primi 15 nomi sono gratuiti: te ne restano 15" : "The first 15 names are free: 15 left", { exact: false })).toBeVisible();
+    await expect(names.getByText(it ? "1 nome non è stato diviso con certezza" : "1 name could not be split with certainty", { exact: false })).toBeVisible();
+    await names.screenshot({ path: testInfo.outputPath(`spreadsheet-names-ai-${locale}-390.png`) });
+    await names.getByRole("button", { name: it ? "Dividi con l'AI (1)" : "Split with AI (1)", exact: true }).click();
+    await expect(names.getByText(it ? "L'AI ha proposto produttore e vino per 1 riga: controllala qui sotto." : "AI suggested producer and wine for 1 row: check it below.", { exact: true })).toBeVisible();
+    await expect(names.getByText(it ? "Tutti i nomi sono stati divisi." : "Every name was split.", { exact: false })).toBeVisible();
+    await expect(firstProducer).toHaveValue("Planeta");
+    await expect(names.getByRole("textbox", { name: it ? "Vino" : "Wine", exact: true }).first()).toHaveValue("La Segreta Rosso");
+    await expect(names.getByText(it ? "Planeta La Segreta Rosso · Proposto dall'AI, controlla" : "Planeta La Segreta Rosso · Suggested by AI, please check", { exact: true })).toBeVisible();
+    await expect(names.getByRole("button", { name: it ? "Dividi con l'AI (1)" : "Split with AI (1)" })).toHaveCount(0);
     for (const width of [360, 390, 430]) {
       await page.setViewportSize({ width, height: 844 });
       await expectNoHorizontalOverflow(page);
@@ -119,8 +137,11 @@ for (const locale of ["it", "en"] as const) {
     // The dev server's StrictMode may run the analysis effect twice; everything after it runs once.
     expect(calls.filter((call) => !call.path.endsWith("/analyze")).map((call) => call.path)).toEqual([
       "/api/v1/imports/spreadsheet/preview",
+      "/api/v1/imports/spreadsheet/names",
       "/api/v1/imports/spreadsheet",
     ]);
+    // Only the unresolved label goes to the AI, nothing else from the file.
+    expect(calls.find((call) => call.path.endsWith("/names"))?.names).toEqual(["Planeta La Segreta Rosso"]);
     const sent = calls[calls.length - 1];
     expect(sent.mode).toBe("skip_duplicates");
     const tables = (sent.mapping as { fingerprint: string; tables: { id: string; kind: string; columns: Record<string, string>; name_overrides: Record<string, unknown> }[] });

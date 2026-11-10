@@ -2135,6 +2135,18 @@ export type SpreadsheetPreview = {
   free_tier_active_labels: number | null;
   free_tier_labels_required: number | null;
   free_tier_importable_wines: number | null;
+  ai_free_names_left: number;
+};
+
+export type SpreadsheetNameSuggestion = { raw: string; producer: string; name: string; vintage: string; confidence: string };
+
+export type SpreadsheetNameSplitResult = {
+  suggestions: SpreadsheetNameSuggestion[];
+  unsplit: number;
+  free_names_used: number;
+  ai_free_names_left: number;
+  needs_credits: number;
+  charged_cost_usd: string;
 };
 
 export type SpreadsheetImportResult = {

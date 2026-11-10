@@ -264,7 +264,18 @@ funzioni AI.
 5. Frontend del wizard. **Fatto**: `SpreadsheetImportWizard` in Impostazioni › Dati,
    passi Fogli → Colonne → Anteprima (con correzione dei nomi) → Fatto; E2E in
    `e2e/spreadsheet-import.spec.ts`.
-6. Divisione dei nomi con l'AI (rotta `names`).
+6. Divisione dei nomi con l'AI (rotta `names`). **Fatto**: il pulsante "Dividi con
+   l'AI" nell'anteprima manda solo le etichette non risolte (al massimo 100, senza
+   doppioni). I primi 15 nomi per cantina li paga l'app (`app_granted` in
+   `create_ai_response`, contatore `households.spreadsheet_ai_names_used`,
+   migrazione 0133); il contatore si prenota prima della chiamata e si restituisce se
+   il provider fallisce. Oltre, la chiamata segue le regole delle altre funzioni AI
+   (crediti, chiave personale o abbonamento); senza crediti la parte gratuita viene
+   comunque eseguita e la risposta dice quanti nomi ne restano fuori. Una proposta
+   vale solo se produttore, nome e annata sono scritti nell'etichetta
+   (`verified_ai_split`) e se l'AI non la segna come incerta; nell'anteprima appare
+   come "Proposto dall'AI, controlla". Sotto il wizard aperto, i controlli
+   dell'import CellarTracker/backup sono nascosti.
 7. Fase 2.
 
 ## Decisioni aperte

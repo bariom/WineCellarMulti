@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from typing import Any
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from spreadsheet_fixtures import ALL_SHAPES, build_xlsx
 from sqlalchemy import select
@@ -13,19 +15,24 @@ from test_auth_and_wines import TestingSessionLocal, register
 from test_auth_and_wines import setup_function as setup_function  # noqa: F401
 from test_auth_and_wines import teardown_function as teardown_function  # noqa: F401
 
+from app.api.routes import ai as ai_routes
 from app.api.routes import imports as imports_routes
 from app.api.routes import spreadsheet_imports as spreadsheet_routes
 from app.core.config import settings
 from app.main import app
 from app.models import (
     ExternalWineTasting,
+    Household,
     SpreadsheetImportMap,
+    User,
     Wine,
     WineTastingEntry,
     WishlistItem,
 )
 from app.services import free_tier
-from app.services.spreadsheet_import.names import split_names
+from app.services.ai_credits import ai_credit_balance, set_ai_credit_balance
+from app.services.openai_client import OpenAIResponse, TokenUsage
+from app.services.spreadsheet_import.names import split_names, verified_ai_split
 
 PRODUCERS = {
     "antinori": "Antinori",
@@ -371,3 +378,122 @@ def test_free_tier_imports_up_to_the_label_limit(monkeypatch: pytest.MonkeyPatch
     result = send(client, "", content, proposed_mapping(analysis))
     assert (result["wines_imported"], result["wines_over_free_tier"]) == (3, 2)
     assert len(client.get("/api/v1/wines").json()) == 3
+
+
+# --- AI name split ----------------------------------------------------------------
+
+AI_ANSWERS = {
+    "Pieropan Soave Classico 2021": ("Pieropan", "Soave Classico", "2021", "high"),
+    "Planeta La Segreta Rosso": ("Planeta", "La Segreta Rosso", "", "high"),
+    # Invented producer: not written in the label, dropped.
+    "Sassicaia 2019": ("Tenuta San Guido", "Sassicaia", "2019", "high"),
+    "19 Crimes Red": ("", "19 Crimes Red", "", "low"),
+}
+
+
+def test_ai_splits_are_kept_only_when_read_from_the_label():
+    assert verified_ai_split("Pieropan Soave Classico 2021", "Pieropan", "Soave Classico", "2021")
+    assert not verified_ai_split("Sassicaia 2019", "Tenuta San Guido", "Sassicaia", "2019")
+    assert not verified_ai_split("Soave Pieropan", "Pieropan", "Soave Classico", "")
+    assert not verified_ai_split("Soave Pieropan", "Pieropan", "Soave", "2020")
+    assert not verified_ai_split("Soave Pieropan", "", "Soave Pieropan", "")
+
+
+def fake_ai(calls: list[dict[str, Any]]):
+    def respond(model, system_prompt, user_prompt, **kwargs):
+        labels = json.loads(user_prompt.split("\n", 1)[1])["labels"]
+        calls.append({"labels": [item["label"] for item in labels], "api_key": kwargs["api_key"]})
+        names = [
+            dict(
+                zip(
+                    ("producer", "name", "vintage", "confidence"),
+                    AI_ANSWERS[item["label"]],
+                    strict=True,
+                )
+            )
+            | {"index": item["index"]}
+            for item in labels
+        ]
+        return OpenAIResponse(
+            text=json.dumps({"names": names}),
+            usage=TokenUsage(),
+            model=settings.openai_economy_model,
+        )
+
+    return respond
+
+
+def names_used() -> int:
+    with TestingSessionLocal() as db:
+        return db.scalars(select(Household)).one().spreadsheet_ai_names_used
+
+
+def test_ai_name_split_is_free_for_the_first_names_and_verified(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(settings, "openai_api_key", "test-app-key")
+    monkeypatch.setattr(ai_routes, "create_response", fake_ai(calls))
+    for module in (free_tier, ai_routes, spreadsheet_routes):
+        monkeypatch.setattr(module, "is_free_tier", lambda context: True)
+    client = client_with_cellar()
+    response = client.post(
+        "/api/v1/imports/spreadsheet/names",
+        json={"names": [*AI_ANSWERS, "Sassicaia 2019"]},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    # Only the labels go to the provider, once each, on the application key.
+    assert calls == [{"labels": list(AI_ANSWERS), "api_key": "test-app-key"}]
+    suggestions = {
+        item["raw"]: (item["producer"], item["name"], item["vintage"])
+        for item in body["suggestions"]
+    }
+    assert suggestions == {
+        "Pieropan Soave Classico 2021": ("Pieropan", "Soave Classico", "2021"),
+        "Planeta La Segreta Rosso": ("Planeta", "La Segreta Rosso", ""),
+    }
+    assert (body["unsplit"], body["free_names_used"], body["ai_free_names_left"]) == (2, 4, 11)
+    assert names_used() == 4
+
+    # Beyond the free names a free-tier user without credits is told so; the free part runs.
+    with TestingSessionLocal() as db:
+        db.scalars(select(Household)).one().spreadsheet_ai_names_used = 14
+        user = db.scalars(select(User)).one()
+        if ai_credit_balance(db, user) > 0:
+            set_ai_credit_balance(db, user, target_balance_usd=Decimal("0"), source="test")
+        db.commit()
+    calls.clear()
+    response = client.post(
+        "/api/v1/imports/spreadsheet/names", json={"names": list(AI_ANSWERS)[:3]}
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert calls == [{"labels": ["Pieropan Soave Classico 2021"], "api_key": "test-app-key"}]
+    assert (body["free_names_used"], body["needs_credits"], body["ai_free_names_left"]) == (
+        1,
+        2,
+        0,
+    )
+    response = client.post("/api/v1/imports/spreadsheet/names", json={"names": ["Sassicaia 2019"]})
+    assert response.status_code == 402
+    assert names_used() == 15
+    blank = client.post("/api/v1/imports/spreadsheet/names", json={"names": [" "]})
+    assert blank.status_code == 422
+
+
+def test_ai_name_split_gives_the_free_names_back_when_the_provider_fails(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    def unavailable(*args, **kwargs):
+        raise HTTPException(503, "Provider unavailable")
+
+    monkeypatch.setattr(settings, "openai_api_key", "test-app-key")
+    monkeypatch.setattr(ai_routes, "create_response", unavailable)
+    client = client_with_cellar()
+    response = client.post("/api/v1/imports/spreadsheet/names", json={"names": ["Sassicaia 2019"]})
+    assert response.status_code == 503
+    assert names_used() == 0
+    content = build_xlsx(ALL_SHAPES["personal_cellar"]())
+    preview = send(client, "preview", content, proposed_mapping(analyze(client, content)))
+    assert preview["ai_free_names_left"] == 15

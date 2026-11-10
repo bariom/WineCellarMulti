@@ -7,6 +7,7 @@ wines a tasting belongs to, saved mappings) is scoped to the active household.
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -26,24 +27,31 @@ from app.api.routes.imports import (
     wine_duplicate_key,
     wishlist_duplicate_key,
 )
+from app.core.config import settings
 from app.db.session import get_db
 from app.models import (
     ExternalWineTasting,
+    Household,
     SpreadsheetImportMap,
     Wine,
     WineTastingEntry,
     WishlistItem,
     WishlistList,
 )
+from app.prompts.spreadsheet_import import NAME_SPLIT_SCHEMA, spreadsheet_name_split_prompt
 from app.schemas.spreadsheet_import import (
     SpreadsheetAnalysis,
     SpreadsheetImportResult,
     SpreadsheetMapping,
+    SpreadsheetNameSplitRequest,
+    SpreadsheetNameSplitResult,
+    SpreadsheetNameSuggestion,
     SpreadsheetPreview,
 )
 from app.services.free_tier import is_free_tier
+from app.services.openai_client import parse_json_response
 from app.services.spreadsheet_import.analysis import analyze_workbook
-from app.services.spreadsheet_import.names import known_producers
+from app.services.spreadsheet_import.names import known_producers, squeeze, verified_ai_split
 from app.services.spreadsheet_import.plan import ImportPlan, PlannedTasting, build_plan
 from app.services.spreadsheet_import.reader import (
     MAX_FILE_BYTES,
@@ -55,6 +63,8 @@ from app.services.wine_consumption import normalize_tasting_history
 router = APIRouter(prefix="/imports/spreadsheet")
 
 DEFAULT_WISHLIST_NAME = "Wishlist"
+# Names per household the application splits by AI for free, once and not per import.
+AI_FREE_NAMES = 15
 
 
 async def read_upload(file: UploadFile) -> tuple[bytes, str]:
@@ -337,6 +347,7 @@ async def preview_spreadsheet(
             if index.get(tasting.name, tasting.producer, tasting.vintage)
         ),
         warnings=plan.warnings[:200],
+        ai_free_names_left=ai_free_names_left(context.household),
         **cellartracker_free_tier_capacity(db, context, wines),
     )
 
@@ -513,3 +524,143 @@ async def import_spreadsheet(
     remember_mapping(db, context, confirmed)
     db.commit()
     return result
+
+
+def ai_free_names_left(household: Household) -> int:
+    return max(0, AI_FREE_NAMES - int(household.spreadsheet_ai_names_used or 0))
+
+
+def lock_household(db: Session, context: CurrentContext) -> Household:
+    household = db.scalar(
+        select(Household).where(Household.id == context.household.id).with_for_update()
+    )
+    if household is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Household not found")
+    return household
+
+
+def ask_ai_to_split(
+    db: Session, context: CurrentContext, labels: list[str], *, granted: bool
+) -> tuple[list[SpreadsheetNameSuggestion], Decimal]:
+    """One provider call; returns the proposals that pass verification and the charge."""
+    from app.api.routes.ai import (
+        create_ai_response,
+        get_or_create_user_ai_settings,
+        record_ai_audit,
+    )
+
+    prompt = spreadsheet_name_split_prompt(names=labels)
+    response, provider = create_ai_response(
+        db,
+        context,
+        get_or_create_user_ai_settings(db, context),
+        model=settings.openai_economy_model,
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
+        json_schema=NAME_SPLIT_SCHEMA,
+        task_type="structured_extraction",
+        app_funded=True,
+        app_granted=granted,
+        max_output_tokens=6000,
+        timeout_seconds=60,
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="spreadsheet_import",
+        entity_id=uuid.uuid4(),
+        feature=f"{prompt.id}@{prompt.version}",
+        model=response.model or settings.openai_economy_model,
+        summary=f"Spreadsheet import: {len(labels)} wine labels split for review",
+        usage=response.usage,
+        provider_source=provider,
+    )
+    db.commit()
+    charged = response.charged_cost_usd if provider == "credits" else Decimal("0")
+    try:
+        if response.incomplete:
+            raise ValueError("Incomplete answer")
+        payload = parse_json_response(response.text)
+    except (ValueError, HTTPException):
+        return [], charged
+    suggestions: dict[int, SpreadsheetNameSuggestion] = {}
+    for item in payload.get("names") or []:
+        if not isinstance(item, dict):
+            continue
+        index = item.get("index")
+        if not isinstance(index, int) or not 0 <= index < len(labels) or index in suggestions:
+            continue
+        confidence = str(item.get("confidence") or "")
+        if confidence not in {"high", "medium"}:
+            continue
+        split = verified_ai_split(
+            labels[index],
+            str(item.get("producer") or ""),
+            str(item.get("name") or ""),
+            str(item.get("vintage") or ""),
+        )
+        if split:
+            suggestions[index] = SpreadsheetNameSuggestion(
+                raw=labels[index],
+                producer=split.producer,
+                name=split.name,
+                vintage=split.vintage,
+                confidence=confidence,
+            )
+    return list(suggestions.values()), charged
+
+
+def split_names_with_ai(
+    db: Session, context: CurrentContext, labels: list[str]
+) -> SpreadsheetNameSplitResult:
+    # Reserve the free names before calling, so two tabs cannot both spend them.
+    household = lock_household(db, context)
+    free = min(len(labels), ai_free_names_left(household))
+    household.spreadsheet_ai_names_used = int(household.spreadsheet_ai_names_used or 0) + free
+    db.commit()
+    suggestions: list[SpreadsheetNameSuggestion] = []
+    charged = Decimal("0")
+    if free:
+        try:
+            suggestions, _ = ask_ai_to_split(db, context, labels[:free], granted=True)
+        except Exception:
+            db.rollback()
+            household = lock_household(db, context)
+            household.spreadsheet_ai_names_used = max(
+                0, int(household.spreadsheet_ai_names_used or 0) - free
+            )
+            db.commit()
+            raise
+    needs_credits = 0
+    paid = labels[free:]
+    if paid:
+        try:
+            more, charged = ask_ai_to_split(db, context, paid, granted=False)
+            suggestions += more
+        except HTTPException as error:
+            # Without credits or a personal key the free names still count.
+            if error.status_code != status.HTTP_402_PAYMENT_REQUIRED or not free:
+                raise
+            needs_credits = len(paid)
+    db.refresh(context.household)
+    return SpreadsheetNameSplitResult(
+        suggestions=suggestions,
+        unsplit=len(labels) - needs_credits - len(suggestions),
+        free_names_used=free,
+        ai_free_names_left=ai_free_names_left(context.household),
+        needs_credits=needs_credits,
+        charged_cost_usd=charged,
+    )
+
+
+@router.post("/names", response_model=SpreadsheetNameSplitResult)
+async def split_spreadsheet_names(
+    payload: SpreadsheetNameSplitRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_admin_context),
+) -> SpreadsheetNameSplitResult:
+    """Ask AI to split the names the rules left unresolved; the user reviews the result."""
+    labels = list(dict.fromkeys(squeeze(name)[:200] for name in payload.names if squeeze(name)))
+    if not labels:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "No names to split")
+    return await run_in_threadpool(split_names_with_ai, db, context, labels)

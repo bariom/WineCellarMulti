@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -161,6 +162,32 @@ class SpreadsheetPreview(BaseModel):
     free_tier_active_labels: int | None = 0
     free_tier_labels_required: int | None = 0
     free_tier_importable_wines: int | None = None
+    # Names the household can still have split by AI for free.
+    ai_free_names_left: int = 0
+
+
+class SpreadsheetNameSplitRequest(BaseModel):
+    # Only the label strings the rules left unresolved; nothing else from the file.
+    names: list[str] = Field(min_length=1, max_length=100)
+
+
+class SpreadsheetNameSuggestion(BaseModel):
+    raw: str
+    producer: str
+    name: str
+    vintage: str
+    confidence: str
+
+
+class SpreadsheetNameSplitResult(BaseModel):
+    suggestions: list[SpreadsheetNameSuggestion]
+    # Names sent but not split: the AI was unsure or its answer did not match the label.
+    unsplit: int
+    free_names_used: int
+    ai_free_names_left: int
+    # Names not sent because splitting them needs AI credits the user does not have.
+    needs_credits: int = 0
+    charged_cost_usd: Decimal = Decimal("0")
 
 
 class SpreadsheetImportResult(BaseModel):

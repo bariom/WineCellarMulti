@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { appActionSvgIcon } from "../../components/actionIcons";
+import { AppIcon } from "../../components/AppIcon";
 import { ButtonBusyContent, LoadingState } from "../../components/AppUi";
 import type {
   Locale,
@@ -7,6 +8,7 @@ import type {
   SpreadsheetImportResult,
   SpreadsheetMapping,
   SpreadsheetNameRow,
+  SpreadsheetNameSplitResult,
   SpreadsheetPreview,
   SpreadsheetSheetKind,
   SpreadsheetTableAnalysis,
@@ -29,6 +31,9 @@ const KIND_OPTIONS: SpreadsheetSheetKind[] = ["inventory", "wishlist", "tasting"
 const MULTI_FIELDS = new Set(["notes", "tags", "ignore"]);
 const CURRENCIES = ["CHF", "EUR", "USD", "GBP", "CAD", "AUD", "NZD", "SEK", "NOK", "DKK", "JPY"];
 const NAME_ROWS_SHOWN = 40;
+// Mirrors backend AI_FREE_NAMES and the request cap of the /names endpoint.
+const AI_FREE_NAMES = 15;
+const AI_NAMES_PER_REQUEST = 100;
 
 const FIELD_LABELS: Record<string, [string, string]> = {
   name: ["Vino", "Wine"],
@@ -89,6 +94,7 @@ const RULE_LABELS: Record<string, [string, string]> = {
   estate: ["Nome della tenuta", "Estate name"],
   unresolved: ["Da controllare", "Please check"],
   override: ["Corretto da te", "Corrected by you"],
+  ai: ["Proposto dall'AI, controlla", "Suggested by AI, please check"],
 };
 
 const WARNING_LABELS: Record<string, [string, string]> = {
@@ -196,6 +202,11 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
   const [result, setResult] = useState<SpreadsheetImportResult | null>(null);
   const [mode, setMode] = useState<ImportMode>("skip_duplicates");
   const [showAllNames, setShowAllNames] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMessages, setAiMessages] = useState<{ text: string; warning: boolean }[]>([]);
+  // Rows whose current values are the AI's proposal, until the user edits them.
+  const [aiRefs, setAiRefs] = useState<ReadonlySet<string>>(new Set());
+  const [aiFreeLeft, setAiFreeLeft] = useState<number | null>(null);
 
   const describeError = (caught: unknown) => {
     if (caught instanceof SpreadsheetApiError && ERROR_LABELS[caught.code]) return pick(ERROR_LABELS[caught.code]);
@@ -294,11 +305,76 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
     }
   }
 
-  const overrideName = (row: SpreadsheetNameRow, part: "producer" | "name" | "vintage", value: string) =>
+  const overrideName = (row: SpreadsheetNameRow, part: "producer" | "name" | "vintage", value: string) => {
     updateTable(row.table_id, (table) => {
       const current = table.name_overrides[row.ref] ?? { producer: row.producer, name: row.name, vintage: row.vintage };
       return { ...table, name_overrides: { ...table.name_overrides, [row.ref]: { ...current, [part]: value } } };
     }, true);
+    if (aiRefs.has(row.ref)) setAiRefs((current) => new Set([...current].filter((ref) => ref !== row.ref)));
+  };
+
+  /** Names the rules could not split and the user has not corrected yet. */
+  const openNames = (preview?.names ?? []).filter(
+    (row) => row.rule === "unresolved" && !mapping?.tables.find((table) => table.id === row.table_id)?.name_overrides[row.ref],
+  );
+  const aiFreeNamesLeft = aiFreeLeft ?? preview?.ai_free_names_left ?? 0;
+
+  /** Only the unresolved label strings go to the AI; its proposals land as corrections to review. */
+  async function splitNamesWithAi() {
+    const rows = openNames;
+    const names = [...new Set(rows.map((row) => row.raw))].slice(0, AI_NAMES_PER_REQUEST);
+    if (!names.length) return;
+    setAiBusy(true);
+    setAiMessages([]);
+    try {
+      const response = await fetch("/api/v1/imports/spreadsheet/names", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ names }),
+      });
+      if (response.status === 402) {
+        setAiMessages([{ warning: true, text: it
+          ? "I nomi gratuiti sono finiti: per dividerne altri con l'AI servono crediti AI o una tua chiave OpenAI (Impostazioni › AI)."
+          : "The free names are used up: splitting more with AI needs AI credits or your own OpenAI key (Settings › AI)." }]);
+        setAiFreeLeft(0);
+        return;
+      }
+      if (!response.ok) throw new Error(it ? "L'AI non ha risposto. Riprova tra poco." : "The AI did not answer. Please try again shortly.");
+      const answer = (await response.json()) as SpreadsheetNameSplitResult;
+      const byRaw = new Map(answer.suggestions.map((suggestion) => [suggestion.raw, suggestion] as const));
+      const suggested = rows.filter((row) => byRaw.has(row.raw.split(/\s+/).join(" ")));
+      setMapping((current) => current && {
+        ...current,
+        tables: current.tables.map((table) => {
+          const overrides = { ...table.name_overrides };
+          for (const row of suggested) {
+            if (row.table_id !== table.id) continue;
+            const suggestion = byRaw.get(row.raw.split(/\s+/).join(" "))!;
+            overrides[row.ref] = { producer: suggestion.producer, name: suggestion.name, vintage: suggestion.vintage || row.vintage };
+          }
+          return { ...table, name_overrides: overrides };
+        }),
+      });
+      setAiRefs((current) => new Set([...current, ...suggested.map((row) => row.ref)]));
+      setAiFreeLeft(answer.ai_free_names_left);
+      const one = suggested.length === 1;
+      const messages = [{ warning: false, text: it
+        ? `L'AI ha proposto produttore e vino per ${suggested.length} ${one ? "riga: controllala" : "righe: controllale"} qui sotto.`
+        : `AI suggested producer and wine for ${suggested.length} ${one ? "row: check it" : "rows: check them"} below.` }];
+      if (answer.unsplit) messages.push({ warning: true, text: it
+        ? `${answer.unsplit} ${answer.unsplit === 1 ? "nome resta" : "nomi restano"} da controllare: l'AI non era sicura.`
+        : `${answer.unsplit} ${answer.unsplit === 1 ? "name still needs" : "names still need"} checking: the AI was not sure.` });
+      if (answer.needs_credits) messages.push({ warning: true, text: it
+        ? `Per ${answer.needs_credits === 1 ? "un altro nome" : `altri ${answer.needs_credits} nomi`} servono crediti AI o una tua chiave OpenAI (Impostazioni › AI).`
+        : `${answer.needs_credits} more ${answer.needs_credits === 1 ? "name needs" : "names need"} AI credits or your own OpenAI key (Settings › AI).` });
+      setAiMessages(messages);
+    } catch (caught) {
+      setAiMessages([{ warning: true, text: caught instanceof Error ? caught.message : String(caught) }]);
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   const stepLabels: [Step, string][] = [
     ["tables", it ? "Fogli" : "Sheets"],
@@ -559,14 +635,45 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
             <section className="spreadsheet-names" aria-label={it ? "Produttore, vino e annata" : "Producer, wine and vintage"}>
               <h5>{it ? "Produttore, vino e annata" : "Producer, wine and vintage"}</h5>
               <p className="spreadsheet-wizard-note">
-                {preview.unresolved_names
+                {openNames.length === 1
                   ? it
-                    ? `${preview.unresolved_names} nomi non sono stati divisi con certezza: sono in cima, correggili se serve.`
-                    : `${preview.unresolved_names} names could not be split with certainty: they are at the top, correct them if needed.`
-                  : it
-                    ? "Tutti i nomi sono stati divisi. Puoi comunque correggerli."
-                    : "Every name was split. You can still correct them."}
+                    ? "1 nome non è stato diviso con certezza: è in cima, correggilo se serve."
+                    : "1 name could not be split with certainty: it is at the top, correct it if needed."
+                  : openNames.length
+                    ? it
+                      ? `${openNames.length} nomi non sono stati divisi con certezza: sono in cima, correggili se serve.`
+                      : `${openNames.length} names could not be split with certainty: they are at the top, correct them if needed.`
+                    : it
+                      ? "Tutti i nomi sono stati divisi. Puoi comunque correggerli."
+                      : "Every name was split. You can still correct them."}
               </p>
+              {openNames.length ? (
+                <div className="spreadsheet-ai-split">
+                  <button type="button" className="secondary compact" onClick={splitNamesWithAi} disabled={aiBusy || busy}>
+                    <ButtonBusyContent
+                      busy={aiBusy}
+                      idleLabel={it ? `Dividi con l'AI (${openNames.length})` : `Split with AI (${openNames.length})`}
+                      busyLabel={it ? "L'AI sta leggendo i nomi…" : "AI is reading the names…"}
+                      icon={<AppIcon name="glass-sparkle" variant="ai" tone="accent" size="0.9rem" />}
+                      ai
+                    />
+                  </button>
+                  <small>
+                    {aiFreeNamesLeft > 0
+                      ? it
+                        ? `Riceve solo questi nomi, nient'altro del file. I primi ${AI_FREE_NAMES} nomi sono gratuiti: te ne restano ${aiFreeNamesLeft}${openNames.length > aiFreeNamesLeft ? ", gli altri usano i crediti AI" : ""}.`
+                        : `Only these names are sent, nothing else from the file. The first ${AI_FREE_NAMES} names are free: ${aiFreeNamesLeft} left${openNames.length > aiFreeNamesLeft ? ", the rest use AI credits" : ""}.`
+                      : it
+                        ? "Riceve solo questi nomi, nient'altro del file. I nomi gratuiti sono finiti: usa i crediti AI."
+                        : "Only these names are sent, nothing else from the file. The free names are used up: this uses AI credits."}
+                  </small>
+                </div>
+              ) : null}
+              {aiMessages.map((message) => (
+                <p key={message.text} className={`spreadsheet-wizard-note${message.warning ? " is-warning" : ""}`} role="status">
+                  {message.text}
+                </p>
+              ))}
               <ul className="spreadsheet-name-list">
                 {[...preview.names]
                   .sort((left, right) => Number(right.rule === "unresolved") - Number(left.rule === "unresolved"))
@@ -578,7 +685,7 @@ export default function SpreadsheetImportWizard({ locale, file, isFreeTier, onCl
                     return (
                       <li key={row.ref} className={`spreadsheet-name${row.rule === "unresolved" && !override ? " is-uncertain" : ""}`}>
                         <small>
-                          {row.raw} · {override ? pick(RULE_LABELS.override) : pick(RULE_LABELS[row.rule], row.rule)}
+                          {row.raw} · {override ? pick(aiRefs.has(row.ref) ? RULE_LABELS.ai : RULE_LABELS.override) : pick(RULE_LABELS[row.rule], row.rule)}
                         </small>
                         <div className="spreadsheet-name-fields">
                           <label>

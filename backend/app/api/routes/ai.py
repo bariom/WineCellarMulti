@@ -849,6 +849,7 @@ def create_ai_response(
     task_type: str = "sommelier",
     complexity: str | None = None,
     app_funded: bool = False,
+    app_granted: bool = False,
     input_images: list[tuple[str, bytes]] | None = None,
     input_files: list[tuple[str, bytes]] | None = None,
     timeout_seconds: float | None = None,
@@ -861,7 +862,11 @@ def create_ai_response(
     ):
         raise HTTPException(503, "Paid sensory research is suspended")
     ensure_event_task_allowed(db, context, task_type)
-    if app_funded and not is_free_tier(context) and not is_ambassador(context.user):
+    # app_granted: a free allowance the application pays for every plan, such as the
+    # first spreadsheet names split by AI; app_funded only covers paying plans.
+    if app_granted or (
+        app_funded and not is_free_tier(context) and not is_ambassador(context.user)
+    ):
         api_key = settings.openai_api_key.strip()
         if not api_key:
             raise HTTPException(

@@ -107,6 +107,9 @@ export default function DataSettingsTab({
             />
           </Suspense>
         ) : null}
+        {/* The CellarTracker / backup controls would only confuse while the Excel wizard is open. */}
+        {spreadsheetFile ? null : (
+          <>
         <p className="data-import-preview-help">{locale === "it" ? "Il caricamento prepara solo un’anteprima: vedrai i vini nuovi e i possibili duplicati prima di confermare." : "Uploading only prepares a preview: review new wines and possible duplicates before confirming."}</p>
         <label>
           <span>{t("importMode")}</span>
@@ -204,6 +207,8 @@ export default function DataSettingsTab({
             {(importResult.ai_audit_imported || importResult.ai_audit_updated || importResult.ai_audit_skipped) ? <span>{t("aiAudit")}: +{importResult.ai_audit_imported}, {t("updatedItems")} {importResult.ai_audit_updated}, {t("skipped")} {importResult.ai_audit_skipped}</span> : null}
           </div>
         ) : null}
+          </>
+        )}
         <div className="token-box">
           <strong>{t("exportData")}</strong>
           <span>{t("exportFullCellarHelp")}</span>
