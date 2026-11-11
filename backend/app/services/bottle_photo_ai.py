@@ -254,33 +254,89 @@ def _run_around(row: Any, x: int, reach: int) -> tuple[int, int] | None:
     return left, right
 
 
-def bottle_silhouette(numpy: Any, binary: Any, label_share: float = 0.0) -> Any:
+def _follow_silhouette(binary: Any, keep: Any, start: int, axis: float, body: float) -> None:
+    """Mark the bottle's rows in keep, following its axis down to the base and up to the
+    capsule from the start row (see bottle_silhouette)."""
+    height, width = binary.shape
+
+    def follow(rows: range, *, upward: bool) -> None:
+        center = axis
+        narrowest = body
+        previous: tuple[int, int] | None = None
+        for row in rows:
+            run = _run_around(binary[row], round(center), 2)
+            # The bottle ends where the next row no longer overlaps it: whatever lies
+            # beyond (a neighbour's base, a shelf) is not followed.
+            if run is None or (
+                previous is not None
+                and min(run[1], previous[1]) - max(run[0], previous[0]) + 1
+                < 0.5 * min(previous[1] - previous[0] + 1, run[1] - run[0] + 1)
+            ):
+                return
+            run_width = run[1] - run[0] + 1
+            allowed = (
+                narrowest * CATALOG_NECK_TOLERANCE + 2 if upward else body * CATALOG_BODY_TOLERANCE
+            )
+            if run_width <= allowed:
+                # A plausible row: keep it whole and let the axis follow a tilted bottle.
+                left, right = run
+                center = (0.5 if upward else 0.8) * center + (0.5 if upward else 0.2) * (
+                    (left + right) / 2
+                )
+            else:
+                # Something touches the bottle. The bottle is symmetric about its axis:
+                # keep the side that sticks out less, within the expected width.
+                half = min(center - run[0], run[1] - center, allowed / 2)
+                if half < 1:
+                    return
+                left, right = round(center - half), round(center + half)
+            if upward:
+                narrowest = min(narrowest, right - left + 1)
+            previous = (left, right)
+            keep[row, max(0, left) : min(width, right + 1)] = True
+
+    follow(range(start, height), upward=False)
+    follow(range(start - 1, -1, -1), upward=True)
+
+
+def bottle_silhouette(
+    numpy: Any,
+    binary: Any,
+    label_share: float = 0.0,
+    measured: tuple[float, float] | None = None,
+) -> Any:
     """Keep the bottle standing at the frame's center and drop what touches it.
 
     Row by row, only the run on the bottle's axis is kept, following the axis up and
     down from the label. Below the label no row may be wider than the body; above it
     the outline narrows towards the neck and may only widen a little again (the
     capsule's lip). Neighbouring bottles, shelves or machines that touch the bottle are
-    trimmed away instead of joining the cutout. label_share, the label's width as a share
-    of the frame's, tells a row of the bottle alone from one merged with a neighbour.
+    trimmed away instead of joining the cutout. measured, the body's axis and width found
+    by SAM, is the surest measure; without it, label_share (the label's width as a share
+    of the frame's) tells a row of the bottle alone from one merged with a neighbour.
     """
     height, width = binary.shape
     keep = numpy.zeros_like(binary, dtype=bool)
     reach = max(2, round(width * 0.04))
     middle = height // 2
+    look_at = round(measured[0]) if measured else width // 2
     start = next(
         (
             row
             for offset in range(height // 4)
             for row in (middle + offset, middle - offset)
-            if 0 <= row < height and _run_around(binary[row], width // 2, reach)
+            if 0 <= row < height and _run_around(binary[row], look_at, reach)
         ),
         None,
     )
     if start is None:
         return keep
-    first = _run_around(binary[start], width // 2, reach)
+    first = _run_around(binary[start], look_at, reach)
     assert first is not None
+    if measured is not None:
+        axis, body = measured
+        _follow_silhouette(binary, keep, start, axis, body)
+        return keep
     # The body's width and axis, from the rows between shoulder and base. The frame is
     # built on the bottle's height, so its body spans 0.22 to 0.6 of the frame's width;
     # the label read by the AI narrows that range only when it agrees with it, since the
@@ -322,79 +378,62 @@ def bottle_silhouette(numpy: Any, binary: Any, label_share: float = 0.0) -> Any:
         )
     )
 
-    def follow(rows: range, *, upward: bool) -> None:
-        center = axis
-        narrowest = body
-        previous: tuple[int, int] | None = None
-        for row in rows:
-            run = _run_around(binary[row], round(center), 2)
-            # The bottle ends where the next row no longer overlaps it: whatever lies
-            # beyond (a neighbour's base, a shelf) is not followed.
-            if run is None or (
-                previous is not None
-                and min(run[1], previous[1]) - max(run[0], previous[0]) + 1
-                < 0.5 * min(previous[1] - previous[0] + 1, run[1] - run[0] + 1)
-            ):
-                return
-            run_width = run[1] - run[0] + 1
-            allowed = (
-                narrowest * CATALOG_NECK_TOLERANCE + 2 if upward else body * CATALOG_BODY_TOLERANCE
-            )
-            if run_width <= allowed:
-                # A plausible row: keep it whole and let the axis follow a tilted bottle.
-                left, right = run
-                center = (0.5 if upward else 0.8) * center + (0.5 if upward else 0.2) * (
-                    (left + right) / 2
-                )
-            else:
-                # Something touches the bottle. The bottle is symmetric about its axis:
-                # keep the side that sticks out less, within the expected width.
-                half = min(center - run[0], run[1] - center, allowed / 2)
-                if half < 1:
-                    return
-                left, right = round(center - half), round(center + half)
-            if upward:
-                narrowest = min(narrowest, right - left + 1)
-            previous = (left, right)
-            keep[row, max(0, left) : min(width, right + 1)] = True
-
-    follow(range(start, height), upward=False)
-    follow(range(start - 1, -1, -1), upward=True)
+    _follow_silhouette(binary, keep, start, axis, body)
     return keep
 
 
-def sam_bottle_region(numpy: Any, scipy_ndimage: Any, sam_mask: Any, label_y: float) -> Any | None:
-    """Where the bottle pointed at is, from SAM's mask (pointed at its label, neck and base).
+def sam_bottle_mask(numpy: Any, scipy_ndimage: Any, sam_mask: Any, label_y: float) -> Any | None:
+    """The bottle SAM was pointed at (label and base), whole and without holes.
 
-    SAM tells this bottle from its neighbours but may split it or miss parts of a label:
-    the pieces under the three points are kept, rows it left empty between them take the
-    body's width, and the result is closed, filled and slightly widened. The precise
-    outline then comes from the background model, inside this region.
+    SAM tells this bottle from its neighbours and keeps its neck even where the
+    background model loses it among identical capsules; it may split the bottle or miss
+    parts of a label. Its pieces on the bottle's center line are kept, rows left empty
+    between them take the body's width, and gaps and holes are closed.
     """
     height, width = sam_mask.shape
     center = width // 2
     labels, _ = scipy_ndimage.label(sam_mask)
-    points = [min(height - 1, max(0, round(y))) for y in (label_y, height * 0.2, height * 0.82)]
-    picked = {int(labels[y, center]) for y in points} - {0}
+    # SAM's mask holds only the bottle pointed at: every piece of it crossing the central
+    # column belongs to that bottle, even when SAM split it at the label.
+    rows = [min(height - 1, max(0, round(y))) for y in (label_y, height * 0.82)]
+    picked = {int(labels[row, center]) for row in rows} - {0}
     if not picked:
         return None
+    # Nothing of the bottle lies below its base (a price tag on the shelf edge does).
+    base = int(numpy.nonzero(numpy.isin(labels, list(picked)).any(axis=1))[0].max())
+    column = labels[:, max(0, center - 2) : center + 3]
+    for value in set(numpy.unique(column).tolist()) - {0} - picked:
+        if numpy.nonzero((labels == value).any(axis=1))[0].min() < base:
+            picked.add(int(value))
     keep = numpy.isin(labels, list(picked))
-    rows = numpy.nonzero(keep.any(axis=1))[0]
-    if rows.max() - rows.min() + 1 < height * 0.5:
+    filled_rows = numpy.nonzero(keep.any(axis=1))[0]
+    if filled_rows.max() - filled_rows.min() + 1 < height * 0.5:
         return None
     lefts = numpy.argmax(keep, axis=1)
     rights = width - 1 - numpy.argmax(keep[:, ::-1], axis=1)
-    lower = [row for row in rows if row > height * 0.5] or list(rows)
+    lower = [row for row in filled_rows if row > height * 0.5] or list(filled_rows)
     body = (int(numpy.median(lefts[lower])), int(numpy.median(rights[lower])))
     keep = keep.copy()
-    for row in range(int(rows.min()), int(rows.max()) + 1):
+    for row in range(int(filled_rows.min()), int(filled_rows.max()) + 1):
         if not keep[row].any():
             keep[row, body[0] : body[1] + 1] = True
-    radius = max(3, round(width * 0.04))
-    region = scipy_ndimage.binary_fill_holes(
-        scipy_ndimage.binary_closing(keep, structure=numpy.ones((radius * 3, radius)))
-    )
-    return scipy_ndimage.binary_dilation(region, iterations=max(2, round(width * 0.01)))
+    radius = max(3, round(width * 0.02))
+    closed = scipy_ndimage.binary_closing(keep, structure=numpy.ones((radius * 3, radius)))
+    return scipy_ndimage.binary_fill_holes(closed | keep)
+
+
+def sam_body(numpy: Any, mask: Any) -> tuple[float, float] | None:
+    """The body's axis and width, measured on the lower half of SAM's bottle."""
+    height, width = mask.shape
+    body_rows = [row for row in range(round(height * 0.55), round(height * 0.9)) if mask[row].any()]
+    if len(body_rows) < height * 0.1:
+        return None
+    lefts = numpy.argmax(mask[body_rows], axis=1)
+    rights = width - 1 - numpy.argmax(mask[body_rows][:, ::-1], axis=1)
+    body = float(numpy.median(rights - lefts + 1))
+    if not width * 0.15 <= body <= width * 0.65:
+        return None
+    return float(numpy.median((lefts + rights) / 2)), body
 
 
 def catalog_bottle_alpha(
@@ -402,19 +441,24 @@ def catalog_bottle_alpha(
     scipy_ndimage: Any,
     model_alpha: Any,
     label_share: float = 0.0,
-    region: Any | None = None,
+    sam_mask: Any | None = None,
 ) -> Any:
     """The bottle's alpha in a catalog frame, without the capture guide.
 
-    With a region from SAM the bottle is the central part of the mask inside it;
-    without, it is the silhouette standing at the frame's center (where its label is).
+    With SAM's bottle, the outline is SAM's, refined by the background model's edges
+    next to it; otherwise the background model's mask around the frame's center (where
+    the label is). Either way the outline rules then trim what sticks out of a bottle's
+    shape, around the axis SAM measured when available.
     A bottle touching the frame's edge is cut: its photo is not kept.
     """
     height, width = model_alpha.shape
-    if region is not None:
-        selected = _central_component(numpy, scipy_ndimage, (model_alpha > 0.12) & region)
-    else:
-        selected = bottle_silhouette(numpy, model_alpha > 0.12, label_share)
+    binary = model_alpha > 0.12
+    measured = None
+    if sam_mask is not None:
+        near = scipy_ndimage.binary_dilation(sam_mask, iterations=max(2, round(width * 0.01)))
+        binary = sam_mask | (binary & near)
+        measured = sam_body(numpy, sam_mask)
+    selected = bottle_silhouette(numpy, binary, label_share, measured)
     rows, columns = numpy.nonzero(selected)
     if not len(rows):
         raise BottlePhotoNotDetected("The AI could not detect a bottle")
@@ -485,7 +529,7 @@ def _sam_session() -> Any | None:
     return _catalog_sam_session
 
 
-def _sam_region(
+def _sam_bottle(
     numpy: Any, image_module: Any, rembg: Any, scipy_ndimage: Any, source: Any, label_y: float
 ) -> Any | None:
     sam = _sam_session()
@@ -496,7 +540,6 @@ def _sam_region(
     label_row = min(height - 1, max(0, round(label_y * height)))
     prompt = [
         {"type": "point", "data": [center, label_row], "label": 1},
-        {"type": "point", "data": [center, round(height * 0.2)], "label": 1},
         {"type": "point", "data": [center, round(height * 0.82)], "label": 1},
         {
             "type": "rectangle",
@@ -516,7 +559,7 @@ def _sam_region(
     if isinstance(result, bytes):
         result = image_module.open(BytesIO(result))
     mask = numpy.asarray(result.convert("L").resize(source.size)) > 127
-    return sam_bottle_region(numpy, scipy_ndimage, mask, label_row)
+    return sam_bottle_mask(numpy, scipy_ndimage, mask, label_row)
 
 
 def _process_catalog_bottle_photo_with_session(
@@ -544,10 +587,10 @@ def _process_catalog_bottle_photo_with_session(
         mask_result = image_module.open(BytesIO(mask_result))
     mask = mask_result.convert("L").resize(source.size, image_module.Resampling.LANCZOS)
     model_alpha = numpy.asarray(mask, dtype=numpy.float32) / 255
-    # SAM picks the bottle pointed at (its neighbours touch it on a shelf); the outline
-    # rules remain when it is unavailable or finds nothing there.
-    region = _sam_region(numpy, image_module, rembg, scipy_ndimage, source, label_y)
-    alpha = catalog_bottle_alpha(numpy, scipy_ndimage, model_alpha, label_share, region)
+    # SAM outlines the bottle pointed at (its neighbours touch it on a shelf); without it
+    # the outline rules work on the background model's mask alone.
+    bottle = _sam_bottle(numpy, image_module, rembg, scipy_ndimage, source, label_y)
+    alpha = catalog_bottle_alpha(numpy, scipy_ndimage, model_alpha, label_share, bottle)
 
     rgba = source.convert("RGBA")
     rgba.putalpha(image_module.fromarray(numpy.uint8(numpy.clip(alpha, 0, 1) * 255), mode="L"))

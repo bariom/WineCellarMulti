@@ -94,15 +94,21 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
     catalog_label_share=...)`) non usa la sagoma della fotocamera dell'app: la bottiglia
     di uno scaffale non è né centrata né dritta, e ha vicine che la toccano.
     - Il ritaglio, centrato sull'etichetta, lascia l'8% di margine sopra e il 12% sotto.
-    - SAM (Segment Anything, modello aperto, `WINE_PHOTO_CATALOG_SAM_MODEL=sam`) sceglie la
-      bottiglia indicata da tre punti (etichetta, collo, base) e da un riquadro: le vicine
-      che la toccano restano fuori. Le righe che SAM lascia vuote prendono la larghezza del
-      corpo; il contorno preciso viene dal modello di sfondo (`birefnet-general-lite`)
-      dentro quella zona (`sam_bottle_region`). Senza SAM (non installabile, o vuoto nelle
-      impostazioni) valgono le regole sulla sagoma qui sotto. SAM e BiRefNet girano sulla
-      CPU del server: 30–45 s per bottiglia sul PC di sviluppo. Al primo uso il server
-      scarica il modello SAM (circa 400 MB); per evitarlo in anteprima:
+    - SAM (Segment Anything, modello aperto, `WINE_PHOTO_CATALOG_SAM_MODEL=sam`) disegna
+      la bottiglia indicata da due punti (etichetta e base, che cadono sul corpo anche se
+      la stima dell'etichetta è un po' spostata) e da un riquadro: le vicine che la toccano
+      restano fuori, e il collo resta anche dove il modello di sfondo lo perde tra capsule
+      uguali. Della sua maschera si tengono i pezzi sulla linea centrale (non quelli sotto
+      la base, come i cartellini del prezzo); le righe vuote prendono la larghezza del
+      corpo e i buchi vengono chiusi (`sam_bottle_mask`). Il modello di sfondo
+      (`birefnet-general-lite`) aggiunge i pixel di bordo vicini, e le regole qui sotto
+      tolgono ciò che sporge attorno all'asse misurato sul corpo di SAM (`sam_body`).
+      Senza SAM (non installabile, o vuoto nelle impostazioni) le regole lavorano sulla
+      sola maschera di sfondo. Tempi: 30–50 s per bottiglia sul PC di sviluppo, circa 20–40 s
+      sul server. Al primo uso il server scarica SAM (circa 400 MB); per farlo prima:
       `cd backend && .venv/bin/python -c "import rembg; rembg.new_session('sam')"`.
+    - Provato su sei bottiglie di due foto e su sei varianti della posizione stimata
+      dell'etichetta della Patache d'Aux: tutte intere, con collo ed etichetta completi.
     - Senza SAM, della maschera si tiene la sagoma della bottiglia, riga per riga lungo il suo asse
       (`bottle_silhouette`). Il corpo è largo tra 0,22 e 0,6 della larghezza del ritaglio
       (costruito sull'altezza della bottiglia); l'etichetta letta dall'AI restringe
@@ -114,9 +120,8 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
       "Rivedi e salva" prima del salvataggio; il lavoro lo tiene in memoria e il
       salvataggio archivia esattamente quell'immagine. Se lo scontorno fallisce, la casella
       della foto si disattiva.
-    - Provato con SAM sul codice vero su sei bottiglie di due foto (bancone e scaffale):
-      tutte intere, dritte e senza vicine. Limite noto: una bottiglia con un'altra uguale
-      subito dietro, sfalsata di poco, può uscire con due capsule.
+    - Limite noto: una bottiglia con un'altra uguale subito dietro, sfalsata di poco, esce
+      con due capsule sovrapposte.
     - La bottiglia viene raddrizzata fino a 20° e scartata se tocca il bordo della foto o
       del ritaglio, o se non ha proporzioni da bottiglia.
     - Provato sul modello vero (`birefnet-general-lite`) con una foto di bancone con

@@ -327,7 +327,7 @@ class _FakeSamRembg:
         if "sam_prompt" not in kwargs:
             return source.convert("L").point(lambda value: 255 if value < 200 else 0)
         points = [item["data"] for item in kwargs["sam_prompt"] if item["type"] == "point"]
-        assert [x for x, _ in points] == [360, 360, 360]
+        assert [x for x, _ in points] == [360, 360]
         mask = Image.new("L", source.size, 0)
         draw = ImageDraw.Draw(mask)
         draw.rectangle((335, 80, 385, 300), fill=255)
@@ -375,20 +375,24 @@ def test_catalog_cutout_keeps_only_the_bottle_sam_points_at(monkeypatch):
     assert alpha[middle - 20 : middle + 20, (columns.min() + columns.max()) // 2].min() > 0.5
 
 
-def test_sam_region_takes_the_body_width_where_sam_left_a_gap():
+def test_sam_bottle_takes_the_body_width_where_sam_left_a_gap():
     numpy = pytest.importorskip("numpy")
     ndimage = pytest.importorskip("scipy.ndimage")
     mask = numpy.zeros((1080, 720), dtype=bool)
     mask[80:300, 335:386] = True
     mask[300:450, 290:431] = True
     mask[610:1000, 290:431] = True
-    region = bottle_photo_ai.sam_bottle_region(numpy, ndimage, mask, 530)
-    assert region is not None
-    columns = numpy.nonzero(region[530])[0]
-    assert columns.min() <= 290 and columns.max() >= 430 and columns.max() - columns.min() < 200
+    mask[1010:1060, 320:400] = True  # a price tag on the shelf edge, below the base
+    bottle = bottle_photo_ai.sam_bottle_mask(numpy, ndimage, mask, 530)
+    assert not bottle[1030].any()
+    assert bottle is not None
+    columns = numpy.nonzero(bottle[530])[0]
+    assert (columns.min(), columns.max()) == (290, 430)
+    assert bottle[100, 360]  # the neck, which the base and label points reach through
+    assert bottle_photo_ai.sam_body(numpy, bottle) == (360.0, 141.0)
     # Nothing pointed at: no region, and the outline rules take over.
     empty = numpy.zeros((1080, 720), dtype=bool)
-    assert bottle_photo_ai.sam_bottle_region(numpy, ndimage, empty, 530) is None
+    assert bottle_photo_ai.sam_bottle_mask(numpy, ndimage, empty, 530) is None
 
 
 def test_catalog_cutout_falls_back_to_the_outline_rules_without_sam(monkeypatch):
