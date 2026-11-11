@@ -16,7 +16,7 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent, #c9a45c) 45%, transparent);
 }
 
-.catalog-photo-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.catalog-photo-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; }
 .catalog-photo-thumb { position: relative; margin: 0; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 6%, var(--surface)); }
 .catalog-photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .catalog-photo-thumb-pending { display: block; width: 100%; height: 100%; }

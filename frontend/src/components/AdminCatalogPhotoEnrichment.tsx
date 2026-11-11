@@ -185,12 +185,20 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
           </figure>
         ))}
         {photos.length < MAX_PHOTOS ? (
-          <label className="catalog-photo-add">
-            <AppIcon name="camera" variant="ai" size="1.6em" />
-            <span>{photos.length ? (it ? "Aggiungi foto" : "Add photo") : (it ? "Scatta o scegli le foto" : "Take or choose photos")}</span>
-            <small>{it ? `Fino a ${MAX_PHOTOS}` : `Up to ${MAX_PHOTOS}`}</small>
-            <input type="file" accept="image/*" multiple onChange={choosePhotos} disabled={busy || disabled} />
-          </label>
+          <>
+            <label className="catalog-photo-add">
+              <AppIcon name="camera" variant="ai" size="1.6em" />
+              <span>{photos.length ? (it ? "Scatta un'altra" : "Take another") : (it ? "Scatta" : "Take a photo")}</span>
+              <small>{it ? "Fotocamera" : "Camera"}</small>
+              <input type="file" accept="image/*" capture="environment" onChange={choosePhotos} disabled={busy || disabled} />
+            </label>
+            <label className="catalog-photo-add">
+              <AppIcon name="import" size="1.6em" />
+              <span>{it ? "Carica" : "Upload"}</span>
+              <small>{it ? `Dalla galleria, fino a ${MAX_PHOTOS}` : `From the gallery, up to ${MAX_PHOTOS}`}</small>
+              <input type="file" accept="image/*" multiple onChange={choosePhotos} disabled={busy || disabled} />
+            </label>
+          </>
         ) : null}
       </div>
 

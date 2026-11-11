@@ -82,7 +82,10 @@ for (const locale of ["it", "en"] as const) {
     const read = section.getByRole("button", { name: it ? "Leggi le etichette" : "Read the labels" });
     await expect(read).toBeDisabled();
     await expect(section.getByRole("radio", { name: it ? /Scaffale/ : /Shelf/ })).toHaveAttribute("aria-checked", "true");
-    await section.locator('input[type="file"]').setInputFiles({ name: "scaffale.jpg", mimeType: "image/jpeg", buffer: photo });
+    // The camera tile opens the camera on phones; the upload tile opens the gallery.
+    await expect(section.locator('input[type="file"][capture="environment"]')).toHaveCount(1);
+    await expect(section.locator('input[type="file"][multiple]:not([capture])')).toHaveCount(1);
+    await section.locator('input[type="file"][multiple]').setInputFiles({ name: "scaffale.jpg", mimeType: "image/jpeg", buffer: photo });
     await expect(section.getByRole("img", { name: "scaffale.jpg" })).toBeVisible();
     await read.click();
     await expect(section.getByText(it ? "In catalogo" : "In the catalog", { exact: true })).toBeVisible({ timeout: 10_000 });
