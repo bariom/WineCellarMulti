@@ -165,9 +165,9 @@ def test_only_sharp_well_exposed_whole_bottles_read_with_confidence_qualify():
     assert check(bottle_photo(), bottle).ok
     assert check(bottle_photo(blur=6), bottle).issue == "blurry"
     assert check(bottle_photo(dark=True), bottle).issue == "dark"
-    small = bottle_photo().resize((300, 450))
+    small = bottle_photo().resize((240, 360))
     assert check(small, bottle).issue == "small"
-    uncertain = bottle.model_copy(update={"confidence": "medium"})
+    uncertain = bottle.model_copy(update={"confidence": "low"})
     assert check(bottle_photo(), uncertain).issue == "uncertain"
     cut = bottle.model_copy(update={"whole_bottle": False})
     assert check(bottle_photo(), cut).issue == "cut"

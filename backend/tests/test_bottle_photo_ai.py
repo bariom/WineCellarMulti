@@ -283,17 +283,30 @@ def test_catalog_cutout_refuses_a_bottle_cut_by_the_frame(monkeypatch):
 
 def test_catalog_silhouette_drops_a_neighbouring_bottle_that_touches_it():
     numpy = pytest.importorskip("numpy")
-    # A bottle (body 100 px, neck 30 px) at the frame's center, a neighbour pressed
-    # against its left side for most of its height, and a machine handle on its right.
+    # A bottle (body 180 px, neck 50 px) at the center of a 600x900 frame, as the frame
+    # is centered on its label; a neighbour pressed against its left side for most of
+    # its height, and a machine handle on its right. Its label is 160 px wide.
     binary = numpy.zeros((900, 600), dtype=bool)
-    binary[100:300, 285:315] = True  # neck and capsule
-    binary[300:860, 250:350] = True  # body
-    binary[250:880, 120:252] = True  # neighbour, touching
-    binary[150:420, 350:380] = True  # handle, touching
-    kept = bottle_photo_ai.bottle_silhouette(numpy, binary, label_share=90 / 600)
+    binary[100:300, 275:325] = True  # neck and capsule
+    binary[300:860, 210:390] = True  # body
+    binary[250:880, 20:212] = True  # neighbour, touching
+    binary[150:420, 390:420] = True  # handle, touching
+    kept = bottle_photo_ai.bottle_silhouette(numpy, binary, label_share=160 / 600)
     columns = numpy.nonzero(kept[600])[0]
-    assert abs(columns.min() - 250) <= 1 and abs(columns.max() - 349) <= 1
+    assert abs(columns.min() - 210) <= 2 and abs(columns.max() - 389) <= 2
     neck = numpy.nonzero(kept[200])[0]
-    assert 283 <= neck.min() and neck.max() <= 316
+    assert 272 <= neck.min() and neck.max() <= 327
     assert not kept[870].any()  # the neighbour's base below the bottle is not followed
     assert kept[100:860].any(axis=1).all()  # the whole bottle, capsule to base
+
+
+def test_catalog_silhouette_ignores_a_label_estimate_that_contradicts_the_mask():
+    numpy = pytest.importorskip("numpy")
+    # The AI read the label 60 px wide on a bottle whose body is 180 px: the reading is
+    # an estimate, the mask is the bottle.
+    binary = numpy.zeros((900, 600), dtype=bool)
+    binary[100:300, 275:325] = True
+    binary[300:860, 210:390] = True
+    kept = bottle_photo_ai.bottle_silhouette(numpy, binary, label_share=60 / 600)
+    columns = numpy.nonzero(kept[600])[0]
+    assert (columns.min(), columns.max()) == (210, 389)

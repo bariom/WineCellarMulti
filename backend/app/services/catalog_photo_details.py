@@ -57,8 +57,10 @@ WINES_PER_CALL = 5
 MAX_PARALLEL_CALLS = 2
 DETAILS_TIMEOUT_SECONDS = 180
 # Bottle photo thresholds, in pixels of the upright original photo.
-MIN_BOTTLE_PIXELS = 400
-MIN_LABEL_PIXELS = 80
+# Lenient: these sizes come from the AI's estimate of the label and bottle, which varies
+# between readings; the cutout checks the real outline again.
+MIN_BOTTLE_PIXELS = 320
+MIN_LABEL_PIXELS = 56
 EDGE_PIXELS = 3
 # Variance of the Laplacian of the label scaled to SHARPNESS_WIDTH pixels.
 SHARPNESS_WIDTH = 256
@@ -414,7 +416,8 @@ def check_bottle_photo(image: Image.Image, bottle: CatalogPhotoBottle) -> Catalo
         round((bottle.x + bottle.width) * width),
         round((bottle.y + bottle.height) * height),
     )
-    if bottle.confidence != "high":
+    # The admin confirms the wine before saving: only a doubtful reading blocks the photo.
+    if bottle.confidence == "low":
         issue = "uncertain"
     elif (
         not bottle.whole_bottle

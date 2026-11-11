@@ -95,10 +95,14 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
     di uno scaffale non è né centrata né dritta, e ha vicine che la toccano.
     - Il ritaglio, centrato sull'etichetta, lascia l'8% di margine sopra e il 12% sotto.
     - Della maschera si tiene la sagoma della bottiglia, riga per riga lungo il suo asse
-      (`bottle_silhouette`). Il corpo è largo da 0,85 a 1,5 volte l'etichetta e la bottiglia
-      è simmetrica; salendo la sagoma si stringe, a parte il bordo della capsula; ogni riga
-      deve sovrapporsi alla precedente. Quello che sporge (bottiglie vicine, macchine,
-      scaffali) viene tolto.
+      (`bottle_silhouette`). Il corpo è largo tra 0,22 e 0,6 della larghezza del ritaglio
+      (costruito sull'altezza della bottiglia); l'etichetta letta dall'AI restringe
+      l'intervallo solo se è coerente, perché la sua larghezza è una stima che cambia da
+      una lettura all'altra. La bottiglia è simmetrica; salendo la sagoma si stringe, a
+      parte il bordo della capsula; ogni riga deve sovrapporsi alla precedente. Quello che
+      sporge (bottiglie vicine, macchine, scaffali) viene tolto.
+    - Limite noto: una bottiglia con un'altra uguale subito dietro, sfalsata di poco, esce
+      con due capsule; non c'è ancora un'anteprima dello scontorno prima del salvataggio.
     - La bottiglia viene raddrizzata fino a 20° e scartata se tocca il bordo della foto o
       del ritaglio, o se non ha proporzioni da bottiglia.
     - Provato sul modello vero (`birefnet-general-lite`) con una foto di bancone con

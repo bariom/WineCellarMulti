@@ -33,7 +33,7 @@ const STATUS_LABELS: Record<CatalogPhotoBottle["status"], [string, string]> = {
 
 const PHOTO_ISSUES: Record<CatalogPhotoBottle["photo"]["issue"], [string, string]> = {
   "": ["", ""],
-  uncertain: ["etichetta letta senza piena sicurezza", "label not read with full confidence"],
+  uncertain: ["etichetta letta con poca sicurezza", "label read with low confidence"],
   cut: ["bottiglia non intera nella foto", "bottle not whole in the photo"],
   small: ["bottiglia troppo piccola nella foto", "bottle too small in the photo"],
   blurry: ["foto sfocata", "blurry photo"],

@@ -280,24 +280,36 @@ def bottle_silhouette(numpy: Any, binary: Any, label_share: float = 0.0) -> Any:
         return keep
     first = _run_around(binary[start], width // 2, reach)
     assert first is not None
-    # The body's width and axis, from the rows between shoulder and base. A bottle's body
-    # is 0.85 to 1.5 times as wide as its label: wider rows are merged with a neighbour.
+    # The body's width and axis, from the rows between shoulder and base. The frame is
+    # built on the bottle's height, so its body spans 0.22 to 0.6 of the frame's width;
+    # the label read by the AI narrows that range only when it agrees with it, since the
+    # reading's label size is an estimate that varies between readings.
+    lower, upper = width * 0.22, width * 0.6
     label = label_share * width
-    body_runs = [
+    label_agrees = bool(label) and lower <= label * 1.5 and label * 0.85 <= upper
+    if label_agrees:
+        lower, upper = max(lower, label * 0.85), min(upper, label * 1.5)
+    runs = [
         run
         for run in (
             _run_around(binary[row], width // 2, reach)
             for row in range(round(height * 0.35), round(height * 0.85))
         )
-        if run is not None and (not label or label * 0.85 <= run[1] - run[0] + 1 <= label * 1.5)
+        if run is not None
     ]
+    body_runs = [run for run in runs if lower <= run[1] - run[0] + 1 <= upper]
     if body_runs:
         body = float(numpy.percentile([right - left + 1 for left, right in body_runs], 30))
-    elif label:
+    elif label_agrees:
+        # Every body row is merged with a neighbour: the label is the only measure left.
         body = label * 1.15
+        body_runs = runs or [first]
     else:
-        body_runs = [first]
-        body = float(first[1] - first[0] + 1)
+        body_runs = [run for run in runs if width * 0.22 <= run[1] - run[0] + 1 <= width * 0.6] or [
+            first
+        ]
+        body = float(numpy.percentile([right - left + 1 for left, right in body_runs], 30))
+        body = min(max(body, width * 0.22), width * 0.6)
     axis = float(
         numpy.median(
             [
