@@ -90,6 +90,20 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
     intera, almeno 400 px di altezza e 80 px di etichetta, etichetta non troppo scura,
     non bruciata, nitida (varianza del laplaciano ≥ 40). Le soglie vanno tarate su foto
     vere.
+  - Lo scontorno delle foto del catalogo (`process_bottle_photo(...,
+    catalog_label_share=...)`) non usa la sagoma della fotocamera dell'app: la bottiglia
+    di uno scaffale non è né centrata né dritta, e ha vicine che la toccano.
+    - Il ritaglio, centrato sull'etichetta, lascia l'8% di margine sopra e il 12% sotto.
+    - Della maschera si tiene la sagoma della bottiglia, riga per riga lungo il suo asse
+      (`bottle_silhouette`). Il corpo è largo da 0,85 a 1,5 volte l'etichetta e la bottiglia
+      è simmetrica; salendo la sagoma si stringe, a parte il bordo della capsula; ogni riga
+      deve sovrapporsi alla precedente. Quello che sporge (bottiglie vicine, macchine,
+      scaffali) viene tolto.
+    - La bottiglia viene raddrizzata fino a 20° e scartata se tocca il bordo della foto o
+      del ritaglio, o se non ha proporzioni da bottiglia.
+    - Provato sul modello vero (`birefnet-general-lite`) con una foto di bancone con
+      bottiglie che si toccano: Sherazade, Hebo, 5 Stelle e Pinot Noir escono intere e
+      pulite.
   - Il lavoro resta disponibile 90 minuti dall'ultima richiesta dell'admin.
 - Frontend: scelta dei vini da cercare, esito della ricerca e della foto per ogni vino,
   modulo "Rivedi e salva" (`AdminCatalogPhotoEditor.tsx`).

@@ -218,6 +218,258 @@ def _process_bottle_photo_with_session(
     }
 
 
+# Catalog photos (docs/CATALOG_PHOTO_ENRICHMENT.md): a bottle cut from a shop photo is
+# neither centered nor upright like one taken in the capture guide.
+CATALOG_SOURCE_MAX = (768, 1152)
+CATALOG_MAX_TILT = 20.0
+CATALOG_MIN_TILT = 0.8
+CATALOG_EDGE_PIXELS = 2
+
+
+CATALOG_BODY_TOLERANCE = 1.08
+# Going up, the outline narrows (shoulder, neck); only the capsule's lip widens a little.
+CATALOG_NECK_TOLERANCE = 1.12
+
+
+def _run_around(row: Any, x: int, reach: int) -> tuple[int, int] | None:
+    """The contiguous run of mask pixels at (or nearest to) column x in one row."""
+    width = len(row)
+    start = next(
+        (
+            column
+            for offset in range(reach + 1)
+            for column in (x - offset, x + offset)
+            if 0 <= column < width and row[column]
+        ),
+        None,
+    )
+    if start is None:
+        return None
+    left = right = start
+    while left > 0 and row[left - 1]:
+        left -= 1
+    while right < width - 1 and row[right + 1]:
+        right += 1
+    return left, right
+
+
+def bottle_silhouette(numpy: Any, binary: Any, label_share: float = 0.0) -> Any:
+    """Keep the bottle standing at the frame's center and drop what touches it.
+
+    Row by row, only the run on the bottle's axis is kept, following the axis up and
+    down from the label. Below the label no row may be wider than the body; above it
+    the outline narrows towards the neck and may only widen a little again (the
+    capsule's lip). Neighbouring bottles, shelves or machines that touch the bottle are
+    trimmed away instead of joining the cutout. label_share, the label's width as a share
+    of the frame's, tells a row of the bottle alone from one merged with a neighbour.
+    """
+    height, width = binary.shape
+    keep = numpy.zeros_like(binary, dtype=bool)
+    reach = max(2, round(width * 0.04))
+    middle = height // 2
+    start = next(
+        (
+            row
+            for offset in range(height // 4)
+            for row in (middle + offset, middle - offset)
+            if 0 <= row < height and _run_around(binary[row], width // 2, reach)
+        ),
+        None,
+    )
+    if start is None:
+        return keep
+    first = _run_around(binary[start], width // 2, reach)
+    assert first is not None
+    # The body's width and axis, from the rows between shoulder and base. A bottle's body
+    # is 0.85 to 1.5 times as wide as its label: wider rows are merged with a neighbour.
+    label = label_share * width
+    body_runs = [
+        run
+        for run in (
+            _run_around(binary[row], width // 2, reach)
+            for row in range(round(height * 0.35), round(height * 0.85))
+        )
+        if run is not None and (not label or label * 0.85 <= run[1] - run[0] + 1 <= label * 1.5)
+    ]
+    if body_runs:
+        body = float(numpy.percentile([right - left + 1 for left, right in body_runs], 30))
+    elif label:
+        body = label * 1.15
+    else:
+        body_runs = [first]
+        body = float(first[1] - first[0] + 1)
+    axis = float(
+        numpy.median(
+            [
+                (left + right) / 2
+                for left, right in body_runs
+                if right - left + 1 <= body * CATALOG_BODY_TOLERANCE
+            ]
+            or [width / 2]
+        )
+    )
+
+    def follow(rows: range, *, upward: bool) -> None:
+        center = axis
+        narrowest = body
+        previous: tuple[int, int] | None = None
+        for row in rows:
+            run = _run_around(binary[row], round(center), 2)
+            # The bottle ends where the next row no longer overlaps it: whatever lies
+            # beyond (a neighbour's base, a shelf) is not followed.
+            if run is None or (
+                previous is not None
+                and min(run[1], previous[1]) - max(run[0], previous[0]) + 1
+                < 0.5 * min(previous[1] - previous[0] + 1, run[1] - run[0] + 1)
+            ):
+                return
+            run_width = run[1] - run[0] + 1
+            allowed = (
+                narrowest * CATALOG_NECK_TOLERANCE + 2 if upward else body * CATALOG_BODY_TOLERANCE
+            )
+            if run_width <= allowed:
+                # A plausible row: keep it whole and let the axis follow a tilted bottle.
+                left, right = run
+                center = (0.5 if upward else 0.8) * center + (0.5 if upward else 0.2) * (
+                    (left + right) / 2
+                )
+            else:
+                # Something touches the bottle. The bottle is symmetric about its axis:
+                # keep the side that sticks out less, within the expected width.
+                half = min(center - run[0], run[1] - center, allowed / 2)
+                if half < 1:
+                    return
+                left, right = round(center - half), round(center + half)
+            if upward:
+                narrowest = min(narrowest, right - left + 1)
+            previous = (left, right)
+            keep[row, max(0, left) : min(width, right + 1)] = True
+
+    follow(range(start, height), upward=False)
+    follow(range(start - 1, -1, -1), upward=True)
+    return keep
+
+
+def catalog_bottle_alpha(
+    numpy: Any, scipy_ndimage: Any, model_alpha: Any, label_share: float = 0.0
+) -> Any:
+    """The bottle's alpha in a catalog frame, without the capture guide.
+
+    The bottle is the silhouette standing at the frame's center (where its label is).
+    A bottle touching the frame's edge is cut: its photo is not kept.
+    """
+    height, width = model_alpha.shape
+    selected = bottle_silhouette(numpy, model_alpha > 0.12, label_share)
+    rows, columns = numpy.nonzero(selected)
+    if not len(rows):
+        raise BottlePhotoNotDetected("The AI could not detect a bottle")
+    edge = CATALOG_EDGE_PIXELS
+    if (
+        rows.min() < edge
+        or rows.max() >= height - edge
+        or columns.min() < edge
+        or columns.max() >= width - edge
+    ):
+        raise BottlePhotoNotDetected("The bottle is cut by the edge of the photo")
+    if rows.max() - rows.min() + 1 < height * 0.5:
+        raise BottlePhotoNotDetected("The detected bottle outline is not reliable")
+    # Fill holes (reflections, a dark label) without the row spans of the capture guide,
+    # which would add background wedges beside a tilted bottle's neck.
+    filled = scipy_ndimage.binary_fill_holes(selected)
+    inside = scipy_ndimage.binary_erosion(filled, iterations=2)
+    return numpy.where(inside, 1.0, model_alpha * filled).astype(numpy.float32)
+
+
+def bottle_tilt(numpy: Any, alpha: Any) -> float:
+    """Degrees to rotate the image counterclockwise (PIL) to stand the bottle upright."""
+    rows, columns = numpy.nonzero(alpha > 0.5)
+    if len(rows) < 10:
+        return 0.0
+    coordinates = numpy.stack([columns, rows]).astype(numpy.float64)
+    coordinates -= coordinates.mean(axis=1, keepdims=True)
+    eigenvalues, eigenvectors = numpy.linalg.eigh(numpy.cov(coordinates))
+    axis_x, axis_y = eigenvectors[:, int(numpy.argmax(eigenvalues))]
+    if axis_y < 0:
+        axis_x, axis_y = -axis_x, -axis_y
+    return float(numpy.degrees(numpy.arctan2(-axis_x, axis_y)))
+
+
+def _compose_detail(image_module: Any, subject: Any) -> Any:
+    """Center the cut-out bottle on the transparent 480x720 detail canvas."""
+    scale = min(
+        DETAIL_SIZE[0] * 0.82 / subject.width,
+        DETAIL_SIZE[1] * 0.9 / subject.height,
+    )
+    output_size = (max(1, round(subject.width * scale)), max(1, round(subject.height * scale)))
+    subject = subject.resize(output_size, image_module.Resampling.LANCZOS)
+    output = image_module.new("RGBA", DETAIL_SIZE, (0, 0, 0, 0))
+    output.alpha_composite(
+        subject,
+        ((DETAIL_SIZE[0] - subject.width) // 2, round(DETAIL_SIZE[1] * 0.055)),
+    )
+    return output
+
+
+def _process_catalog_bottle_photo_with_session(
+    content: bytes, session: Any, label_share: float = 0.0
+) -> tuple[bytes, dict[str, int]]:
+    """Cut out a bottle framed from a catalog photo, straightened, without the capture guide."""
+    started_at = perf_counter()
+    numpy, image_module, image_ops, rembg, scipy_ndimage = _vision_modules()
+    try:
+        source = image_module.open(BytesIO(content))
+        source.load()
+        source = image_ops.exif_transpose(source).convert("RGB")
+    except Exception as error:
+        raise InvalidBottlePhoto("Unsupported or invalid bottle photo") from error
+    if source.width < 160 or source.height < 360 or source.width * source.height > 40_000_000:
+        raise InvalidBottlePhoto("Bottle photo dimensions are not supported")
+    source.thumbnail(CATALOG_SOURCE_MAX, image_module.Resampling.LANCZOS)
+    prepared_at = perf_counter()
+    try:
+        mask_result = rembg.remove(source, session=session, only_mask=True, post_process_mask=True)
+    except Exception as error:
+        raise BottlePhotoAiUnavailable("AI bottle segmentation failed") from error
+    inferred_at = perf_counter()
+    if isinstance(mask_result, bytes):
+        mask_result = image_module.open(BytesIO(mask_result))
+    mask = mask_result.convert("L").resize(source.size, image_module.Resampling.LANCZOS)
+    model_alpha = numpy.asarray(mask, dtype=numpy.float32) / 255
+    alpha = catalog_bottle_alpha(numpy, scipy_ndimage, model_alpha, label_share)
+
+    rgba = source.convert("RGBA")
+    rgba.putalpha(image_module.fromarray(numpy.uint8(numpy.clip(alpha, 0, 1) * 255), mode="L"))
+    tilt = bottle_tilt(numpy, alpha)
+    if abs(tilt) > CATALOG_MAX_TILT:
+        raise BottlePhotoNotDetected("The bottle is too tilted")
+    if abs(tilt) >= CATALOG_MIN_TILT:
+        rgba = rgba.rotate(tilt, resample=image_module.Resampling.BICUBIC, expand=True)
+    box = rgba.getchannel("A").point(lambda value: 255 if value > 20 else 0).getbbox()
+    if box is None:
+        raise BottlePhotoNotDetected("The AI could not detect a bottle")
+    padding = 3
+    subject = rgba.crop(
+        (
+            max(0, box[0] - padding),
+            max(0, box[1] - padding),
+            min(rgba.width, box[2] + padding),
+            min(rgba.height, box[3] + padding),
+        )
+    )
+    # A wine bottle is about three to four times as tall as it is wide.
+    if not 2.0 <= subject.height / max(subject.width, 1) <= 7.0:
+        raise BottlePhotoNotDetected("The detected bottle outline is not reliable")
+    buffer = BytesIO()
+    _compose_detail(image_module, subject).save(buffer, format="PNG", optimize=True)
+    completed_at = perf_counter()
+    return buffer.getvalue(), {
+        "prepare_ms": round((prepared_at - started_at) * 1000),
+        "inference_ms": round((inferred_at - prepared_at) * 1000),
+        "postprocess_ms": round((completed_at - inferred_at) * 1000),
+        "total_ms": round((completed_at - started_at) * 1000),
+    }
+
+
 def _configure_photo_worker() -> None:
     """Configure only the disposable child, before importing native libraries."""
     # only_mask skips PyMatting, so compiling its eager Numba functions is wasted.
@@ -267,7 +519,13 @@ def _photo_worker_loop(
         if command == "warm":
             continue
         try:
-            processed, timings = _process_bottle_photo_with_session(content, session)
+            if command == "process_catalog":
+                image, label_share = content
+                processed, timings = _process_catalog_bottle_photo_with_session(
+                    image, session, label_share
+                )
+            else:
+                processed, timings = _process_bottle_photo_with_session(content, session)
             timings["model_load_ms"] = model_load_ms if first_processing else 0
             timings["threads"] = int(os.environ.get("OMP_NUM_THREADS", "0"))
             first_processing = False
@@ -350,17 +608,23 @@ def process_bottle_photo(
     model_name: str,
     timeout_seconds: int = DEFAULT_PROCESS_TIMEOUT_SECONDS,
     idle_seconds: int = DEFAULT_WORKER_IDLE_SECONDS,
+    *,
+    catalog_label_share: float | None = None,
 ) -> bytes:
     """Process a photo in a short-lived reusable worker.
 
     BiRefNet/ONNX Runtime may retain a multi-gigabyte CPU arena for the lifetime
     of an inference session. The worker confines that memory outside the API,
     reuses the expensive session during photo capture, and exits after idle.
+    catalog_label_share (the label's width over the frame's) selects the catalog cutout.
     """
     request_started_at = perf_counter()
     with _photo_processing_lock:
         command_queue, result_queue = _ensure_photo_worker(model_name, idle_seconds)
-        command_queue.put(("process", content))
+        if catalog_label_share is None:
+            command_queue.put(("process", content))
+        else:
+            command_queue.put(("process_catalog", (content, catalog_label_share)))
         try:
             result = result_queue.get(timeout=timeout_seconds)
         except Empty as error:

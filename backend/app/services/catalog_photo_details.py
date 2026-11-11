@@ -59,13 +59,16 @@ DETAILS_TIMEOUT_SECONDS = 180
 # Bottle photo thresholds, in pixels of the upright original photo.
 MIN_BOTTLE_PIXELS = 400
 MIN_LABEL_PIXELS = 80
+EDGE_PIXELS = 3
 # Variance of the Laplacian of the label scaled to SHARPNESS_WIDTH pixels.
 SHARPNESS_WIDTH = 256
 MIN_SHARPNESS = 40.0
 DARK_MEAN = 45.0
 BLOWN_SHARE = 0.6
-# The bottle photo pipeline expects the bottle centered in a 2:3 frame, from 5% to 95%.
-FRAME_MARGIN = 0.05
+# Room around the bottle in its 2:3 frame: the bottle's top and base are estimated by the
+# AI reading the label, and the base is often lower than it says.
+FRAME_TOP_MARGIN = 0.08
+FRAME_BOTTOM_MARGIN = 0.12
 MAX_FRAME_HEIGHT = 1800
 
 
@@ -379,12 +382,12 @@ def _frame(bottle: CatalogPhotoBottle, size: tuple[int, int]) -> tuple[float, fl
     """The 2:3 frame (left, top, width, height in pixels) that centers the bottle."""
     width, height = size
     bottle_top, bottle_bottom = bottle.bottle_top * height, bottle.bottle_bottom * height
-    frame_height = (bottle_bottom - bottle_top) / (1 - 2 * FRAME_MARGIN)
+    frame_height = (bottle_bottom - bottle_top) / (1 - FRAME_TOP_MARGIN - FRAME_BOTTOM_MARGIN)
     frame_width = frame_height * 2 / 3
     center_x = (bottle.x + bottle.width / 2) * width
     return (
         center_x - frame_width / 2,
-        bottle_top - frame_height * FRAME_MARGIN,
+        bottle_top - frame_height * FRAME_TOP_MARGIN,
         frame_width,
         frame_height,
     )
@@ -413,7 +416,15 @@ def check_bottle_photo(image: Image.Image, bottle: CatalogPhotoBottle) -> Catalo
     )
     if bottle.confidence != "high":
         issue = "uncertain"
-    elif not bottle.whole_bottle or bottle.bottle_bottom <= bottle.bottle_top:
+    elif (
+        not bottle.whole_bottle
+        or bottle.bottle_bottom <= bottle.bottle_top
+        # A bottle reaching the photo's edge is cut, whatever the reading says.
+        or bottle.bottle_top * height < EDGE_PIXELS
+        or bottle.bottle_bottom * height > height - EDGE_PIXELS
+        or label_box[0] < EDGE_PIXELS
+        or label_box[2] > width - EDGE_PIXELS
+    ):
         issue = "cut"
     elif (bottle.bottle_bottom - bottle.bottle_top) * height < MIN_BOTTLE_PIXELS or (
         label_box[2] - label_box[0] < MIN_LABEL_PIXELS
@@ -465,8 +476,8 @@ def check_bottle_photos(
     return checked
 
 
-def bottle_photo_source(original: bytes, bottle: CatalogPhotoBottle) -> bytes:
-    """The bottle in a 2:3 frame, as the bottle photo pipeline expects it."""
+def bottle_photo_source(original: bytes, bottle: CatalogPhotoBottle) -> tuple[bytes, float]:
+    """The bottle in a 2:3 frame with room around it, and the label's share of its width."""
     from app.services.wine_image_recognition import load_upright_rgb_image
 
     image = load_upright_rgb_image(original)
@@ -485,7 +496,7 @@ def bottle_photo_source(original: bytes, bottle: CatalogPhotoBottle) -> bytes:
         )
     output = BytesIO()
     frame.save(output, format="JPEG", quality=92)
-    return output.getvalue()
+    return output.getvalue(), min(1.0, bottle.width * image.width / max(frame_width, 1))
 
 
 def bottle_photo_files(detail: bytes) -> dict[str, bytes]:
@@ -512,11 +523,13 @@ def save_bottle_photo(
     if not settings.wine_photo_ai_enabled:
         return False
     try:
+        source, label_share = bottle_photo_source(original, bottle)
         detail = process_bottle_photo(
-            bottle_photo_source(original, bottle),
+            source,
             settings.wine_photo_ai_model,
             settings.wine_photo_ai_timeout_seconds,
             settings.wine_photo_ai_worker_idle_seconds,
+            catalog_label_share=label_share,
         )
         store_library_photo(db, entry.name, entry.producer, bottle_photo_files(detail))
     except (BottlePhotoAiError, HTTPException, OSError, ValueError) as exc:

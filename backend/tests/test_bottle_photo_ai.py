@@ -207,3 +207,93 @@ def test_central_component_keeps_the_same_four_connected_scoring():
     assert selected.sum() == 8
     assert selected[3, 5]
     assert not selected[2, 1]
+
+
+def _tilted_bottle_frame(tilt: float, *, top: int = 80, bottom: int = 1000) -> object:
+    """A dark bottle on a light wall, rotated by tilt degrees (PIL, counterclockwise)."""
+    from PIL import Image, ImageDraw
+
+    image = Image.new("RGB", (720, 1080), (235, 230, 220))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((320, top, 400, top + 200), fill=(150, 20, 20))
+    draw.rectangle((270, top + 200, 450, bottom), fill=(25, 30, 25))
+    draw.rectangle((280, top + 450, 440, top + 700), fill=(20, 20, 20))
+    return image.rotate(tilt, resample=Image.Resampling.BICUBIC, fillcolor=(235, 230, 220))
+
+
+class _FakeRembg:
+    """Stands in for rembg: the mask is every pixel darker than the wall."""
+
+    @staticmethod
+    def remove(source, **kwargs):
+        assert kwargs["only_mask"] is True
+        return source.convert("L").point(lambda value: 255 if value < 200 else 0)
+
+
+def _catalog_cutout(monkeypatch, image) -> object:
+    from io import BytesIO
+
+    import numpy
+    from PIL import Image, ImageOps
+    from scipy import ndimage
+
+    monkeypatch.setattr(
+        bottle_photo_ai, "_vision_modules", lambda: (numpy, Image, ImageOps, _FakeRembg, ndimage)
+    )
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG", quality=95)
+    content, _ = bottle_photo_ai._process_catalog_bottle_photo_with_session(buffer.getvalue(), None)
+    return Image.open(BytesIO(content))
+
+
+@pytest.mark.parametrize("tilt", [0.0, 9.0, -14.0])
+def test_catalog_cutout_stands_a_tilted_bottle_upright_without_the_guide(monkeypatch, tilt):
+    pytest.importorskip("numpy")
+    pytest.importorskip("scipy.ndimage")
+    import numpy
+
+    output = _catalog_cutout(monkeypatch, _tilted_bottle_frame(tilt))
+    assert output.size == bottle_photo_ai.DETAIL_SIZE and output.mode == "RGBA"
+    alpha = numpy.asarray(output.getchannel("A"), dtype=numpy.float32) / 255
+    assert abs(bottle_photo_ai.bottle_tilt(numpy, alpha)) < 1.5
+    rows, columns = numpy.nonzero(alpha > 0.5)
+    # The whole bottle is kept: as tall as the canvas allows and about a third as wide.
+    assert rows.max() - rows.min() > 600
+    assert 4 < (rows.max() - rows.min()) / (columns.max() - columns.min()) < 6  # drawn 920x180
+
+
+def test_catalog_cutout_measures_the_tilt_it_must_undo():
+    pytest.importorskip("numpy")
+    import numpy
+
+    for tilt in (12.0, -7.0):
+        mask = (
+            _tilted_bottle_frame(tilt).convert("L").point(lambda value: 255 if value < 200 else 0)
+        )
+        alpha = numpy.asarray(mask, dtype=numpy.float32) / 255
+        assert abs(bottle_photo_ai.bottle_tilt(numpy, alpha) + tilt) < 1.5
+
+
+def test_catalog_cutout_refuses_a_bottle_cut_by_the_frame(monkeypatch):
+    pytest.importorskip("numpy")
+    pytest.importorskip("scipy.ndimage")
+    with pytest.raises(bottle_photo_ai.BottlePhotoNotDetected):
+        _catalog_cutout(monkeypatch, _tilted_bottle_frame(0.0, bottom=1080))
+
+
+def test_catalog_silhouette_drops_a_neighbouring_bottle_that_touches_it():
+    numpy = pytest.importorskip("numpy")
+    # A bottle (body 100 px, neck 30 px) at the frame's center, a neighbour pressed
+    # against its left side for most of its height, and a machine handle on its right.
+    binary = numpy.zeros((900, 600), dtype=bool)
+    binary[100:300, 285:315] = True  # neck and capsule
+    binary[300:860, 250:350] = True  # body
+    binary[250:880, 120:252] = True  # neighbour, touching
+    binary[150:420, 350:380] = True  # handle, touching
+    kept = bottle_photo_ai.bottle_silhouette(numpy, binary, label_share=90 / 600)
+    columns = numpy.nonzero(kept[600])[0]
+    assert abs(columns.min() - 250) <= 1 and abs(columns.max() - 349) <= 1
+    neck = numpy.nonzero(kept[200])[0]
+    assert 283 <= neck.min() and neck.max() <= 316
+    assert not kept[870].any()  # the neighbour's base below the bottle is not followed
+    assert kept[100:860].any(axis=1).all()  # the whole bottle, capsule to base
