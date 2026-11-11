@@ -1,4 +1,5 @@
 import AdminCatalogMetadataEditor from "../../components/AdminCatalogMetadataEditor";
+import AdminCatalogPhotoEnrichment from "../../components/AdminCatalogPhotoEnrichment";
 import AdminCatalogRecovery from "../../components/AdminCatalogRecovery";
 import { translate, type TranslationKey } from "../../i18n";
 import type { CatalogWine, Locale } from "../../types";
@@ -38,6 +39,9 @@ export default function AdminCatalogPanel({
   const t = (key: TranslationKey) => translate(locale, key);
   return (
     <>
+      <details className="operations-disclosure"><summary>{locale === "it" ? "Arricchisci da foto" : "Enrich from photos"}<span>{locale === "it" ? "Leggi le etichette di uno scaffale o di una bottiglia" : "Read the labels on a shelf or a bottle"}</span></summary>
+        <AdminCatalogPhotoEnrichment locale={locale} disabled={saving} />
+      </details>
       <details className="operations-disclosure"><summary>{locale === "it" ? "Nuovi vini da approvare" : "New wines to approve"}</summary>
         <section className="settings-card settings-card-wide settings-admin-card">
           <div className="settings-card-heading">

@@ -299,6 +299,50 @@ export type CatalogWine = {
   is_active?: boolean;
 };
 
+/** A label read on an admin's catalog photo; boxes are ratios of that photo. */
+export type CatalogPhotoBottle = {
+  name: string;
+  producer: string;
+  vintage: string;
+  wine_type: string;
+  region: string;
+  appellation: string;
+  country: string;
+  confidence: "high" | "medium" | "low";
+  image_index: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  bottle_top: number;
+  bottle_bottom: number;
+  whole_bottle: boolean;
+  status: "known" | "pending" | "uncertain" | "new";
+  entry: CatalogWine | null;
+  candidates: CatalogWine[];
+  missing_fields: string[];
+};
+
+export type CatalogPhotoScanResult = {
+  bottles: CatalogPhotoBottle[];
+  photo_count: number;
+  unread_sections: number;
+  model: string;
+  estimated_cost_usd: string;
+};
+
+export type CatalogPhotoScanStatus = {
+  id: string;
+  mode: "shelf" | "close";
+  status: "running" | "done" | "failed";
+  stage: "reading" | "matching" | "done";
+  sections_total: number;
+  sections_done: number;
+  bottles_found: number;
+  error: string;
+  result: CatalogPhotoScanResult | null;
+};
+
 export type CatalogWineMetadataUpdate = Pick<CatalogWine, "region" | "appellation" | "type" | "format"> & {
   wine_zone: string;
   locality: string;

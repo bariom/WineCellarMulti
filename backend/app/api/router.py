@@ -7,6 +7,7 @@ from app.api.routes import (
     billing,
     bottle_photos,
     catalog,
+    catalog_photos,
     coownership,
     demo_events,
     email_campaigns,
@@ -66,6 +67,7 @@ api_router.include_router(taste_profiles.router, tags=["taste profile"])
 api_router.include_router(sensory_agent.router, tags=["sensory research"])
 api_router.include_router(sensory_references.router, tags=["sensory references"])
 api_router.include_router(catalog.router, prefix="/wines", tags=["catalog"])
+api_router.include_router(catalog_photos.router, tags=["catalog"])
 api_router.include_router(wines.router, prefix="/wines", tags=["wines"])
 api_router.include_router(coownership.router, tags=["co-ownership"])
 api_router.include_router(wishlist.router, tags=["wishlist"])
