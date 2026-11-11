@@ -444,3 +444,20 @@ def test_an_older_rembg_without_session_options_still_loads_the_model(monkeypatc
     )
     assert bottle_photo_ai._model_session("birefnet-general-lite") == "session"
     assert created == ["birefnet-general-lite"]
+
+
+def test_catalog_cutout_of_a_small_frame_has_smooth_feathered_edges(monkeypatch):
+    numpy = pytest.importorskip("numpy")
+    pytest.importorskip("scipy.ndimage")
+    # A bottle 300 px tall in the photo: its frame is enlarged before the outline is
+    # found, so the edge is not a small mask blown up into steps.
+    small = _tilted_bottle_frame(0.0).resize((240, 360))
+    output = _catalog_cutout(monkeypatch, small)
+    alpha = numpy.asarray(output.getchannel("A"), dtype=numpy.float32) / 255
+    body = alpha[420:600]
+    # Every row of the body fades in over a few pixels instead of jumping from 0 to 1...
+    partial = ((body > 0.05) & (body < 0.95)).sum(axis=1)
+    assert partial.min() >= 2 and partial.max() <= 16
+    # ...and the straight side of the bottle stays straight, without steps.
+    left_edges = numpy.argmax(body > 0.5, axis=1)
+    assert left_edges.max() - left_edges.min() <= 1

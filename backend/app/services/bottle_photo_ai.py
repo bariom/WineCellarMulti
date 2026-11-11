@@ -244,6 +244,10 @@ CATALOG_SOURCE_MAX = (768, 1152)
 CATALOG_MAX_TILT = 20.0
 CATALOG_MIN_TILT = 0.8
 CATALOG_EDGE_PIXELS = 2
+# Smoothing of the cutout's outline: blur radius as a share of the frame's width, and
+# the steepness of the alpha ramp across the blurred edge.
+CATALOG_EDGE_SIGMA = 0.004
+CATALOG_EDGE_RAMP = 2.5
 CATALOG_TIMEOUT_SECONDS = 240
 
 
@@ -495,8 +499,12 @@ def catalog_bottle_alpha(
     # Fill holes (reflections, a dark label) without the row spans of the capture guide,
     # which would add background wedges beside a tilted bottle's neck.
     filled = scipy_ndimage.binary_fill_holes(selected)
-    inside = scipy_ndimage.binary_erosion(filled, iterations=2)
-    return numpy.where(inside, 1.0, model_alpha * filled).astype(numpy.float32)
+    # The silhouette is cut pixel by pixel and row by row: blurring it and keeping a short
+    # ramp around its outline rounds those steps into a smooth, feathered edge.
+    soft = scipy_ndimage.gaussian_filter(
+        filled.astype(numpy.float32), sigma=max(1.5, width * CATALOG_EDGE_SIGMA)
+    )
+    return numpy.clip((soft - 0.5) * CATALOG_EDGE_RAMP + 0.5, 0.0, 1.0).astype(numpy.float32)
 
 
 def bottle_tilt(numpy: Any, alpha: Any) -> float:
@@ -596,7 +604,9 @@ def _process_catalog_bottle_photo_with_session(
         raise InvalidBottlePhoto("Unsupported or invalid bottle photo") from error
     if source.width < 160 or source.height < 360 or source.width * source.height > 40_000_000:
         raise InvalidBottlePhoto("Bottle photo dimensions are not supported")
-    source.thumbnail(CATALOG_SOURCE_MAX, image_module.Resampling.LANCZOS)
+    # Small frames are enlarged too: the outline is then found at the size it is shown at,
+    # instead of being found small and enlarged into visible steps.
+    source = image_ops.contain(source, CATALOG_SOURCE_MAX, image_module.Resampling.LANCZOS)
     prepared_at = perf_counter()
     try:
         mask_result = rembg.remove(source, session=session, only_mask=True, post_process_mask=True)

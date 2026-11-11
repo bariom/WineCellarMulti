@@ -169,8 +169,14 @@ def test_only_sharp_well_exposed_whole_bottles_read_with_confidence_qualify():
     assert check(small, bottle).issue == "small"
     uncertain = bottle.model_copy(update={"confidence": "low"})
     assert check(bottle_photo(), uncertain).issue == "uncertain"
-    cut = bottle.model_copy(update={"whole_bottle": False})
-    assert check(bottle_photo(), cut).issue == "cut"
+    # On a shelf the AI calls every bottle hidden: its verdict alone does not block the photo.
+    assert check(bottle_photo(), bottle.model_copy(update={"whole_bottle": False})).ok
+    for cut in (
+        {"bottle_top": 0.0},
+        {"bottle_bottom": 1.0},
+        {"bottle_top": 0.0, "bottle_bottom": 0.0},
+    ):
+        assert check(bottle_photo(), bottle.model_copy(update=cut)).issue == "cut"
 
     # The bottle is framed 2:3 with room above (8%) and below (12%) for the cutout.
     source, label_share, _ = catalog_photo_details.bottle_photo_source(jpeg(bottle_photo()), bottle)

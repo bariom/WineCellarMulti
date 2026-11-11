@@ -420,9 +420,10 @@ def check_bottle_photo(image: Image.Image, bottle: CatalogPhotoBottle) -> Catalo
     if bottle.confidence == "low":
         issue = "uncertain"
     elif (
-        not bottle.whole_bottle
-        or bottle.bottle_bottom <= bottle.bottle_top
-        # A bottle reaching the photo's edge is cut, whatever the reading says.
+        # The reading's own "whole bottle" verdict is not used: on a shelf the AI calls
+        # every bottle hidden (neighbours, the shelf's lip over the base). A bottle with
+        # no outline or reaching the photo's edge is cut; the cutout checks the rest.
+        bottle.bottle_bottom <= bottle.bottle_top
         or bottle.bottle_top * height < EDGE_PIXELS
         or bottle.bottle_bottom * height > height - EDGE_PIXELS
         or label_box[0] < EDGE_PIXELS

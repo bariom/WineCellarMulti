@@ -122,6 +122,13 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
       della foto si disattiva.
     - Limite noto: una bottiglia con un'altra uguale subito dietro, sfalsata di poco, esce
       con due capsule sovrapposte.
+    - Bordi lisci: il ritaglio viene portato a 768×1152 px prima dello scontorno (anche
+      ingrandendolo, se la bottiglia nella foto è piccola), così il contorno nasce alla
+      dimensione a cui viene mostrato; la sagoma finale viene poi sfumata sul bordo
+      (`CATALOG_EDGE_SIGMA`, `CATALOG_EDGE_RAMP`) invece di restare "dentro o fuori".
+    - La foto è "non intera" solo se manca il contorno stimato o se la bottiglia tocca il
+      bordo della foto: il giudizio "bottiglia intera" dell'AI non conta, perché su uno
+      scaffale lo nega quasi sempre (vicine, bordo del ripiano sulla base).
     - La bottiglia viene raddrizzata fino a 20° e scartata se tocca il bordo della foto o
       del ritaglio, o se non ha proporzioni da bottiglia.
     - Provato sul modello vero (`birefnet-general-lite`) con una foto di bancone con
