@@ -224,6 +224,7 @@ CATALOG_SOURCE_MAX = (768, 1152)
 CATALOG_MAX_TILT = 20.0
 CATALOG_MIN_TILT = 0.8
 CATALOG_EDGE_PIXELS = 2
+CATALOG_TIMEOUT_SECONDS = 240
 
 
 CATALOG_BODY_TOLERANCE = 1.08
@@ -362,16 +363,58 @@ def bottle_silhouette(numpy: Any, binary: Any, label_share: float = 0.0) -> Any:
     return keep
 
 
+def sam_bottle_region(numpy: Any, scipy_ndimage: Any, sam_mask: Any, label_y: float) -> Any | None:
+    """Where the bottle pointed at is, from SAM's mask (pointed at its label, neck and base).
+
+    SAM tells this bottle from its neighbours but may split it or miss parts of a label:
+    the pieces under the three points are kept, rows it left empty between them take the
+    body's width, and the result is closed, filled and slightly widened. The precise
+    outline then comes from the background model, inside this region.
+    """
+    height, width = sam_mask.shape
+    center = width // 2
+    labels, _ = scipy_ndimage.label(sam_mask)
+    points = [min(height - 1, max(0, round(y))) for y in (label_y, height * 0.2, height * 0.82)]
+    picked = {int(labels[y, center]) for y in points} - {0}
+    if not picked:
+        return None
+    keep = numpy.isin(labels, list(picked))
+    rows = numpy.nonzero(keep.any(axis=1))[0]
+    if rows.max() - rows.min() + 1 < height * 0.5:
+        return None
+    lefts = numpy.argmax(keep, axis=1)
+    rights = width - 1 - numpy.argmax(keep[:, ::-1], axis=1)
+    lower = [row for row in rows if row > height * 0.5] or list(rows)
+    body = (int(numpy.median(lefts[lower])), int(numpy.median(rights[lower])))
+    keep = keep.copy()
+    for row in range(int(rows.min()), int(rows.max()) + 1):
+        if not keep[row].any():
+            keep[row, body[0] : body[1] + 1] = True
+    radius = max(3, round(width * 0.04))
+    region = scipy_ndimage.binary_fill_holes(
+        scipy_ndimage.binary_closing(keep, structure=numpy.ones((radius * 3, radius)))
+    )
+    return scipy_ndimage.binary_dilation(region, iterations=max(2, round(width * 0.01)))
+
+
 def catalog_bottle_alpha(
-    numpy: Any, scipy_ndimage: Any, model_alpha: Any, label_share: float = 0.0
+    numpy: Any,
+    scipy_ndimage: Any,
+    model_alpha: Any,
+    label_share: float = 0.0,
+    region: Any | None = None,
 ) -> Any:
     """The bottle's alpha in a catalog frame, without the capture guide.
 
-    The bottle is the silhouette standing at the frame's center (where its label is).
+    With a region from SAM the bottle is the central part of the mask inside it;
+    without, it is the silhouette standing at the frame's center (where its label is).
     A bottle touching the frame's edge is cut: its photo is not kept.
     """
     height, width = model_alpha.shape
-    selected = bottle_silhouette(numpy, model_alpha > 0.12, label_share)
+    if region is not None:
+        selected = _central_component(numpy, scipy_ndimage, (model_alpha > 0.12) & region)
+    else:
+        selected = bottle_silhouette(numpy, model_alpha > 0.12, label_share)
     rows, columns = numpy.nonzero(selected)
     if not len(rows):
         raise BottlePhotoNotDetected("The AI could not detect a bottle")
@@ -422,8 +465,62 @@ def _compose_detail(image_module: Any, subject: Any) -> Any:
     return output
 
 
+_catalog_sam_session: Any | None = None
+_catalog_sam_unavailable = False
+
+
+def _sam_session() -> Any | None:
+    """SAM, loaded once in the photo worker; None when disabled or not installable."""
+    global _catalog_sam_session, _catalog_sam_unavailable
+    model = settings.wine_photo_catalog_sam_model.strip()
+    if not model or _catalog_sam_unavailable:
+        return None
+    if _catalog_sam_session is None:
+        try:
+            _catalog_sam_session = _model_session(model)
+        except BottlePhotoAiError:
+            logger.warning("Catalog bottle photos fall back to the outline rules: no %s", model)
+            _catalog_sam_unavailable = True
+            return None
+    return _catalog_sam_session
+
+
+def _sam_region(
+    numpy: Any, image_module: Any, rembg: Any, scipy_ndimage: Any, source: Any, label_y: float
+) -> Any | None:
+    sam = _sam_session()
+    if sam is None:
+        return None
+    width, height = source.size
+    center = width // 2
+    label_row = min(height - 1, max(0, round(label_y * height)))
+    prompt = [
+        {"type": "point", "data": [center, label_row], "label": 1},
+        {"type": "point", "data": [center, round(height * 0.2)], "label": 1},
+        {"type": "point", "data": [center, round(height * 0.82)], "label": 1},
+        {
+            "type": "rectangle",
+            "data": [
+                round(center - width * 0.2),
+                round(height * 0.05),
+                round(center + width * 0.2),
+                round(height * 0.93),
+            ],
+        },
+    ]
+    try:
+        result = rembg.remove(source, session=sam, only_mask=True, sam_prompt=prompt)
+    except Exception:
+        logger.warning("SAM could not segment a catalog bottle", exc_info=True)
+        return None
+    if isinstance(result, bytes):
+        result = image_module.open(BytesIO(result))
+    mask = numpy.asarray(result.convert("L").resize(source.size)) > 127
+    return sam_bottle_region(numpy, scipy_ndimage, mask, label_row)
+
+
 def _process_catalog_bottle_photo_with_session(
-    content: bytes, session: Any, label_share: float = 0.0
+    content: bytes, session: Any, label_share: float = 0.0, label_y: float = 0.5
 ) -> tuple[bytes, dict[str, int]]:
     """Cut out a bottle framed from a catalog photo, straightened, without the capture guide."""
     started_at = perf_counter()
@@ -447,7 +544,10 @@ def _process_catalog_bottle_photo_with_session(
         mask_result = image_module.open(BytesIO(mask_result))
     mask = mask_result.convert("L").resize(source.size, image_module.Resampling.LANCZOS)
     model_alpha = numpy.asarray(mask, dtype=numpy.float32) / 255
-    alpha = catalog_bottle_alpha(numpy, scipy_ndimage, model_alpha, label_share)
+    # SAM picks the bottle pointed at (its neighbours touch it on a shelf); the outline
+    # rules remain when it is unavailable or finds nothing there.
+    region = _sam_region(numpy, image_module, rembg, scipy_ndimage, source, label_y)
+    alpha = catalog_bottle_alpha(numpy, scipy_ndimage, model_alpha, label_share, region)
 
     rgba = source.convert("RGBA")
     rgba.putalpha(image_module.fromarray(numpy.uint8(numpy.clip(alpha, 0, 1) * 255), mode="L"))
@@ -532,9 +632,9 @@ def _photo_worker_loop(
             continue
         try:
             if command == "process_catalog":
-                image, label_share = content
+                image, label_share, label_y = content
                 processed, timings = _process_catalog_bottle_photo_with_session(
-                    image, session, label_share
+                    image, session, label_share, label_y
                 )
             else:
                 processed, timings = _process_bottle_photo_with_session(content, session)
@@ -622,13 +722,15 @@ def process_bottle_photo(
     idle_seconds: int = DEFAULT_WORKER_IDLE_SECONDS,
     *,
     catalog_label_share: float | None = None,
+    catalog_label_y: float = 0.5,
 ) -> bytes:
     """Process a photo in a short-lived reusable worker.
 
     BiRefNet/ONNX Runtime may retain a multi-gigabyte CPU arena for the lifetime
     of an inference session. The worker confines that memory outside the API,
     reuses the expensive session during photo capture, and exits after idle.
-    catalog_label_share (the label's width over the frame's) selects the catalog cutout.
+    catalog_label_share (the label's width over the frame's) selects the catalog cutout;
+    catalog_label_y is the label's center as a share of the frame's height.
     """
     request_started_at = perf_counter()
     with _photo_processing_lock:
@@ -636,7 +738,9 @@ def process_bottle_photo(
         if catalog_label_share is None:
             command_queue.put(("process", content))
         else:
-            command_queue.put(("process_catalog", (content, catalog_label_share)))
+            command_queue.put(("process_catalog", (content, catalog_label_share, catalog_label_y)))
+            # SAM and the background model run one after the other on the CPU.
+            timeout_seconds = max(timeout_seconds, CATALOG_TIMEOUT_SECONDS)
         try:
             result = result_queue.get(timeout=timeout_seconds)
         except Empty as error:

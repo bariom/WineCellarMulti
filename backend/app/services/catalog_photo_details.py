@@ -479,8 +479,9 @@ def check_bottle_photos(
     return checked
 
 
-def bottle_photo_source(original: bytes, bottle: CatalogPhotoBottle) -> tuple[bytes, float]:
-    """The bottle in a 2:3 frame with room around it, and the label's share of its width."""
+def bottle_photo_source(original: bytes, bottle: CatalogPhotoBottle) -> tuple[bytes, float, float]:
+    """The bottle in a 2:3 frame with room around it, the label's share of its width and
+    the label's center as a share of its height."""
     from app.services.wine_image_recognition import load_upright_rgb_image
 
     image = load_upright_rgb_image(original)
@@ -499,7 +500,12 @@ def bottle_photo_source(original: bytes, bottle: CatalogPhotoBottle) -> tuple[by
         )
     output = BytesIO()
     frame.save(output, format="JPEG", quality=92)
-    return output.getvalue(), min(1.0, bottle.width * image.width / max(frame_width, 1))
+    label_y = ((bottle.y + bottle.height / 2) * image.height - top) / max(frame_height, 1)
+    return (
+        output.getvalue(),
+        min(1.0, bottle.width * image.width / max(frame_width, 1)),
+        min(0.95, max(0.05, label_y)),
+    )
 
 
 def bottle_photo_files(detail: bytes) -> dict[str, bytes]:
@@ -543,13 +549,16 @@ def bottle_cutout(job: CatalogPhotoJob, position: int) -> bytes:
             status.HTTP_503_SERVICE_UNAVAILABLE, "AI bottle photo processing is disabled"
         )
     try:
-        source, label_share = bottle_photo_source(job.originals[bottle.image_index], bottle)
+        source, label_share, label_y = bottle_photo_source(
+            job.originals[bottle.image_index], bottle
+        )
         detail = process_bottle_photo(
             source,
             settings.wine_photo_ai_model,
             settings.wine_photo_ai_timeout_seconds,
             settings.wine_photo_ai_worker_idle_seconds,
             catalog_label_share=label_share,
+            catalog_label_y=label_y,
         )
     except BottlePhotoAiUnavailable as exc:
         logger.exception("Catalog photo cutout unavailable")

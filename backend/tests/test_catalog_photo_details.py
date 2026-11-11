@@ -173,7 +173,7 @@ def test_only_sharp_well_exposed_whole_bottles_read_with_confidence_qualify():
     assert check(bottle_photo(), cut).issue == "cut"
 
     # The bottle is framed 2:3 with room above (8%) and below (12%) for the cutout.
-    source, label_share = catalog_photo_details.bottle_photo_source(jpeg(bottle_photo()), bottle)
+    source, label_share, _ = catalog_photo_details.bottle_photo_source(jpeg(bottle_photo()), bottle)
     assert abs(label_share - 300 / 1200) < 0.01
     with Image.open(BytesIO(source)) as frame:
         assert abs(frame.width / frame.height - 2 / 3) < 0.01
@@ -197,7 +197,14 @@ def run_inline(
     monkeypatch.setattr(settings, "wine_photo_storage_dir", str(tmp_path))
     sources: list[bytes] = []
 
-    def fake_cutout(content: bytes, *args, catalog_label_share: float | None = None) -> bytes:
+    def fake_cutout(
+        content: bytes,
+        *args,
+        catalog_label_share: float | None = None,
+        catalog_label_y: float = 0.5,
+    ) -> bytes:
+        # The label of bottle_photo() is centered at 1000 px in a frame from 36 to 1836 px.
+        assert abs(catalog_label_y - 964 / 1800) < 0.01
         # Catalog photos are cut out without the capture guide, knowing the label's width.
         assert catalog_label_share is not None and 0.2 < catalog_label_share < 0.5
         sources.append(content)

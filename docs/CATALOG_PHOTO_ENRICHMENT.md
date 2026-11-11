@@ -94,7 +94,16 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
     catalog_label_share=...)`) non usa la sagoma della fotocamera dell'app: la bottiglia
     di uno scaffale non è né centrata né dritta, e ha vicine che la toccano.
     - Il ritaglio, centrato sull'etichetta, lascia l'8% di margine sopra e il 12% sotto.
-    - Della maschera si tiene la sagoma della bottiglia, riga per riga lungo il suo asse
+    - SAM (Segment Anything, modello aperto, `WINE_PHOTO_CATALOG_SAM_MODEL=sam`) sceglie la
+      bottiglia indicata da tre punti (etichetta, collo, base) e da un riquadro: le vicine
+      che la toccano restano fuori. Le righe che SAM lascia vuote prendono la larghezza del
+      corpo; il contorno preciso viene dal modello di sfondo (`birefnet-general-lite`)
+      dentro quella zona (`sam_bottle_region`). Senza SAM (non installabile, o vuoto nelle
+      impostazioni) valgono le regole sulla sagoma qui sotto. SAM e BiRefNet girano sulla
+      CPU del server: 30–45 s per bottiglia sul PC di sviluppo. Al primo uso il server
+      scarica il modello SAM (circa 400 MB); per evitarlo in anteprima:
+      `cd backend && .venv/bin/python -c "import rembg; rembg.new_session('sam')"`.
+    - Senza SAM, della maschera si tiene la sagoma della bottiglia, riga per riga lungo il suo asse
       (`bottle_silhouette`). Il corpo è largo tra 0,22 e 0,6 della larghezza del ritaglio
       (costruito sull'altezza della bottiglia); l'etichetta letta dall'AI restringe
       l'intervallo solo se è coerente, perché la sua larghezza è una stima che cambia da
@@ -105,8 +114,9 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
       "Rivedi e salva" prima del salvataggio; il lavoro lo tiene in memoria e il
       salvataggio archivia esattamente quell'immagine. Se lo scontorno fallisce, la casella
       della foto si disattiva.
-    - Limite noto: una bottiglia con un'altra uguale subito dietro, sfalsata di poco, esce
-      con due capsule.
+    - Provato con SAM sul codice vero su sei bottiglie di due foto (bancone e scaffale):
+      tutte intere, dritte e senza vicine. Limite noto: una bottiglia con un'altra uguale
+      subito dietro, sfalsata di poco, può uscire con due capsule.
     - La bottiglia viene raddrizzata fino a 20° e scartata se tocca il bordo della foto o
       del ritaglio, o se non ha proporzioni da bottiglia.
     - Provato sul modello vero (`birefnet-general-lite`) con una foto di bancone con

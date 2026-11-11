@@ -191,6 +191,16 @@ for (const locale of ["it", "en"] as const) {
     await expect(pick(2)).not.toBeChecked();
     await expect(items.nth(0)).toContainText(it ? "Foto non salvabile: bottiglia troppo piccola nella foto" : "Photo not kept: bottle too small in the photo");
     await expect(items.nth(1)).toContainText(it ? "Foto adatta all'archivio" : "Photo fit for the library");
+    // With nothing chosen the button stays readable and says where to choose.
+    await pick(0).uncheck();
+    await pick(1).uncheck();
+    const empty = section.getByRole("button", { name: it ? "Cerca i dati (0)" : "Research (0)" });
+    await expect(empty).toBeDisabled();
+    await expect(section.locator(".catalog-photo-research")).toContainText(it ? "Spunta \"Cerca i dati\" sui vini dell'elenco qui sotto." : "Tick \"Research\" on the wines in the list below.");
+    expect(await empty.evaluate((button) => getComputedStyle(button).opacity)).toBe("1");
+    if (it) await section.locator(".catalog-photo-research").screenshot({ path: testInfo.outputPath("admin-catalog-photo-research-empty.png") });
+    await pick(0).check();
+    await pick(1).check();
     await section.getByRole("button", { name: it ? "Cerca i dati (2)" : "Research (2)" }).click();
     await expect(items.nth(1)).toContainText(it ? "Dati trovati · 1 fonte" : "Details found · 1 source", { timeout: 10_000 });
     await expect(items.nth(0)).toContainText(it ? "Nessun dato affidabile trovato" : "No reliable details found");

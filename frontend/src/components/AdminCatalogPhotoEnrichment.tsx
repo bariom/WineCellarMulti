@@ -292,8 +292,18 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
                         ? `Scegli fino a ${MAX_RESEARCH} vini: l'AI cerca sul web produttore, denominazione, vitigni, una descrizione e la finestra di beva, mai il valore. Circa 1 centesimo per ricerca web, con la chiave di Vinaris.`
                         : `Choose up to ${MAX_RESEARCH} wines: the AI searches the web for producer, appellation, grapes, a description and the drinking window, never the value. About 1 cent per web search, on the Vinaris key.`}
                     </span>
+                    {!selected.length && !researching ? (
+                      <span className="catalog-photo-research-hint">
+                        {it ? "Spunta \"Cerca i dati\" sui vini dell'elenco qui sotto." : "Tick \"Research\" on the wines in the list below."}
+                      </span>
+                    ) : null}
                   </div>
-                  <button type="button" onClick={() => void research()} disabled={!selected.length || working || disabled}>
+                  <button
+                    type="button"
+                    className={!selected.length && !researching ? "is-empty" : ""}
+                    onClick={() => void research()}
+                    disabled={!selected.length || working || disabled}
+                  >
                     <ButtonBusyContent
                       busy={researching}
                       idleLabel={it ? `Cerca i dati (${selected.length})` : `Research (${selected.length})`}

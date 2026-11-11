@@ -119,6 +119,8 @@ class Settings(BaseSettings):
     email_asset_storage_dir: str = "data/email-assets"
     wine_photo_ai_enabled: bool = True
     wine_photo_ai_model: str = "birefnet-general-lite"
+    # Picks the bottle pointed at on shop photos before the outline (empty: outline rules).
+    wine_photo_catalog_sam_model: str = "sam"
     wine_photo_ai_max_input_bytes: int = 12_000_000
     wine_photo_ai_timeout_seconds: int = 90
     wine_photo_ai_worker_idle_seconds: int = 75

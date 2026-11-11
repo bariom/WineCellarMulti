@@ -74,6 +74,12 @@
 }
 .catalog-photo-research > div { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 0; }
 .catalog-photo-research span { font-size: .8rem; line-height: 1.45; color: var(--text-muted); }
+.catalog-photo-research span.catalog-photo-research-hint { color: var(--text); font-weight: 600; }
+/* Nothing chosen yet: an outline that stays readable instead of a faded primary button. */
+.catalog-photo-research button.is-empty:disabled {
+  opacity: 1; filter: none; cursor: not-allowed; color: var(--text-muted); background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--accent, #c9a45c) 65%, var(--border));
+}
 .catalog-photo-note.is-found { color: var(--text); }
 .catalog-photo-item.is-saved { border-color: color-mix(in srgb, var(--success, #5f9c6b) 55%, var(--border)); }
 .catalog-photo-status.is-saved { color: var(--text); border-color: color-mix(in srgb, var(--success, #5f9c6b) 70%, var(--border)); background: color-mix(in srgb, var(--success, #5f9c6b) 16%, transparent); }
