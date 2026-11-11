@@ -417,6 +417,7 @@ def check_bottle_photo(image: Image.Image, bottle: CatalogPhotoBottle) -> Catalo
         issue = "cut"
     elif (bottle.bottle_bottom - bottle.bottle_top) * height < MIN_BOTTLE_PIXELS or (
         label_box[2] - label_box[0] < MIN_LABEL_PIXELS
+        or label_box[3] - label_box[1] < MIN_LABEL_PIXELS
     ):
         issue = "small"
     else:
@@ -446,14 +447,20 @@ def check_bottle_photos(
         if bottle.image_index not in images:
             try:
                 images[bottle.image_index] = load_upright_rgb_image(originals[bottle.image_index])
-            except (HTTPException, IndexError):
+            except Exception:
+                logger.warning("Catalog photo could not be opened for the bottle checks")
                 images[bottle.image_index] = None
         image = images[bottle.image_index]
-        check = check_bottle_photo(image, bottle) if image is not None else CatalogPhotoCheck()
-        if check.ok:
-            name = bottle.entry.name if bottle.entry else bottle.name
-            producer = bottle.entry.producer if bottle.entry else bottle.producer
-            check.has_library_photo = bool(matching_reference_photos(db, name, producer))
+        # The photo check is a bonus: it must never cost the admin the labels read.
+        try:
+            check = check_bottle_photo(image, bottle) if image is not None else CatalogPhotoCheck()
+            if check.ok:
+                name = bottle.entry.name if bottle.entry else bottle.name
+                producer = bottle.entry.producer if bottle.entry else bottle.producer
+                check.has_library_photo = bool(matching_reference_photos(db, name, producer))
+        except Exception:
+            logger.exception("Catalog photo bottle check failed")
+            check = CatalogPhotoCheck()
         checked.append(bottle.model_copy(update={"photo": check}))
     return checked
 
