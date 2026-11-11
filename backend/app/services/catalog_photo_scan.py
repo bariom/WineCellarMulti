@@ -70,6 +70,8 @@ class CatalogPhotoJob:
     mode: CatalogPhotoMode
     # The photos as uploaded, for cutting out the bottles later; dropped with the job.
     originals: list[bytes] = field(default_factory=list)
+    # Bottle cutouts already shown to the admin, by bottle position: saving reuses them.
+    cutouts: dict[int, bytes] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     # Start of the reading or of the research under way; last request of the admin.
     phase_started_at: datetime = field(default_factory=lambda: datetime.now(UTC))

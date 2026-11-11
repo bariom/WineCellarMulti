@@ -101,8 +101,12 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
       una lettura all'altra. La bottiglia è simmetrica; salendo la sagoma si stringe, a
       parte il bordo della capsula; ogni riga deve sovrapporsi alla precedente. Quello che
       sporge (bottiglie vicine, macchine, scaffali) viene tolto.
+    - `GET /api/v1/catalog-photos/scans/{id}/bottles/{n}/cutout` mostra lo scontorno in
+      "Rivedi e salva" prima del salvataggio; il lavoro lo tiene in memoria e il
+      salvataggio archivia esattamente quell'immagine. Se lo scontorno fallisce, la casella
+      della foto si disattiva.
     - Limite noto: una bottiglia con un'altra uguale subito dietro, sfalsata di poco, esce
-      con due capsule; non c'è ancora un'anteprima dello scontorno prima del salvataggio.
+      con due capsule.
     - La bottiglia viene raddrizzata fino a 20° e scartata se tocca il bordo della foto o
       del ritaglio, o se non ha proporzioni da bottiglia.
     - Provato sul modello vero (`birefnet-general-lite`) con una foto di bancone con

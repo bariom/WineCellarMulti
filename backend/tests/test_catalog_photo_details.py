@@ -306,6 +306,15 @@ def test_new_wine_is_researched_saved_approved_and_reused_by_a_cellar(monkeypatc
     assert research[0]["max_tool_calls"] == 1
     assert "Rovo Alto" in research[0]["user"] and "untrusted" in research[0]["user"]
 
+    # The admin sees the cutout before saving; saving stores exactly that image.
+    preview = client.get(f"/api/v1/catalog-photos/scans/{job['id']}/bottles/0/cutout")
+    assert preview.status_code == 200, preview.text
+    assert preview.headers["content-type"] == "image/png" and preview.content == cutout()
+    assert (
+        client.get(f"/api/v1/catalog-photos/scans/{job['id']}/bottles/0/cutout").content == cutout()
+    )
+    assert len(photo_sources) == 1
+
     saved = client.post(
         f"/api/v1/catalog-photos/scans/{job['id']}/bottles/0",
         json={
@@ -423,6 +432,9 @@ def test_existing_entries_are_completed_and_approved_without_losing_data(monkeyp
     )
     assert saved.status_code == 200, saved.text
     assert saved.json()["photo"] == "skipped" and photo_sources == []
+    assert (
+        client.get(f"/api/v1/catalog-photos/scans/{job['id']}/bottles/0/cutout").status_code == 422
+    )
     with TestingSessionLocal() as db:
         entry = db.get(WineCatalogEntry, pending.id)
         assert entry is not None and entry.is_active

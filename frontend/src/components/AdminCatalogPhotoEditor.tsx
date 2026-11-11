@@ -68,6 +68,9 @@ export function AdminCatalogPhotoEditor({ locale, jobId, position, bottle, onSav
   const [draft, setDraft] = useState<Draft>(() => initialDraft(bottle));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // The cutout the library would receive, shown before saving.
+  const [cutout, setCutout] = useState<"loading" | "ready" | "failed">("loading");
+  const cutoutUrl = `/api/v1/catalog-photos/scans/${jobId}/bottles/${position}/cutout`;
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((current) => ({ ...current, [key]: value }));
   const id = (field: string) => `catalog-photo-${position}-${field}`;
   const details = bottle.details?.found ? bottle.details : null;
@@ -182,8 +185,27 @@ export function AdminCatalogPhotoEditor({ locale, jobId, position, bottle, onSav
 
       {bottle.photo.ok ? (
         <div className="catalog-photo-options">
+          <div className="catalog-photo-cutout">
+            <span className={`catalog-photo-cutout-frame is-${cutout}`}>
+              {cutout !== "failed" ? (
+                <img
+                  src={cutoutUrl}
+                  alt={it ? "Bottiglia scontornata" : "Cut-out bottle"}
+                  onLoad={() => setCutout("ready")}
+                  onError={() => { setCutout("failed"); set("save_photo", false); }}
+                />
+              ) : null}
+            </span>
+            <span className="catalog-photo-cutout-text">
+              {cutout === "loading"
+                ? (it ? "Scontorno la bottiglia…" : "Cutting out the bottle…")
+                : cutout === "ready"
+                  ? (it ? "Così entrerebbe nell'archivio condiviso." : "This is how it would enter the shared library.")
+                  : (it ? "Non è stato possibile scontornare la bottiglia da questa foto." : "The bottle could not be cut out of this photo.")}
+            </span>
+          </div>
           <label>
-            <input type="checkbox" checked={draft.save_photo} onChange={(event) => set("save_photo", event.target.checked)} />
+            <input type="checkbox" checked={draft.save_photo} disabled={cutout !== "ready"} onChange={(event) => set("save_photo", event.target.checked)} />
             <span>{it ? "Salva la foto della bottiglia nell'archivio condiviso" : "Save the bottle photo to the shared library"}</span>
           </label>
           {bottle.photo.has_library_photo && draft.save_photo ? (

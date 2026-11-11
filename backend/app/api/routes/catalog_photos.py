@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
@@ -108,6 +108,18 @@ def research_catalog_photo_details(
     job = own_job(job_id, context)
     catalog_photo_details.start_details(job, payload.bottles, locale=context.user.locale)
     return job.snapshot()
+
+
+@router.get("/scans/{job_id}/bottles/{position}/cutout")
+async def catalog_photo_bottle_cutout(
+    job_id: UUID,
+    position: int,
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> Response:
+    """The bottle cut out of the photo, as it would enter the shared photo library."""
+    job = own_job(job_id, context)
+    content = await run_in_threadpool(catalog_photo_details.bottle_cutout, job, position)
+    return Response(content=content, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
 @router.post("/scans/{job_id}/bottles/{position}", response_model=CatalogPhotoSaveResult)

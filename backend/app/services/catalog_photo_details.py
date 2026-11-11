@@ -517,16 +517,33 @@ def bottle_photo_files(detail: bytes) -> dict[str, bytes]:
     return files
 
 
-def save_bottle_photo(
-    db: Session, entry: WineCatalogEntry, original: bytes, bottle: CatalogPhotoBottle
-) -> bool:
-    from app.services.bottle_photo_ai import BottlePhotoAiError, process_bottle_photo
-    from app.services.wine_photo_library import store_library_photo
+def bottle_cutout(job: CatalogPhotoJob, position: int) -> bytes:
+    """The bottle cut out of the photo as a 480x720 PNG, computed once per job.
 
+    Shown to the admin before saving; the same bytes are then stored in the library.
+    """
+    from app.services.bottle_photo_ai import (
+        BottlePhotoAiError,
+        BottlePhotoAiUnavailable,
+        process_bottle_photo,
+    )
+
+    if job.status == "running" or job.result is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "The photo analysis is still running")
+    if not 0 <= position < len(job.result.bottles):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Bottle not found")
+    cached = job.cutouts.get(position)
+    if cached is not None:
+        return cached
+    bottle = job.result.bottles[position]
+    if not bottle.photo.ok:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "The photo is not good enough")
     if not settings.wine_photo_ai_enabled:
-        return False
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "AI bottle photo processing is disabled"
+        )
     try:
-        source, label_share = bottle_photo_source(original, bottle)
+        source, label_share = bottle_photo_source(job.originals[bottle.image_index], bottle)
         detail = process_bottle_photo(
             source,
             settings.wine_photo_ai_model,
@@ -534,9 +551,28 @@ def save_bottle_photo(
             settings.wine_photo_ai_worker_idle_seconds,
             catalog_label_share=label_share,
         )
-        store_library_photo(db, entry.name, entry.producer, bottle_photo_files(detail))
-    except (BottlePhotoAiError, HTTPException, OSError, ValueError) as exc:
+    except BottlePhotoAiUnavailable as exc:
+        logger.exception("Catalog photo cutout unavailable")
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    except (BottlePhotoAiError, OSError, ValueError) as exc:
         logger.warning("Catalog photo cutout failed: %s", type(exc).__name__)
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "The bottle could not be cut out"
+        ) from exc
+    job.cutouts[position] = detail
+    return detail
+
+
+def save_bottle_photo(
+    db: Session, entry: WineCatalogEntry, job: CatalogPhotoJob, position: int
+) -> bool:
+    from app.services.wine_photo_library import store_library_photo
+
+    try:
+        detail = bottle_cutout(job, position)
+        store_library_photo(db, entry.name, entry.producer, bottle_photo_files(detail))
+    except (HTTPException, OSError, ValueError) as exc:
+        logger.warning("Catalog photo not stored: %s", type(exc).__name__)
         return False
     return True
 
@@ -735,7 +771,7 @@ def save_bottle(
     if payload.save_photo and bottle.photo.ok and entry.producer:
         if matching_reference_photos(db, entry.name, entry.producer) and not payload.replace_photo:
             photo = "exists"
-        elif save_bottle_photo(db, entry, job.originals[bottle.image_index], bottle):
+        elif save_bottle_photo(db, entry, job, position):
             photo = "saved"
         else:
             photo = "failed"

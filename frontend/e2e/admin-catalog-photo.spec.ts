@@ -197,8 +197,15 @@ for (const locale of ["it", "en"] as const) {
     expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("catalog-photo-details") || "null"))).toEqual({ bottles: [0, 1] });
     await expect(section.getByText(it ? /ricerca dei dati: \$0\.032/ : /research: \$0\.032/)).toBeVisible();
 
+    // The cutout the library would receive is shown before saving.
+    await page.route("**/catalog-photos/scans/job-1/bottles/1/cutout", (route) => route.fulfill({
+      status: 200, contentType: "image/png",
+      body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64"),
+    }));
     await items.nth(1).getByRole("button", { name: it ? "Rivedi e salva" : "Review and save" }).click();
     const form = items.nth(1).getByRole("form", { name: it ? "Scheda da salvare" : "Entry to save" });
+    await expect(form.getByRole("img", { name: it ? "Bottiglia scontornata" : "Cut-out bottle" })).toBeVisible();
+    await expect(form).toContainText(it ? "Così entrerebbe nell'archivio condiviso." : "This is how it would enter the shared library.");
     await expect(form.getByLabel(it ? "Produttore" : "Producer")).toHaveValue("Benanti");
     await expect(form.getByLabel(it ? "Regione" : "Region")).toHaveValue("Sicilia");
     await expect(form.getByLabel(it ? "Vitigni (separati da virgola)" : "Grapes (comma separated)")).toHaveValue("Nerello Mascalese, Nerello Cappuccio");
