@@ -257,18 +257,29 @@ to restore ONNX automatic threading. For CPU-quota-limited containers, explicitl
 set the cap to the allocated CPU budget. The model, inference resolution and mask
 refinement are unchanged. The idle exit still releases the model's memory.
 
+The segmentation sessions run without ONNX Runtime's CPU memory arena
+(`WINE_PHOTO_AI_CPU_MEM_ARENA=false`, the default). The arena never returns memory
+and grows again on the next run: measured on a 1016x1525 bottle frame, the worker
+held 12.6 GB after two cutouts (19.6 GB for a catalog cutout, which also runs SAM).
+Without it the same cutouts peak at 6.7 GB (7.0 GB for the catalog), fall back to
+0.5–0.9 GB between cutouts, take the same time and produce pixel-identical images.
+Cutouts are serialized in one worker, so that peak is the whole cost.
+
 To measure on the actual server, run sequentially from `backend/` (never run these
 memory-intensive benchmarks concurrently):
 
 ```bash
 python -m scripts.benchmark_bottle_photo --threads 0 --runs 3
 python -m scripts.benchmark_bottle_photo --threads 4 --runs 3
+python -m scripts.benchmark_bottle_photo --threads 4 --runs 3 --catalog
 ```
 
 The benchmark uses a synthetic bottle by default; pass `--image /path/to/capture.jpg`
 for a real capture. It runs locally without uploading or saving images, reports
-startup/inference/refinement timings and a pixel checksum, and may download the
-model on first use. `--jit` restores the former PyMatting startup for comparison.
+startup/inference/refinement timings, the process's memory after each step and its
+sampled peak (`peak_rss_mb`), and a pixel checksum, and may download the model on
+first use. `--catalog` measures the catalog cutout (SAM, then the background model);
+prefix a run with `WINE_PHOTO_AI_CPU_MEM_ARENA=true` to compare with the arena. `--jit` restores the former PyMatting startup for comparison.
 Exclude model download time from comparisons and compare repeated warm runs.
 Synthetic output equality is a regression check, not a real-photo quality evaluation.
 Application logs include `bottle_photo_ai` timings and the configured thread count

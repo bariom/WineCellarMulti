@@ -125,6 +125,8 @@ class Settings(BaseSettings):
     wine_photo_ai_timeout_seconds: int = 90
     wine_photo_ai_worker_idle_seconds: int = 75
     wine_photo_ai_threads: int = Field(default=4, ge=0, le=64)
+    # ONNX Runtime's CPU arena never returns memory: off, a cutout peaks at about half.
+    wine_photo_ai_cpu_mem_arena: bool = False
     wine_pulse_enabled: bool = True
     wine_pulse_ai_enabled: bool = True
     wine_pulse_model: str = "gpt-6-luna"

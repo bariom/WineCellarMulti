@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from importlib import import_module
+from inspect import signature
 from io import BytesIO
 from multiprocessing import get_context
 from queue import Empty
@@ -53,10 +54,29 @@ def _vision_modules() -> tuple[Any, Any, Any, Any, Any]:
     return numpy, image_module, image_ops, rembg, scipy_ndimage
 
 
+def _session_options(rembg: Any) -> dict[str, Any]:
+    """ONNX Runtime options for the segmentation sessions.
+
+    By default ONNX Runtime keeps every buffer of an inference in a CPU arena that never
+    shrinks and grows again on the next run: measured on a 1016x1525 bottle frame, the
+    background model held 12.5 GB and SAM 7.2 GB after two cutouts. Without the arena the
+    same runs peak at 6.6 GB and 3.7 GB, return to about 0.5 GB between cutouts, take the
+    same time and produce identical masks.
+    """
+    if settings.wine_photo_ai_cpu_mem_arena:
+        return {}
+    if "sess_opts" not in signature(rembg.new_session).parameters:
+        logger.warning("This rembg cannot take session options: the ONNX memory arena stays on")
+        return {}
+    options = import_module("onnxruntime").SessionOptions()
+    options.enable_cpu_mem_arena = False
+    return {"sess_opts": options}
+
+
 def _model_session(model_name: str) -> Any:
     _, _, _, rembg, _ = _vision_modules()
     try:
-        return rembg.new_session(model_name)
+        return rembg.new_session(model_name, **_session_options(rembg))
     except Exception as error:
         raise BottlePhotoAiUnavailable("AI bottle segmentation model is unavailable") from error
 
@@ -589,7 +609,9 @@ def _process_catalog_bottle_photo_with_session(
     model_alpha = numpy.asarray(mask, dtype=numpy.float32) / 255
     # SAM outlines the bottle pointed at (its neighbours touch it on a shelf); without it
     # the outline rules work on the background model's mask alone.
+    sam_started_at = perf_counter()
     bottle = _sam_bottle(numpy, image_module, rembg, scipy_ndimage, source, label_y)
+    sam_ms = round((perf_counter() - sam_started_at) * 1000)
     alpha = catalog_bottle_alpha(numpy, scipy_ndimage, model_alpha, label_share, bottle)
 
     rgba = source.convert("RGBA")
@@ -620,7 +642,8 @@ def _process_catalog_bottle_photo_with_session(
     return buffer.getvalue(), {
         "prepare_ms": round((prepared_at - started_at) * 1000),
         "inference_ms": round((inferred_at - prepared_at) * 1000),
-        "postprocess_ms": round((completed_at - inferred_at) * 1000),
+        "sam_ms": sam_ms,
+        "postprocess_ms": round((completed_at - inferred_at) * 1000) - sam_ms,
         "total_ms": round((completed_at - started_at) * 1000),
     }
 

@@ -407,3 +407,40 @@ def test_catalog_cutout_falls_back_to_the_outline_rules_without_sam(monkeypatch)
     output = _catalog_cutout(monkeypatch, _tilted_bottle_frame(0.0))
     assert output.size == bottle_photo_ai.DETAIL_SIZE
     assert bottle_photo_ai._catalog_sam_unavailable is True
+
+
+def test_segmentation_sessions_run_without_the_onnx_cpu_memory_arena(monkeypatch):
+    pytest.importorskip("onnxruntime")
+    created = []
+
+    class Rembg:
+        @staticmethod
+        def new_session(model_name, *args, sess_opts=None, **kwargs):
+            created.append((model_name, sess_opts))
+            return "session"
+
+    monkeypatch.setattr(bottle_photo_ai, "_vision_modules", lambda: (None, None, None, Rembg, None))
+    assert bottle_photo_ai._model_session("birefnet-general-lite") == "session"
+    assert created[0][0] == "birefnet-general-lite"
+    # The arena never returns memory and grows on the next run: 12.5 GB instead of 6.6.
+    assert created[0][1].enable_cpu_mem_arena is False
+
+    monkeypatch.setattr(bottle_photo_ai.settings, "wine_photo_ai_cpu_mem_arena", True)
+    bottle_photo_ai._model_session("sam")
+    assert created[1] == ("sam", None)
+
+
+def test_an_older_rembg_without_session_options_still_loads_the_model(monkeypatch):
+    created = []
+
+    class OldRembg:
+        @staticmethod
+        def new_session(model_name, providers=None):
+            created.append(model_name)
+            return "session"
+
+    monkeypatch.setattr(
+        bottle_photo_ai, "_vision_modules", lambda: (None, None, None, OldRembg, None)
+    )
+    assert bottle_photo_ai._model_session("birefnet-general-lite") == "session"
+    assert created == ["birefnet-general-lite"]
