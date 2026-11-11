@@ -321,6 +321,53 @@ export type CatalogPhotoBottle = {
   entry: CatalogWine | null;
   candidates: CatalogWine[];
   missing_fields: string[];
+  /** Whether the bottle can go to the shared photo library, checked without AI. */
+  photo: { ok: boolean; issue: "" | "uncertain" | "cut" | "small" | "blurry" | "dark" | "bright"; has_library_photo: boolean };
+  details: CatalogPhotoDetails | null;
+  saved: boolean;
+  photo_saved: boolean;
+};
+
+/** Facts a web search found about a wine, already checked against the label and its sources. */
+export type CatalogPhotoDetails = {
+  found: boolean;
+  name: string;
+  producer: string;
+  appellation: string;
+  region: string;
+  country: string;
+  wine_type: string;
+  grapes: string[];
+  description: string;
+  drink_from: number | null;
+  drink_peak_from: number | null;
+  drink_peak_to: number | null;
+  drink_to: number | null;
+  drink_notes: string;
+  sources: { url: string; title: string }[];
+};
+
+export type CatalogPhotoSave = {
+  entry_id: string | null;
+  name: string;
+  producer: string;
+  appellation: string;
+  region: string;
+  country: string;
+  type: string;
+  grapes_text: string;
+  description: string;
+  drink_from: number | null;
+  drink_peak_from: number | null;
+  drink_peak_to: number | null;
+  drink_to: number | null;
+  save_photo: boolean;
+  replace_photo: boolean;
+};
+
+export type CatalogPhotoSaveResult = {
+  bottle: CatalogPhotoBottle;
+  photo: "saved" | "exists" | "skipped" | "failed";
 };
 
 export type CatalogPhotoScanResult = {
@@ -329,13 +376,14 @@ export type CatalogPhotoScanResult = {
   unread_sections: number;
   model: string;
   estimated_cost_usd: string;
+  details_cost_usd: string;
 };
 
 export type CatalogPhotoScanStatus = {
   id: string;
   mode: "shelf" | "close";
   status: "running" | "done" | "failed";
-  stage: "reading" | "matching" | "done";
+  stage: "reading" | "matching" | "researching" | "done";
   sections_total: number;
   sections_done: number;
   bottles_found: number;

@@ -45,7 +45,8 @@ MAX_PARALLEL_SECTIONS = 4
 MAX_BOTTLES = 120
 MAX_BOTTLES_PER_SECTION = 60
 SECTION_TIMEOUT_SECONDS = 120
-JOB_RETENTION = timedelta(minutes=30)
+# Kept while the admin reviews and saves the wines, counted from the last request.
+JOB_RETENTION = timedelta(minutes=90)
 JOB_MAX_RUNTIME = timedelta(minutes=8)
 # Catalog match scores (0-100): a clear match above KNOWN_SCORE is the same wine,
 # anything above CANDIDATE_SCORE is shown to the admin as a possible match.
@@ -70,8 +71,11 @@ class CatalogPhotoJob:
     # The photos as uploaded, for cutting out the bottles later; dropped with the job.
     originals: list[bytes] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    # Start of the reading or of the research under way; last request of the admin.
+    phase_started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    touched_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     status: Literal["running", "done", "failed"] = "running"
-    stage: Literal["reading", "matching", "done"] = "reading"
+    stage: Literal["reading", "matching", "researching", "done"] = "reading"
     sections_total: int = 0
     sections_done: int = 0
     bottles_found: int = 0
@@ -80,8 +84,11 @@ class CatalogPhotoJob:
 
     def snapshot(self) -> CatalogPhotoScanStatus:
         status, error = self.status, self.error
-        if status == "running" and datetime.now(UTC) - self.created_at > JOB_MAX_RUNTIME:
-            status, error = "failed", "The photo analysis took too long. Try again."
+        if status == "running" and datetime.now(UTC) - self.phase_started_at > JOB_MAX_RUNTIME:
+            if self.stage == "researching":
+                status, error = "done", "The research took too long. Try again."
+            else:
+                status, error = "failed", "The photo analysis took too long. Try again."
         return CatalogPhotoScanStatus(
             id=self.id,
             mode=self.mode,
@@ -107,7 +114,7 @@ def submit(task: Callable[..., None], *args: Any) -> None:
 
 def _prune(now: datetime) -> None:
     for job_id, job in list(_jobs.items()):
-        if now - job.created_at > JOB_RETENTION:
+        if now - job.touched_at > JOB_RETENTION:
             del _jobs[job_id]
 
 
@@ -154,6 +161,7 @@ def get_job(job_id: uuid.UUID, *, user_id: uuid.UUID) -> CatalogPhotoJob | None:
         job = _jobs.get(job_id)
     if job is None or job.user_id != user_id:
         return None
+    job.touched_at = datetime.now(UTC)
     return job
 
 
@@ -536,9 +544,12 @@ def scan(job: CatalogPhotoJob, photos: list[list[Section]]) -> CatalogPhotoScanR
     bottles = merge_bottles(readings)
     job.bottles_found = len(bottles)
     job.stage = "matching"
+    from app.services.catalog_photo_details import check_bottle_photos
+
     with SessionLocal() as db:
         _worker_context(db, job)
         bottles = [match_bottle(db, bottle) for bottle in bottles]
+        bottles = check_bottle_photos(db, job.originals, bottles)
     return CatalogPhotoScanResult(
         bottles=bottles,
         photo_count=len(photos),

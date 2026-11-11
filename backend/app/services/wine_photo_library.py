@@ -148,6 +148,51 @@ def archive_wine_photo(
     return photo
 
 
+def store_library_photo(
+    db: Session, name: str, producer: str, files: dict[str, bytes]
+) -> WinePhotoLibraryEntry:
+    """Add a processed bottle photo (thumbnail and detail PNGs) to the shared library.
+
+    Used by app admins enriching the catalog from photos; the newest photo of a wine
+    is the one cellars receive.
+    """
+    normalized_name = normalize_photo_identity(name)
+    normalized_producer = normalize_photo_identity(producer)
+    content_hash = sha256(files["detail"]).hexdigest()
+    photo = db.scalar(
+        select(WinePhotoLibraryEntry).where(
+            WinePhotoLibraryEntry.normalized_name == normalized_name,
+            WinePhotoLibraryEntry.normalized_producer == normalized_producer,
+            WinePhotoLibraryEntry.content_hash == content_hash,
+        )
+    )
+    if photo is None:
+        photo = WinePhotoLibraryEntry(
+            name=name.strip(),
+            producer=producer.strip(),
+            normalized_name=normalized_name,
+            normalized_producer=normalized_producer,
+            source_wine_id=None,
+            photo_version=uuid.uuid4().hex,
+            content_hash=content_hash,
+        )
+        db.add(photo)
+        db.flush()
+    library_photo_path(photo, "detail").parent.mkdir(parents=True, exist_ok=True)
+    temporary_paths: list[Path] = []
+    try:
+        for size in PHOTO_FILE_NAMES:
+            temporary = library_photo_path(photo, size).with_suffix(".tmp")
+            temporary.write_bytes(files[size])
+            temporary_paths.append(temporary)
+        for size, temporary in zip(PHOTO_FILE_NAMES, temporary_paths, strict=True):
+            temporary.replace(library_photo_path(photo, size))
+    finally:
+        for temporary in temporary_paths:
+            temporary.unlink(missing_ok=True)
+    return photo
+
+
 def copy_library_photo(photo: WinePhotoLibraryEntry, target: Wine) -> None:
     source_paths = {size: library_photo_path(photo, size) for size in PHOTO_FILE_NAMES}
     if not all(path.is_file() for path in source_paths.values()):

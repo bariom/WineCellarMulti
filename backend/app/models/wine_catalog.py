@@ -25,6 +25,10 @@ class WineCatalogEntry(Base):
     grapes_text: Mapped[str] = mapped_column(Text, default="")
     search_text: Mapped[str] = mapped_column(Text, default="", index=True)
     source: Mapped[str] = mapped_column(String(40), default="manual")
+    # Researched by an app admin from a photo (docs/CATALOG_PHOTO_ENRICHMENT.md).
+    description: Mapped[str] = mapped_column(Text, default="", server_default="")
+    sources: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    enriched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -60,9 +64,7 @@ class WinePhotoLibraryEntry(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(200))
     producer: Mapped[str] = mapped_column(String(200), default="")
     normalized_name: Mapped[str] = mapped_column(String(200), index=True)
@@ -75,9 +77,7 @@ class WinePhotoLibraryEntry(Base):
     )
     photo_version: Mapped[str] = mapped_column(String(32))
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 
 class WineRecognitionLog(Base):

@@ -1,7 +1,7 @@
 # Arricchire il catalogo da foto: piano
 
-Stato: **piano approvato** l'11.11.2026. Fase 1 (lettura e confronto) implementata;
-Fase 2 (schede complete e foto) da fare.
+Stato: **piano approvato** l'11.11.2026. Fase 1 (lettura e confronto) e Fase 2 (schede
+complete e foto) implementate.
 
 ## Lo scopo
 
@@ -76,11 +76,24 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
 
 ### Fase 2: schede complete e foto
 
-- Migrazione: `description`, `sources` e `enriched_at` su `wine_catalog_entries`.
-- Ricerca dei dati a gruppi, controllo qualità e scontorno della foto, revisione e
-  salvataggio.
-- Test: validazione dell'output AI, soglie della foto su immagini sintetiche, salvataggio
-  e riuso da parte di una cantina.
+- Migrazione `0134_catalog_entry_details`: `description`, `sources` e `enriched_at` su
+  `wine_catalog_entries`.
+- Backend: `services/catalog_photo_details.py` e prompt `catalog_photo_details_prompt`.
+  - `POST /api/v1/catalog-photos/scans/{id}/details` cerca fino a 10 vini, 5 per chiamata,
+    al massimo 4 ricerche web per chiamata. Un vino senza una fonte restituita davvero
+    dalla ricerca, o con un produttore o un nome diversi da quelli letti, risulta "non
+    trovato".
+  - `POST /api/v1/catalog-photos/scans/{id}/bottles/{n}` salva la scheda. Le fonti
+    arrivano dal server, mai dal client. I dati per annata (finestra di beva, note,
+    vitigni) vanno nei `SharedWineFact`, solo se mancano.
+  - La foto è controllata alla fine della lettura, senza AI: lettura sicura, bottiglia
+    intera, almeno 400 px di altezza e 80 px di etichetta, etichetta non troppo scura,
+    non bruciata, nitida (varianza del laplaciano ≥ 40). Le soglie vanno tarate su foto
+    vere.
+  - Il lavoro resta disponibile 90 minuti dall'ultima richiesta dell'admin.
+- Frontend: scelta dei vini da cercare, esito della ricerca e della foto per ogni vino,
+  modulo "Rivedi e salva" (`AdminCatalogPhotoEditor.tsx`).
+- Test: `tests/test_catalog_photo_details.py` e `e2e/admin-catalog-photo.spec.ts`.
 
 ## Fuori da questo piano
 

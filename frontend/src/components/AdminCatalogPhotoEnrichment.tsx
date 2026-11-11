@@ -1,13 +1,16 @@
 import { useState, type ChangeEvent } from "react";
 import { AppIcon } from "./AppIcon";
 import { ButtonBusyContent } from "./AppUi";
-import { runCatalogPhotoScan } from "../services/catalogPhotoScan";
+import { AdminCatalogPhotoEditor, TYPE_LABELS } from "./AdminCatalogPhotoEditor";
+import { runCatalogPhotoDetails, runCatalogPhotoScan } from "../services/catalogPhotoScan";
 import { usePhotoPreviews } from "../utils/photoPreview";
-import type { CatalogPhotoBottle, CatalogPhotoScanResult, CatalogWine, Locale } from "../types";
+import type { CatalogPhotoBottle, CatalogPhotoSaveResult, CatalogPhotoScanResult, CatalogWine, Locale } from "../types";
 import "./AdminCatalogPhotoEnrichment.css";
 
 const MAX_PHOTOS = 3;
 const PREVIEW_SIDE = 1600;
+// Wines researched in one go; the server asks the AI about five at a time.
+const MAX_RESEARCH = 10;
 
 type Mode = "shelf" | "close";
 type Props = { locale: Locale; disabled?: boolean };
@@ -21,21 +24,41 @@ const FIELD_LABELS: Record<string, [string, string]> = {
   grapes_text: ["vitigni", "grapes"],
 };
 
-const TYPE_LABELS: Record<string, [string, string]> = {
-  Red: ["Rosso", "Red"],
-  White: ["Bianco", "White"],
-  Rose: ["Rosato", "Rosé"],
-  Sparkling: ["Spumante", "Sparkling"],
-  Sweet: ["Dolce", "Sweet"],
-  Fortified: ["Fortificato", "Fortified"],
-};
-
 const STATUS_LABELS: Record<CatalogPhotoBottle["status"], [string, string]> = {
   new: ["Nuovo", "New"],
   known: ["In catalogo", "In the catalog"],
   pending: ["Da approvare", "Awaiting approval"],
   uncertain: ["Da controllare", "Check"],
 };
+
+const PHOTO_ISSUES: Record<CatalogPhotoBottle["photo"]["issue"], [string, string]> = {
+  "": ["", ""],
+  uncertain: ["etichetta letta senza piena sicurezza", "label not read with full confidence"],
+  cut: ["bottiglia non intera nella foto", "bottle not whole in the photo"],
+  small: ["bottiglia troppo piccola nella foto", "bottle too small in the photo"],
+  blurry: ["foto sfocata", "blurry photo"],
+  dark: ["foto troppo scura", "photo too dark"],
+  bright: ["foto troppo chiara", "photo too bright"],
+};
+
+const SAVED_PHOTO: Record<CatalogPhotoSaveResult["photo"], [string, string]> = {
+  saved: ["Foto salvata nell'archivio condiviso.", "Photo saved to the shared library."],
+  exists: ["La foto già presente è stata mantenuta.", "The existing photo was kept."],
+  failed: ["Non è stato possibile scontornare la bottiglia: foto non salvata.", "The bottle could not be cut out: photo not saved."],
+  skipped: ["", ""],
+};
+
+/** Wines worth researching: not saved yet and without details already found. */
+const researchable = (bottle: CatalogPhotoBottle) => !bottle.saved && !bottle.details?.found;
+
+function defaultSelection(bottles: CatalogPhotoBottle[]) {
+  return bottles
+    .map((bottle, index) => ({ bottle, index }))
+    .filter(({ bottle }) => researchable(bottle) && bottle.confidence !== "low"
+      && (bottle.status === "new" || bottle.status === "pending" || (bottle.status === "known" && bottle.missing_fields.length > 0)))
+    .map(({ index }) => index)
+    .slice(0, MAX_RESEARCH);
+}
 
 /** The part of the photo showing this bottle (or its label), as ratios of the photo. */
 function cropOf(bottle: CatalogPhotoBottle, aspect: number) {
@@ -93,6 +116,11 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<CatalogPhotoScanResult | null>(null);
+  const [jobId, setJobId] = useState("");
+  const [selected, setSelected] = useState<number[]>([]);
+  const [researching, setResearching] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [savedPhotos, setSavedPhotos] = useState<Record<number, CatalogPhotoSaveResult["photo"]>>({});
 
   const choosePhotos = (event: ChangeEvent<HTMLInputElement>) => {
     const chosen = Array.from(event.target.files ?? []).filter((file) => file.type.startsWith("image/"));
@@ -114,8 +142,13 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
     setBusy(true);
     setError("");
     setResult(null);
+    setEditing(null);
+    setSavedPhotos({});
     try {
-      setResult(await runCatalogPhotoScan(form, locale, setProgress));
+      const scanned = await runCatalogPhotoScan(form, locale, setProgress);
+      setJobId(scanned.jobId);
+      setResult(scanned.result);
+      setSelected(defaultSelection(scanned.result.bottles));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -124,13 +157,42 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
     }
   };
 
+  const research = async () => {
+    if (!jobId || !selected.length || researching) return;
+    setResearching(true);
+    setError("");
+    setEditing(null);
+    try {
+      const researched = await runCatalogPhotoDetails(jobId, [...selected].sort((a, b) => a - b), locale, setProgress);
+      setResult(researched.result);
+      setSelected([]);
+      if (researched.error) setError(researched.error);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setResearching(false);
+      setProgress("");
+    }
+  };
+  const toggle = (index: number, on: boolean) =>
+    setSelected((current) => (on ? [...current, index].slice(0, MAX_RESEARCH) : current.filter((item) => item !== index)));
+  const saved = (index: number, outcome: CatalogPhotoSaveResult) => {
+    setResult((current) => current && { ...current, bottles: current.bottles.map((bottle, position) => (position === index ? outcome.bottle : bottle)) });
+    setSavedPhotos((current) => ({ ...current, [index]: outcome.photo }));
+    setSelected((current) => current.filter((item) => item !== index));
+    setEditing(null);
+  };
+  const working = busy || researching;
+
   const bottles = result?.bottles ?? [];
+  const open = bottles.filter((bottle) => !bottle.saved);
   const counts = {
-    new: bottles.filter((bottle) => bottle.status === "new").length,
-    incomplete: bottles.filter((bottle) => bottle.status === "known" && bottle.missing_fields.length).length,
-    pending: bottles.filter((bottle) => bottle.status === "pending").length,
-    uncertain: bottles.filter((bottle) => bottle.status === "uncertain").length,
-    complete: bottles.filter((bottle) => bottle.status === "known" && !bottle.missing_fields.length).length,
+    new: open.filter((bottle) => bottle.status === "new").length,
+    incomplete: open.filter((bottle) => bottle.status === "known" && bottle.missing_fields.length).length,
+    pending: open.filter((bottle) => bottle.status === "pending").length,
+    uncertain: open.filter((bottle) => bottle.status === "uncertain").length,
+    complete: open.filter((bottle) => bottle.status === "known" && !bottle.missing_fields.length).length,
+    saved: bottles.length - open.length,
   };
   const summary: [number, string, string][] = [
     [counts.new, it ? "nuovi" : "new", "new"],
@@ -138,7 +200,9 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
     [counts.pending, it ? "da approvare" : "awaiting approval", "pending"],
     [counts.uncertain, it ? "da controllare" : "to check", "uncertain"],
     [counts.complete, it ? "già completi" : "already complete", "complete"],
+    [counts.saved, it ? "salvati" : "saved", "saved"],
   ];
+  const canResearch = bottles.some(researchable);
 
   return (
     <section className="settings-card settings-card-wide catalog-photo" aria-labelledby="catalog-photo-title">
@@ -163,7 +227,7 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
             aria-checked={mode === value}
             className={mode === value ? "is-selected" : ""}
             onClick={() => { setMode(value); setResult(null); }}
-            disabled={busy}
+            disabled={working}
           >
             <strong>{value === "shelf" ? (it ? "Scaffale" : "Shelf") : (it ? "Bottiglie da vicino" : "Close-up bottles")}</strong>
             <span>
@@ -179,7 +243,7 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
         {photos.map((photo, index) => (
           <figure key={index} className="catalog-photo-thumb">
             {previews[index] ? <img src={previews[index]} alt={photo.name} /> : <span className="catalog-photo-thumb-pending" />}
-            <button type="button" className="secondary compact" onClick={() => removePhoto(index)} disabled={busy} aria-label={it ? `Togli ${photo.name}` : `Remove ${photo.name}`}>
+            <button type="button" className="secondary compact" onClick={() => removePhoto(index)} disabled={working} aria-label={it ? `Togli ${photo.name}` : `Remove ${photo.name}`}>
               ×
             </button>
           </figure>
@@ -190,20 +254,20 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
               <AppIcon name="camera" variant="ai" size="1.6em" />
               <span>{photos.length ? (it ? "Scatta un'altra" : "Take another") : (it ? "Scatta" : "Take a photo")}</span>
               <small>{it ? "Fotocamera" : "Camera"}</small>
-              <input type="file" accept="image/*" capture="environment" onChange={choosePhotos} disabled={busy || disabled} />
+              <input type="file" accept="image/*" capture="environment" onChange={choosePhotos} disabled={working || disabled} />
             </label>
             <label className="catalog-photo-add">
               <AppIcon name="import" size="1.6em" />
               <span>{it ? "Carica" : "Upload"}</span>
               <small>{it ? `Dalla galleria, fino a ${MAX_PHOTOS}` : `From the gallery, up to ${MAX_PHOTOS}`}</small>
-              <input type="file" accept="image/*" multiple onChange={choosePhotos} disabled={busy || disabled} />
+              <input type="file" accept="image/*" multiple onChange={choosePhotos} disabled={working || disabled} />
             </label>
           </>
         ) : null}
       </div>
 
       <div className="catalog-photo-actions">
-        <button type="button" onClick={() => void read()} disabled={!photos.length || busy || disabled}>
+        <button type="button" className={result ? "secondary" : ""} onClick={() => void read()} disabled={!photos.length || working || disabled}>
           <ButtonBusyContent busy={busy} idleLabel={it ? "Leggi le etichette" : "Read the labels"} busyLabel={it ? "Leggo…" : "Reading…"} ai />
         </button>
         {progress ? <p className="catalog-photo-progress" role="status">{progress}</p> : null}
@@ -219,11 +283,32 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
                   <li key={key} className={`is-${key}`}><strong>{count}</strong> {label}</li>
                 ))}
               </ul>
+              {canResearch ? (
+                <div className="catalog-photo-research">
+                  <div>
+                    <strong>{it ? "Completa le schede con l'AI" : "Complete the entries with AI"}</strong>
+                    <span>
+                      {it
+                        ? `Scegli fino a ${MAX_RESEARCH} vini: l'AI cerca sul web produttore, denominazione, vitigni, una descrizione e la finestra di beva, mai il valore. Circa 1 centesimo per ricerca web, con la chiave di Vinaris.`
+                        : `Choose up to ${MAX_RESEARCH} wines: the AI searches the web for producer, appellation, grapes, a description and the drinking window, never the value. About 1 cent per web search, on the Vinaris key.`}
+                    </span>
+                  </div>
+                  <button type="button" onClick={() => void research()} disabled={!selected.length || working || disabled}>
+                    <ButtonBusyContent
+                      busy={researching}
+                      idleLabel={it ? `Cerca i dati (${selected.length})` : `Research (${selected.length})`}
+                      busyLabel={it ? "Cerco…" : "Researching…"}
+                      ai
+                    />
+                  </button>
+                </div>
+              ) : null}
               <ol className="catalog-photo-list">
                 {bottles.map((bottle, index) => {
                   const url = previews[bottle.image_index] ?? "";
                   const complete = bottle.status === "known" && !bottle.missing_fields.length;
-                  const statusKey = complete ? "complete" : bottle.status === "known" ? "incomplete" : bottle.status;
+                  const statusKey = bottle.saved ? "saved" : complete ? "complete" : bottle.status === "known" ? "incomplete" : bottle.status;
+                  const photoOutcome = savedPhotos[index];
                   return (
                     <li key={index} className={`catalog-photo-item is-${statusKey}`}>
                       <BottleCrop url={url} bottle={bottle} size={sizes[url]} />
@@ -235,29 +320,77 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
                       ) : null}
                       <div className="catalog-photo-item-body">
                         <span className={`catalog-photo-status is-${statusKey}`}>
-                          {complete ? (it ? "Completo" : "Complete") : pick(STATUS_LABELS[bottle.status])}
+                          {bottle.saved ? (it ? "Salvato" : "Saved") : complete ? (it ? "Completo" : "Complete") : pick(STATUS_LABELS[bottle.status])}
                         </span>
                         <strong>{[wineTitle(bottle), bottle.vintage].filter(Boolean).join(" ")}</strong>
                         <span className="catalog-photo-meta">
                           {[TYPE_LABELS[bottle.wine_type] ? pick(TYPE_LABELS[bottle.wine_type]) : bottle.wine_type, bottle.appellation, bottle.region, bottle.country].filter(Boolean).join(" · ")
                             || (it ? "Solo il nome è leggibile" : "Only the name is legible")}
                         </span>
-                        {bottle.status === "known" && bottle.missing_fields.length ? (
+                        {!bottle.saved && bottle.status === "known" && bottle.missing_fields.length ? (
                           <span className="catalog-photo-note">
                             {it ? "Manca: " : "Missing: "}
                             {bottle.missing_fields.map((field) => pick(FIELD_LABELS[field] ?? [field, field])).join(", ")}
                           </span>
                         ) : null}
-                        {bottle.status === "pending" && bottle.entry ? (
+                        {!bottle.saved && bottle.status === "pending" && bottle.entry ? (
                           <span className="catalog-photo-note">{it ? "Scheda già proposta: " : "Entry already proposed: "}{wineTitle(bottle.entry)}</span>
                         ) : null}
                         {bottle.status === "uncertain" && bottle.candidates.length ? (
                           <span className="catalog-photo-note">{it ? "Forse: " : "Maybe: "}{bottle.candidates.map(wineTitle).join("; ")}</span>
                         ) : null}
-                        {bottle.confidence === "low" ? (
+                        {bottle.confidence === "low" && !bottle.saved ? (
                           <span className="catalog-photo-note is-warning">{it ? "Etichetta letta con poca sicurezza" : "Label read with low confidence"}</span>
                         ) : null}
+                        {bottle.details && !bottle.saved ? (
+                          <span className={`catalog-photo-note${bottle.details.found ? " is-found" : " is-warning"}`}>
+                            {bottle.details.found
+                              ? (it ? `Dati trovati · ${bottle.details.sources.length} ${bottle.details.sources.length === 1 ? "fonte" : "fonti"}` : `Details found · ${bottle.details.sources.length} ${bottle.details.sources.length === 1 ? "source" : "sources"}`)
+                              : (it ? "Nessun dato affidabile trovato" : "No reliable details found")}
+                          </span>
+                        ) : null}
+                        {!bottle.saved && bottle.photo.ok ? (
+                          <span className="catalog-photo-note">
+                            {bottle.photo.has_library_photo
+                              ? (it ? "Foto adatta all'archivio · ce n'è già una" : "Photo fit for the library · one already exists")
+                              : (it ? "Foto adatta all'archivio" : "Photo fit for the library")}
+                          </span>
+                        ) : null}
+                        {!bottle.saved && bottle.photo.issue ? (
+                          <span className="catalog-photo-note">{it ? "Foto non salvabile: " : "Photo not kept: "}{pick(PHOTO_ISSUES[bottle.photo.issue])}</span>
+                        ) : null}
+                        {bottle.saved && photoOutcome && photoOutcome !== "skipped" ? (
+                          <span className="catalog-photo-note">{pick(SAVED_PHOTO[photoOutcome])}</span>
+                        ) : null}
                       </div>
+                      {!bottle.saved && editing !== index ? (
+                        <div className="catalog-photo-item-actions">
+                          {researchable(bottle) ? (
+                            <label className="catalog-photo-pick">
+                              <input
+                                type="checkbox"
+                                checked={selected.includes(index)}
+                                onChange={(event) => toggle(index, event.target.checked)}
+                                disabled={working || (!selected.includes(index) && selected.length >= MAX_RESEARCH)}
+                              />
+                              <span>{it ? "Cerca i dati" : "Research"}</span>
+                            </label>
+                          ) : <span />}
+                          <button type="button" className="secondary compact" onClick={() => setEditing(index)} disabled={working}>
+                            {it ? "Rivedi e salva" : "Review and save"}
+                          </button>
+                        </div>
+                      ) : null}
+                      {editing === index && jobId ? (
+                        <AdminCatalogPhotoEditor
+                          locale={locale}
+                          jobId={jobId}
+                          position={index}
+                          bottle={bottle}
+                          onSaved={(outcome) => saved(index, outcome)}
+                          onCancel={() => setEditing(null)}
+                        />
+                      ) : null}
                     </li>
                   );
                 })}
@@ -275,6 +408,9 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
               ? (it ? `Parti della foto non lette: ${result.unread_sections}. ` : `Photo parts not read: ${result.unread_sections}. `)
               : ""}
             {it ? "Costo della lettura" : "Reading cost"}: ${Number(result.estimated_cost_usd).toFixed(3)}
+            {Number(result.details_cost_usd) > 0
+              ? ` · ${it ? "ricerca dei dati" : "research"}: $${Number(result.details_cost_usd).toFixed(3)}`
+              : ""}
           </p>
         </div>
       ) : null}

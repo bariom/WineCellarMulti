@@ -7,11 +7,18 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
+from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_app_admin_context
 from app.core.config import settings
-from app.schemas.catalog_photo import CatalogPhotoScanStatus
-from app.services import catalog_photo_scan
+from app.db.session import get_db
+from app.schemas.catalog_photo import (
+    CatalogPhotoDetailsRequest,
+    CatalogPhotoSave,
+    CatalogPhotoSaveResult,
+    CatalogPhotoScanStatus,
+)
+from app.services import catalog_photo_details, catalog_photo_scan
 from app.services.wine_image_recognition import model_view_image, shelf_photo_sections
 
 router = APIRouter(prefix="/catalog-photos")
@@ -75,9 +82,48 @@ def get_catalog_photo_scan(
     context: CurrentContext = Depends(require_app_admin_context),
 ) -> CatalogPhotoScanStatus:
     """Progress of a photo analysis started by this administrator, with its result when done."""
+    return own_job(job_id, context).snapshot()
+
+
+def own_job(job_id: UUID, context: CurrentContext) -> catalog_photo_scan.CatalogPhotoJob:
     job = catalog_photo_scan.get_job(job_id, user_id=context.user.id)
     if job is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Photo analysis not found"
         )
+    return job
+
+
+@router.post(
+    "/scans/{job_id}/details",
+    response_model=CatalogPhotoScanStatus,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def research_catalog_photo_details(
+    job_id: UUID,
+    payload: CatalogPhotoDetailsRequest,
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> CatalogPhotoScanStatus:
+    """Research the base facts of the chosen wines on the web, a few wines per AI call."""
+    job = own_job(job_id, context)
+    catalog_photo_details.start_details(job, payload.bottles, locale=context.user.locale)
     return job.snapshot()
+
+
+@router.post("/scans/{job_id}/bottles/{position}", response_model=CatalogPhotoSaveResult)
+def save_catalog_photo_bottle(
+    job_id: UUID,
+    position: int,
+    payload: CatalogPhotoSave,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> CatalogPhotoSaveResult:
+    """Save a reviewed wine to the catalog, its vintage facts and, if good, its bottle photo."""
+    return catalog_photo_details.save_bottle(
+        db,
+        own_job(job_id, context),
+        position,
+        payload,
+        user_id=context.user.id,
+        locale=context.user.locale,
+    )
