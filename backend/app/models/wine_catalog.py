@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, String, Text, Uuid
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -27,7 +28,11 @@ class WineCatalogEntry(Base):
     source: Mapped[str] = mapped_column(String(40), default="manual")
     # Researched by an app admin from a photo (docs/CATALOG_PHOTO_ENRICHMENT.md).
     description: Mapped[str] = mapped_column(Text, default="", server_default="")
-    sources: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    # jsonb on PostgreSQL: the catalog searches SELECT DISTINCT whole entries, and json
+    # has no equality operator.
+    sources: Mapped[list] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), default=list, server_default="[]"
+    )
     enriched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

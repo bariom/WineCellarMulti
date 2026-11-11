@@ -493,3 +493,16 @@ def test_ambiguous_names_must_be_chosen_and_only_app_admins_save(monkeypatch, tm
         ).status_code
         == 403
     )
+
+
+def test_catalog_entries_stay_selectable_with_distinct_on_postgresql():
+    """PostgreSQL cannot compare json: a json column breaks every catalog search (DISTINCT)."""
+    from sqlalchemy import JSON
+    from sqlalchemy.dialects import postgresql
+
+    dialect = postgresql.dialect()
+    for column in WineCatalogEntry.__table__.columns:
+        if isinstance(column.type, JSON):
+            assert column.type.dialect_impl(dialect).compile(dialect=dialect) == "JSONB", (
+                column.name
+            )
