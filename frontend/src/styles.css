@@ -27854,3 +27854,28 @@ body,
 }
 .demo-event-return small { overflow: hidden; text-overflow: ellipsis; font-weight: 500; opacity: .75; }
 .demo-event-return small::before { content: "· "; }
+
+/* Narrow phones and foldable cover screens (Galaxy Z Fold: 360 CSS px): the wine detail's
+   nested cards each kept their own margin and padding, leaving the content 73-80% of the
+   width. Below 384 px the cards reach the edge of the sheet and keep a single inset. */
+@container wine-detail-shell (max-width: 384px) {
+  .mobile-detail-sheet .wine-detail,
+  .wine-detail-modal-content .wine-detail {
+    padding-inline: 8px;
+  }
+
+  .mobile-detail-sheet .wine-detail .detail-hero,
+  .wine-detail-modal-content .wine-detail .detail-hero,
+  .mobile-detail-sheet .wine-detail .taste-note,
+  .wine-detail-modal-content .wine-detail .taste-note {
+    margin-inline: 0;
+    padding-inline: 10px;
+  }
+
+  .mobile-detail-sheet .wine-detail .detail-hero .drink-window,
+  .wine-detail-modal-content .wine-detail .detail-hero .drink-window,
+  .mobile-detail-sheet .wine-detail :is(.detail-overview-block, .detail-market-block),
+  .wine-detail-modal-content .wine-detail :is(.detail-overview-block, .detail-market-block) {
+    padding-inline: 10px;
+  }
+}
