@@ -43,12 +43,13 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
    finestra di beva per l'annata letta e le fonti. Un campo è accettato solo se coerente
    con produttore e annata letti sull'etichetta e se la fonte è tra quelle restituite
    davvero dalla ricerca.
-5. **Foto della bottiglia** (Fase 2), senza AI. La bottiglia è ritagliata dall'originale a
-   piena risoluzione e controllata: dimensione minima, nitidezza, esposizione, etichetta
-   letta con sicurezza alta e bottiglia non tagliata dal bordo. Se passa, è scontornata
-   con lo stesso procedimento delle foto delle bottiglie (`process_bottle_photo`) e
-   salvata nell'archivio condiviso (`WinePhotoLibraryEntry`). Una foto già presente per
-   quel vino non viene sostituita, salvo scelta esplicita.
+5. **Foto della bottiglia** (Fase 2), senza costi di AI. Si salva solo la foto di una
+   bottiglia intera, dritta, nitida e separata dalle altre: lo si verifica prima con
+   controlli sulla lettura (dimensione, nitidezza, esposizione, bottiglie troppo vicine),
+   poi sullo scontorno, che deve essere quello di una sola bottiglia. Se passa, la
+   bottiglia scontornata è mostrata in anteprima e salvata nell'archivio condiviso
+   (`WinePhotoLibraryEntry`); altrimenti si salva la sola scheda. Una foto già presente
+   per quel vino non viene sostituita, salvo scelta esplicita.
 6. **Revisione e salvataggio** (Fase 2). L'admin corregge i campi e salva: la scheda
    nuova nasce approvata, quella esistente riceve solo i campi vuoti (o quelli che l'admin
    ha cambiato), i dati per annata vanno nei `SharedWineFact`, la foto nell'archivio.
@@ -86,54 +87,31 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
   - `POST /api/v1/catalog-photos/scans/{id}/bottles/{n}` salva la scheda. Le fonti
     arrivano dal server, mai dal client. I dati per annata (finestra di beva, note,
     vitigni) vanno nei `SharedWineFact`, solo se mancano.
-  - La foto è controllata alla fine della lettura, senza AI: lettura sicura, bottiglia
-    intera, almeno 400 px di altezza e 80 px di etichetta, etichetta non troppo scura,
-    non bruciata, nitida (varianza del laplaciano ≥ 40). Le soglie vanno tarate su foto
-    vere.
-  - Lo scontorno delle foto del catalogo (`process_bottle_photo(...,
-    catalog_label_share=...)`) non usa la sagoma della fotocamera dell'app: la bottiglia
-    di uno scaffale non è né centrata né dritta, e ha vicine che la toccano.
-    - Il ritaglio, centrato sull'etichetta, lascia l'8% di margine sopra e il 12% sotto.
-    - SAM (Segment Anything, modello aperto, `WINE_PHOTO_CATALOG_SAM_MODEL=sam`) disegna
-      la bottiglia indicata da due punti (etichetta e base, che cadono sul corpo anche se
-      la stima dell'etichetta è un po' spostata) e da un riquadro: le vicine che la toccano
-      restano fuori, e il collo resta anche dove il modello di sfondo lo perde tra capsule
-      uguali. Della sua maschera si tengono i pezzi sulla linea centrale (non quelli sotto
-      la base, come i cartellini del prezzo); le righe vuote prendono la larghezza del
-      corpo e i buchi vengono chiusi (`sam_bottle_mask`). Il modello di sfondo
-      (`birefnet-general-lite`) aggiunge i pixel di bordo vicini, e le regole qui sotto
-      tolgono ciò che sporge attorno all'asse misurato sul corpo di SAM (`sam_body`).
-      Senza SAM (non installabile, o vuoto nelle impostazioni) le regole lavorano sulla
-      sola maschera di sfondo. Tempi: 30–50 s per bottiglia sul PC di sviluppo, circa 20–40 s
-      sul server. Al primo uso il server scarica SAM (circa 400 MB); per farlo prima:
-      `cd backend && .venv/bin/python -c "import rembg; rembg.new_session('sam')"`.
-    - Provato su sei bottiglie di due foto e su sei varianti della posizione stimata
-      dell'etichetta della Patache d'Aux: tutte intere, con collo ed etichetta completi.
-    - Senza SAM, della maschera si tiene la sagoma della bottiglia, riga per riga lungo il suo asse
-      (`bottle_silhouette`). Il corpo è largo tra 0,22 e 0,6 della larghezza del ritaglio
-      (costruito sull'altezza della bottiglia); l'etichetta letta dall'AI restringe
-      l'intervallo solo se è coerente, perché la sua larghezza è una stima che cambia da
-      una lettura all'altra. La bottiglia è simmetrica; salendo la sagoma si stringe, a
-      parte il bordo della capsula; ogni riga deve sovrapporsi alla precedente. Quello che
-      sporge (bottiglie vicine, macchine, scaffali) viene tolto.
-    - `GET /api/v1/catalog-photos/scans/{id}/bottles/{n}/cutout` mostra lo scontorno in
-      "Rivedi e salva" prima del salvataggio; il lavoro lo tiene in memoria e il
-      salvataggio archivia esattamente quell'immagine. Se lo scontorno fallisce, la casella
-      della foto si disattiva.
-    - Limite noto: una bottiglia con un'altra uguale subito dietro, sfalsata di poco, esce
-      con due capsule sovrapposte.
-    - Bordi lisci: il ritaglio viene portato a 768×1152 px prima dello scontorno (anche
-      ingrandendolo, se la bottiglia nella foto è piccola), così il contorno nasce alla
-      dimensione a cui viene mostrato; la sagoma finale viene poi sfumata sul bordo
-      (`CATALOG_EDGE_SIGMA`, `CATALOG_EDGE_RAMP`) invece di restare "dentro o fuori".
-    - La foto è "non intera" solo se manca il contorno stimato o se la bottiglia tocca il
-      bordo della foto: il giudizio "bottiglia intera" dell'AI non conta, perché su uno
-      scaffale lo nega quasi sempre (vicine, bordo del ripiano sulla base).
-    - La bottiglia viene raddrizzata fino a 20° e scartata se tocca il bordo della foto o
-      del ritaglio, o se non ha proporzioni da bottiglia.
-    - Provato sul modello vero (`birefnet-general-lite`) con una foto di bancone con
-      bottiglie che si toccano: Sherazade, Hebo, 5 Stelle e Pinot Noir escono intere e
-      pulite.
+  - Regola per le foto (12.11.2026): si salva solo la foto di una bottiglia intera,
+    dritta, nitida e separata dalle altre; negli altri casi resta la sola scheda. I
+    tentativi di separare una bottiglia dalle vicine che la toccano (regole sulla sagoma,
+    poi SAM) davano contorni inaffidabili e sono stati tolti.
+  - Controllo dopo la lettura, senza AI (`check_bottle_photo`, `stands_beside_another`):
+    lettura non "bassa", contorno stimato presente e lontano dai bordi della foto,
+    bottiglia alta almeno 480 px ed etichetta almeno 80 px, etichetta non troppo scura,
+    non bruciata, nitida (varianza del laplaciano ≥ 40), nessun'altra etichetta letta
+    entro 1,45 larghezze di etichetta sullo stesso ripiano ("bottiglie troppo vicine").
+    Il giudizio "bottiglia intera" dell'AI non conta: su uno scaffale lo nega quasi sempre.
+  - Scontorno (`process_bottle_photo(..., catalog=True)`), senza la sagoma della
+    fotocamera dell'app. Il ritaglio, centrato sull'etichetta, lascia l'8% di margine
+    sopra e il 12% sotto ed è portato a 768×1152 px. Dalla maschera del modello di sfondo
+    (`birefnet-general-lite`) si prende l'oggetto centrale e si verifica che sia una sola
+    bottiglia (`check_single_bottle`): non tocca i bordi del ritaglio, corpo largo al
+    massimo 0,6 del ritaglio e nessuna riga più larga di 1,2 volte il corpo, altezza da
+    2,2 a 7 volte il corpo, un solo collo (da 0,15 a 0,75 del corpo) sull'asse del corpo,
+    inclinazione entro 6° (corretta). Se una verifica fallisce lo scontorno è rifiutato.
+    Il bordo è sfumato (`CATALOG_EDGE_SIGMA`, `CATALOG_EDGE_RAMP`).
+  - `GET /api/v1/catalog-photos/scans/{id}/bottles/{n}/cutout` mostra lo scontorno in
+    "Rivedi e salva" prima del salvataggio; il lavoro lo tiene in memoria e il
+    salvataggio archivia esattamente quell'immagine. Se lo scontorno è rifiutato, la
+    casella della foto si disattiva.
+  - Provato sul modello vero: sei bottiglie attaccate alle vicine (bancone e scaffale)
+    rifiutate, tre bottiglie isolate accettate, 11–15 s l'una sul PC di sviluppo.
   - Il lavoro resta disponibile 90 minuti dall'ultima richiesta dell'admin.
 - Frontend: scelta dei vini da cercare, esito della ricerca e della foto per ogni vino,
   modulo "Rivedi e salva" (`AdminCatalogPhotoEditor.tsx`).

@@ -13,7 +13,7 @@ from app.schemas.catalog import CatalogWineResponse
 CatalogPhotoMode = Literal["shelf", "close"]
 CatalogPhotoMatchStatus = Literal["known", "pending", "uncertain", "new"]
 # Why a bottle's photo is not good enough for the shared photo library.
-CatalogPhotoIssue = Literal["", "uncertain", "cut", "small", "blurry", "dark", "bright"]
+CatalogPhotoIssue = Literal["", "uncertain", "cut", "small", "blurry", "dark", "bright", "crowded"]
 
 
 class CatalogPhotoSource(BaseModel):

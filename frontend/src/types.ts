@@ -322,7 +322,7 @@ export type CatalogPhotoBottle = {
   candidates: CatalogWine[];
   missing_fields: string[];
   /** Whether the bottle can go to the shared photo library, checked without AI. */
-  photo: { ok: boolean; issue: "" | "uncertain" | "cut" | "small" | "blurry" | "dark" | "bright"; has_library_photo: boolean };
+  photo: { ok: boolean; issue: "" | "uncertain" | "cut" | "small" | "blurry" | "dark" | "bright" | "crowded"; has_library_photo: boolean };
   details: CatalogPhotoDetails | null;
   saved: boolean;
   photo_saved: boolean;

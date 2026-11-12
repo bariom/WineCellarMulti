@@ -59,9 +59,9 @@ def _session_options(rembg: Any) -> dict[str, Any]:
 
     By default ONNX Runtime keeps every buffer of an inference in a CPU arena that never
     shrinks and grows again on the next run: measured on a 1016x1525 bottle frame, the
-    background model held 12.5 GB and SAM 7.2 GB after two cutouts. Without the arena the
-    same runs peak at 6.6 GB and 3.7 GB, return to about 0.5 GB between cutouts, take the
-    same time and produce identical masks.
+    background model held 12.5 GB after two cutouts. Without the arena the same runs peak
+    at 6.6 GB, return to about 0.5 GB between cutouts, take the same time and produce
+    identical masks.
     """
     if settings.wine_photo_ai_cpu_mem_arena:
         return {}
@@ -238,287 +238,122 @@ def _process_bottle_photo_with_session(
     }
 
 
-# Catalog photos (docs/CATALOG_PHOTO_ENRICHMENT.md): a bottle cut from a shop photo is
-# neither centered nor upright like one taken in the capture guide.
+# Catalog photos (docs/CATALOG_PHOTO_ENRICHMENT.md): a bottle framed from a shop or
+# close-up photo is not centered in the capture guide. Only a bottle standing apart
+# from the others, upright and whole, is cut out: telling a bottle from neighbours that
+# touch it gave unreliable outlines, so those photos are refused instead.
 CATALOG_SOURCE_MAX = (768, 1152)
-CATALOG_MAX_TILT = 20.0
+CATALOG_MAX_TILT = 6.0
 CATALOG_MIN_TILT = 0.8
 CATALOG_EDGE_PIXELS = 2
 # Smoothing of the cutout's outline: blur radius as a share of the frame's width, and
 # the steepness of the alpha ramp across the blurred edge.
 CATALOG_EDGE_SIGMA = 0.004
 CATALOG_EDGE_RAMP = 2.5
-CATALOG_TIMEOUT_SECONDS = 240
+# The frame is built on the bottle's height: one bottle's body spans up to this share
+# of its width, and no row of it is much wider than the body.
+CATALOG_MAX_BODY_SHARE = 0.6
+CATALOG_MAX_WIDENING = 1.2
 
 
-CATALOG_BODY_TOLERANCE = 1.08
-# Going up, the outline narrows (shoulder, neck); only the capsule's lip widens a little.
-CATALOG_NECK_TOLERANCE = 1.12
+def _row_extents(numpy: Any, mask: Any) -> tuple[Any, Any, Any]:
+    """Rows holding the bottle, with its leftmost and rightmost column in each."""
+    rows = numpy.nonzero(mask.any(axis=1))[0]
+    lefts = numpy.argmax(mask[rows], axis=1)
+    rights = mask.shape[1] - 1 - numpy.argmax(mask[rows][:, ::-1], axis=1)
+    return rows, lefts, rights
 
 
-def _run_around(row: Any, x: int, reach: int) -> tuple[int, int] | None:
-    """The contiguous run of mask pixels at (or nearest to) column x in one row."""
-    width = len(row)
-    start = next(
-        (
-            column
-            for offset in range(reach + 1)
-            for column in (x - offset, x + offset)
-            if 0 <= column < width and row[column]
-        ),
-        None,
-    )
-    if start is None:
-        return None
-    left = right = start
-    while left > 0 and row[left - 1]:
-        left -= 1
-    while right < width - 1 and row[right + 1]:
-        right += 1
-    return left, right
+def bottle_tilt(numpy: Any, alpha: Any) -> float:
+    """Degrees to rotate the image counterclockwise (PIL) to stand the bottle upright.
 
-
-def _follow_silhouette(binary: Any, keep: Any, start: int, axis: float, body: float) -> None:
-    """Mark the bottle's rows in keep, following its axis down to the base and up to the
-    capsule from the start row (see bottle_silhouette)."""
-    height, width = binary.shape
-
-    def follow(rows: range, *, upward: bool) -> None:
-        center = axis
-        narrowest = body
-        previous: tuple[int, int] | None = None
-        for row in rows:
-            run = _run_around(binary[row], round(center), 2)
-            # The bottle ends where the next row no longer overlaps it: whatever lies
-            # beyond (a neighbour's base, a shelf) is not followed.
-            if run is None or (
-                previous is not None
-                and min(run[1], previous[1]) - max(run[0], previous[0]) + 1
-                < 0.5 * min(previous[1] - previous[0] + 1, run[1] - run[0] + 1)
-            ):
-                return
-            run_width = run[1] - run[0] + 1
-            allowed = (
-                narrowest * CATALOG_NECK_TOLERANCE + 2 if upward else body * CATALOG_BODY_TOLERANCE
-            )
-            if run_width <= allowed:
-                # A plausible row: keep it whole and let the axis follow a tilted bottle.
-                left, right = run
-                center = (0.5 if upward else 0.8) * center + (0.5 if upward else 0.2) * (
-                    (left + right) / 2
-                )
-            else:
-                # Something touches the bottle. The bottle is symmetric about its axis:
-                # keep the side that sticks out less, within the expected width.
-                half = min(center - run[0], run[1] - center, allowed / 2)
-                if half < 1:
-                    return
-                left, right = round(center - half), round(center + half)
-            if upward:
-                narrowest = min(narrowest, right - left + 1)
-            previous = (left, right)
-            keep[row, max(0, left) : min(width, right + 1)] = True
-
-    follow(range(start, height), upward=False)
-    follow(range(start - 1, -1, -1), upward=True)
-
-
-def bottle_silhouette(
-    numpy: Any,
-    binary: Any,
-    label_share: float = 0.0,
-    measured: tuple[float, float] | None = None,
-) -> Any:
-    """Keep the bottle standing at the frame's center and drop what touches it.
-
-    Row by row, only the run on the bottle's axis is kept, following the axis up and
-    down from the label. Below the label no row may be wider than the body; above it
-    the outline narrows towards the neck and may only widen a little again (the
-    capsule's lip). Neighbouring bottles, shelves or machines that touch the bottle are
-    trimmed away instead of joining the cutout. measured, the body's axis and width found
-    by SAM, is the surest measure; without it, label_share (the label's width as a share
-    of the frame's) tells a row of the bottle alone from one merged with a neighbour.
+    Measured on the body's center line (between its upper and lower halves), which a
+    lopsided neck or capsule hardly moves.
     """
-    height, width = binary.shape
-    keep = numpy.zeros_like(binary, dtype=bool)
-    reach = max(2, round(width * 0.04))
-    middle = height // 2
-    look_at = round(measured[0]) if measured else width // 2
-    start = next(
-        (
-            row
-            for offset in range(height // 4)
-            for row in (middle + offset, middle - offset)
-            if 0 <= row < height and _run_around(binary[row], look_at, reach)
-        ),
-        None,
-    )
-    if start is None:
-        return keep
-    first = _run_around(binary[start], look_at, reach)
-    assert first is not None
-    if measured is not None:
-        axis, body = measured
-        _follow_silhouette(binary, keep, start, axis, body)
-        return keep
-    # The body's width and axis, from the rows between shoulder and base. The frame is
-    # built on the bottle's height, so its body spans 0.22 to 0.6 of the frame's width;
-    # the label read by the AI narrows that range only when it agrees with it, since the
-    # reading's label size is an estimate that varies between readings.
-    lower, upper = width * 0.22, width * 0.6
-    label = label_share * width
-    label_agrees = bool(label) and lower <= label * 1.5 and label * 0.85 <= upper
-    if label_agrees:
-        lower, upper = max(lower, label * 0.85), min(upper, label * 1.5)
-    runs = [
-        run
-        for run in (
-            _run_around(binary[row], width // 2, reach)
-            for row in range(round(height * 0.35), round(height * 0.85))
-        )
-        if run is not None
-    ]
-    body_runs = [run for run in runs if lower <= run[1] - run[0] + 1 <= upper]
-    if body_runs:
-        body = float(numpy.percentile([right - left + 1 for left, right in body_runs], 30))
-    elif label_agrees:
-        # Every body row is merged with a neighbour: the label is the only measure left.
-        body = label * 1.15
-        body_runs = runs or [first]
-    else:
-        body_runs = [run for run in runs if width * 0.22 <= run[1] - run[0] + 1 <= width * 0.6] or [
-            first
-        ]
-        body = float(numpy.percentile([right - left + 1 for left, right in body_runs], 30))
-        body = min(max(body, width * 0.22), width * 0.6)
-    axis = float(
-        numpy.median(
-            [
-                (left + right) / 2
-                for left, right in body_runs
-                if right - left + 1 <= body * CATALOG_BODY_TOLERANCE
-            ]
-            or [width / 2]
-        )
-    )
-
-    _follow_silhouette(binary, keep, start, axis, body)
-    return keep
+    rows, lefts, rights = _row_extents(numpy, alpha > 0.5)
+    if len(rows) < 20:
+        return 0.0
+    span = rows[-1] - rows[0]
+    body = (rows >= rows[0] + span * 0.4) & (rows <= rows[0] + span * 0.92)
+    body_rows, centers = rows[body], (lefts[body] + rights[body]) / 2
+    half = len(body_rows) // 2
+    if half < 5:
+        return 0.0
+    run = float(numpy.median(body_rows[half:]) - numpy.median(body_rows[:half]))
+    drift = float(numpy.median(centers[half:]) - numpy.median(centers[:half]))
+    return float(numpy.degrees(numpy.arctan2(-drift, run)))
 
 
-def sam_bottle_mask(numpy: Any, scipy_ndimage: Any, sam_mask: Any, label_y: float) -> Any | None:
-    """The bottle SAM was pointed at (label and base), whole and without holes.
+def check_single_bottle(numpy: Any, mask: Any) -> None:
+    """Refuse a mask that is not one whole bottle standing apart and upright.
 
-    SAM tells this bottle from its neighbours and keeps its neck even where the
-    background model loses it among identical capsules; it may split the bottle or miss
-    parts of a label. Its pieces on the bottle's center line are kept, rows left empty
-    between them take the body's width, and gaps and holes are closed.
+    The background model outlines everything in front of the background: neighbours
+    touching the bottle, or a dark bottle lost against a dark shelf, give a mask wider
+    than a bottle, cut by the frame, without a neck or leaning.
     """
-    height, width = sam_mask.shape
-    center = width // 2
-    labels, _ = scipy_ndimage.label(sam_mask)
-    # SAM's mask holds only the bottle pointed at: every piece of it crossing the central
-    # column belongs to that bottle, even when SAM split it at the label.
-    rows = [min(height - 1, max(0, round(y))) for y in (label_y, height * 0.82)]
-    picked = {int(labels[row, center]) for row in rows} - {0}
-    if not picked:
-        return None
-    # Nothing of the bottle lies below its base (a price tag on the shelf edge does).
-    base = int(numpy.nonzero(numpy.isin(labels, list(picked)).any(axis=1))[0].max())
-    column = labels[:, max(0, center - 2) : center + 3]
-    for value in set(numpy.unique(column).tolist()) - {0} - picked:
-        if numpy.nonzero((labels == value).any(axis=1))[0].min() < base:
-            picked.add(int(value))
-    keep = numpy.isin(labels, list(picked))
-    filled_rows = numpy.nonzero(keep.any(axis=1))[0]
-    if filled_rows.max() - filled_rows.min() + 1 < height * 0.5:
-        return None
-    lefts = numpy.argmax(keep, axis=1)
-    rights = width - 1 - numpy.argmax(keep[:, ::-1], axis=1)
-    lower = [row for row in filled_rows if row > height * 0.5] or list(filled_rows)
-    body = (int(numpy.median(lefts[lower])), int(numpy.median(rights[lower])))
-    keep = keep.copy()
-    for row in range(int(filled_rows.min()), int(filled_rows.max()) + 1):
-        if not keep[row].any():
-            keep[row, body[0] : body[1] + 1] = True
-    radius = max(3, round(width * 0.02))
-    closed = scipy_ndimage.binary_closing(keep, structure=numpy.ones((radius * 3, radius)))
-    return scipy_ndimage.binary_fill_holes(closed | keep)
-
-
-def sam_body(numpy: Any, mask: Any) -> tuple[float, float] | None:
-    """The body's axis and width, measured on the lower half of SAM's bottle."""
     height, width = mask.shape
-    body_rows = [row for row in range(round(height * 0.55), round(height * 0.9)) if mask[row].any()]
-    if len(body_rows) < height * 0.1:
-        return None
-    lefts = numpy.argmax(mask[body_rows], axis=1)
-    rights = width - 1 - numpy.argmax(mask[body_rows][:, ::-1], axis=1)
-    body = float(numpy.median(rights - lefts + 1))
-    if not width * 0.15 <= body <= width * 0.65:
-        return None
-    return float(numpy.median((lefts + rights) / 2)), body
-
-
-def catalog_bottle_alpha(
-    numpy: Any,
-    scipy_ndimage: Any,
-    model_alpha: Any,
-    label_share: float = 0.0,
-    sam_mask: Any | None = None,
-) -> Any:
-    """The bottle's alpha in a catalog frame, without the capture guide.
-
-    With SAM's bottle, the outline is SAM's, refined by the background model's edges
-    next to it; otherwise the background model's mask around the frame's center (where
-    the label is). Either way the outline rules then trim what sticks out of a bottle's
-    shape, around the axis SAM measured when available.
-    A bottle touching the frame's edge is cut: its photo is not kept.
-    """
-    height, width = model_alpha.shape
-    binary = model_alpha > 0.12
-    measured = None
-    if sam_mask is not None:
-        near = scipy_ndimage.binary_dilation(sam_mask, iterations=max(2, round(width * 0.01)))
-        binary = sam_mask | (binary & near)
-        measured = sam_body(numpy, sam_mask)
-    selected = bottle_silhouette(numpy, binary, label_share, measured)
-    rows, columns = numpy.nonzero(selected)
+    rows, lefts, rights = _row_extents(numpy, mask)
     if not len(rows):
         raise BottlePhotoNotDetected("The AI could not detect a bottle")
     edge = CATALOG_EDGE_PIXELS
     if (
-        rows.min() < edge
-        or rows.max() >= height - edge
-        or columns.min() < edge
-        or columns.max() >= width - edge
+        rows[0] < edge
+        or rows[-1] >= height - edge
+        or lefts.min() < edge
+        or rights.max() >= width - edge
     ):
-        raise BottlePhotoNotDetected("The bottle is cut by the edge of the photo")
-    if rows.max() - rows.min() + 1 < height * 0.5:
+        raise BottlePhotoNotDetected("The bottle is cut or touches other bottles")
+    span = rows[-1] - rows[0] + 1
+    if span < height * 0.5:
         raise BottlePhotoNotDetected("The detected bottle outline is not reliable")
+    widths = rights - lefts + 1
+    body = float(numpy.median(widths[rows >= rows[0] + span * 0.5]))
+    widest = float(numpy.percentile(widths, 98))
+    if body > width * CATALOG_MAX_BODY_SHARE or widest > body * CATALOG_MAX_WIDENING:
+        raise BottlePhotoNotDetected("The bottle does not stand apart from the others")
+    # A neck is a fifth to a half of the body; a spike or a stump is not a bottle.
+    top = rows <= rows[0] + span * 0.08
+    neck = float(numpy.median(widths[top]))
+    if not 0.15 * body <= neck <= 0.75 * body:
+        raise BottlePhotoNotDetected("The detected bottle outline is not reliable")
+    # A wine bottle is about three to four times as tall as it is wide.
+    if not 2.2 <= span / body <= 7.0:
+        raise BottlePhotoNotDetected("The detected bottle outline is not reliable")
+    tilt = bottle_tilt(numpy, mask)
+    if abs(tilt) > CATALOG_MAX_TILT:
+        raise BottlePhotoNotDetected("The bottle is not upright")
+    # One bottle has one neck, on its body's axis: two bottles outlined together show two
+    # necks with a gap between them, or the taller one's neck off to one side.
+    filled = numpy.array(
+        [
+            mask[row, left : right + 1].mean()
+            for row, left, right in zip(rows[top], lefts[top], rights[top], strict=True)
+        ]
+    )
+    lower = rows >= rows[0] + span * 0.5
+    body_center = float(numpy.median((lefts[lower] + rights[lower]) / 2))
+    body_row = float(numpy.median(rows[lower]))
+    neck_row = float(numpy.median(rows[top]))
+    expected = body_center - numpy.tan(numpy.radians(tilt)) * (neck_row - body_row)
+    neck_center = float(numpy.median((lefts[top] + rights[top]) / 2))
+    if float(numpy.median(filled)) < 0.85 or abs(neck_center - expected) > 0.2 * body:
+        raise BottlePhotoNotDetected("The bottle does not stand apart from the others")
+
+
+def catalog_bottle_alpha(numpy: Any, scipy_ndimage: Any, model_alpha: Any) -> Any:
+    """The alpha of the one bottle standing in a catalog frame, without the capture guide."""
+    width = model_alpha.shape[1]
+    selected = _central_component(numpy, scipy_ndimage, model_alpha > 0.12)
     # Fill holes (reflections, a dark label) without the row spans of the capture guide,
-    # which would add background wedges beside a tilted bottle's neck.
+    # which would add background wedges beside a leaning bottle's neck.
     filled = scipy_ndimage.binary_fill_holes(selected)
-    # The silhouette is cut pixel by pixel and row by row: blurring it and keeping a short
-    # ramp around its outline rounds those steps into a smooth, feathered edge.
+    check_single_bottle(numpy, filled)
+    # Blurring the silhouette and keeping a short ramp around its outline gives a
+    # smooth, feathered edge.
     soft = scipy_ndimage.gaussian_filter(
         filled.astype(numpy.float32), sigma=max(1.5, width * CATALOG_EDGE_SIGMA)
     )
     return numpy.clip((soft - 0.5) * CATALOG_EDGE_RAMP + 0.5, 0.0, 1.0).astype(numpy.float32)
-
-
-def bottle_tilt(numpy: Any, alpha: Any) -> float:
-    """Degrees to rotate the image counterclockwise (PIL) to stand the bottle upright."""
-    rows, columns = numpy.nonzero(alpha > 0.5)
-    if len(rows) < 10:
-        return 0.0
-    coordinates = numpy.stack([columns, rows]).astype(numpy.float64)
-    coordinates -= coordinates.mean(axis=1, keepdims=True)
-    eigenvalues, eigenvectors = numpy.linalg.eigh(numpy.cov(coordinates))
-    axis_x, axis_y = eigenvectors[:, int(numpy.argmax(eigenvalues))]
-    if axis_y < 0:
-        axis_x, axis_y = -axis_x, -axis_y
-    return float(numpy.degrees(numpy.arctan2(-axis_x, axis_y)))
 
 
 def _compose_detail(image_module: Any, subject: Any) -> Any:
@@ -537,63 +372,10 @@ def _compose_detail(image_module: Any, subject: Any) -> Any:
     return output
 
 
-_catalog_sam_session: Any | None = None
-_catalog_sam_unavailable = False
-
-
-def _sam_session() -> Any | None:
-    """SAM, loaded once in the photo worker; None when disabled or not installable."""
-    global _catalog_sam_session, _catalog_sam_unavailable
-    model = settings.wine_photo_catalog_sam_model.strip()
-    if not model or _catalog_sam_unavailable:
-        return None
-    if _catalog_sam_session is None:
-        try:
-            _catalog_sam_session = _model_session(model)
-        except BottlePhotoAiError:
-            logger.warning("Catalog bottle photos fall back to the outline rules: no %s", model)
-            _catalog_sam_unavailable = True
-            return None
-    return _catalog_sam_session
-
-
-def _sam_bottle(
-    numpy: Any, image_module: Any, rembg: Any, scipy_ndimage: Any, source: Any, label_y: float
-) -> Any | None:
-    sam = _sam_session()
-    if sam is None:
-        return None
-    width, height = source.size
-    center = width // 2
-    label_row = min(height - 1, max(0, round(label_y * height)))
-    prompt = [
-        {"type": "point", "data": [center, label_row], "label": 1},
-        {"type": "point", "data": [center, round(height * 0.82)], "label": 1},
-        {
-            "type": "rectangle",
-            "data": [
-                round(center - width * 0.2),
-                round(height * 0.05),
-                round(center + width * 0.2),
-                round(height * 0.93),
-            ],
-        },
-    ]
-    try:
-        result = rembg.remove(source, session=sam, only_mask=True, sam_prompt=prompt)
-    except Exception:
-        logger.warning("SAM could not segment a catalog bottle", exc_info=True)
-        return None
-    if isinstance(result, bytes):
-        result = image_module.open(BytesIO(result))
-    mask = numpy.asarray(result.convert("L").resize(source.size)) > 127
-    return sam_bottle_mask(numpy, scipy_ndimage, mask, label_row)
-
-
 def _process_catalog_bottle_photo_with_session(
-    content: bytes, session: Any, label_share: float = 0.0, label_y: float = 0.5
+    content: bytes, session: Any
 ) -> tuple[bytes, dict[str, int]]:
-    """Cut out a bottle framed from a catalog photo, straightened, without the capture guide."""
+    """Cut out the bottle framed from a catalog photo, if it stands apart and upright."""
     started_at = perf_counter()
     numpy, image_module, image_ops, rembg, scipy_ndimage = _vision_modules()
     try:
@@ -617,18 +399,11 @@ def _process_catalog_bottle_photo_with_session(
         mask_result = image_module.open(BytesIO(mask_result))
     mask = mask_result.convert("L").resize(source.size, image_module.Resampling.LANCZOS)
     model_alpha = numpy.asarray(mask, dtype=numpy.float32) / 255
-    # SAM outlines the bottle pointed at (its neighbours touch it on a shelf); without it
-    # the outline rules work on the background model's mask alone.
-    sam_started_at = perf_counter()
-    bottle = _sam_bottle(numpy, image_module, rembg, scipy_ndimage, source, label_y)
-    sam_ms = round((perf_counter() - sam_started_at) * 1000)
-    alpha = catalog_bottle_alpha(numpy, scipy_ndimage, model_alpha, label_share, bottle)
+    alpha = catalog_bottle_alpha(numpy, scipy_ndimage, model_alpha)
 
     rgba = source.convert("RGBA")
     rgba.putalpha(image_module.fromarray(numpy.uint8(numpy.clip(alpha, 0, 1) * 255), mode="L"))
     tilt = bottle_tilt(numpy, alpha)
-    if abs(tilt) > CATALOG_MAX_TILT:
-        raise BottlePhotoNotDetected("The bottle is too tilted")
     if abs(tilt) >= CATALOG_MIN_TILT:
         rgba = rgba.rotate(tilt, resample=image_module.Resampling.BICUBIC, expand=True)
     box = rgba.getchannel("A").point(lambda value: 255 if value > 20 else 0).getbbox()
@@ -643,17 +418,13 @@ def _process_catalog_bottle_photo_with_session(
             min(rgba.height, box[3] + padding),
         )
     )
-    # A wine bottle is about three to four times as tall as it is wide.
-    if not 2.0 <= subject.height / max(subject.width, 1) <= 7.0:
-        raise BottlePhotoNotDetected("The detected bottle outline is not reliable")
     buffer = BytesIO()
     _compose_detail(image_module, subject).save(buffer, format="PNG", optimize=True)
     completed_at = perf_counter()
     return buffer.getvalue(), {
         "prepare_ms": round((prepared_at - started_at) * 1000),
         "inference_ms": round((inferred_at - prepared_at) * 1000),
-        "sam_ms": sam_ms,
-        "postprocess_ms": round((completed_at - inferred_at) * 1000) - sam_ms,
+        "postprocess_ms": round((completed_at - inferred_at) * 1000),
         "total_ms": round((completed_at - started_at) * 1000),
     }
 
@@ -707,13 +478,12 @@ def _photo_worker_loop(
         if command == "warm":
             continue
         try:
-            if command == "process_catalog":
-                image, label_share, label_y = content
-                processed, timings = _process_catalog_bottle_photo_with_session(
-                    image, session, label_share, label_y
-                )
-            else:
-                processed, timings = _process_bottle_photo_with_session(content, session)
+            process = (
+                _process_catalog_bottle_photo_with_session
+                if command == "process_catalog"
+                else _process_bottle_photo_with_session
+            )
+            processed, timings = process(content, session)
             timings["model_load_ms"] = model_load_ms if first_processing else 0
             timings["threads"] = int(os.environ.get("OMP_NUM_THREADS", "0"))
             first_processing = False
@@ -797,26 +567,19 @@ def process_bottle_photo(
     timeout_seconds: int = DEFAULT_PROCESS_TIMEOUT_SECONDS,
     idle_seconds: int = DEFAULT_WORKER_IDLE_SECONDS,
     *,
-    catalog_label_share: float | None = None,
-    catalog_label_y: float = 0.5,
+    catalog: bool = False,
 ) -> bytes:
     """Process a photo in a short-lived reusable worker.
 
     BiRefNet/ONNX Runtime may retain a multi-gigabyte CPU arena for the lifetime
     of an inference session. The worker confines that memory outside the API,
     reuses the expensive session during photo capture, and exits after idle.
-    catalog_label_share (the label's width over the frame's) selects the catalog cutout;
-    catalog_label_y is the label's center as a share of the frame's height.
+    catalog selects the cutout of a bottle framed from a catalog photo.
     """
     request_started_at = perf_counter()
     with _photo_processing_lock:
         command_queue, result_queue = _ensure_photo_worker(model_name, idle_seconds)
-        if catalog_label_share is None:
-            command_queue.put(("process", content))
-        else:
-            command_queue.put(("process_catalog", (content, catalog_label_share, catalog_label_y)))
-            # SAM and the background model run one after the other on the CPU.
-            timeout_seconds = max(timeout_seconds, CATALOG_TIMEOUT_SECONDS)
+        command_queue.put(("process_catalog" if catalog else "process", content))
         try:
             result = result_queue.get(timeout=timeout_seconds)
         except Empty as error:

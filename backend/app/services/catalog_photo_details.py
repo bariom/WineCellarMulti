@@ -57,10 +57,13 @@ WINES_PER_CALL = 5
 MAX_PARALLEL_CALLS = 2
 DETAILS_TIMEOUT_SECONDS = 180
 # Bottle photo thresholds, in pixels of the upright original photo.
-# Lenient: these sizes come from the AI's estimate of the label and bottle, which varies
-# between readings; the cutout checks the real outline again.
-MIN_BOTTLE_PIXELS = 320
-MIN_LABEL_PIXELS = 56
+# Below these sizes the bottle is enlarged to fill the library's 480x720 format and
+# comes out soft; the sizes are the AI's estimate of the label and bottle.
+MIN_BOTTLE_PIXELS = 480
+MIN_LABEL_PIXELS = 80
+# Two labels closer than this many label widths are bottles standing side by side:
+# their photos are not kept, because the cutout only takes a bottle standing apart.
+CROWDED_LABEL_WIDTHS = 1.45
 EDGE_PIXELS = 3
 # Variance of the Laplacian of the label scaled to SHARPNESS_WIDTH pixels.
 SHARPNESS_WIDTH = 256
@@ -449,6 +452,21 @@ def check_bottle_photo(image: Image.Image, bottle: CatalogPhotoBottle) -> Catalo
     return CatalogPhotoCheck(ok=not issue, issue=issue)
 
 
+def stands_beside_another(bottle: CatalogPhotoBottle, bottles: list[CatalogPhotoBottle]) -> bool:
+    """Whether another bottle read on the same photo stands right beside this one."""
+    center = bottle.x + bottle.width / 2
+    for other in bottles:
+        if other is bottle or other.image_index != bottle.image_index:
+            continue
+        # Bottles on the same shelf: their labels share some height.
+        if min(bottle.y + bottle.height, other.y + other.height) <= max(bottle.y, other.y):
+            continue
+        distance = abs(other.x + other.width / 2 - center)
+        if distance < CROWDED_LABEL_WIDTHS * (bottle.width + other.width) / 2:
+            return True
+    return False
+
+
 def check_bottle_photos(
     db: Session, originals: list[bytes], bottles: list[CatalogPhotoBottle]
 ) -> list[CatalogPhotoBottle]:
@@ -469,6 +487,8 @@ def check_bottle_photos(
         # The photo check is a bonus: it must never cost the admin the labels read.
         try:
             check = check_bottle_photo(image, bottle) if image is not None else CatalogPhotoCheck()
+            if check.ok and stands_beside_another(bottle, bottles):
+                check = CatalogPhotoCheck(ok=False, issue="crowded")
             if check.ok:
                 name = bottle.entry.name if bottle.entry else bottle.name
                 producer = bottle.entry.producer if bottle.entry else bottle.producer
@@ -480,9 +500,8 @@ def check_bottle_photos(
     return checked
 
 
-def bottle_photo_source(original: bytes, bottle: CatalogPhotoBottle) -> tuple[bytes, float, float]:
-    """The bottle in a 2:3 frame with room around it, the label's share of its width and
-    the label's center as a share of its height."""
+def bottle_photo_source(original: bytes, bottle: CatalogPhotoBottle) -> bytes:
+    """The bottle in a 2:3 frame with room around it, for the catalog cutout."""
     from app.services.wine_image_recognition import load_upright_rgb_image
 
     image = load_upright_rgb_image(original)
@@ -501,12 +520,7 @@ def bottle_photo_source(original: bytes, bottle: CatalogPhotoBottle) -> tuple[by
         )
     output = BytesIO()
     frame.save(output, format="JPEG", quality=92)
-    label_y = ((bottle.y + bottle.height / 2) * image.height - top) / max(frame_height, 1)
-    return (
-        output.getvalue(),
-        min(1.0, bottle.width * image.width / max(frame_width, 1)),
-        min(0.95, max(0.05, label_y)),
-    )
+    return output.getvalue()
 
 
 def bottle_photo_files(detail: bytes) -> dict[str, bytes]:
@@ -550,16 +564,12 @@ def bottle_cutout(job: CatalogPhotoJob, position: int) -> bytes:
             status.HTTP_503_SERVICE_UNAVAILABLE, "AI bottle photo processing is disabled"
         )
     try:
-        source, label_share, label_y = bottle_photo_source(
-            job.originals[bottle.image_index], bottle
-        )
         detail = process_bottle_photo(
-            source,
+            bottle_photo_source(job.originals[bottle.image_index], bottle),
             settings.wine_photo_ai_model,
             settings.wine_photo_ai_timeout_seconds,
             settings.wine_photo_ai_worker_idle_seconds,
-            catalog_label_share=label_share,
-            catalog_label_y=label_y,
+            catalog=True,
         )
     except BottlePhotoAiUnavailable as exc:
         logger.exception("Catalog photo cutout unavailable")

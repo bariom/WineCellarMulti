@@ -198,10 +198,10 @@ export function AdminCatalogPhotoEditor({ locale, jobId, position, bottle, onSav
             </span>
             <span className="catalog-photo-cutout-text">
               {cutout === "loading"
-                ? (it ? "Scontorno la bottiglia… può richiedere fino a un minuto." : "Cutting out the bottle… this can take up to a minute.")
+                ? (it ? "Scontorno la bottiglia… può richiedere mezzo minuto." : "Cutting out the bottle… this can take half a minute.")
                 : cutout === "ready"
                   ? (it ? "Così entrerebbe nell'archivio condiviso." : "This is how it would enter the shared library.")
-                  : (it ? "Non è stato possibile scontornare la bottiglia da questa foto." : "The bottle could not be cut out of this photo.")}
+                  : (it ? "Foto non salvata: la bottiglia deve essere intera, dritta e separata dalle altre." : "Photo not kept: the bottle must be whole, upright and apart from the others.")}
             </span>
           </div>
           <label>

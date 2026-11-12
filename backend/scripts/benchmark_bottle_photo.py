@@ -92,10 +92,8 @@ def main() -> None:
     parser.add_argument("--image", type=Path)
     parser.add_argument("--jit", action="store_true", help="Include unused PyMatting JIT startup")
     parser.add_argument(
-        "--catalog", action="store_true", help="Catalog cutout (SAM, then the background model)"
+        "--catalog", action="store_true", help="Cutout of a bottle framed from a catalog photo"
     )
-    parser.add_argument("--label-share", type=float, default=0.3)
-    parser.add_argument("--label-y", type=float, default=0.55)
     parser.add_argument("--save", type=Path, help="Write the last output PNG here")
     args = parser.parse_args()
     if args.threads < 0 or args.runs < 1:
@@ -150,7 +148,7 @@ def main() -> None:
             started = perf_counter()
             if args.catalog:
                 output, timings = bottle_photo_ai._process_catalog_bottle_photo_with_session(
-                    content, session, args.label_share, args.label_y
+                    content, session
                 )
             else:
                 output, timings = bottle_photo_ai._process_bottle_photo_with_session(

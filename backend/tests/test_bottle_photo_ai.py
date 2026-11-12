@@ -13,10 +13,6 @@ def worker_environment(monkeypatch):
     monkeypatch.delenv("NUMBA_DISABLE_JIT", raising=False)
     monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
     monkeypatch.setattr(bottle_photo_ai.settings, "wine_photo_ai_threads", 4)
-    # Catalog cutouts use the outline rules unless a test provides SAM.
-    monkeypatch.setattr(bottle_photo_ai.settings, "wine_photo_catalog_sam_model", "")
-    monkeypatch.setattr(bottle_photo_ai, "_catalog_sam_session", None)
-    monkeypatch.setattr(bottle_photo_ai, "_catalog_sam_unavailable", False)
 
 
 @pytest.mark.parametrize(
@@ -250,8 +246,8 @@ def _catalog_cutout(monkeypatch, image) -> object:
     return Image.open(BytesIO(content))
 
 
-@pytest.mark.parametrize("tilt", [0.0, 9.0, -14.0])
-def test_catalog_cutout_stands_a_tilted_bottle_upright_without_the_guide(monkeypatch, tilt):
+@pytest.mark.parametrize("tilt", [0.0, 4.0, -5.0])
+def test_catalog_cutout_stands_a_slightly_leaning_bottle_upright(monkeypatch, tilt):
     pytest.importorskip("numpy")
     pytest.importorskip("scipy.ndimage")
     import numpy
@@ -285,128 +281,56 @@ def test_catalog_cutout_refuses_a_bottle_cut_by_the_frame(monkeypatch):
         _catalog_cutout(monkeypatch, _tilted_bottle_frame(0.0, bottom=1080))
 
 
-def test_catalog_silhouette_drops_a_neighbouring_bottle_that_touches_it():
-    numpy = pytest.importorskip("numpy")
-    # A bottle (body 180 px, neck 50 px) at the center of a 600x900 frame, as the frame
-    # is centered on its label; a neighbour pressed against its left side for most of
-    # its height, and a machine handle on its right. Its label is 160 px wide.
-    binary = numpy.zeros((900, 600), dtype=bool)
-    binary[100:300, 275:325] = True  # neck and capsule
-    binary[300:860, 210:390] = True  # body
-    binary[250:880, 20:212] = True  # neighbour, touching
-    binary[150:420, 390:420] = True  # handle, touching
-    kept = bottle_photo_ai.bottle_silhouette(numpy, binary, label_share=160 / 600)
-    columns = numpy.nonzero(kept[600])[0]
-    assert abs(columns.min() - 210) <= 2 and abs(columns.max() - 389) <= 2
-    neck = numpy.nonzero(kept[200])[0]
-    assert 272 <= neck.min() and neck.max() <= 327
-    assert not kept[870].any()  # the neighbour's base below the bottle is not followed
-    assert kept[100:860].any(axis=1).all()  # the whole bottle, capsule to base
-
-
-def test_catalog_silhouette_ignores_a_label_estimate_that_contradicts_the_mask():
-    numpy = pytest.importorskip("numpy")
-    # The AI read the label 60 px wide on a bottle whose body is 180 px: the reading is
-    # an estimate, the mask is the bottle.
-    binary = numpy.zeros((900, 600), dtype=bool)
-    binary[100:300, 275:325] = True
-    binary[300:860, 210:390] = True
-    kept = bottle_photo_ai.bottle_silhouette(numpy, binary, label_share=60 / 600)
-    columns = numpy.nonzero(kept[600])[0]
-    assert (columns.min(), columns.max()) == (210, 389)
-
-
-class _FakeSamRembg:
-    """The background model sees both touching bottles; SAM only the one pointed at,
-    split in two pieces with a gap across its label."""
-
-    @staticmethod
-    def remove(source, **kwargs):
-        from PIL import Image, ImageDraw
-
-        if "sam_prompt" not in kwargs:
-            return source.convert("L").point(lambda value: 255 if value < 200 else 0)
-        points = [item["data"] for item in kwargs["sam_prompt"] if item["type"] == "point"]
-        assert [x for x, _ in points] == [360, 360]
-        mask = Image.new("L", source.size, 0)
-        draw = ImageDraw.Draw(mask)
-        draw.rectangle((335, 80, 385, 300), fill=255)
-        draw.rectangle((290, 300, 430, 450), fill=255)
-        draw.rectangle((290, 610, 430, 1000), fill=255)
-        return mask
-
-
-def _two_touching_bottles() -> object:
+def _bottles(*lefts: int) -> object:
+    """Dark bottles (body 180 px, neck 50 px) on a light wall, at the given left edges."""
     from PIL import Image, ImageDraw
 
     image = Image.new("RGB", (720, 1080), (235, 230, 220))
     draw = ImageDraw.Draw(image)
-    draw.rectangle((335, 80, 385, 300), fill=(150, 20, 20))
-    draw.rectangle((290, 300, 430, 1000), fill=(25, 30, 25))
-    draw.rectangle((120, 260, 291, 1000), fill=(30, 25, 25))  # the neighbour, touching
+    for left in lefts:
+        draw.rectangle((left + 65, 80, left + 115, 300), fill=(150, 20, 20))
+        draw.rectangle((left, 300, left + 180, 1000), fill=(25, 30, 25))
     return image
 
 
-def test_catalog_cutout_keeps_only_the_bottle_sam_points_at(monkeypatch):
-    numpy = pytest.importorskip("numpy")
-    ndimage = pytest.importorskip("scipy.ndimage")
-    from io import BytesIO
-
-    from PIL import Image, ImageOps
-
-    monkeypatch.setattr(bottle_photo_ai.settings, "wine_photo_catalog_sam_model", "sam")
-    monkeypatch.setattr(bottle_photo_ai, "_model_session", lambda model: f"{model}-session")
-    monkeypatch.setattr(
-        bottle_photo_ai,
-        "_vision_modules",
-        lambda: (numpy, Image, ImageOps, _FakeSamRembg, ndimage),
-    )
-    buffer = BytesIO()
-    _two_touching_bottles().save(buffer, format="PNG")
-    content, _ = bottle_photo_ai._process_catalog_bottle_photo_with_session(
-        buffer.getvalue(), None, 140 / 720, 530 / 1080
-    )
-    alpha = numpy.asarray(Image.open(BytesIO(content)).getchannel("A"), dtype=numpy.float32) / 255
-    rows, columns = numpy.nonzero(alpha > 0.5)
-    # One slim bottle, capsule to base: the touching neighbour is gone, and the rows SAM
-    # left empty across the label are part of the bottle.
-    assert (rows.max() - rows.min()) / (columns.max() - columns.min()) > 5
-    middle = (rows.min() + rows.max()) // 2
-    assert alpha[middle - 20 : middle + 20, (columns.min() + columns.max()) // 2].min() > 0.5
-
-
-def test_sam_bottle_takes_the_body_width_where_sam_left_a_gap():
-    numpy = pytest.importorskip("numpy")
-    ndimage = pytest.importorskip("scipy.ndimage")
-    mask = numpy.zeros((1080, 720), dtype=bool)
-    mask[80:300, 335:386] = True
-    mask[300:450, 290:431] = True
-    mask[610:1000, 290:431] = True
-    mask[1010:1060, 320:400] = True  # a price tag on the shelf edge, below the base
-    bottle = bottle_photo_ai.sam_bottle_mask(numpy, ndimage, mask, 530)
-    assert not bottle[1030].any()
-    assert bottle is not None
-    columns = numpy.nonzero(bottle[530])[0]
-    assert (columns.min(), columns.max()) == (290, 430)
-    assert bottle[100, 360]  # the neck, which the base and label points reach through
-    assert bottle_photo_ai.sam_body(numpy, bottle) == (360.0, 141.0)
-    # Nothing pointed at: no region, and the outline rules take over.
-    empty = numpy.zeros((1080, 720), dtype=bool)
-    assert bottle_photo_ai.sam_bottle_mask(numpy, ndimage, empty, 530) is None
-
-
-def test_catalog_cutout_falls_back_to_the_outline_rules_without_sam(monkeypatch):
+def test_catalog_cutout_refuses_bottles_that_touch(monkeypatch):
     pytest.importorskip("numpy")
     pytest.importorskip("scipy.ndimage")
+    # Side by side on a shelf, the model outlines both as one object: no photo is kept
+    # rather than a bottle with a piece of its neighbour.
+    with pytest.raises(bottle_photo_ai.BottlePhotoNotDetected, match="stand apart"):
+        _catalog_cutout(monkeypatch, _bottles(270, 448))
+    # A shorter neighbour pressed against it leaves the neck off the pair's axis.
+    from PIL import ImageDraw
 
-    def unavailable(model):
-        raise bottle_photo_ai.BottlePhotoAiUnavailable("not installed")
+    pair = _bottles(270)
+    ImageDraw.Draw(pair).rectangle((448, 500, 628, 1000), fill=(30, 25, 25))
+    with pytest.raises(bottle_photo_ai.BottlePhotoNotDetected):
+        _catalog_cutout(monkeypatch, pair)
 
-    monkeypatch.setattr(bottle_photo_ai.settings, "wine_photo_catalog_sam_model", "sam")
-    monkeypatch.setattr(bottle_photo_ai, "_model_session", unavailable)
-    output = _catalog_cutout(monkeypatch, _tilted_bottle_frame(0.0))
-    assert output.size == bottle_photo_ai.DETAIL_SIZE
-    assert bottle_photo_ai._catalog_sam_unavailable is True
+
+def test_catalog_cutout_takes_the_bottle_standing_apart_at_the_center(monkeypatch):
+    numpy = pytest.importorskip("numpy")
+    pytest.importorskip("scipy.ndimage")
+    output = _catalog_cutout(monkeypatch, _bottles(270, 20))
+    alpha = numpy.asarray(output.getchannel("A"), dtype=numpy.float32) / 255
+    rows, columns = numpy.nonzero(alpha > 0.5)
+    # One bottle, capsule to base, centered: the one standing apart beside it is left out.
+    assert 4.5 < (rows.max() - rows.min()) / (columns.max() - columns.min()) < 5.6
+    assert abs((columns.min() + columns.max()) / 2 - 240) < 3
+
+
+def test_catalog_cutout_refuses_a_leaning_bottle_or_one_without_a_neck(monkeypatch):
+    pytest.importorskip("numpy")
+    pytest.importorskip("scipy.ndimage")
+    with pytest.raises(bottle_photo_ai.BottlePhotoNotDetected, match="upright"):
+        _catalog_cutout(monkeypatch, _tilted_bottle_frame(12.0))
+    from PIL import Image, ImageDraw
+
+    stump = Image.new("RGB", (720, 1080), (235, 230, 220))
+    ImageDraw.Draw(stump).rectangle((270, 300, 450, 1000), fill=(25, 30, 25))
+    with pytest.raises(bottle_photo_ai.BottlePhotoNotDetected, match="not reliable"):
+        _catalog_cutout(monkeypatch, stump)
 
 
 def test_segmentation_sessions_run_without_the_onnx_cpu_memory_arena(monkeypatch):

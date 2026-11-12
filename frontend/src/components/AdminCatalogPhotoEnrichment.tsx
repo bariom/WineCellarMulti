@@ -39,6 +39,7 @@ const PHOTO_ISSUES: Record<CatalogPhotoBottle["photo"]["issue"], [string, string
   blurry: ["foto sfocata", "blurry photo"],
   dark: ["foto troppo scura", "photo too dark"],
   bright: ["foto troppo chiara", "photo too bright"],
+  crowded: ["bottiglie troppo vicine tra loro", "bottles too close to each other"],
 };
 
 const SAVED_PHOTO: Record<CatalogPhotoSaveResult["photo"], [string, string]> = {
@@ -212,8 +213,8 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
           <h3 id="catalog-photo-title">{it ? "Arricchisci da foto" : "Enrich from photos"}</h3>
           <small>
             {it
-              ? "Fotografa uno scaffale o qualche bottiglia: Vinaris legge le etichette e ti mostra quali vini mancano nel catalogo e quali schede sono incomplete. La lettura usa la chiave di Vinaris, non i tuoi crediti."
-              : "Photograph a shelf or a few bottles: Vinaris reads the labels and shows which wines the catalog lacks and which entries are incomplete. Reading uses the Vinaris key, not your credits."}
+              ? "Fotografa uno scaffale o qualche bottiglia: Vinaris legge le etichette e ti mostra quali vini mancano nel catalogo e quali schede sono incomplete. La foto della bottiglia viene salvata solo se è dritta, nitida e separata dalle altre. La lettura usa la chiave di Vinaris, non i tuoi crediti."
+              : "Photograph a shelf or a few bottles: Vinaris reads the labels and shows which wines the catalog lacks and which entries are incomplete. A bottle's photo is kept only when it stands upright, sharp and apart from the others. Reading uses the Vinaris key, not your credits."}
           </small>
         </div>
       </div>
