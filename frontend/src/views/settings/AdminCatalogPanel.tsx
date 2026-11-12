@@ -3,6 +3,7 @@ import AdminCatalogPhotoEnrichment from "../../components/AdminCatalogPhotoEnric
 import AdminCatalogRecovery from "../../components/AdminCatalogRecovery";
 import { translate, type TranslationKey } from "../../i18n";
 import type { CatalogWine, Locale } from "../../types";
+import { localizeRegion, localizeCountry } from "../../domain/places";
 
 type AdminCatalogPanelProps = {
   locale: Locale;
@@ -63,8 +64,8 @@ export default function AdminCatalogPanel({
                 <div className="member-row">
                   <div>
                     <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
-                    <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
-                    {entry.country || entry.grapes_text ? <span>{[entry.country, entry.grapes_text].filter(Boolean).join(" - ")}</span> : null}
+                    <span>{[localizeRegion(entry.region, locale), entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
+                    {entry.country || entry.grapes_text ? <span>{[localizeCountry(entry.country, locale), entry.grapes_text].filter(Boolean).join(" - ")}</span> : null}
                   </div>
                   <div className="member-actions">
                     <button type="button" className="compact" disabled={saving} onClick={() => onApprove(entry)}>
@@ -105,7 +106,7 @@ export default function AdminCatalogPanel({
                 <div className="member-row">
                   <div>
                     <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
-                    <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
+                    <span>{[localizeRegion(entry.region, locale), entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
                     <span className={entry.is_active ? "status-pill configured" : "status-pill"}>{entry.is_active ? "active" : "pending"}</span>
                   </div>
                   <div className="member-actions">

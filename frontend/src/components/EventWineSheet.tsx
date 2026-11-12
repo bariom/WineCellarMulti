@@ -6,6 +6,7 @@ import { DrinkWindowMini } from "./AppPanels";
 import { WineSensorySignaturePanel } from "./WineSensorySignaturePanel";
 import { AiActivity } from "./AiActivity";
 import "./EventWineSheet.css";
+import { localizeRegion } from "../domain/places";
 
 /**
  * A bottle photographed at an event, as a guest needs it tonight: when to drink
@@ -37,7 +38,7 @@ export default function EventWineSheet({ locale, wine, canComplete, onClose, onU
   const grapes = wine.grapes || [];
   const missing = !hasWindow || !grapes.length || !wine.ai_notes.trim();
   const identity = [wine.producer, wine.vintage].filter(Boolean).join(" · ");
-  const origin = [wine.appellation, wine.region].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index).join(" · ");
+  const origin = [wine.appellation, localizeRegion(wine.region, locale)].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index).join(" · ");
   const photo = wine.photo_detail_url || wine.photo_thumbnail_url;
   const percent = (grape: Wine["grapes"][number]) => {
     const from = grape.percentage_from;

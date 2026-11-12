@@ -82,6 +82,7 @@ import "./views/DiaryRefined.css";
 import { installPointerLight } from "./components/pointerLight";
 import { CollectorMaturity } from "./components/CollectorMaturity";
 import { highFetchPriority } from "./utils/fetchPriority";
+import { localizeRegion, regionKey } from "./domain/places";
 
 /** Whether the active theme's surface is dark; drives `data-theme-tone` for CSS and the wine tint. */
 function surfaceIsDark() {
@@ -772,7 +773,7 @@ function radarScaledPoint(index: number, total: number, value: number, maxValue:
 
 function regionalTargetLabel(region: string, locale: Locale) {
   if (region === "Other") return translate(locale, "regionalOtherOrigins");
-  return region;
+  return localizeRegion(region, locale);
 }
 
 function withOtherRegionalTarget(targets: RegionalGapTarget[]) {
@@ -6211,8 +6212,9 @@ export function App() {
       }] : [])]
     : Array.from(
       filteredWines.reduce((groups, wine) => {
-        const label = wine.region?.trim() || (locale === "it" ? "Regione non specificata" : "Region not specified");
-        const key = `region:${label.toLocaleLowerCase(locale)}`;
+        // "Toscana" and "Tuscany" are one group, named in the reader's language.
+        const label = localizeRegion(wine.region, locale) || (locale === "it" ? "Regione non specificata" : "Region not specified");
+        const key = `region:${regionKey(wine.region) || "unspecified"}`;
         const current = groups.get(key);
         if (current) current.items.push(wine);
         else groups.set(key, { key, tone: wineTone(wine.type), label, items: [wine] });
@@ -8483,7 +8485,7 @@ export function App() {
                           <span className="top-value-showcase-copy">
                             <strong>{wine.name}</strong>
                             <small>{[wine.producer, wine.vintage].filter(Boolean).join(" · ") || displayValue(wine.type, locale, "type")}</small>
-                            <em>{[wine.region, wine.appellation].filter(Boolean).join(" · ")}</em>
+                            <em>{[localizeRegion(wine.region, locale), wine.appellation].filter(Boolean).join(" · ")}</em>
                           </span>
                           <span className="top-value-showcase-value">
                             <strong>{formatMoney(wineUnitValue(wine), wine.currency, locale)}</strong>
@@ -8869,7 +8871,7 @@ export function App() {
             <div className="regional-target-grid">
               {regionalGapDraft.map((target, index) => (
                 <label key={target.region}>
-                  <span>{target.region}</span>
+                  <span>{regionalTargetLabel(target.region, locale)}</span>
                   <input
                     type="number"
                     min="0"
@@ -8899,7 +8901,7 @@ export function App() {
                   <p>{regionalGapAiCommentary(regionalGapActiveSuggestion, locale)}</p>
                   <div>
                     {regionalGapActiveSuggestion.targets.map((target) => (
-                      <span key={target.region}>{target.region} {Number(target.target_pct).toFixed(1)}%</span>
+                      <span key={target.region}>{regionalTargetLabel(target.region, locale)} {Number(target.target_pct).toFixed(1)}%</span>
                     ))}
                   </div>
                   <div className="regional-ai-cost">
@@ -8968,7 +8970,7 @@ export function App() {
               return (
               <div className="regional-gap-row" key={row.region}>
                 <div>
-                  <span>{action} · {row.region}</span>
+                  <span>{action} · {regionalTargetLabel(row.region, locale)}</span>
                   <small>{t("currentPortfolio")} {Math.round(row.currentPct)}% / {t("targetPortfolio")} {row.targetPct}%</small>
                 </div>
                 <strong><small>{Math.abs(row.deltaPct).toFixed(1)}%</small>{formatMoney(amount, "CHF", locale)}</strong>
@@ -10270,7 +10272,7 @@ export function App() {
                                 <span>{highlight}</span>
                                 <h2 className="collector-feature-title">{wine.name}</h2>
                                 <p className="collector-feature-producer">{wine.producer}</p>
-                                <p className="collector-feature-origin">{[wine.appellation || wine.region, wine.vintage].filter(Boolean).join(" · ")}</p>
+                                <p className="collector-feature-origin">{[wine.appellation || localizeRegion(wine.region, locale), wine.vintage].filter(Boolean).join(" · ")}</p>
                               </div>
                             </div>
                             <div className={`key-position-metrics${trendPoints.length >= 2 ? " has-value-trend" : ""}`}>
@@ -10977,7 +10979,7 @@ export function App() {
                           onClick={() => selectWineTemplate(wine, "wine")}
                         >
                           <strong>{wine.name}</strong>
-                          <span>{[wine.producer, wine.region].filter(Boolean).join(" · ")}</span>
+                          <span>{[wine.producer, localizeRegion(wine.region, locale)].filter(Boolean).join(" · ")}</span>
                         </button>
                       ))}
                     </div>
@@ -11511,7 +11513,7 @@ export function App() {
                           onClick={() => selectWineTemplate(wine, "wishlist")}
                         >
                           <strong>{wine.name}</strong>
-                          <span>{[wine.producer, wine.region].filter(Boolean).join(" · ")}</span>
+                          <span>{[wine.producer, localizeRegion(wine.region, locale)].filter(Boolean).join(" · ")}</span>
                         </button>
                       ))}
                     </div>
@@ -12701,7 +12703,7 @@ export function App() {
                       </span>
                     </h3>
                     <p className="row-primary">{item.producer || t("noProducer")} - {displayValue(item.purpose, locale, "purpose")}</p>
-                    <p className="row-secondary">{[displayValue(item.format, locale, "format"), displayValue(item.type, locale, "type"), item.region, item.appellation].filter(Boolean).join(" - ")}</p>
+                    <p className="row-secondary">{[displayValue(item.format, locale, "format"), displayValue(item.type, locale, "type"), localizeRegion(item.region, locale), item.appellation].filter(Boolean).join(" - ")}</p>
                     <div className="wishlist-signal-strip">
                       <span className={`priority-chip priority-${priorityTone(item.priority)}`}>
                         <small>{t("priority")}</small>

@@ -22,6 +22,7 @@ import { TastingMemoryPhoto, TastingMemoryPhotoInput } from "./TastingMemoryPhot
 import { WineSensorySignaturePanel } from "./WineSensorySignaturePanel";
 import "./WishlistWineProfile.css";
 import { highFetchPriority } from "../utils/fetchPriority";
+import { localizeRegion, localizeCountry } from "../domain/places";
 const WineLotsSection = lazy(() => import("./WineLotsSection"));
 const PurchaseDocuments = lazy(() => import("./PurchaseDocuments"));
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
@@ -486,7 +487,7 @@ export function CompareWinesModal({
                 <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
                 <DetailField label={t("currentValue")} value={wine.current_value ? formatMoney(wine.current_value, wine.currency, locale) : ""} emptyLabel={t("notSpecified")} />
                 <DetailField label={t("drinkWindow")} value={compareDrinkWindowLabel(wine, t)} emptyLabel={t("notSpecified")} />
-                <DetailField label={t("region")} value={wine.region} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("region")} value={localizeRegion(wine.region, locale)} emptyLabel={t("notSpecified")} />
               </div>
               <div className="compare-section">
                 <strong>{t("grapes")}</strong>
@@ -586,7 +587,7 @@ export function MarketValueModal({
                   rel={source.url ? "noreferrer" : undefined}
                 >
                   <div>
-                    <strong>{source.merchant}{source.country ? ` (${source.country})` : ""}</strong>
+                    <strong>{source.merchant}{source.country ? ` (${localizeCountry(source.country, locale)})` : ""}</strong>
                     {source.note ? <span>{source.note}</span> : null}
                   </div>
                   <b>{formatMoney(source.price, source.currency, locale, 2, 2)}</b>
@@ -1381,7 +1382,7 @@ export function WineDetail({
             </div>
           ) : null}
           <div>
-            <p className="eyebrow detail-wine-origin">{[wine.appellation, wine.region].filter(Boolean).join(" · ") || t("wineDetail")}</p>
+            <p className="eyebrow detail-wine-origin">{[wine.appellation, localizeRegion(wine.region, locale)].filter(Boolean).join(" · ") || t("wineDetail")}</p>
             <h2 className={`detail-wine-name ${wine.name.length > 34 ? "detail-wine-name--long" : wine.name.length > 20 ? "detail-wine-name--medium" : "detail-wine-name--short"}`}>
               <i className={`wine-dot tone-${wineTone(wine.type)}`} />
               <span>{wine.name}</span>
@@ -1976,7 +1977,7 @@ export function WishlistDetail({
         <div>
           <p className="eyebrow">{t("wishlistDetail")}</p>
           <h2><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name}</h2>
-          <span>{[item.producer, item.vintage, item.region, item.appellation, item.country].filter(Boolean).join(" - ")}</span>
+          <span>{[item.producer, item.vintage, localizeRegion(item.region, locale), item.appellation, localizeCountry(item.country, locale)].filter(Boolean).join(" - ")}</span>
         </div>
         <div className="wishlist-price-block">
           <span>{offerPrice ? (locale === "it" ? "PREZZO OFFERTO" : "OFFER PRICE") : (locale === "it" ? "PREZZO MASSIMO" : "MAXIMUM PRICE")}</span>
@@ -2055,8 +2056,8 @@ export function WishlistDetail({
       <section className="wishlist-wine-profile" aria-label={locale === "it" ? "Profilo del vino" : "Wine profile"}>
         <h3>{locale === "it" ? "Profilo del vino" : "Wine profile"}</h3>
         <div className="detail-grid detail-facts-grid" role="group" aria-label={locale === "it" ? "Origine" : "Origin"}>
-          <DetailField label={locale === "it" ? "Paese" : "Country"} value={item.country || ""} emptyLabel={t("notSpecified")} />
-          <DetailField label={t("region")} value={item.region} emptyLabel={t("notSpecified")} />
+          <DetailField label={locale === "it" ? "Paese" : "Country"} value={localizeCountry(item.country, locale)} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("region")} value={localizeRegion(item.region, locale)} emptyLabel={t("notSpecified")} />
           <DetailField label={locale === "it" ? "Zona vitivinicola" : "Wine-growing area"} value={item.wine_zone || ""} emptyLabel={t("notSpecified")} />
           <DetailField label={t("appellation")} value={item.appellation} emptyLabel={t("notSpecified")} />
         </div>

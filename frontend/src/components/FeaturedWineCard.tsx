@@ -4,6 +4,7 @@ import { CollectorMaturity } from "./CollectorMaturity";
 import { featuredCaption, featuredExplanation, type FeaturedWine } from "./FeaturedWineDetails";
 import { KeyPositionBottleVisual } from "./KeyPositionCardParts";
 import { wineTone } from "./panelSupport";
+import { localizeRegion } from "../domain/places";
 
 export function FeaturedWineCard({ item, locale, canShowPhotos, onDiscover }: {
   item: FeaturedWine; locale: Locale; canShowPhotos: boolean; onDiscover: () => void;
@@ -14,7 +15,7 @@ export function FeaturedWineCard({ item, locale, canShowPhotos, onDiscover }: {
     <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""}
       detailUrl={canShowPhotos ? wine.photo_detail_url : undefined} sizes="(max-width: 480px) 140px, 220px" tone={wineTone(wine.type)} />
     <span className="cellar-featured-identity">
-      <span className="cellar-featured-origin">{[wine.appellation, wine.region].filter(Boolean).join(" · ")}</span>
+      <span className="cellar-featured-origin">{[wine.appellation, localizeRegion(wine.region, locale)].filter(Boolean).join(" · ")}</span>
       <strong>{wine.name}</strong>
       <span className="cellar-featured-producer">{wine.producer}</span>
       <span className="cellar-featured-vintage">{wine.vintage || (locale === "it" ? "Senza annata" : "Non-vintage")}</span>

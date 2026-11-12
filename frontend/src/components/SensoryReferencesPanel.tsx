@@ -3,6 +3,7 @@ import type { Locale, SensoryReferencePreview } from "../types";
 import { api } from "../services/api";
 import "./SensoryReferencesPanel.css";
 import { SensoryTraitReviews } from "./SensoryWineReview";
+import { localizeCountry } from "../domain/places";
 
 const dimensionNames: Record<string, string> = { body: "Corpo", acidity: "Acidità", tannin: "Tannini", sweetness: "Dolcezza", aromatic_intensity: "Intensità aromatica", fruit: "Frutto", wood: "Legno", spice: "Spezie", minerality: "Mineralità" };
 
@@ -33,7 +34,7 @@ export default function SensoryReferencesPanel({ locale }: { locale: Locale }) {
       <p>{it ? "Le sintesi documentali del lotto sono in italiano. Nessuna chiamata AI a pagamento." : "The batch's documentary summaries are in Italian. No paid AI calls."}</p>
       {preview.rows.map(row => <article key={row.dossier.id} className="sensory-reference-card">
         <h5>{row.dossier.producer} · {row.dossier.name} · {row.dossier.vintage}</h5>
-        <p>{row.dossier.country} · {statuses[row.status]}</p>
+        <p>{localizeCountry(row.dossier.country, locale)} · {statuses[row.status]}</p>
         {row.conflicts?.map(conflict => <p key={conflict}>{conflict}</p>)}
         {(row.status === "new" || row.status === "matched") && <label className="sensory-reference-select"><input type="checkbox" disabled={busy} checked={selected.includes(row.dossier.id)} onChange={e => setSelected(e.target.checked ? [...selected, row.dossier.id] : selected.filter(id => id !== row.dossier.id))} />{it ? "Importa dossier" : "Import dossier"}: {row.dossier.name}</label>}
         <details><summary>{it ? "Dati, fonti e confronto" : "Data, sources and comparison"}</summary>

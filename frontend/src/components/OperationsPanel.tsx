@@ -3,6 +3,7 @@ import type { Locale, OperationalMetricsOverview, UserActivityLogEntry } from ".
 import { LoadingState } from "./AppUi";
 import { api } from "../services/api";
 import "./OperationsPanel.css";
+import { localizeRegion, localizeCountry } from "../domain/places";
 
 type OperationsPanelProps = {
   locale: Locale;
@@ -675,7 +676,7 @@ export function OperationsPanel({ locale, overview, activity, onRefresh, sensory
               <article key={candidate.wine_id}>
                 <span>
                   <strong>{candidate.name} {candidate.vintage}</strong>
-                  <small>{[candidate.producer, candidate.appellation || candidate.region].filter(Boolean).join(" · ")}</small>
+                  <small>{[candidate.producer, candidate.appellation || localizeRegion(candidate.region, locale)].filter(Boolean).join(" · ")}</small>
                   {isPreciseVineyardPrecision(candidate.precision) ? <em className="operations-vineyard-precise">◎ {isItalian ? "Posizione precisa" : "Precise location"}</em> : null}
                 </span>
                 <div className="operations-vineyard-actions">
@@ -700,7 +701,7 @@ export function OperationsPanel({ locale, overview, activity, onRefresh, sensory
                   ? (isItalian ? "POSIZIONE MANUALE" : "MANUAL POSITION")
                   : (isItalian ? "RISULTATO RICERCA" : "RESEARCH RESULT")}</span>
                 <strong>{vineyardFeedback.name}{vineyardFeedback.vintage ? ` · ${vineyardFeedback.vintage}` : ""}</strong>
-                <small>{[vineyardFeedback.vineyard_name || vineyardFeedback.producer, vineyardFeedback.locality, vineyardFeedback.country].filter(Boolean).join(" · ")}</small>
+                <small>{[vineyardFeedback.vineyard_name || vineyardFeedback.producer, vineyardFeedback.locality, localizeCountry(vineyardFeedback.country, locale)].filter(Boolean).join(" · ")}</small>
               </div>
               <div>
                 <span className={`status-pill ${vineyardFeedback.status === "found" ? "configured" : ""}`}>

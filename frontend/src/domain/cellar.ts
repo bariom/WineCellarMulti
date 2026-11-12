@@ -1,5 +1,6 @@
 import type { Locale, MaturityPhase, Session, SortMode, ValueBreakdownItem, Wine, WineCollectionFilters, WishlistItem } from "../types";
 import { normalizeWineType } from "./wineTypes";
+import { placeSearchText } from "./places";
 
 export function uniqueSorted(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((first, second) => first.localeCompare(second));
@@ -273,7 +274,9 @@ export function wineSearchText(wine: Wine) {
     wine.vintage,
     wine.format,
     wine.type,
-    wine.region,
+    // "Tuscany" finds a wine saved as "Toscana", and the other way round.
+    placeSearchText(wine.region),
+    placeSearchText(wine.vineyard_country),
     wine.appellation,
     wine.merchant,
     wine.status,

@@ -12,6 +12,7 @@ import { featuredCaption, featuredExplanation, type FeaturedWine } from "./Featu
 import { CollectorAtlas } from "./CollectorAtlas";
 import { CellarShowcase } from "./CellarShowcase";
 import "./CollectorQuadrante.css";
+import { localizeRegion } from "../domain/places";
 const CollectorEvolution = lazy(() => import("./CollectorEvolution"));
 
 type Lane = { key: "overdue" | "closing" | "ready" | "waiting" | "unknown"; label: string; items: Wine[] };
@@ -242,7 +243,7 @@ export function CollectorQuadrante({ children, wines, featured, recent, locale, 
                   <KeyPositionBottleVisual photoUrl={canShowPhotos ? item.wine.photo_thumbnail_url || item.wine.photo_detail_url : ""} detailUrl={canShowPhotos ? item.wine.photo_detail_url : undefined} sizes="(max-width: 900px) 140px, 220px" tone={wineTone(item.wine.type)} />
                 </div>
                 <div className="cq-stage-copy">
-                  <p className="cq-kicker">{[item.wine.appellation || item.wine.region, item.highlight].filter(Boolean).join(" · ")}</p>
+                  <p className="cq-kicker">{[item.wine.appellation || localizeRegion(item.wine.region, locale), item.highlight].filter(Boolean).join(" · ")}</p>
                   <h3>{item.wine.name}</h3>
                   <p className="cq-producer">{[item.wine.producer, item.wine.vintage].filter(Boolean).join(" · ")}</p>
                   <p className="cq-why">{featuredExplanation(item, locale)}</p>

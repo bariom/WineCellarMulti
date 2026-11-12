@@ -17,6 +17,7 @@ import "./CellarAssistantMobile.css";
 import { AssistantAnswer } from "../components/AssistantAnswer";
 import { AiActivity } from "../components/AiActivity";
 import { primeSpeech, speak, speechSupported, stopSpeaking } from "../utils/speech";
+import { localizeRegion } from "../domain/places";
 
 const READ_ALOUD_KEY = "vinaris.assistant.read-aloud";
 
@@ -1182,7 +1183,7 @@ export default function CellarAssistantView({
             <div className="cellar-assistant-candidates">
               {result.catalog_candidates.map((candidate) => (
                 <button type="button" className="secondary" key={candidate.catalog_entry_id} onClick={() => void selectCatalogCandidate(result, candidate)} disabled={busy}>
-                  <span><strong>{candidate.name}</strong><small>{[candidate.producer, candidate.region, candidate.appellation].filter(Boolean).join(" · ")}</small></span>
+                  <span><strong>{candidate.name}</strong><small>{[candidate.producer, localizeRegion(candidate.region, locale), candidate.appellation].filter(Boolean).join(" · ")}</small></span>
                   <b>{isItalian ? "Usa" : "Use"}</b>
                 </button>
               ))}

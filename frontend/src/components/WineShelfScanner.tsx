@@ -5,6 +5,7 @@ import type { RestaurantWineListQuestionPayload, RestaurantWineListQuestionResul
 import { WishlistDestinationPicker } from "./WishlistDestinationPicker";
 import { usePhotoPreviews } from "../utils/photoPreview";
 import "./WineShelfScanner.css";
+import { localizeRegion } from "../domain/places";
 
 const maxPhotos = 3;
 
@@ -159,7 +160,7 @@ export function WineShelfScanner({
 
   const rankByBottle = new Map(result?.recommendations.map((item) => [item.bottle_index, item.rank]) || []);
   const disabled = !canGenerateAi || scanning;
-  const identity = (bottle: WineShelfBottle) => [bottle.producer, bottle.vintage, bottle.region].filter(Boolean).join(" · ");
+  const identity = (bottle: WineShelfBottle) => [bottle.producer, bottle.vintage, localizeRegion(bottle.region, locale)].filter(Boolean).join(" · ");
   const suggestions = it
     ? ["Perché la prima e non la seconda?", "Quale si conserva più a lungo?", "C'è un'alternativa più economica?"]
     : ["Why the first rather than the second?", "Which one will age longer?", "Is there a cheaper alternative?"];

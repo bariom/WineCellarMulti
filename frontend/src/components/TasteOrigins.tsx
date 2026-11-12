@@ -5,6 +5,7 @@ import { AppIcon } from "./AppIcon";
 import { KeyPositionWineIllustration } from "./KeyPositionCardParts";
 import { wineTone } from "./panelSupport";
 import "./TasteOrigins.css";
+import { localizeRegion, localizeCountry, regionKey } from "../domain/places";
 
 const normalize = (value: string) => value.trim().toLocaleLowerCase();
 
@@ -41,12 +42,12 @@ export function TasteOrigins({ profile, wines, locale, onOpenWine }: {
     .filter(([name, score]) => name.trim() && Number.isFinite(score) && score > 0)
     .slice().sort((a, b) => b[1] - a[1]).slice(0, 3);
   const stock = (wines || []).filter(wine => wine.quantity > 0 && isWinePhysicallyInCellar(wine));
-  const preferredRegions = new Set(regions.map(([name]) => normalize(name)));
+  const preferredRegions = new Set(regions.map(([name]) => regionKey(name)));
   const grapes = (profile.attributes.preferred_grapes || [])
     .filter(([, score]) => Number.isFinite(score) && score > 0)
     .slice().sort((a, b) => b[1] - a[1]);
   const discovery = grapes.flatMap(([grape]) => stock
-    .filter(wine => wine.region.trim() && !preferredRegions.has(normalize(wine.region))
+    .filter(wine => wine.region.trim() && !preferredRegions.has(regionKey(wine.region))
       && wine.grapes.some(item => normalize(item.name) === normalize(grape)))
     .map(wine => ({ wine, grape })))[0];
 
@@ -58,12 +59,13 @@ export function TasteOrigins({ profile, wines, locale, onOpenWine }: {
     {profile.confidence_level === "emerging" ? <p>{it ? "Il profilo è ancora in scoperta: questa classifica può cambiare con nuovi giudizi." : "Your profile is still developing: this ranking may change with new ratings."}</p> : null}
     <div className="taste-origin-cards">
       {origins.map(([name], index) => {
-        const available = stock.filter(wine => normalize(regional ? wine.region : wine.vineyard_country || "") === normalize(name));
+        // "Toscana" in the profile matches wines saved as "Tuscany".
+        const available = stock.filter(wine => regionKey(regional ? wine.region : wine.vineyard_country) === regionKey(name));
         const quantity = available.reduce((total, wine) => total + wine.quantity, 0);
         return <article className="taste-origin-card" key={name}>
           <div className="taste-origin-illustration"><OriginLandscape /><span className="taste-origin-rank"><b>{String(index + 1).padStart(2, "0")}</b>{it ? (regional ? "Regione" : "Paese") : (regional ? "Region" : "Country")}</span><AppIcon name="location" size="1.2rem" /></div>
           <div className="taste-origin-card-content">
-          <h5>{name}</h5>
+          <h5>{regional ? localizeRegion(name, locale) : localizeCountry(name, locale)}</h5>
           <p>{wines ? (it ? `${quantity} ${quantity === 1 ? "bottiglia" : "bottiglie"} in cantina · ${available.length} ${available.length === 1 ? "etichetta" : "etichette"}` : `${quantity} ${quantity === 1 ? "bottle" : "bottles"} in cellar · ${available.length} ${available.length === 1 ? "label" : "labels"}`) : (it ? "Disponibilità in cantina non presente in questa vista." : "Cellar availability is not provided in this view.")}</p>
           {available.length ? <details className="taste-origin-wines">
             <summary>{it ? "Vedi i vini in cantina" : "See cellar wines"}</summary>
@@ -82,7 +84,7 @@ export function TasteOrigins({ profile, wines, locale, onOpenWine }: {
       <span className="taste-origin-rank">{it ? "Una scoperta da provare" : "A discovery to try"}</span>
       {discovery && regions.length ? <>
         <h4>{discovery.wine.name}</h4>
-        <span className="taste-discovery-identity">{[discovery.wine.region, discovery.wine.vintage, discovery.wine.producer].filter(Boolean).join(" · ")}</span>
+        <span className="taste-discovery-identity">{[localizeRegion(discovery.wine.region, locale), discovery.wine.vintage, discovery.wine.producer].filter(Boolean).join(" · ")}</span>
         <p>{it ? `${discovery.grape} emerge tra le uve associate ai tuoi giudizi positivi. Provalo in una regione diversa dalle tue origini principali.` : `${discovery.grape} appears among grapes associated with your positive ratings. Explore it in a region outside your leading origins.`}</p>
         <small>{it ? "Una proposta da verificare con una degustazione: non è una previsione di gradimento." : "A suggestion to test with a tasting, rather than a predicted rating."}</small>
         {onOpenWine ? <button type="button" className="secondary" onClick={() => onOpenWine(discovery.wine)}>{it ? "Apri la bottiglia da esplorare" : "Open the bottle to explore"}<AppIcon name="chevron-right" /></button> : null}

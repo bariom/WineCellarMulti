@@ -7,6 +7,7 @@ import type { CellarIntelligencePlan, CellarIntelligencePreferences, CellarIntel
 import LocalizedDateInput from "../components/LocalizedDateInput";
 import { api } from "../services/api";
 import "./CellarIntelligenceView.css";
+import { localizeRegion } from "../domain/places";
 
 const PURPOSES: WineStrategyPurpose[] = ["drink", "maturation", "investment", "special_occasion", "undecided"];
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 } as const;
@@ -608,7 +609,7 @@ export default function CellarIntelligenceView({
             {visibleClassifiedWines.map((wine) => <label className={selectedWineIds.has(wine.wine_id) ? "is-selected" : ""} key={wine.wine_id}>
               <input type="checkbox" checked={selectedWineIds.has(wine.wine_id)} onChange={() => toggleWineSelection(wine.wine_id)} />
               <BottleThumbnail wine={wine} />
-              <span><strong>{wine.name} {wine.vintage}</strong><small>{wine.producer || wine.region || (it ? "Dati essenziali" : "Essential data")}</small></span>
+              <span><strong>{wine.name} {wine.vintage}</strong><small>{wine.producer || localizeRegion(wine.region, locale) || (it ? "Dati essenziali" : "Essential data")}</small></span>
               <span className="intelligence-purpose-tags">{PURPOSES.filter((purpose) => wine.purposes[purpose]).map((purpose) => <small key={purpose}>{purposeLabel(purpose)} · {wine.purposes[purpose]}</small>)}</span>
               <span className="intelligence-selection-value"><small>{it ? "Valore attuale" : "Current value"}</small><strong>{wine.signals.includes("market_value_missing") ? (it ? "Non disponibile" : "Not available") : formatUnitValue(wine.current_value, wine.currency, wine.quantity)}</strong></span>
             </label>)}

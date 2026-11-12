@@ -4,6 +4,7 @@ import type { Locale, TasteMatch, WineImageRecognitionCandidate, WineImageRecogn
 import { AppIcon } from "./AppIcon";
 import { photoPreview } from "../utils/photoPreview";
 import "./WishlistLiveTasteScanner.css";
+import { localizeRegion, localizeCountry } from "../domain/places";
 
 export type WishlistLiveTasteScan = {
   recognition: WineImageRecognitionResult;
@@ -265,7 +266,7 @@ export function WishlistLiveTasteScanner({
     && item.producer.trim().toLocaleLowerCase() === (recognized.producer || recognized.estate).trim().toLocaleLowerCase());
   const facts = recognized ? [
     [italian ? "Tipologia" : "Type", wineTypeLabel(recognized.wine_type, locale)],
-    [italian ? "Origine" : "Origin", [recognized.region, recognized.country].filter(Boolean).join(" · ")],
+    [italian ? "Origine" : "Origin", [localizeRegion(recognized.region, locale), localizeCountry(recognized.country, locale)].filter(Boolean).join(" · ")],
     [italian ? "Denominazione" : "Appellation", recognized.appellation],
   ].filter(([, value]) => value) : [];
   const canConfirm = Boolean(recognized && (recognized.status === "recognized" || recognized.status === "ambiguous") && candidateName(recognized));

@@ -4,6 +4,7 @@ import { AppIcon, AppIconName } from "../components/AppIcon";
 import LocalizedDateInput from "../components/LocalizedDateInput";
 import { RATING_HALF_STEPS } from "../components/AppUi";
 import TastingArchiveInsights from "./TastingArchiveInsights";
+import { localizeRegion } from "../domain/places";
 
 type TastingEnjoyment = "" | "positive" | "negative";
 
@@ -347,7 +348,7 @@ export default function TastingArchiveSection({
                     </span>
                   ) : null}
                 </strong>
-                <span>{[entry.wine.producer, entry.wine.vintage, entry.wine.region].filter(Boolean).join(" - ")}</span>
+                <span>{[entry.wine.producer, entry.wine.vintage, localizeRegion(entry.wine.region, locale)].filter(Boolean).join(" - ")}</span>
                 {!entry.wine.type.trim() ? <small className="tasting-archive-unspecified-color">{locale === "it" ? "Colore non specificato" : "Wine color unspecified"}</small> : null}
               </div>
               <div className="tasting-archive-summary">

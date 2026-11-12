@@ -1,6 +1,7 @@
 import { AppIcon, type AppIconName } from "../components/AppIcon";
 import type { EventFeature, Locale, SessionEvent, Wine } from "../types";
 import "./EventWelcomeView.css";
+import { localizeRegion } from "../domain/places";
 
 /**
  * Where the event QR code lands: the event's name, what the sommelier can do
@@ -99,7 +100,7 @@ export default function EventWelcomeView({ locale, event, wines, onOpen, onKeep,
         {wines.map((wine) => <li key={wine.id}>
           <button type="button" className="event-welcome-bottle-text" aria-label={it ? `Dettaglio di ${wine.name}` : `Details of ${wine.name}`} onClick={() => onOpenWine(wine)}>
             <strong>{wine.name}</strong>
-            <span>{[wine.producer, wine.vintage, wine.region].filter(Boolean).join(" · ")}</span>
+            <span>{[wine.producer, wine.vintage, localizeRegion(wine.region, locale)].filter(Boolean).join(" · ")}</span>
             <small>{it ? "Vedi il dettaglio" : "See the details"} <i aria-hidden="true">→</i></small>
           </button>
           <span className="event-welcome-bottle-quantity">×{wine.quantity}</span>

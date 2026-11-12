@@ -13,6 +13,7 @@ import WineGeographyMap from "./WineGeographyMap";
 import TimeSeriesChart from "../components/TimeSeriesChart";
 import { AppIcon } from "../components/AppIcon";
 import "./RestaurantDashboard.css";
+import { localizeRegion } from "../domain/places";
 
 type Period = "week" | "month" | "semester" | "year" | "custom";
 type ManualStockMovementType = Extract<StockMovementType, "purchase" | "adjustment_in" | "adjustment_out" | "breakage" | "complimentary">;
@@ -899,7 +900,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
           {leadingWines.length ? <div>{leadingWines.map((wine, index) => <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}>
             <span className="restaurant-leading-rank">{String(index + 1).padStart(2, "0")}</span>
             {wine.photo_thumbnail_url || wine.photo_detail_url || libraryPhotoUrls[wine.id] ? <img src={wine.photo_thumbnail_url || wine.photo_detail_url || libraryPhotoUrls[wine.id]} alt={`${wine.name} ${wine.vintage}`.trim()} loading="lazy" /> : <i className="restaurant-bottle-placeholder" aria-hidden="true" />}
-            <span><strong>{wine.name}</strong><small>{[wine.producer, wine.vintage, wine.region].filter(Boolean).join(" · ")}</small></span>
+            <span><strong>{wine.name}</strong><small>{[wine.producer, wine.vintage, localizeRegion(wine.region, locale)].filter(Boolean).join(" · ")}</small></span>
             <span className="restaurant-leading-price"><strong>{formatMoney(wine.sale_price || 0, wine.currency, locale)}</strong><small>{wine.quantity} {locale === "it" ? "disponibili" : "available"}</small></span>
           </button>)}</div> : <p className="empty-state">{locale === "it" ? "Inserisci i prezzi di vendita per comporre la selezione." : "Add sale prices to build this selection."}</p>}
         </section>

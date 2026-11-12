@@ -39,6 +39,24 @@ signing, domain association and device validation. It is independent of Vinaris 
 
 This repository is intentionally separate from the existing `WineCellar` project.
 
+## Countries and regions in two languages
+
+Country and region are free text, kept as written by the catalog, an admin, a cellar
+or the AI ("Toscana" or "Tuscany", "Italia" or "Italy"). The interface shows them in
+the reader's language through `frontend/src/domain/places.ts`:
+
+- countries are recognised in Italian, English, French, German, Spanish and Portuguese
+  and named by the browser (`Intl.DisplayNames`), so every country is covered;
+- wine regions whose Italian and English names differ (Toscana/Tuscany,
+  Borgogna/Burgundy, Valle del Rodano/Rhône Valley, Vallese/Valais…) come from a short
+  curated list; the others (Bordeaux, Champagne, Rioja…) are the same everywhere;
+- an unknown name is shown as written; appellations and localities are never translated;
+- grouping and favourites use one key per place, so "Toscana" and "Tuscany" count as one
+  region, and the cellar search finds a place by its name in either language.
+
+Nothing is translated in the database. To add a region with different names, add it to
+`REGIONS` in `places.ts` and to `e2e/places.spec.ts`.
+
 ## Purchase lots
 
 Receipt/invoice originals uploaded from this version are privately archived per

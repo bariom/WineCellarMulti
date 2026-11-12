@@ -8,6 +8,7 @@ import { AiActivity } from "./AiActivity";
 import { formatAiBudget } from "./panelSupport";
 import { photoPreview } from "../utils/photoPreview";
 import "./BottlePhotoImport.css";
+import { localizeRegion } from "../domain/places";
 
 const MAX_PHOTOS = 3;
 
@@ -247,7 +248,7 @@ export default function BottlePhotoImport({ locale, canAnalyze, eventGuest = fal
             <div className="bottle-photo-badges">
               {row.existing_wine ? <label className="bottle-photo-existing"><input type="checkbox" checked={row.addToExisting} onChange={(event) => update(row.key, { addToExisting: event.target.checked })} />
                 <span>{it ? `Già in cantina (${row.existing_wine.quantity} bott.): aggiungi a questo vino` : `Already in the cellar (${row.existing_wine.quantity} btl.): add to this wine`}</span></label> : null}
-              {row.catalog ? <span className="is-catalog">{it ? "Dal catalogo" : "From the catalog"}{[row.catalog.region, row.catalog.type].filter(Boolean).length ? ` · ${[row.catalog.region, row.catalog.type].filter(Boolean).join(" · ")}` : ""}</span> : null}
+              {row.catalog ? <span className="is-catalog">{it ? "Dal catalogo" : "From the catalog"}{[row.catalog.region, row.catalog.type].filter(Boolean).length ? ` · ${[localizeRegion(row.catalog.region, locale), row.catalog.type].filter(Boolean).join(" · ")}` : ""}</span> : null}
               {row.confidence === "low" ? <span className="is-uncertain">{it ? "Lettura incerta: controlla l'etichetta" : "Uncertain reading: check the label"}</span> : null}
               <button type="button" className="secondary compact bottle-photo-remove" onClick={() => setRows((current) => current.filter((item) => item.key !== row.key))}>{it ? "Togli" : "Remove"}</button>
             </div>

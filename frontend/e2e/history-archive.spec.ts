@@ -32,8 +32,10 @@ for (const locale of ["it", "en"] as const) {
       if (width === 390 || width === 1440) await history.screenshot({ path: testInfo.outputPath(`archived-unknown-color-${locale}-${width}.png`) });
     }
     await history.getByRole("button", { name: it ? "Regione" : "Region", exact: true }).click();
-    const regionGroup = history.locator(".wine-tone-group").filter({ hasText: "Piemonte" });
-    await regionGroup.getByRole("button", { name: /Piemonte/ }).click();
+    // The region is named in the reader's language.
+    const region = it ? "Piemonte" : "Piedmont";
+    const regionGroup = history.locator(".wine-tone-group").filter({ hasText: region });
+    await regionGroup.getByRole("button", { name: new RegExp(region) }).click();
     await expect(regionGroup.locator('[data-wine-row-id="sandrones-le-vigne"]')).toBeVisible();
   });
 }

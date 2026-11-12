@@ -7,6 +7,7 @@ import { api } from "../../services/api";
 import type { Locale, TasteMatch, TasteMatchBatchResponse, TasteProfileCollection, TastePreferenceEntry, Wine } from "../../types";
 import "../../components/DashboardSummaryWidget.css";
 import "./TodayInCellar.css";
+import { localizeRegion, localizeCountry, regionKey } from "../../domain/places";
 
 type TodayInCellarProps = {
   locale: Locale;
@@ -43,8 +44,24 @@ const normalized = (value: string | null | undefined) => (value || "").replace(/
 
 function favouriteValues(wine: Wine, kind: FavouriteKind): string[] {
   if (kind === "grapes") return (wine.grapes || []).map((grape) => normalized(grape.name)).filter(Boolean);
-  const value = kind === "producers" ? wine.producer : kind === "regions" ? wine.region : kind === "appellations" ? wine.appellation : wine.vineyard_country;
+  if (kind === "regions" || kind === "countries") {
+    // The same place written in another language is the same favourite.
+    const key = regionKey(kind === "regions" ? wine.region : wine.vineyard_country);
+    return key ? [key] : [];
+  }
+  const value = kind === "producers" ? wine.producer : wine.appellation;
   return value ? [normalized(value)] : [];
+}
+
+function favouriteKey(kind: FavouriteKind, name: string): string {
+  return kind === "regions" || kind === "countries" ? regionKey(name) : normalized(name);
+}
+
+/** A favourite's name in the reader's language, for regions and countries. */
+function favouriteName(kind: FavouriteKind, name: string, locale: Locale): string {
+  if (kind === "regions") return localizeRegion(name, locale);
+  if (kind === "countries") return localizeCountry(name, locale);
+  return name;
 }
 
 /** Closeness to the taste profile (0..1), pulled toward neutral while the estimate is uncertain. */
@@ -122,7 +139,7 @@ export default function TodayInCellar({
   const favouriteHit = (wine: Wine) => {
     for (const kind of Object.keys(FAVOURITE_BONUS) as FavouriteKind[]) {
       const values = favouriteValues(wine, kind);
-      const entry = (favourites[kind] || []).find(([name]) => values.includes(normalized(name)));
+      const entry = (favourites[kind] || []).find(([name]) => values.includes(favouriteKey(kind, name)));
       if (entry) return { kind, name: entry[0] };
     }
     return null;
@@ -160,7 +177,7 @@ export default function TodayInCellar({
       const traits = match.matching_traits.slice(0, 2).map((trait) => tasteTraitLabel(trait, locale)).join(it ? " e " : " and ");
       parts.push(it ? `In sintonia con il tuo gusto per ${traits}` : `In tune with your taste for ${traits}`);
     } else if (hit) {
-      parts.push(`${hit.name}, ${favouriteLabel(hit.kind)}`);
+      parts.push(`${favouriteName(hit.kind, hit.name, locale)}, ${favouriteLabel(hit.kind)}`);
     } else {
       parts.push(reasonFor(wine));
     }
@@ -185,7 +202,7 @@ export default function TodayInCellar({
       .map((entry) => ({
         kind, entry,
         left: availableWines
-          .filter((wine) => favouriteValues(wine, kind).includes(normalized(entry[0])))
+          .filter((wine) => favouriteValues(wine, kind).includes(favouriteKey(kind, entry[0])))
           .reduce((total, wine) => total + bottleCount(wine), 0),
       })));
     return candidates.find((candidate) => candidate.left === 0) ?? candidates.find((candidate) => candidate.left === 1) ?? null;
@@ -213,7 +230,7 @@ export default function TodayInCellar({
       : `${drunk} drunk${average ? `, ${average.toLocaleString("en-GB", { maximumFractionDigits: 1 })}/6 on average` : ""}`;
     cards.push({
       key: "collection", icon: "buying", kicker: it ? "Per la tua collezione" : "For your collection",
-      title: name, subtitle: favouriteTitle(collection.kind),
+      title: favouriteName(collection.kind, name, locale), subtitle: favouriteTitle(collection.kind),
       reason: collection.left === 0
         ? (it ? `Ti è piaciuto spesso (${record}) e in cantina non ne resta nessuna` : `You have often enjoyed it (${record}) and none is left in the cellar`)
         : (it ? `Ti è piaciuto spesso (${record}) e resta una sola bottiglia` : `You have often enjoyed it (${record}) and only one bottle is left`),

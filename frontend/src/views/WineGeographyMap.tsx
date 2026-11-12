@@ -7,6 +7,7 @@ import "./WineGeographyMap.css";
 import type { TranslationKey } from "../i18n";
 import type { Locale, Wine } from "../types";
 import MapBaseLayers from "../components/MapBaseLayers";
+import { localizeRegion, localizeCountry } from "../domain/places";
 
 type WineRegionLocation = { latitude: number; longitude: number };
 type WineMapPoint = { label: string; region: string; location: WineRegionLocation; wines: number; bottles: number; originKind?: "country" | "region" };
@@ -146,7 +147,7 @@ export function VineyardMap({ wine, locale, openRequestId = 0 }: { wine: Wine; l
   const precisionDisplay = precise
     ? `${locale === "it" ? "Posizione precisa" : "Precise location"}${precision ? ` · ${precision}` : ""}`
     : precision;
-  const place = [wine.vineyard_locality, wine.vineyard_country].filter(Boolean).join(", ");
+  const place = [wine.vineyard_locality, localizeCountry(wine.vineyard_country, locale)].filter(Boolean).join(", ");
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -189,7 +190,7 @@ export function VineyardMap({ wine, locale, openRequestId = 0 }: { wine: Wine; l
           <div>
             <button type="button" className="vineyard-origin-trigger" onClick={(event) => { lastTriggerRef.current = event.currentTarget; setFullscreen(true); }}>
               <span>{precise ? (locale === "it" ? "ORIGINE PRECISA" : "PRECISE ORIGIN") : (locale === "it" ? "ORIGINE" : "ORIGIN")}</span>
-              <strong>{place || wine.vineyard_name || wine.appellation || wine.region}</strong>
+              <strong>{place || wine.vineyard_name || wine.appellation || localizeRegion(wine.region, locale)}</strong>
               <i aria-hidden="true">›</i>
             </button>
             <h3>{locale === "it" ? "Il luogo del vino" : "Where the wine comes from"}</h3>
@@ -203,7 +204,7 @@ export function VineyardMap({ wine, locale, openRequestId = 0 }: { wine: Wine; l
           </div>
         </div>
         <div className="vineyard-map-copy">
-          <strong>{wine.vineyard_name || wine.appellation || wine.region}</strong>
+          <strong>{wine.vineyard_name || wine.appellation || localizeRegion(wine.region, locale)}</strong>
           {place ? <span>{place}</span> : null}
           {wine.vineyard_notes ? <p>{wine.vineyard_notes}</p> : null}
         </div>
@@ -218,7 +219,7 @@ export function VineyardMap({ wine, locale, openRequestId = 0 }: { wine: Wine; l
               <span>{locale === "it" ? "Torna al vino" : "Back to wine"}</span>
             </button>
             <div>
-              <strong>{wine.vineyard_name || wine.appellation || wine.region}</strong>
+              <strong>{wine.vineyard_name || wine.appellation || localizeRegion(wine.region, locale)}</strong>
               <span>{[place, precisionDisplay].filter(Boolean).join(" · ")}</span>
             </div>
           </header>
