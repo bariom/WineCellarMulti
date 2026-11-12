@@ -63,7 +63,8 @@ for (const kind of ["wine", "wishlist"]) {
     await page.goto("/valuation-test");
     await expect(page.getByText("Mercato: Italia · CHF", { exact: true })).toBeVisible();
     await expect(page.getByText(/Include fonti estere/)).toBeVisible();
-    await expect(page.getByRole("link", { name: /Negozio estero \(France\)/ })).toBeVisible();
+    // The source's country is shown in the reader's language.
+    await expect(page.getByRole("link", { name: /Negozio estero \(Francia\)/ })).toBeVisible();
     const transparency = page.getByLabel("Trasparenza richiesta AI");
     await expect(transparency.getByText("Modello utilizzato", { exact: true })).toBeVisible();
     await expect(transparency.getByText("gpt-6.1-sol", { exact: true })).toBeVisible();
