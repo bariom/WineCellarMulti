@@ -30,6 +30,7 @@ from app.db.session import SessionLocal
 from app.models import WineCatalogEntry
 from app.prompts.catalog_photo import catalog_photo_details_prompt
 from app.schemas.catalog_photo import (
+    CatalogPhotoAutoReason,
     CatalogPhotoBottle,
     CatalogPhotoCheck,
     CatalogPhotoDetails,
@@ -342,7 +343,8 @@ def start_details(job: CatalogPhotoJob, positions: list[int], *, locale: str) ->
     submit(run_details, job, positions, locale)
 
 
-def run_details(job: CatalogPhotoJob, positions: list[int], locale: str) -> None:
+def research(job: CatalogPhotoJob, positions: list[int], locale: str) -> None:
+    """Research the given bottles, a few per AI call; failures leave job.error set."""
     result = job.result
     assert result is not None
     groups = [
@@ -376,8 +378,160 @@ def run_details(job: CatalogPhotoJob, positions: list[int], locale: str) -> None
             job.sections_done += 1
     if failures and not job.error:
         job.error = "The research did not answer for some wines. Try again."
-    job.stage = "done"
-    job.status = "done"
+
+
+def run_details(job: CatalogPhotoJob, positions: list[int], locale: str) -> None:
+    try:
+        research(job, positions, locale)
+    finally:
+        job.stage = "done"
+        job.status = "done"
+
+
+# Automatic saving ---------------------------------------------------------------------
+
+
+def auto_save_problem(db: Session, bottle: CatalogPhotoBottle) -> CatalogPhotoAutoReason:
+    """Why a wine must be reviewed by hand instead of saved automatically ("" if none).
+
+    Only a wine read with confidence, found on the web with verified sources and naming
+    a single catalog entry (or none) is saved without review.
+    """
+    from app.services.catalog_sync import matching_catalog_entries
+
+    details = bottle.details
+    if bottle.confidence != "high":
+        return "uncertain_reading"
+    if bottle.status == "uncertain":
+        return "ambiguous"
+    if details is None or not details.found or not details.sources:
+        return "not_found"
+    name = bottle.entry.name if bottle.entry else (details.name or bottle.name)
+    producer = bottle.entry.producer if bottle.entry else (details.producer or bottle.producer)
+    if not name.strip() or not producer.strip():
+        return "incomplete"
+    if (
+        bottle.entry is None
+        and len(matching_catalog_entries(db, name, producer, approved_only=False)) > 1
+    ):
+        return "ambiguous"
+    return ""
+
+
+def auto_payload(db: Session, bottle: CatalogPhotoBottle) -> CatalogPhotoSave:
+    """What an automatic save writes: the research, completed by the label.
+
+    An existing entry only receives the fields it lacks: nothing an admin or a cellar
+    wrote is replaced without review.
+    """
+    from app.services.catalog_sync import matching_catalog_entries
+
+    details = bottle.details
+    assert details is not None
+    values = {
+        "name": details.name or bottle.name,
+        "producer": details.producer or bottle.producer,
+        "appellation": details.appellation or bottle.appellation,
+        "region": details.region or bottle.region,
+        "country": details.country or bottle.country,
+        "type": details.wine_type or bottle.wine_type,
+        "grapes_text": ", ".join(details.grapes),
+        "description": details.description,
+    }
+    entry: WineCatalogEntry | None = None
+    if bottle.entry is not None and bottle.entry.id is not None:
+        entry = db.get(WineCatalogEntry, bottle.entry.id)
+    else:
+        matches = matching_catalog_entries(
+            db, values["name"], values["producer"], approved_only=False
+        )
+        entry = matches[0] if len(matches) == 1 else None
+    if entry is not None:
+        values = {
+            field: ("" if str(getattr(entry, field) or "").strip() else value)
+            for field, value in values.items()
+        }
+        values["name"], values["producer"] = entry.name, entry.producer
+    return CatalogPhotoSave(
+        entry_id=entry.id if entry is not None else None,
+        name=values["name"][:200],
+        producer=values["producer"][:200],
+        appellation=values["appellation"][:120],
+        region=values["region"][:120],
+        country=values["country"][:120],
+        type=values["type"][:80],
+        grapes_text=values["grapes_text"][:400],
+        description=values["description"][:1500],
+        drink_from=details.drink_from,
+        drink_peak_from=details.drink_peak_from,
+        drink_peak_to=details.drink_peak_to,
+        drink_to=details.drink_to,
+        save_photo=False,
+    )
+
+
+def start_auto_save(job: CatalogPhotoJob, positions: list[int], *, locale: str) -> None:
+    if job.status == "running" or job.result is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "The photo analysis is still running")
+    count = len(job.result.bottles)
+    if len(set(positions)) != len(positions) or any(not 0 <= item < count for item in positions):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown bottle")
+    # Wines already researched are not searched again.
+    pending = [item for item in positions if job.result.bottles[item].details is None]
+    job.status = "running"
+    job.stage = "researching" if pending else "saving"
+    job.error = ""
+    job.sections_total = math.ceil(len(pending) / WINES_PER_CALL)
+    job.sections_done = 0
+    job.phase_started_at = datetime.now(UTC)
+    submit(run_auto_save, job, positions, locale)
+
+
+def run_auto_save(job: CatalogPhotoJob, positions: list[int], locale: str) -> None:
+    """Research the chosen wines, then save those without doubts; the others wait for review."""
+    result = job.result
+    assert result is not None
+    try:
+        pending = [item for item in positions if result.bottles[item].details is None]
+        if pending:
+            research(job, pending, locale)
+        job.stage = "saving"
+        with SessionLocal() as db:
+            _worker_context(db, job)
+            for position in positions:
+                bottle = result.bottles[position]
+                if bottle.saved:
+                    continue
+                reason = auto_save_problem(db, bottle)
+                if not reason:
+                    try:
+                        store_bottle(
+                            db,
+                            job,
+                            position,
+                            auto_payload(db, bottle),
+                            user_id=job.user_id,
+                            locale=locale,
+                        )
+                    except HTTPException:
+                        db.rollback()
+                        reason = "ambiguous"
+                    except Exception:
+                        db.rollback()
+                        logger.exception("Catalog photo automatic save failed")
+                        reason = "failed"
+                bottle = result.bottles[position]
+                result.bottles[position] = bottle.model_copy(
+                    update={"auto": "saved" if bottle.saved else "review", "auto_reason": reason}
+                )
+    except HTTPException as exc:
+        job.error = str(exc.detail)
+    except Exception:
+        logger.exception("Catalog photo automatic saving failed")
+        job.error = "The automatic saving stopped. Try again."
+    finally:
+        job.stage = "done"
+        job.status = "done"
 
 
 # Bottle photo -------------------------------------------------------------------------
@@ -697,6 +851,21 @@ def save_bottle(
     user_id: Any,
     locale: str,
 ) -> CatalogPhotoSaveResult:
+    if job.status == "running" or job.result is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "The photo analysis is still running")
+    return store_bottle(db, job, position, payload, user_id=user_id, locale=locale)
+
+
+def store_bottle(
+    db: Session,
+    job: CatalogPhotoJob,
+    position: int,
+    payload: CatalogPhotoSave,
+    *,
+    user_id: Any,
+    locale: str,
+) -> CatalogPhotoSaveResult:
+    """Save a reviewed (or automatically checked) wine to the catalog."""
     from app.api.routes.catalog import (
         add_catalog_alias_if_missing,
         build_search_text,
@@ -706,8 +875,7 @@ def save_bottle(
     from app.services.catalog_sync import matching_catalog_entries
     from app.services.wine_photo_library import matching_reference_photos
 
-    if job.status == "running" or job.result is None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "The photo analysis is still running")
+    assert job.result is not None
     if not 0 <= position < len(job.result.bottles):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Bottle not found")
     bottle = job.result.bottles[position]

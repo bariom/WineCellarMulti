@@ -16,6 +16,12 @@ CatalogPhotoMatchStatus = Literal["known", "pending", "uncertain", "new"]
 CatalogPhotoIssue = Literal["", "uncertain", "cut", "small", "blurry", "dark", "bright", "crowded"]
 
 
+# Why a wine chosen for automatic saving was left for review instead.
+CatalogPhotoAutoReason = Literal[
+    "", "uncertain_reading", "ambiguous", "not_found", "incomplete", "failed"
+]
+
+
 class CatalogPhotoSource(BaseModel):
     url: str
     title: str = ""
@@ -80,6 +86,9 @@ class CatalogPhotoBottle(BaseModel):
     details: CatalogPhotoDetails | None = None
     saved: bool = False
     photo_saved: bool = False
+    # Outcome of the automatic saving, when the admin chose it for this wine.
+    auto: Literal["", "saved", "review"] = ""
+    auto_reason: CatalogPhotoAutoReason = ""
 
 
 class CatalogPhotoScanResult(BaseModel):
@@ -95,7 +104,7 @@ class CatalogPhotoScanStatus(BaseModel):
     id: UUID
     mode: CatalogPhotoMode = "shelf"
     status: Literal["running", "done", "failed"] = "running"
-    stage: Literal["reading", "matching", "researching", "done"] = "reading"
+    stage: Literal["reading", "matching", "researching", "saving", "done"] = "reading"
     sections_total: int = 0
     sections_done: int = 0
     bottles_found: int = 0

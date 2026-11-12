@@ -135,6 +135,7 @@ for (const locale of ["it", "en"] as const) {
     await page.addInitScript(({ bottles, details }) => {
       const original = window.fetch;
       let researched = false;
+      let automatic = false;
       window.fetch = async (input, init) => {
         const path = new URL(String(input), location.href).pathname;
         if (path.endsWith("/admin/operations/overview")) return Response.json(null);
@@ -152,6 +153,11 @@ for (const locale of ["it", "en"] as const) {
         if (path.endsWith("/catalog-photos/scans") && init?.method === "POST") {
           return Response.json({ ...base, status: "running", stage: "reading", sections_done: 0, result: null }, { status: 202 });
         }
+        if (path.endsWith("/catalog-photos/scans/job-1/auto-save")) {
+          sessionStorage.setItem("catalog-photo-auto", String(init?.body));
+          automatic = true;
+          return Response.json({ ...base, status: "running", stage: "saving", sections_done: 0, result: null }, { status: 202 });
+        }
         if (path.endsWith("/catalog-photos/scans/job-1/details")) {
           sessionStorage.setItem("catalog-photo-details", String(init?.body));
           researched = true;
@@ -164,7 +170,14 @@ for (const locale of ["it", "en"] as const) {
           return Response.json({ bottle: { ...bottles[1], details, status: "known", entry, missing_fields: [], saved: true, photo_saved: true }, photo: "saved" });
         }
         if (path.endsWith("/catalog-photos/scans/job-1")) {
-          return Response.json({ ...base, status: "done", stage: "done", result: result(researched) });
+          const done = result(researched);
+          if (automatic) {
+            // The first wine is saved without doubts, the doubtful reading waits for review.
+            done.bottles = done.bottles.map((bottle, index) => index === 0
+              ? { ...bottle, status: "known", saved: true, auto: "saved", auto_reason: "" }
+              : index === 2 ? { ...bottle, auto: "review", auto_reason: "uncertain_reading" } : bottle);
+          }
+          return Response.json({ ...base, status: "done", stage: "done", result: done });
         }
         return original(input, init);
       };
@@ -194,14 +207,23 @@ for (const locale of ["it", "en"] as const) {
     // With nothing chosen the button stays readable and says where to choose.
     await pick(0).uncheck();
     await pick(1).uncheck();
-    const empty = section.getByRole("button", { name: it ? "Cerca i dati (0)" : "Research (0)" });
+    const empty = section.getByRole("button", { name: it ? "Cerca e salva (0)" : "Research and save (0)" });
+    await expect(section.getByRole("button", { name: it ? "Solo cerca i dati (0)" : "Research only (0)" })).toBeDisabled();
     await expect(empty).toBeDisabled();
     await expect(section.locator(".catalog-photo-research")).toContainText(it ? "Spunta \"Cerca i dati\" sui vini dell'elenco qui sotto." : "Tick \"Research\" on the wines in the list below.");
     expect(await empty.evaluate((button) => getComputedStyle(button).opacity)).toBe("1");
-    if (it) await section.locator(".catalog-photo-research").screenshot({ path: testInfo.outputPath("admin-catalog-photo-research-empty.png") });
+    if (it) {
+      await page.setViewportSize({ width: 360, height: 800 });
+      await section.locator(".catalog-photo-research").screenshot({ path: testInfo.outputPath("admin-catalog-photo-research-empty.png") });
+      for (const button of await section.locator(".catalog-photo-research button").all()) {
+        const box = (await button.boundingBox())!;
+        expect(box.x + box.width).toBeLessThanOrEqual(360);
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
     await pick(0).check();
     await pick(1).check();
-    await section.getByRole("button", { name: it ? "Cerca i dati (2)" : "Research (2)" }).click();
+    await section.getByRole("button", { name: it ? "Solo cerca i dati (2)" : "Research only (2)" }).click();
     await expect(items.nth(1)).toContainText(it ? "Dati trovati · 1 fonte" : "Details found · 1 source", { timeout: 10_000 });
     await expect(items.nth(0)).toContainText(it ? "Nessun dato affidabile trovato" : "No reliable details found");
     expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("catalog-photo-details") || "null"))).toEqual({ bottles: [0, 1] });
@@ -255,6 +277,14 @@ for (const locale of ["it", "en"] as const) {
       grapes_text: "Nerello Mascalese, Nerello Cappuccio", description: "Rosso dell'Etna, fresco.",
       drink_from: 2024, drink_peak_from: 2025, drink_peak_to: 2029, drink_to: 2032, save_photo: true, replace_photo: false,
     });
+
+    // "Research and save" saves the wines without doubts and leaves the others for review.
+    await pick(0).check();
+    await pick(2).check();
+    await section.getByRole("button", { name: it ? "Cerca e salva (2)" : "Research and save (2)" }).click();
+    await expect(items.nth(0)).toContainText(it ? "Salvato in automatico" : "Saved automatically", { timeout: 10_000 });
+    await expect(items.nth(2)).toContainText(it ? "Da rivedere: etichetta letta senza piena sicurezza" : "To review: label not read with full confidence");
+    expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("catalog-photo-auto") || "null"))).toEqual({ bottles: [0, 2] });
     expect(pageErrors).toEqual([]);
   });
 }

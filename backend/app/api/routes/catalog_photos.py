@@ -110,6 +110,22 @@ def research_catalog_photo_details(
     return job.snapshot()
 
 
+@router.post(
+    "/scans/{job_id}/auto-save",
+    response_model=CatalogPhotoScanStatus,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def auto_save_catalog_photo_wines(
+    job_id: UUID,
+    payload: CatalogPhotoDetailsRequest,
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> CatalogPhotoScanStatus:
+    """Research the chosen wines and save, without photo, those that leave no doubt."""
+    job = own_job(job_id, context)
+    catalog_photo_details.start_auto_save(job, payload.bottles, locale=context.user.locale)
+    return job.snapshot()
+
+
 @router.get("/scans/{job_id}/bottles/{position}/cutout")
 async def catalog_photo_bottle_cutout(
     job_id: UUID,

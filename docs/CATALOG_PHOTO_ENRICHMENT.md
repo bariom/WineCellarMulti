@@ -50,7 +50,14 @@ condiviso delle foto, da cui le cantine la ricevono quando aggiungono quel vino.
    bottiglia scontornata è mostrata in anteprima e salvata nell'archivio condiviso
    (`WinePhotoLibraryEntry`); altrimenti si salva la sola scheda. Una foto già presente
    per quel vino non viene sostituita, salvo scelta esplicita.
-6. **Revisione e salvataggio** (Fase 2). L'admin corregge i campi e salva: la scheda
+6. **Salvataggio automatico** (12.11.2026), su scelta dell'admin con "Cerca e salva".
+   I vini scelti vengono cercati (quelli già cercati non di nuovo) e salvati senza
+   revisione, senza foto, solo se: etichetta letta con sicurezza alta, dati trovati sul
+   web con almeno una fonte verificata, produttore e nome presenti, nessuna scheda simile
+   ambigua nel catalogo. Una scheda esistente riceve solo i campi vuoti. Gli altri vini
+   restano da rivedere con il motivo ("etichetta letta senza piena sicurezza", "più
+   schede simili", "dati non trovati", …). `POST /api/v1/catalog-photos/scans/{id}/auto-save`.
+7. **Revisione e salvataggio** (Fase 2). L'admin corregge i campi e salva: la scheda
    nuova nasce approvata, quella esistente riceve solo i campi vuoti (o quelli che l'admin
    ha cambiato), i dati per annata vanno nei `SharedWineFact`, la foto nell'archivio.
 

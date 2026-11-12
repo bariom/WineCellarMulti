@@ -2,10 +2,11 @@ import { useState, type ChangeEvent } from "react";
 import { AppIcon } from "./AppIcon";
 import { ButtonBusyContent } from "./AppUi";
 import { AdminCatalogPhotoEditor, TYPE_LABELS } from "./AdminCatalogPhotoEditor";
-import { runCatalogPhotoDetails, runCatalogPhotoScan } from "../services/catalogPhotoScan";
+import { runCatalogPhotoAutoSave, runCatalogPhotoDetails, runCatalogPhotoScan } from "../services/catalogPhotoScan";
 import { usePhotoPreviews } from "../utils/photoPreview";
 import type { CatalogPhotoBottle, CatalogPhotoSaveResult, CatalogPhotoScanResult, CatalogWine, Locale } from "../types";
 import "./AdminCatalogPhotoEnrichment.css";
+import { localizeRegion, localizeCountry } from "../domain/places";
 
 const MAX_PHOTOS = 3;
 const PREVIEW_SIDE = 1600;
@@ -40,6 +41,15 @@ const PHOTO_ISSUES: Record<CatalogPhotoBottle["photo"]["issue"], [string, string
   dark: ["foto troppo scura", "photo too dark"],
   bright: ["foto troppo chiara", "photo too bright"],
   crowded: ["bottiglie troppo vicine tra loro", "bottles too close to each other"],
+};
+
+const AUTO_REASONS: Record<CatalogPhotoBottle["auto_reason"], [string, string]> = {
+  "": ["", ""],
+  uncertain_reading: ["etichetta letta senza piena sicurezza", "label not read with full confidence"],
+  ambiguous: ["nel catalogo ci sono più schede simili", "several similar catalog entries"],
+  not_found: ["dati non trovati sul web con fonti verificate", "no details found on the web with verified sources"],
+  incomplete: ["manca il produttore o il nome", "the producer or the name is missing"],
+  failed: ["salvataggio non riuscito", "the save failed"],
 };
 
 const SAVED_PHOTO: Record<CatalogPhotoSaveResult["photo"], [string, string]> = {
@@ -158,13 +168,16 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
     }
   };
 
-  const research = async () => {
-    if (!jobId || !selected.length || researching) return;
+  const research = async (automatic: boolean) => {
+    // Research only the wines without details yet; the automatic saving also takes the others.
+    const chosen = selected.filter((index) => automatic || (result ? researchable(result.bottles[index]) : false));
+    if (!jobId || !chosen.length || researching) return;
     setResearching(true);
     setError("");
     setEditing(null);
     try {
-      const researched = await runCatalogPhotoDetails(jobId, [...selected].sort((a, b) => a - b), locale, setProgress);
+      const run = automatic ? runCatalogPhotoAutoSave : runCatalogPhotoDetails;
+      const researched = await run(jobId, [...chosen].sort((a, b) => a - b), locale, setProgress);
       setResult(researched.result);
       setSelected([]);
       if (researched.error) setError(researched.error);
@@ -203,7 +216,8 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
     [counts.complete, it ? "già completi" : "already complete", "complete"],
     [counts.saved, it ? "salvati" : "saved", "saved"],
   ];
-  const canResearch = bottles.some(researchable);
+  const canResearch = bottles.some((bottle) => !bottle.saved);
+  const toResearch = selected.filter((index) => bottles[index] && researchable(bottles[index])).length;
 
   return (
     <section className="settings-card settings-card-wide catalog-photo" aria-labelledby="catalog-photo-title">
@@ -293,25 +307,40 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
                         ? `Scegli fino a ${MAX_RESEARCH} vini: l'AI cerca sul web produttore, denominazione, vitigni, una descrizione e la finestra di beva, mai il valore. Circa 1 centesimo per ricerca web, con la chiave di Vinaris.`
                         : `Choose up to ${MAX_RESEARCH} wines: the AI searches the web for producer, appellation, grapes, a description and the drinking window, never the value. About 1 cent per web search, on the Vinaris key.`}
                     </span>
+                    <span>
+                      {it
+                        ? "Con \"Cerca e salva\" i vini letti con sicurezza, trovati sul web con fonti verificate e senza schede simili nel catalogo vengono salvati subito, senza foto; le schede esistenti ricevono solo i campi vuoti. Gli altri restano da rivedere qui sotto."
+                        : "With \"Research and save\", wines read with confidence, found on the web with verified sources and without similar catalog entries are saved at once, without photo; existing entries only receive their empty fields. The others stay below for review."}
+                    </span>
                     {!selected.length && !researching ? (
                       <span className="catalog-photo-research-hint">
                         {it ? "Spunta \"Cerca i dati\" sui vini dell'elenco qui sotto." : "Tick \"Research\" on the wines in the list below."}
                       </span>
                     ) : null}
                   </div>
-                  <button
-                    type="button"
-                    className={!selected.length && !researching ? "is-empty" : ""}
-                    onClick={() => void research()}
-                    disabled={!selected.length || working || disabled}
-                  >
-                    <ButtonBusyContent
-                      busy={researching}
-                      idleLabel={it ? `Cerca i dati (${selected.length})` : `Research (${selected.length})`}
-                      busyLabel={it ? "Cerco…" : "Researching…"}
-                      ai
-                    />
-                  </button>
+                  <div className="catalog-photo-research-actions">
+                    <button
+                      type="button"
+                      className={!selected.length && !researching ? "is-empty" : ""}
+                      onClick={() => void research(true)}
+                      disabled={!selected.length || working || disabled}
+                    >
+                      <ButtonBusyContent
+                        busy={researching}
+                        idleLabel={it ? `Cerca e salva (${selected.length})` : `Research and save (${selected.length})`}
+                        busyLabel={it ? "Lavoro…" : "Working…"}
+                        ai
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      className={!toResearch && !researching ? "secondary is-empty" : "secondary"}
+                      onClick={() => void research(false)}
+                      disabled={!toResearch || working || disabled}
+                    >
+                      {it ? `Solo cerca i dati (${toResearch})` : `Research only (${toResearch})`}
+                    </button>
+                  </div>
                 </div>
               ) : null}
               <ol className="catalog-photo-list">
@@ -331,11 +360,11 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
                       ) : null}
                       <div className="catalog-photo-item-body">
                         <span className={`catalog-photo-status is-${statusKey}`}>
-                          {bottle.saved ? (it ? "Salvato" : "Saved") : complete ? (it ? "Completo" : "Complete") : pick(STATUS_LABELS[bottle.status])}
+                          {bottle.saved ? (bottle.auto === "saved" ? (it ? "Salvato in automatico" : "Saved automatically") : (it ? "Salvato" : "Saved")) : complete ? (it ? "Completo" : "Complete") : pick(STATUS_LABELS[bottle.status])}
                         </span>
                         <strong>{[wineTitle(bottle), bottle.vintage].filter(Boolean).join(" ")}</strong>
                         <span className="catalog-photo-meta">
-                          {[TYPE_LABELS[bottle.wine_type] ? pick(TYPE_LABELS[bottle.wine_type]) : bottle.wine_type, bottle.appellation, bottle.region, bottle.country].filter(Boolean).join(" · ")
+                          {[TYPE_LABELS[bottle.wine_type] ? pick(TYPE_LABELS[bottle.wine_type]) : bottle.wine_type, bottle.appellation, localizeRegion(bottle.region, locale), localizeCountry(bottle.country, locale)].filter(Boolean).join(" · ")
                             || (it ? "Solo il nome è leggibile" : "Only the name is legible")}
                         </span>
                         {!bottle.saved && bottle.status === "known" && bottle.missing_fields.length ? (
@@ -360,6 +389,9 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
                               : (it ? "Nessun dato affidabile trovato" : "No reliable details found")}
                           </span>
                         ) : null}
+                        {!bottle.saved && bottle.auto === "review" ? (
+                          <span className="catalog-photo-note is-warning">{it ? "Da rivedere: " : "To review: "}{pick(AUTO_REASONS[bottle.auto_reason])}</span>
+                        ) : null}
                         {!bottle.saved && bottle.photo.ok ? (
                           <span className="catalog-photo-note">
                             {bottle.photo.has_library_photo
@@ -376,7 +408,7 @@ export default function AdminCatalogPhotoEnrichment({ locale, disabled = false }
                       </div>
                       {!bottle.saved && editing !== index ? (
                         <div className="catalog-photo-item-actions">
-                          {researchable(bottle) ? (
+                          {!bottle.saved ? (
                             <label className="catalog-photo-pick">
                               <input
                                 type="checkbox"

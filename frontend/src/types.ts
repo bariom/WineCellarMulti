@@ -326,6 +326,9 @@ export type CatalogPhotoBottle = {
   details: CatalogPhotoDetails | null;
   saved: boolean;
   photo_saved: boolean;
+  /** Outcome of the automatic saving, when the admin chose it for this wine. */
+  auto: "" | "saved" | "review";
+  auto_reason: "" | "uncertain_reading" | "ambiguous" | "not_found" | "incomplete" | "failed";
 };
 
 /** Facts a web search found about a wine, already checked against the label and its sources. */
@@ -383,7 +386,7 @@ export type CatalogPhotoScanStatus = {
   id: string;
   mode: "shelf" | "close";
   status: "running" | "done" | "failed";
-  stage: "reading" | "matching" | "researching" | "done";
+  stage: "reading" | "matching" | "researching" | "saving" | "done";
   sections_total: number;
   sections_done: number;
   bottles_found: number;

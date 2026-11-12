@@ -77,7 +77,7 @@ class CatalogPhotoJob:
     phase_started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     touched_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     status: Literal["running", "done", "failed"] = "running"
-    stage: Literal["reading", "matching", "researching", "done"] = "reading"
+    stage: Literal["reading", "matching", "researching", "saving", "done"] = "reading"
     sections_total: int = 0
     sections_done: int = 0
     bottles_found: int = 0
@@ -87,7 +87,7 @@ class CatalogPhotoJob:
     def snapshot(self) -> CatalogPhotoScanStatus:
         status, error = self.status, self.error
         if status == "running" and datetime.now(UTC) - self.phase_started_at > JOB_MAX_RUNTIME:
-            if self.stage == "researching":
+            if self.stage in {"researching", "saving"}:
                 status, error = "done", "The research took too long. Try again."
             else:
                 status, error = "failed", "The photo analysis took too long. Try again."

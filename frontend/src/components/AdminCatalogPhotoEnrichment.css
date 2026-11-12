@@ -74,6 +74,7 @@
 }
 .catalog-photo-research > div { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 0; }
 .catalog-photo-research span { font-size: .8rem; line-height: 1.45; color: var(--text-muted); }
+.catalog-photo-research-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .catalog-photo-research span.catalog-photo-research-hint { color: var(--text); font-weight: 600; }
 /* Nothing chosen yet: an outline that stays readable instead of a faded primary button. */
 .catalog-photo-research button.is-empty:disabled {

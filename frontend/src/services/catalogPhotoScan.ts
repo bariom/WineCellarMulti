@@ -62,16 +62,38 @@ export async function runCatalogPhotoScan(
 }
 
 /** Research the base facts of the chosen bottles; error is set when some groups did not answer. */
-export async function runCatalogPhotoDetails(
+export function runCatalogPhotoDetails(
   jobId: string,
   positions: number[],
   locale: Locale,
   onProgress: (text: string) => void,
   pollIntervalMs = POLL_INTERVAL_MS,
+) {
+  return runCatalogPhotoStep("details", jobId, positions, locale, onProgress, pollIntervalMs);
+}
+
+/** Research the chosen bottles and save, without photo, those that leave no doubt. */
+export function runCatalogPhotoAutoSave(
+  jobId: string,
+  positions: number[],
+  locale: Locale,
+  onProgress: (text: string) => void,
+  pollIntervalMs = POLL_INTERVAL_MS,
+) {
+  return runCatalogPhotoStep("auto-save", jobId, positions, locale, onProgress, pollIntervalMs);
+}
+
+async function runCatalogPhotoStep(
+  step: "details" | "auto-save",
+  jobId: string,
+  positions: number[],
+  locale: Locale,
+  onProgress: (text: string) => void,
+  pollIntervalMs: number,
 ): Promise<{ result: CatalogPhotoScanResult; error: string }> {
   const it = locale === "it";
   onProgress(it ? "Cerco i dati…" : "Researching…");
-  const started = await api<CatalogPhotoScanStatus>(`/api/v1/catalog-photos/scans/${jobId}/details`, {
+  const started = await api<CatalogPhotoScanStatus>(`/api/v1/catalog-photos/scans/${jobId}/${step}`, {
     method: "POST",
     body: JSON.stringify({ bottles: positions }),
   });
@@ -110,5 +132,6 @@ export function catalogPhotoProgressText(
       ? `Cerco i dati sul web: gruppo ${Math.min(status.sections_done + 1, status.sections_total)} di ${status.sections_total}…`
       : `Researching on the web: group ${Math.min(status.sections_done + 1, status.sections_total)} of ${status.sections_total}…`;
   }
+  if (status.stage === "saving") return it ? "Salvo nel catalogo i vini senza dubbi…" : "Saving the wines without doubts to the catalog…";
   return it ? `Fatto · ${labels}` : `Done · ${labels}`;
 }

@@ -531,3 +531,111 @@ def test_catalog_entries_stay_selectable_with_distinct_on_postgresql():
             assert column.type.dialect_impl(dialect).compile(dialect=dialect) == "JSONB", (
                 column.name
             )
+
+
+def test_automatic_saving_keeps_only_wines_without_doubts(monkeypatch, tmp_path):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with TestingSessionLocal() as db:
+        db.add(
+            WineCatalogEntry(
+                name="Colle Basso",
+                producer="Tenuta Ferra",
+                region="Toscana (scritta da una cantina)",
+                search_text="colle basso tenuta ferra",
+                is_active=True,
+            )
+        )
+        db.commit()
+    # Same place on the photo: the wines keep the reading's order, as the answer's indexes.
+    place = {
+        key: ETNA_LABEL[key]
+        for key in (
+            "center_x",
+            "center_y",
+            "label_width",
+            "label_height",
+            "bottle_top",
+            "bottle_bottom",
+        )
+    }
+    readings = [
+        ETNA_LABEL,
+        label("Colle Basso", "Tenuta Ferra", "2020", **place),
+        label("Pietra Nera", "Lunaria", "2021", confidence="medium", **place),
+        label("Senza Tracce", "Cantina Ignota", "2019", **place),
+    ]
+    found = {
+        **ETNA_ANSWER["wines"][0],
+        "index": 2,
+        "producer": "Tenuta Ferra",
+        "name": "Colle Basso",
+        "region": "Toscana",
+        "appellation": "Bolgheri DOC",
+        "description": "Rosso di Bolgheri.",
+        "drink_from": 2023,
+        "drink_peak_from": 2025,
+        "drink_peak_to": 2030,
+        "drink_to": 2035,
+    }
+    answer = {
+        "wines": [
+            ETNA_ANSWER["wines"][0],
+            found,
+            {**ETNA_ANSWER["wines"][0], "index": 3, "name": "Pietra Nera"},
+            {"index": 4, "found": False, "source_urls": []},
+        ]
+    }
+    calls = run_inline(monkeypatch, tmp_path, jpeg(bottle_photo()), readings, answer)
+    photo_sources = calls.pop()["photo_sources"]
+    job = scan_close_up(client, jpeg(bottle_photo()))
+    names = [bottle["name"] for bottle in job["result"]["bottles"]]
+    positions = list(range(len(names)))
+
+    started = client.post(
+        f"/api/v1/catalog-photos/scans/{job['id']}/auto-save", json={"bottles": positions}
+    )
+    assert started.status_code == 202, started.text
+    job = client.get(f"/api/v1/catalog-photos/scans/{job['id']}").json()
+    assert job["status"] == "done" and job["error"] == ""
+    outcome = {
+        bottle["name"]: (bottle["auto"], bottle["auto_reason"], bottle["saved"])
+        for bottle in job["result"]["bottles"]
+    }
+    assert outcome == {
+        "Rovo Alto": ("saved", "", True),
+        "Colle Basso": ("saved", "", True),
+        "Pietra Nera": ("review", "uncertain_reading", False),
+        "Senza Tracce": ("review", "not_found", False),
+    }
+    # One research call for the four wines, and no photo cut out.
+    assert len([call for call in calls if call["web_search"]]) == 1
+    assert photo_sources == []
+
+    with TestingSessionLocal() as db:
+        new = db.scalar(select(WineCatalogEntry).where(WineCatalogEntry.name == "Rovo Alto"))
+        assert new is not None and new.is_active and new.appellation == "Etna DOC"
+        assert new.sources and new.enriched_at is not None
+        existing = db.scalar(select(WineCatalogEntry).where(WineCatalogEntry.name == "Colle Basso"))
+        assert existing is not None
+        # An existing entry only receives what it lacked.
+        assert existing.region == "Toscana (scritta da una cantina)"
+        assert (
+            existing.appellation == "Bolgheri DOC" and existing.description == "Rosso di Bolgheri."
+        )
+        assert (
+            db.scalar(select(WineCatalogEntry).where(WineCatalogEntry.name == "Pietra Nera"))
+            is None
+        )
+        assert db.scalars(select(WinePhotoLibraryEntry)).all() == []
+        windows = [
+            fact for fact in db.scalars(select(SharedWineFact)) if fact.feature == "drink_window"
+        ]
+        assert sorted(fact.payload["drink_to"] for fact in windows) == [2032, 2035]
+
+    # Running it again researches nothing more and leaves the reviewed wines as they are.
+    again = client.post(
+        f"/api/v1/catalog-photos/scans/{job['id']}/auto-save", json={"bottles": positions}
+    )
+    assert again.status_code == 202
+    assert len([call for call in calls if call["web_search"]]) == 1
