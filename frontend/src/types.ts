@@ -104,6 +104,8 @@ export type Wine = {
   current_value: string | null;
   value_not_found: boolean;
   status: string;
+  /** Bought en primeur; stays true after delivery. */
+  en_primeur: boolean;
   format: string;
   type: string;
   region: string;
@@ -429,6 +431,7 @@ export type WineDraft = {
   commercial_status: "active" | "clearing_out" | "suspended" | "off_list";
   current_value: string;
   status: string;
+  en_primeur: boolean;
   format: string;
   type: string;
   region: string;

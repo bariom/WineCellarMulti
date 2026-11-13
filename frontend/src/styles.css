@@ -27879,3 +27879,24 @@ body,
     padding-inline: 10px;
   }
 }
+
+/* En primeur: the purchase flag in the wine editor and the value split by availability. */
+.wine-en-primeur-toggle { display: flex !important; align-items: center; align-self: end; gap: 10px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface) 94%, var(--accent)); }
+.wine-en-primeur-toggle input { flex: none; width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; border: 0; box-shadow: none; accent-color: var(--accent); }
+.wine-en-primeur-toggle span { margin: 0; color: var(--text); font-size: 0.92rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.portfolio-value-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.portfolio-value-split > div { display: grid; gap: 4px; min-width: 0; padding: 13px 14px; border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: var(--radius-card); background: color-mix(in srgb, var(--surface-muted) 70%, transparent); }
+.portfolio-value-split span { color: var(--text-soft); font-size: 0.69rem; font-weight: 800; letter-spacing: 0.07em; line-height: 1.15; text-transform: uppercase; }
+.portfolio-value-split strong { color: var(--financial-text); font-size: 1rem; font-variant-numeric: tabular-nums; line-height: 1.22; }
+.portfolio-value-split small { color: var(--text-muted); font-size: 0.75rem; font-weight: 650; line-height: 1.3; }
+.portfolio-value-split > .portfolio-value-primeur { grid-column: 1 / -1; border-color: color-mix(in srgb, var(--accent) 42%, var(--border)); background: color-mix(in srgb, var(--accent) 7%, var(--surface-muted)); }
+.portfolio-value-primeur dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 2px 0 0; }
+.portfolio-value-primeur dl > div { display: grid; gap: 2px; min-width: 0; }
+.portfolio-value-primeur dt { color: var(--text-muted); font-size: 0.72rem; font-weight: 700; }
+.portfolio-value-primeur dd { margin: 0; color: var(--financial-text); font-size: 0.95rem; font-weight: 800; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.portfolio-value-primeur dd.positive { color: var(--drink-ideal); }
+.portfolio-value-primeur dd.negative { color: var(--danger); }
+@media (max-width: 430px) {
+  .portfolio-value-primeur dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .portfolio-value-primeur dl > div:last-child { grid-column: 1 / -1; }
+}

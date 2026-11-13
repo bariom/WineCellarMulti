@@ -984,6 +984,7 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     current_value: null,
     value_not_found: false,
     status: item.wine_status,
+    en_primeur: false,
     format: item.wine_format,
     type: item.wine_type,
     region: item.wine_region,
@@ -1629,6 +1630,7 @@ export function WineDetail({
           {restaurantMode ? <DetailField label={locale === "it" ? "Riordino" : "Reorder"} value={wine.reorder_enabled && wine.commercial_status === "active" ? `${locale === "it" ? "Attivo" : "Enabled"} · ${wine.reorder_threshold} ${locale === "it" ? "bottiglie" : "bottles"}` : (locale === "it" ? "Disattivato" : "Disabled")} emptyLabel={t("notSpecified")} /> : null}
           {restaurantMode && wine.open_bottle_ml > 0 ? <DetailField label={locale === "it" ? "Bottiglia aperta" : "Open bottle"} value={`${(wine.open_bottle_ml / 100).toLocaleString(locale)} dl`} emptyLabel={t("notSpecified")} /> : null}
           <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
+          {wine.en_primeur ? <DetailField label={locale === "it" ? "Acquisto" : "Purchase"} value="En primeur" emptyLabel={t("notSpecified")} /> : null}
         </div>
         {wine.wine_zone || wine.vineyard_locality ? <div className="detail-grid detail-facts-grid" role="group" aria-label={locale === "it" ? "Dettagli geografici" : "Geographic details"}>
           {wine.wine_zone ? <DetailField label={locale === "it" ? "Zona vitivinicola" : "Wine-growing area"} value={wine.wine_zone} emptyLabel={t("notSpecified")} /> : null}

@@ -22,7 +22,7 @@ import type { WineSaleDraft } from "./types";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { initializeTabletLayout, isTabletDevice, saveTabletLayout } from "./domain/tabletLayout";
 import { localizedNotification } from "./domain/notifications";
-import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isMissedDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, needsValueRefresh, wineSearchText, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
+import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isMissedDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, cellarValueSplit, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, needsValueRefresh, wineSearchText, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { runWineShelfScan } from "./services/wineShelfScan";
 import type { BatchAiItem, BatchAiRun } from "./components/BatchAiReport";
@@ -557,6 +557,7 @@ const emptyDraft: WineDraft = {
   commercial_status: "active",
   current_value: "",
   status: "Ordered",
+  en_primeur: false,
   format: "",
   type: "",
   region: "",
@@ -6417,6 +6418,7 @@ export function App() {
   }, [selectedWineId]);
 
   const cellarOwnership = ownershipStats(cellarWines, session);
+  const cellarValueParts = cellarValueSplit(cellarWines);
   const parsedValueRefreshDays = Number(valueRefreshDays);
   const valueRefreshDaysNumber = Number.isFinite(parsedValueRefreshDays) ? Math.max(parsedValueRefreshDays, 0) : 0;
   const sharedBottles = Math.max(cellarOwnership.totalBottles - cellarOwnership.myBottles, 0);
@@ -6449,6 +6451,7 @@ export function App() {
     myValue: cellarOwnership.myValue,
     sharedBottles,
     sharedValue,
+    ...cellarValueParts,
     drinkNowBottles: readyInCellarBottleCount,
     drinkSoon: drinkSoonWines.length,
     pastWindow: cellarWines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
@@ -11105,6 +11108,10 @@ export function App() {
                       <option value="Delivered">{displayValue("Delivered", locale, "status")}</option>
                       <option value="Consumed">{displayValue("Consumed", locale, "status")}</option>
                     </select>
+                  </label>
+                  <label className="wine-en-primeur-toggle">
+                    <input type="checkbox" checked={draft.en_primeur} onChange={(event) => setDraft({ ...draft, en_primeur: event.target.checked })} disabled={!canWriteWine} />
+                    <span>{locale === "it" ? "Acquisto en primeur" : "Bought en primeur"}</span>
                   </label>
                   <label>
                     <span>{t("orderDate")}</span>

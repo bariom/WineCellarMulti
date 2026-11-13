@@ -85,6 +85,44 @@ export function isToCollectWine(wine: Wine) {
   return ["collect", "pickup", "ritir"].some((value) => status.includes(value));
 }
 
+/** Ordered, shipped or waiting for pickup: bought, but not in the cellar yet. */
+export function isWineAwaitingDelivery(wine: Wine) {
+  const status = wine.status.trim().toLowerCase();
+  return ["order", "ordin", "ship", "sped", "transit", "collect", "pickup", "ritir"].some((value) => status.includes(value));
+}
+
+/**
+ * Split the cellar value between the bottles already in the cellar and those awaiting
+ * delivery, with the en primeur capital still to arrive: what was paid and what it is worth.
+ */
+export function cellarValueSplit(items: Wine[]) {
+  const split = {
+    cellarValue: 0, cellarBottles: 0,
+    incomingValue: 0, incomingBottles: 0,
+    primeurBottles: 0, primeurValue: 0, primeurCost: 0, primeurPricedValue: 0,
+  };
+  for (const wine of items) {
+    if (wine.quantity <= 0) continue;
+    const value = wineUnitValue(wine) * wine.quantity;
+    if (!isWineAwaitingDelivery(wine)) {
+      split.cellarValue += value;
+      split.cellarBottles += wine.quantity;
+      continue;
+    }
+    split.incomingValue += value;
+    split.incomingBottles += wine.quantity;
+    if (!wine.en_primeur) continue;
+    const price = Number(wine.price || 0);
+    split.primeurBottles += wine.quantity;
+    split.primeurValue += value;
+    if (price > 0) {
+      split.primeurCost += price * wine.quantity;
+      split.primeurPricedValue += value;
+    }
+  }
+  return split;
+}
+
 export function sumWineValue(items: Wine[]) {
   return items.reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0);
 }

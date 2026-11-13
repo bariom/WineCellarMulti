@@ -65,6 +65,7 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
     current_value: raw.current_value === null || raw.current_value === undefined ? null : rawString(raw.current_value),
     value_not_found: Boolean(raw.value_not_found),
     status: rawString(raw.status, "Delivered"),
+    en_primeur: Boolean(raw.en_primeur),
     format: rawString(raw.format),
     type: normalizeWineType(rawString(raw.type)),
     region: rawString(raw.region),

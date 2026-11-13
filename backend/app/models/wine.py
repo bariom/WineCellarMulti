@@ -17,6 +17,7 @@ from sqlalchemy import (
     String,
     Text,
     Uuid,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -72,6 +73,8 @@ class Wine(Base):
     current_value: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     value_not_found: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(32), default="Ordered")
+    # Bought en primeur: kept after delivery, so the wine always says how it was bought.
+    en_primeur: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     format: Mapped[str] = mapped_column(String(80), default="")
     type: Mapped[str] = mapped_column(String(80), default="")
     region: Mapped[str] = mapped_column(String(120), default="")

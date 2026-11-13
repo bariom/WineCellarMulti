@@ -1261,6 +1261,7 @@ def publish_demo_cellar(
             price=source.price,
             current_value=source.current_value,
             value_not_found=source.value_not_found,
+            en_primeur=source.en_primeur,
             status=source.status,
             format=source.format,
             type=source.type,

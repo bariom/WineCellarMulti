@@ -35,6 +35,7 @@ export const wine = {
   current_value: "48.00",
   value_not_found: false,
   status: "in_cellar",
+  en_primeur: false,
   format: "750ml",
   type: "red",
   region: "Piemonte",

@@ -9,7 +9,7 @@ const TimeSeriesChart = lazy(() => import("../../components/TimeSeriesChart"));
 
 type ValueDashboardProps = {
   locale: Locale;
-  cellarStats: { bottles: number; totalValue: number; missingValue: number; myBottles: number; myValue: number; sharedBottles: number; sharedValue: number };
+  cellarStats: { bottles: number; totalValue: number; missingValue: number; myBottles: number; myValue: number; sharedBottles: number; sharedValue: number; cellarValue: number; cellarBottles: number; incomingValue: number; incomingBottles: number; primeurBottles: number; primeurValue: number; primeurCost: number; primeurPricedValue: number };
   purchaseValueDelta: number | null;
   purchaseValueDeltaPct: number | null;
   paidBottleCount: number;
@@ -52,6 +52,10 @@ export default function ValueDashboard({
   const portfolioValueHigh = portfolioValuePoints.length
     ? Math.max(...portfolioValuePoints.map((point) => point.numericValue))
     : null;
+  const it = locale === "it";
+  const bottlesLabel = (count: number) => `${formatBottleCount(count, locale)} ${t("bottles").toLowerCase()}`;
+  const primeurDelta = cellarStats.primeurCost > 0 ? cellarStats.primeurPricedValue - cellarStats.primeurCost : null;
+  const primeurDeltaPct = primeurDelta !== null ? (primeurDelta / cellarStats.primeurCost) * 100 : null;
   return (
     <>
       <DashboardCarousel locale={locale} label={t("valueFocus")} className="value-dashboard-carousel">
@@ -76,6 +80,36 @@ export default function ValueDashboard({
               <strong>{portfolioValueFirst && portfolioValueLast ? `${formatDisplayDate(portfolioValueFirst.recorded_at)} – ${formatDisplayDate(portfolioValueLast.recorded_at)}` : "—"}</strong>
             </div>
           </div>
+          {cellarStats.incomingBottles > 0 ? (
+            <div className="portfolio-value-split" role="group" aria-label={it ? "Valore per disponibilità" : "Value by availability"}>
+              <div>
+                <span>{it ? "In cantina" : "In the cellar"}</span>
+                <strong>{formatMoney(cellarStats.cellarValue, "CHF", locale)}</strong>
+                <small>{bottlesLabel(cellarStats.cellarBottles)}</small>
+              </div>
+              <div>
+                <span>{it ? "In arrivo" : "Awaiting delivery"}</span>
+                <strong>{formatMoney(cellarStats.incomingValue, "CHF", locale)}</strong>
+                <small>{bottlesLabel(cellarStats.incomingBottles)}</small>
+              </div>
+              {cellarStats.primeurBottles > 0 ? (
+                <div className="portfolio-value-primeur">
+                  <span>{it ? "Capitale en primeur in arrivo" : "En primeur capital awaiting delivery"}</span>
+                  <dl>
+                    <div><dt>{it ? "Pagato" : "Paid"}</dt><dd>{cellarStats.primeurCost > 0 ? formatMoney(cellarStats.primeurCost, "CHF", locale) : "—"}</dd></div>
+                    <div><dt>{it ? "Valore attuale" : "Current value"}</dt><dd>{formatMoney(cellarStats.primeurValue, "CHF", locale)}</dd></div>
+                    <div>
+                      <dt>{it ? "Differenza" : "Difference"}</dt>
+                      <dd className={primeurDelta !== null && primeurDelta < 0 ? "negative" : "positive"}>
+                        {primeurDelta === null ? "—" : `${primeurDelta >= 0 ? "+" : ""}${formatMoney(primeurDelta, "CHF", locale)}${primeurDeltaPct === null ? "" : ` · ${primeurDeltaPct >= 0 ? "+" : ""}${primeurDeltaPct.toFixed(1)}%`}`}
+                      </dd>
+                    </div>
+                  </dl>
+                  <small>{bottlesLabel(cellarStats.primeurBottles)}</small>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {portfolioValuePoints.length >= 2 ? (
             <Suspense fallback={<div className="portfolio-value-chart-loading" aria-label={t("valueEvolution")} />}>
               <div className="portfolio-value-chart">

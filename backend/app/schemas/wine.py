@@ -24,6 +24,7 @@ class WineCreate(BaseModel):
     current_value: Decimal | None = Field(default=None, ge=0)
     value_not_found: bool = False
     status: str = "Ordered"
+    en_primeur: bool = False
     format: str = ""
     type: str = ""
     region: str = ""
@@ -82,6 +83,7 @@ class WineUpdate(BaseModel):
     current_value: Decimal | None = Field(default=None, ge=0)
     value_not_found: bool | None = None
     status: str | None = None
+    en_primeur: bool | None = None
     format: str | None = None
     type: str | None = None
     region: str | None = None
@@ -286,6 +288,7 @@ class WineResponse(BaseModel):
     current_value: Decimal | None = None
     value_not_found: bool = False
     status: str
+    en_primeur: bool = False
     format: str
     type: str
     region: str

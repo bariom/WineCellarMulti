@@ -212,6 +212,35 @@ def test_score_lookup_checks_page_evidence_and_keeps_strategy(monkeypatch):
     assert accepted.json()["strategy_purposes"] == ["drink"]
 
 
+def test_en_primeur_flag_is_saved_and_kept_after_delivery():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Pichon Baron",
+            "vintage": "2024",
+            "quantity": 6,
+            "price": 90,
+            "status": "Ordered",
+            "en_primeur": True,
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["en_primeur"] is True
+    wine_id = created.json()["id"]
+    delivered = client.patch(f"/api/v1/wines/{wine_id}", json={"status": "Delivered"})
+    assert delivered.status_code == 200, delivered.text
+    assert delivered.json()["en_primeur"] is True
+    # An explicit null leaves the flag as it is; false clears it.
+    unchanged = client.patch(f"/api/v1/wines/{wine_id}", json={"en_primeur": None})
+    assert unchanged.json()["en_primeur"] is True
+    cleared = client.patch(f"/api/v1/wines/{wine_id}", json={"en_primeur": False})
+    assert cleared.json()["en_primeur"] is False
+    plain = client.post("/api/v1/wines", json={"name": "Barolo", "quantity": 1})
+    assert plain.json()["en_primeur"] is False
+
+
 def test_cellar_intelligence_allocates_quantities_and_builds_snapshot():
     client = TestClient(app)
     assert register(client).status_code == 201

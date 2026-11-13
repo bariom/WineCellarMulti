@@ -9,7 +9,7 @@ type DashboardHeroProps = {
   locale: Locale;
   dashboardFocus: DashboardFocus;
   dashboardFocusLabels: Record<DashboardFocus, string>;
-  cellarStats: { bottles: number; totalValue: number; missingValue: number; drinkSoon: number; myBottles: number; myValue: number; sharedBottles: number; sharedValue: number };
+  cellarStats: { bottles: number; totalValue: number; missingValue: number; drinkSoon: number; myBottles: number; myValue: number; sharedBottles: number; sharedValue: number; incomingValue: number };
   readyInCellarWineCount: number;
   nearestDrinkNowEnd: number | null;
   cellarDataCompleteness: number;
@@ -95,7 +95,10 @@ export default function DashboardHero({
               <div className="hero-kpi">
                 <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
                 <strong><DashboardCountUp value={cellarStats.totalValue} format={(value) => formatMoney(value, "CHF", locale)} /></strong>
-                <p>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</p>
+                <p>
+                  {formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}
+                  {cellarStats.incomingValue > 0 ? ` · ${locale === "it" ? "in arrivo" : "awaiting"} ${formatMoney(cellarStats.incomingValue, "CHF", locale)}` : ""}
+                </p>
               </div>
               <div className="hero-kpi">
                 <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>{locale === "it" ? "Rendimento vs acquisto" : "Return vs purchase"}</span>

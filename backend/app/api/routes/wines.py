@@ -427,6 +427,7 @@ def wine_response(
         open_bottle_ml=wine.open_bottle_ml,
         current_value=wine.current_value,
         value_not_found=wine.value_not_found,
+        en_primeur=wine.en_primeur,
         status=wine.status,
         format=wine.format,
         type=wine.type,
@@ -699,6 +700,7 @@ def wine_copy_for_recipient(
         commercial_status=source.commercial_status,
         current_value=source.current_value,
         value_not_found=source.value_not_found,
+        en_primeur=source.en_primeur,
         status=source.status,
         format=source.format,
         type=source.type,
@@ -2006,6 +2008,8 @@ def update_wine(
             detail="Close the open bottle before setting stock to zero",
         )
     tag_names = data.pop("tags", None)
+    if "en_primeur" in data and data["en_primeur"] is None:
+        data.pop("en_primeur")
     if "type" in data:
         data["type"] = normalize_wine_type(data.get("type"))
     if data.get("scores"):
