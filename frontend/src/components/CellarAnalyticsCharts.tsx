@@ -199,10 +199,10 @@ export function WineValueConstellation({
             />
           ))}
         </svg>
+        {/* The centre names the selected type, so the total is not repeated once more. */}
         <div className="wine-value-constellation-core">
-          <span>{locale === "it" ? "Valore tipologie" : "Type value"}</span>
-          <strong>{formatMoney(total, "CHF", locale)}</strong>
-          <small>{items.length} {locale === "it" ? "tipologie" : "types"}</small>
+          <strong>{formatPercentage((active.value / total) * 100, locale, 0)}</strong>
+          <span>{typeLabel(active)}</span>
         </div>
       </div>
       <div className="wine-value-constellation-detail">

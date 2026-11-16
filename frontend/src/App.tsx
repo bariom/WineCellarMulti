@@ -8516,65 +8516,6 @@ export function App() {
                   </article>);
   }
 
-  function renderValueTypeWidget() {
-    return (<article className="dashboard-card wide-card wine-value-constellation-card">
-                      <div className="card-heading">
-                        <div>
-                          <span>{locale === "it" ? "Composizione del portafoglio" : "Portfolio composition"}</span>
-                          <h2>{locale === "it" ? "Valore per tipologia" : "Value by type"}</h2>
-                        </div>
-                        <strong>{formatMoney(valueByCanonicalType.reduce((total, item) => total + item.value, 0), "CHF", locale)}</strong>
-                      </div>
-                      <p className="dashboard-card-intro">{locale === "it" ? "Esplora la costellazione: ogni fascia rappresenta il peso economico di una tipologia nella tua cantina." : "Explore the constellation: each band represents a wine type's economic weight in your cellar."}</p>
-                      <WineValueConstellation
-                        items={valueByCanonicalType}
-                        locale={locale}
-                        onOpen={(item) => openBreakdownInCellar({ title: "valueByType", dimension: "type", metric: "value", label: item.label })}
-                      />
-                    {!valueByCanonicalType.length && <p className="empty-state">{t("noActionItems")}</p>}
-                  </article>);
-  }
-
-  function renderValueRegionWidget() {
-    return (<article className="dashboard-card wide-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("investedMore")}</span>
-                        <h2>{t("topRegions")}</h2>
-                      </div>
-                    </div>
-                    <div className="bar-list">
-                      {valueByRegion.map((item) => (
-                        <div className="bar-row" key={item.label}>
-                          <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
-                          <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxRegionValue) * 100, 5)}%` }} /></div>
-                        </div>
-                      ))}
-                    </div>
-                  {!valueByRegion.length && <p className="empty-state">{t("noActionItems")}</p>}
-                  </article>);
-  }
-
-  function renderValueProducerWidget() {
-    return (<article className="dashboard-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("valueByProducer")}</span>
-                        <h2>{t("producer")}</h2>
-                      </div>
-                    </div>
-                    <div className="bar-list">
-                      {valueByProducer.map((item) => (
-                        <div className="bar-row" key={item.label}>
-                          <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
-                          <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxProducerValue) * 100, 5)}%` }} /></div>
-                        </div>
-                      ))}
-                    </div>
-                  {!valueByProducer.length && <p className="empty-state">{t("noActionItems")}</p>}
-                  </article>);
-  }
-
   function renderStyleBalanceWidget() {
     // Largest styles first, so the proportion bar and the list read in the same order.
     const toneRowsByStock = [...balancedToneRows].sort((first, second) => second.bottles - first.bottles);
@@ -10441,17 +10382,15 @@ export function App() {
                   <ValueDashboard
                     locale={locale}
                     cellarStats={cellarStats}
-                    purchaseValueDelta={purchaseValueDelta}
-                    purchaseValueDeltaPct={purchaseValueDeltaPct}
-                    paidBottleCount={paidBottleCount}
                     portfolioValuePoints={portfolioValuePoints}
                     applyQuickWineFilter={applyQuickWineFilter}
                     valueByCanonicalType={valueByCanonicalType}
-                    renderValueTypeWidget={renderValueTypeWidget}
+                    valueByRegion={valueByRegion}
+                    valueByProducer={valueByProducer}
+                    onOpenType={(label) => openBreakdownInCellar({ title: "valueByType", dimension: "type", metric: "value", label })}
+                    onOpenRegion={(label) => openBreakdownInCellar({ title: "topRegions", dimension: "region", metric: "value", label })}
                     renderTopValueWidget={renderTopValueWidget}
-                    renderValueRegionWidget={renderValueRegionWidget}
-                    renderValueProducerWidget={renderValueProducerWidget}
-                    topValueWines={topValueWines}
+                    topValueWines={topValueWines.map((wine) => ({ wine, unitValue: wineUnitValue(wine), bottles: wine.quantity * ownedShare(wine) }))}
                     missingValueWines={missingValueWines}
                     openWineFromDashboard={openWineFromDashboard}
                   />

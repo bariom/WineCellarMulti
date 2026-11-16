@@ -19,64 +19,70 @@ const primeur = {
   ],
 };
 
-test("the value dashboard separates the bottles awaiting delivery and the en primeur capital", async ({ page }, testInfo) => {
+test("the value page shows where the value sits, on the user's shares or overall", async ({ page }, testInfo) => {
   await mockApi(page, [], false, memberships, [wine, primeur], { ...session, dashboard_focus: "value" });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
-  const split = page.getByRole("group", { name: "Valore per disponibilità" });
-  await expect(split).toContainText("In cantina");
-  await expect(split).toContainText("4 bottiglie");
-  await expect(split).toContainText("In arrivo");
-  await expect(split).toContainText("6 bottiglie");
-  const capital = split.locator(".portfolio-value-primeur");
+  // The headline is the user's own (192 + 330); the overall one includes the friend's half.
+  const headline = page.locator(".hero-panel .hero-kpi").first();
+  await expect(headline.locator(":scope > strong")).toHaveText(/522/);
+  await expect(headline).toContainText(/con i comproprietari .*852/);
+  const where = page.getByRole("region", { name: "Dove si trova il valore" });
+  const cards = where.locator(".value-where-cards");
+  const capital = where.locator(".value-primeur");
+  // My shares by default: the whole wine already in the cellar, half of the en primeur purchase.
+  await expect(where.getByRole("button", { name: "Mie quote" })).toHaveAttribute("aria-pressed", "true");
+  await expect(cards).toContainText("4 bottiglie");
+  await expect(cards).toContainText("3 bottiglie");
   await expect(capital).toContainText("Capitale en primeur in arrivo");
-  await expect(capital.locator("dd").nth(0)).toHaveText(/540/);
-  await expect(capital.locator("dd").nth(1)).toHaveText(/660/);
-  await expect(capital.locator("dd").nth(2)).toHaveText(/^\+.*120.*\+22\.2%$/);
-  // My shares: the whole wine already in the cellar, half of the en primeur purchase.
-  const mine = page.getByRole("group", { name: "Le mie quote" });
-  await expect(mine.getByRole("heading", { name: "Le mie quote" })).toBeVisible();
-  await expect(mine).toContainText("4 bottiglie");
-  await expect(mine).toContainText("3 bottiglie");
-  const myCapital = mine.locator(".portfolio-value-primeur");
-  await expect(myCapital.locator("dd").nth(0)).toHaveText(/270/);
-  await expect(myCapital.locator("dd").nth(1)).toHaveText(/330/);
-  await expect(myCapital.locator("dd").nth(2)).toHaveText(/^\+.*60.*\+22\.2%$/);
-  const sections = page.locator(".portfolio-value-split-sections");
-  // The value by type counts the user's shares too: both wines are red, 192 + 330.
-  await expect(page.locator(".wine-value-constellation-card")).toContainText(/522/);
-  await expect(page.locator(".wine-value-constellation-card")).not.toContainText(/852/);
-  // The headline value is the user's own (192 + 330); the overall one includes the friend's half.
-  const headline = page.locator(".portfolio-value-explorer .card-heading");
-  await expect(headline.locator("h2")).toHaveText(/522/);
-  await expect(headline.locator(".portfolio-value-overall")).toHaveText(/Complessivo con i comproprietari: .*852.* · 10 bottiglie/);
+  await expect(capital.locator(".value-primeur-body strong").nth(0)).toHaveText(/270/);
+  await expect(capital.locator(".value-primeur-body strong").nth(1)).toHaveText(/330/);
+  await expect(capital.locator(".value-primeur-body b")).toHaveText(/^\+.*60.*\+22\.2%$/);
+  // Overall: the friend's bottles join in.
+  await where.getByRole("button", { name: "Complessivo" }).click();
+  await expect(cards).toContainText("6 bottiglie");
+  await expect(capital.locator(".value-primeur-body strong").nth(0)).toHaveText(/540/);
+  await expect(capital.locator(".value-primeur-body strong").nth(1)).toHaveText(/660/);
+  await expect(capital.locator(".value-primeur-body b")).toHaveText(/^\+.*120.*\+22\.2%$/);
+  // The value by type counts the user's shares: both wines are red, 192 + 330.
+  const composition = page.getByRole("region", { name: "Come si compone" });
+  await expect(composition).toContainText(/522/);
+  await expect(composition).not.toContainText(/852/);
   for (const width of [360, 390, 430, 1440]) {
     await page.setViewportSize({ width, height: 844 });
-    await sections.scrollIntoViewIfNeeded();
-    const box = (await sections.boundingBox())!;
-    expect(box.x).toBeGreaterThanOrEqual(0);
-    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    for (const section of [where, composition]) {
+      await section.scrollIntoViewIfNeeded();
+      const box = (await section.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-    await sections.screenshot({ path: testInfo.outputPath(`value-split-${width}.png`) });
-    await headline.screenshot({ path: testInfo.outputPath(`value-headline-${width}.png`) });
+    await page.screenshot({ path: testInfo.outputPath(`value-page-${width}.png`), fullPage: true, animations: "disabled" });
   }
 });
 
-test("the value dashboard shows no split when every bottle is in the cellar", async ({ page }) => {
-  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "value" });
+test("the composition switches between type, region and producer", async ({ page }) => {
+  await mockApi(page, [], false, memberships, [wine, primeur], { ...session, dashboard_focus: "value" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(page.locator(".portfolio-value-explorer")).toBeVisible();
-  await expect(page.locator(".portfolio-value-split")).toHaveCount(0);
+  const composition = page.getByRole("region", { name: "Come si compone" });
+  await composition.getByRole("tab", { name: "Produttore" }).click();
+  await expect(composition.locator(".value-ranking li")).toHaveCount(1);
+  await expect(composition.locator(".value-ranking")).toContainText("Cantina Vinaris");
+  await composition.getByRole("tab", { name: "Regione" }).click();
+  await composition.locator(".value-ranking button").first().click();
+  await expect(page.locator(".value-composition")).toHaveCount(0);
+  await expect(page.getByText("“Piemonte”")).toBeVisible();
 });
 
-test("the shares section stays hidden when nothing is co-owned", async ({ page }) => {
+test("the value page has no basis switch when nothing is co-owned", async ({ page }) => {
   await mockApi(page, [], false, memberships, [wine, { ...primeur, owners: [] }], { ...session, dashboard_focus: "value" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(page.getByRole("group", { name: "Valore per disponibilità" })).toBeVisible();
-  await expect(page.getByRole("group", { name: "Le mie quote" })).toHaveCount(0);
-  await expect(page.locator(".portfolio-value-overall")).toHaveCount(0);
+  const where = page.getByRole("region", { name: "Dove si trova il valore" });
+  await expect(where).toBeVisible();
+  await expect(where.getByRole("button", { name: "Complessivo" })).toHaveCount(0);
+  await expect(page.locator(".hero-panel .hero-kpi").first()).not.toContainText("comproprietari");
 });
 
 test("the wine editor saves the en primeur flag", async ({ page }, testInfo) => {

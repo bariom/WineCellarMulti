@@ -218,10 +218,10 @@ test("value by type opens the cellar filtered by the chosen type", async ({ page
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "value" });
   await page.goto("/");
-  const card = page.locator(".wine-value-constellation-card");
+  const card = page.getByRole("region", { name: "Come si compone" });
   await expect(card).toContainText("Rosso");
   await card.getByRole("button", { name: "Apri in cantina", exact: true }).click();
   await expect(page.locator(".filter-row select").first()).toHaveValue("Red");
-  await expect(page.locator(".wine-value-constellation-card")).toHaveCount(0);
+  await expect(page.locator(".value-composition")).toHaveCount(0);
   await expect(page.getByText(wine.name).first()).toBeVisible();
 });

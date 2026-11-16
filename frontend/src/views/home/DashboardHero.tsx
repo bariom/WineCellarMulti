@@ -9,7 +9,7 @@ type DashboardHeroProps = {
   locale: Locale;
   dashboardFocus: DashboardFocus;
   dashboardFocusLabels: Record<DashboardFocus, string>;
-  cellarStats: { bottles: number; totalValue: number; missingValue: number; drinkSoon: number; myBottles: number; myValue: number; sharedBottles: number; sharedValue: number; incomingValue: number };
+  cellarStats: { bottles: number; totalValue: number; missingValue: number; drinkSoon: number; myBottles: number; myValue: number; sharedBottles: number; sharedValue: number; incomingValue: number; overallValue: number };
   readyInCellarWineCount: number;
   nearestDrinkNowEnd: number | null;
   cellarDataCompleteness: number;
@@ -97,7 +97,7 @@ export default function DashboardHero({
                 <strong><DashboardCountUp value={cellarStats.totalValue} format={(value) => formatMoney(value, "CHF", locale)} /></strong>
                 <p>
                   {formatBottleCount(cellarStats.myBottles, locale)} {t("bottles").toLowerCase()}
-                  {cellarStats.incomingValue > 0 ? ` · ${locale === "it" ? "in arrivo" : "awaiting"} ${formatMoney(cellarStats.incomingValue, "CHF", locale)}` : ""}
+                  {cellarStats.overallValue - cellarStats.totalValue >= 0.005 ? ` · ${locale === "it" ? "con i comproprietari" : "with co-owners"} ${formatMoney(cellarStats.overallValue, "CHF", locale)}` : ""}
                 </p>
               </div>
               <div className="hero-kpi">
@@ -110,7 +110,7 @@ export default function DashboardHero({
               <div className="hero-kpi">
                 <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("shared")}</i>{t("averageBottleValue")}</span>
                 <strong><DashboardCountUp value={cellarStats.myBottles ? cellarStats.totalValue / cellarStats.myBottles : 0} format={(value) => formatMoney(value, "CHF", locale)} delay={140} /></strong>
-                <p>{cellarStats.missingValue} {t("missingValue").toLowerCase()}</p>
+                <p>{cellarStats.missingValue ? `${cellarStats.missingValue} ${t("missingValue").toLowerCase()}` : (locale === "it" ? "Tutti i vini hanno un valore" : "Every wine has a value")}</p>
               </div>
             </>
           ) : dashboardFocus === "readiness" ? (

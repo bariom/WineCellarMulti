@@ -159,7 +159,7 @@ test("mobile cellar summary cards open their matching dashboard detail", async (
   const stats = page.getByRole("region", { name: "Riepilogo cantina" });
   const value = stats.getByRole("article", { name: "Valore cantina" });
   await value.click();
-  await expect(page.locator(".value-dashboard-carousel")).toBeVisible();
+  await expect(page.locator(".value-dashboard")).toBeVisible();
   await expect(page.locator(".cellar-home-stats")).toHaveCount(0);
 });
 

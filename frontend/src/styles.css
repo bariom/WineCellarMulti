@@ -27880,27 +27880,67 @@ body,
   }
 }
 
-/* En primeur: the purchase flag in the wine editor and the value split by availability. */
+/* En primeur: the purchase flag in the wine editor. */
 .wine-en-primeur-toggle { display: flex !important; align-items: center; align-self: end; gap: 10px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface) 94%, var(--accent)); }
 .wine-en-primeur-toggle input { flex: none; width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; border: 0; box-shadow: none; accent-color: var(--accent); }
 .wine-en-primeur-toggle span { margin: 0; color: var(--text); font-size: 0.92rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
-.portfolio-value-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.portfolio-value-split-sections { display: grid; gap: 16px; }
-.portfolio-value-split > h3 { grid-column: 1 / -1; margin: 4px 0 -2px; color: var(--accent); font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; }
-.portfolio-value-split.is-mine { padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); }
-.portfolio-value-split > div { display: grid; gap: 4px; min-width: 0; padding: 13px 14px; border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: var(--radius-card); background: color-mix(in srgb, var(--surface-muted) 70%, transparent); }
-.portfolio-value-split span { color: var(--text-soft); font-size: 0.69rem; font-weight: 800; letter-spacing: 0.07em; line-height: 1.15; text-transform: uppercase; }
-.portfolio-value-split strong { color: var(--financial-text); font-size: 1rem; font-variant-numeric: tabular-nums; line-height: 1.22; }
-.portfolio-value-split small { color: var(--text-muted); font-size: 0.75rem; font-weight: 650; line-height: 1.3; }
-.portfolio-value-split > .portfolio-value-primeur { grid-column: 1 / -1; border-color: color-mix(in srgb, var(--accent) 42%, var(--border)); background: color-mix(in srgb, var(--accent) 7%, var(--surface-muted)); }
-.portfolio-value-primeur dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 2px 0 0; }
-.portfolio-value-primeur dl > div { display: grid; gap: 2px; min-width: 0; }
-.portfolio-value-primeur dt { color: var(--text-muted); font-size: 0.72rem; font-weight: 700; }
-.portfolio-value-primeur dd { margin: 0; color: var(--financial-text); font-size: 0.95rem; font-weight: 800; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.portfolio-value-primeur dd.positive { color: var(--drink-ideal); }
-.portfolio-value-primeur dd.negative { color: var(--danger); }
-@media (max-width: 430px) {
-  .portfolio-value-primeur dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .portfolio-value-primeur dl > div:last-child { grid-column: 1 / -1; }
+
+/* Dashboard → Value: where the value sits, how it moved, what it is made of, what to do. */
+.value-dashboard { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.value-dashboard > .value-composition, .value-dashboard > .value-bottom { grid-column: 1 / -1; }
+.value-dashboard > .dashboard-card { display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 24px; }
+.value-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.value-section-head h2 { margin: 0; color: var(--text); font-family: var(--font-display); font-size: 1.55rem; font-weight: 600; line-height: 1.1; }
+.value-section-head > div > strong { display: block; margin-top: 4px; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.value-section-head > strong { font-family: var(--font-display); font-size: 1.4rem; }
+.value-section-head .positive, .value-primeur .positive { color: var(--drink-ideal); }
+.value-section-head .negative, .value-primeur .negative { color: var(--danger); }
+.value-segmented { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: color-mix(in srgb, var(--surface-subtle) 85%, var(--accent)); }
+.value-segmented button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--text); font-size: 0.82rem; font-weight: 750; box-shadow: none; }
+.value-segmented button.active { background: var(--primary); color: var(--primary-contrast); }
+.value-where-bar { display: flex; height: 16px; overflow: hidden; border-radius: 999px; background: var(--bar-muted); }
+.value-where-bar span, .value-where-legend i { display: block; }
+.value-where-bar .is-cellar, .value-where-legend .is-cellar { background: var(--primary); }
+.value-where-bar .is-incoming, .value-where-legend .is-incoming { background: color-mix(in srgb, var(--primary) 45%, var(--surface)); }
+.value-where-bar .is-primeur, .value-where-legend .is-primeur { background: repeating-linear-gradient(135deg, var(--accent) 0 4px, color-mix(in srgb, var(--accent) 40%, var(--surface)) 4px 8px); }
+.value-where-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: -6px 0 0; padding: 0; list-style: none; color: var(--text-muted); font-size: 0.76rem; font-weight: 650; }
+.value-where-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.value-where-legend i { width: 10px; height: 10px; border-radius: 3px; }
+.value-where-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.value-where-cards > div { display: grid; gap: 3px; min-width: 0; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: var(--radius-card); background: color-mix(in srgb, var(--surface-raised) 80%, transparent); }
+.value-where-cards span, .value-primeur-head span { color: var(--text-soft); font-size: 0.69rem; font-weight: 800; letter-spacing: 0.07em; line-height: 1.15; text-transform: uppercase; }
+.value-where-cards strong { color: var(--financial-text); font-size: 1.25rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.value-where-cards small, .value-primeur small, .value-caption { color: var(--text-muted); font-size: 0.76rem; font-weight: 650; line-height: 1.3; }
+.value-primeur { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border)); border-radius: var(--radius-card); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.value-primeur-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; }
+.value-primeur-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.value-primeur-body > div { display: grid; gap: 1px; }
+.value-primeur-body strong { color: var(--financial-text); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.value-primeur-body > span { color: var(--accent); font-size: 1.1rem; }
+.value-primeur-body > b { margin-left: auto; padding: 5px 12px; border-radius: 999px; background: color-mix(in srgb, var(--drink-ideal) 13%, var(--surface)); font-size: 0.9rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.value-primeur-body > b.negative { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+.value-link { align-self: flex-start; min-height: 40px; padding: 0 2px; border: 0; background: none; color: var(--primary); font-size: 0.85rem; font-weight: 750; box-shadow: none; }
+.value-ranking { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.value-ranking li > button, .value-ranking li > div { display: grid; grid-template-columns: minmax(110px, 200px) minmax(0, 1fr) auto 48px; align-items: center; gap: 14px; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid transparent; border-radius: 12px; background: transparent; color: var(--text); font: inherit; text-align: left; box-shadow: none; }
+.value-ranking li > button:hover { border-color: var(--border); background: color-mix(in srgb, var(--surface-raised) 80%, transparent); }
+.value-ranking-label { overflow: hidden; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.value-ranking-track { display: flex; height: 8px; border-radius: 99px; background: var(--bar-muted); }
+.value-ranking-track i { border-radius: 99px; background: linear-gradient(90deg, var(--chart-bar-start), var(--chart-bar-end)); }
+.value-ranking strong { color: var(--financial-text); font-variant-numeric: tabular-nums; text-align: right; }
+.value-ranking small { color: var(--text-muted); font-weight: 750; text-align: right; }
+.value-bottom { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
+.value-bottom > .top-value-list-mobile { padding: 18px 16px; flex-direction: column; gap: 12px; }
+.value-bottom > .dashboard-card { min-width: 0; }
+.value-missing { display: flex; flex-direction: column; gap: 12px; padding: 24px; }
+@media (max-width: 900px) {
+  .value-dashboard, .value-bottom { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .value-dashboard > .dashboard-card, .value-missing { padding: 18px 16px; }
+  .value-section-head .value-segmented { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; width: 100%; }
+  .value-segmented button { min-height: 40px; padding: 0 8px; }
+  .value-ranking li > button, .value-ranking li > div { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 8px; gap: 6px 12px; padding: 8px 4px; }
+  .value-ranking-label { grid-column: 1; grid-row: 1; }
+  .value-ranking strong { grid-column: 2; grid-row: 1; }
+  .value-ranking small { display: none; }
+  .value-ranking-track { grid-column: 1 / -1; grid-row: 2; }
 }
-.portfolio-value-overall { display: block; margin-top: 4px; color: var(--text-muted); font-size: 0.78rem; font-weight: 650; line-height: 1.3; }
+.top-value-list-mobile .action-row > span { display: flex; align-items: center; gap: 10px; min-width: 0; }
