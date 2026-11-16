@@ -6921,6 +6921,11 @@ export function App() {
     .filter((wine) => currentUserSharePct(wine, session) > 0)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
+  // The collector focus shows the user's own collection: co-owned wines count for the
+  // user's share of their bottles, and wines without a share are left out.
+  const ownedCellarWines = cellarWines
+    .filter((wine) => ownedShare(wine) > 0)
+    .map((wine) => (ownedShare(wine) >= 1 ? wine : { ...wine, quantity: wine.quantity * ownedShare(wine) }));
   const keyPositionCandidates = (() => {
     const positionValue = (wine: Wine) => wineUnitValue(wine) * wine.quantity;
     const ownedValue = (wine: Wine) => positionValue(wine) * (currentUserSharePct(wine, session) / 100);
@@ -10233,7 +10238,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "collector" ? (
-              <CollectorHome now={now} wines={cellarWines} featured={keyPositionCandidates} ready={drinkNowWines} recent={recentCellarWines} locale={locale} canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard}
+              <CollectorHome now={now} wines={ownedCellarWines} featured={keyPositionCandidates} ready={drinkNowWines} recent={recentCellarWines} locale={locale} canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard}
                 showRiserva={!offlineMode && !session?.is_demo && !eventGuest && !session?.has_active_entitlement && !session?.is_app_admin}
                 onExploreRiserva={() => { setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile"); }}>
                 <CollectorCardGroup className="collector-wine-stage" locale={locale} label={locale === "it" ? "I vini della tua collezione" : "Wines in your collection"}>
@@ -10275,7 +10280,7 @@ export function App() {
                         ref={keyPositionStripRef}
                       >
                         {keyPositionCandidates.map((item) => {
-                          const { wine, highlight, totalValue, trendPoints, trendChangePct, trendChangeValue, trendRange } = item;
+                          const { wine, highlight, ownedValue, trendPoints, trendChangePct, trendChangeValue, trendRange } = item;
                           return (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
@@ -10289,8 +10294,8 @@ export function App() {
                               </div>
                             </div>
                             <div className={`key-position-metrics${trendPoints.length >= 2 ? " has-value-trend" : ""}`}>
-                              <KeyPositionCircularKpi label={t("totalValue")} value={formatMoney(totalValue, wine.currency, locale)} />
-                              <KeyPositionCircularKpi label={t("bottles")} value={formatBottleCount(wine.quantity, locale)} tone="count" />
+                              <KeyPositionCircularKpi label={t("totalValue")} value={formatMoney(ownedValue, wine.currency, locale)} />
+                              <KeyPositionCircularKpi label={t("bottles")} value={formatBottleCount(wine.quantity * ownedShare(wine), locale)} tone="count" />
                               {trendPoints.length < 2 && Number(wine.price) > 0 && Number(wine.current_value) > 0 ? <KeyPositionCircularKpi label={locale === "it" ? "Acquisto → valore attuale / bott." : "Purchase → current value / btl."} value={`${formatMoney(Number(wine.price), wine.currency, locale)} → ${formatMoney(Number(wine.current_value), wine.currency, locale)}`} /> : null}
                               {trendPoints.length >= 2 ? (
                                 <KeyPositionTrendKpi
@@ -10328,7 +10333,7 @@ export function App() {
 
                 </CollectorCardGroup>
                 {canAccessWinePhotos && !isRestaurant ? <CellarShowcase wines={cellarWines} locale={locale} onOpenWine={openWineFromDashboard} /> : null}
-                <CollectorOverview key={`${session?.user_email}:${session?.active_household_id}`} wines={cellarWines} locale={locale} now={now} onOpen={openWineFromDashboard} />
+                <CollectorOverview key={`${session?.user_email}:${session?.active_household_id}`} wines={ownedCellarWines} locale={locale} now={now} onOpen={openWineFromDashboard} />
                 <CollectorAtlas locale={locale} origins={<>
                 {renderRegionsWidget()}
 

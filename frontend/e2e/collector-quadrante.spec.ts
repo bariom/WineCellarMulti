@@ -251,3 +251,18 @@ test("quadrante speaks English", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Follow up now" })).toBeVisible();
   await expect(slides(page).first().locator(".cq-trend")).toContainText("How its value has changed");
 });
+
+test("the collection counts only the user's share of co-owned wines", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  // Half of the eight Etna bottles belong to a friend, and the Chablis belongs to the friend only.
+  const owners = (mine: number) => [
+    { name: "E2E User", email: "e2e@example.test", share_pct: mine },
+    { name: "Amico", email: "friend@example.test", share_pct: 100 - mine },
+  ].filter((owner) => owner.share_pct > 0);
+  const shared = stock.map((item) => item.id === "q-nowindow" ? { ...item, owners: owners(50) } : item.id === "q-closing" ? { ...item, owners: owners(0) } : item);
+  await open(page, shared);
+  const numbers = page.getByRole("region", { name: "La collezione in numeri" });
+  // 26 bottles in the cellar: 4 Chablis are not the user's and 4 Etna are the friend's half.
+  await expect(numbers.locator(".cq-donut-num").first()).toHaveText("18");
+  expect(await noOverflow(page)).toBe(true);
+});

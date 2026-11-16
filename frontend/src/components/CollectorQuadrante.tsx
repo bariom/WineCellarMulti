@@ -104,8 +104,9 @@ function FeaturedContext({ item, stock, locale }: { item: FeaturedWine; stock: W
   }
   const unit = (w: Wine) => positiveNumber(w.current_value) ?? positiveNumber(w.price) ?? 0;
   const total = stock.filter(w => w.currency === wine.currency).reduce((sum, w) => sum + unit(w) * w.quantity, 0);
-  if (!total || !item.totalValue) return null;
-  const share = Math.min(100, item.totalValue / total * 100);
+  // The collection holds the user's shares, so the highlighted wine weighs with its owned value.
+  if (!total || !item.ownedValue) return null;
+  const share = Math.min(100, item.ownedValue / total * 100);
   if (item.reason === "position" || item.reason === "value") {
     // Compare the highlighted position with the most valuable ones in the same currency.
     const ranked = stock.filter(w => w.currency === wine.currency).map(w => ({ id: w.id, name: w.name, vintage: w.vintage, value: unit(w) * w.quantity }))
@@ -130,10 +131,10 @@ function FeaturedContext({ item, stock, locale }: { item: FeaturedWine; stock: W
         <g transform="rotate(-90 50 50)"><circle cx="50" cy="50" r="40" className="cq-donut-track" /><circle cx="50" cy="50" r="40" pathLength={100} className="cq-share-arc" strokeDasharray={`${Math.max(share, 1.5)} 100`} /></g>
         <text x="50" y="54" textAnchor="middle" className="cq-donut-num">{formatPercentage(share, locale, share < 10 ? 1 : 0)}</text>
       </svg>
-      <p><strong>{formatMoney(item.totalValue, wine.currency, locale)}</strong><span>{it ? `del valore totale della cantina in ${wine.currency}` : `of the cellar’s total value in ${wine.currency}`}</span></p>
+      <p><strong>{formatMoney(item.ownedValue, wine.currency, locale)}</strong><span>{it ? `del valore totale della cantina in ${wine.currency}` : `of the cellar’s total value in ${wine.currency}`}</span></p>
     </div>
     {item.sharePct > 0 && item.sharePct < 100 ? <div className="cq-share-mine">
-      <span>{it ? "La tua quota" : "Your share"}<b>{formatPercentage(item.sharePct, locale, 0)} · {formatMoney(item.ownedValue, wine.currency, locale)}</b></span>
+      <span>{it ? "La tua quota del vino" : "Your share of the wine"}<b>{formatPercentage(item.sharePct, locale, 0)}</b></span>
       <span className="cq-origin-bar"><i style={{ width: `${item.sharePct}%` }} /></span>
     </div> : null}
   </figure>;
@@ -247,7 +248,7 @@ export function CollectorQuadrante({ children, wines, featured, recent, locale, 
                   <h3>{item.wine.name}</h3>
                   <p className="cq-producer">{[item.wine.producer, item.wine.vintage].filter(Boolean).join(" · ")}</p>
                   <p className="cq-why">{featuredExplanation(item, locale)}</p>
-                  <p className="cq-meta">{featuredCaption(item, locale).label}: {featuredCaption(item, locale).metric} · {formatBottleCount(item.wine.quantity, locale)} {bott}{hasWindow(item.wine) ? ` · ${it ? "finestra" : "window"} ${item.wine.drink_from}–${item.wine.drink_to}` : ""}</p>
+                  <p className="cq-meta">{featuredCaption(item, locale).label}: {featuredCaption(item, locale).metric} · {formatBottleCount(item.wine.quantity * item.sharePct / 100, locale)} {bott}{hasWindow(item.wine) ? ` · ${it ? "finestra" : "window"} ${item.wine.drink_from}–${item.wine.drink_to}` : ""}</p>
                 </div>
               </div>
               <FeaturedContext item={item} stock={stock} locale={locale} />

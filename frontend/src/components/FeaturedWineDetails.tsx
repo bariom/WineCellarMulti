@@ -59,7 +59,7 @@ export function featuredCaption(item: FeaturedWine, locale: Locale) {
     : item.reason === "favorite" ? score(Number(wine.rating || 0), locale)
     : item.reason === "best_tasting" ? score(bestTastingRating(wine), locale)
     : item.reason === "rediscover" ? monthYear(wine.tasting_summary?.last_consumed_at, locale)
-    : formatMoney(item.reason === "position" ? item.totalValue : item.ownedValue, wine.currency, locale);
+    : formatMoney(item.ownedValue, wine.currency, locale);
   return { label: labels[item.reason], metric };
 }
 
