@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
-import type { Locale, PersonalDashboardWidget, TasteProfileCollection, TastingArchivePage, Wine, WineNewsFeed, WishlistItem } from "../types";
+import type { Locale, PersonalDashboardWidget, Session, TasteProfileCollection, TastingArchivePage, Wine, WineNewsFeed, WishlistItem } from "../types";
 import { translate } from "../i18n";
 import { normalizeWineType } from "../domain/wineTypes";
-import { isWinePhysicallyInCellar, isToCollectWine, isFutureDeliveryWine, isWineReadyToPrioritize } from "../domain/cellar";
+import { currentUserSharePct, isWinePhysicallyInCellar, isToCollectWine, isFutureDeliveryWine, isWineReadyToPrioritize } from "../domain/cellar";
 import { formatMoney, wineTone } from "./panelSupport";
 import { KeyPositionBottleVisual } from "./KeyPositionCardParts";
 import { featuredCaption, type FeaturedWine } from "./FeaturedWineDetails";
@@ -15,12 +15,12 @@ const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 const WineGeographyMap = lazy(() => import("../views/WineGeographyMap"));
 export type SummaryDestination = "collector" | "daily" | "balanced" | "value" | "readiness" | "timeline" | "taste" | "data" | "history" | "wishlist" | "pulse" | "intelligence" | "cellar_to_collect";
 type Props = {
-  widget: PersonalDashboardWidget; locale: Locale; wines: Wine[]; wishlist: WishlistItem[]; featured: FeaturedWine[];
+  widget: PersonalDashboardWidget; locale: Locale; wines: Wine[]; session?: Session | null; wishlist: WishlistItem[]; featured: FeaturedWine[];
   canShowPhotos: boolean; onOpen: (wine: Wine) => void; onNavigate: (destination: SummaryDestination) => void;
   onRegion: (region: string) => void; onPairing: (wine: Wine) => void;
 };
 
-export default function DashboardSummaryWidget({ widget, locale, wines, wishlist, featured, canShowPhotos, onOpen, onNavigate, onRegion, onPairing }: Props) {
+export default function DashboardSummaryWidget({ widget, locale, wines, session = null, wishlist, featured, canShowPhotos, onOpen, onNavigate, onRegion, onPairing }: Props) {
   const it = locale === "it";
   const { id } = widget;
   const stock = wines.filter(wine => wine.quantity > 0);
@@ -98,7 +98,7 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
       destination = "value"; kicker = it ? "Nel tempo" : "Over time";
       const points = (history.data || []).map(point => ({ timestampMs: Date.parse(point.recorded_at), value: Number(point.value) })).filter(point => Number.isFinite(point.timestampMs) && Number.isFinite(point.value) && point.timestampMs >= now.getTime() - Number(period) * 86400000);
       const delta = points.length > 1 ? points[points.length - 1].value - points[0].value : null;
-      content = <>{currencyPicker}<div className="summary-value"><strong>{money(valuedStock.reduce((sum, wine) => sum + recordedValue(wine) * wine.quantity, 0))}</strong>{delta !== null && <span>{delta > 0 ? "+" : ""}{money(delta)} {it ? "nel periodo" : "over period"}</span>}</div><label className="summary-control">{it ? "Periodo" : "Period"}<select aria-label={it ? "Periodo" : "Period"} value={period} onChange={event => setPeriod(event.target.value)}><option value="90">90 {it ? "giorni" : "days"}</option><option value="365">12 {it ? "mesi" : "months"}</option></select></label>{!stock.length ? empty() : !history.data ? status(history) : points.length < 2 ? empty(it ? "Servono almeno due rilevazioni nel periodo." : "At least two observations are needed in this period.") : <TimeSeriesChart compact points={points} locale={locale} currency={currency} ariaLabel={title} height={190} />}</>;
+      content = <>{currencyPicker}<div className="summary-value"><strong>{money(valuedStock.reduce((sum, wine) => sum + recordedValue(wine) * wine.quantity * currentUserSharePct(wine, session) / 100, 0))}</strong>{delta !== null && <span>{delta > 0 ? "+" : ""}{money(delta)} {it ? "nel periodo" : "over period"}</span>}</div><label className="summary-control">{it ? "Periodo" : "Period"}<select aria-label={it ? "Periodo" : "Period"} value={period} onChange={event => setPeriod(event.target.value)}><option value="90">90 {it ? "giorni" : "days"}</option><option value="365">12 {it ? "mesi" : "months"}</option></select></label>{!stock.length ? empty() : !history.data ? status(history) : points.length < 2 ? empty(it ? "Servono almeno due rilevazioni nel periodo." : "At least two observations are needed in this period.") : <TimeSeriesChart compact points={points} locale={locale} currency={currency} ariaLabel={title} height={190} />}</>;
       note = it ? "Valutazioni registrate, ricostruite sulle quantità attuali. Non è un rendimento finanziario; i valori mancanti non sono stimati." : "Recorded valuations reconstructed using current quantities. Not an investment return; missing values are not estimated.";
       break;
     }

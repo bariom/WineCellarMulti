@@ -91,34 +91,54 @@ export function isWineAwaitingDelivery(wine: Wine) {
   return ["order", "ordin", "ship", "sped", "transit", "collect", "pickup", "ritir"].some((value) => status.includes(value));
 }
 
+export type CellarValueParts = {
+  cellarValue: number; cellarBottles: number;
+  incomingValue: number; incomingBottles: number;
+  primeurBottles: number; primeurValue: number; primeurCost: number; primeurPricedValue: number;
+};
+
+export type CellarValueSplit = { total: CellarValueParts; mine: CellarValueParts; shared: boolean };
+
+const emptyValueParts = (): CellarValueParts => ({
+  cellarValue: 0, cellarBottles: 0,
+  incomingValue: 0, incomingBottles: 0,
+  primeurBottles: 0, primeurValue: 0, primeurCost: 0, primeurPricedValue: 0,
+});
+
+function addValueParts(parts: CellarValueParts, wine: Wine, share: number) {
+  const bottles = wine.quantity * share;
+  const value = wineUnitValue(wine) * bottles;
+  if (!isWineAwaitingDelivery(wine)) {
+    parts.cellarValue += value;
+    parts.cellarBottles += bottles;
+    return;
+  }
+  parts.incomingValue += value;
+  parts.incomingBottles += bottles;
+  if (!wine.en_primeur) return;
+  const price = Number(wine.price || 0);
+  parts.primeurBottles += bottles;
+  parts.primeurValue += value;
+  if (price > 0) {
+    parts.primeurCost += price * bottles;
+    parts.primeurPricedValue += value;
+  }
+}
+
 /**
  * Split the cellar value between the bottles already in the cellar and those awaiting
  * delivery, with the en primeur capital still to arrive: what was paid and what it is worth.
+ * "mine" applies the current user's share of each wine; "shared" says whether any wine
+ * is co-owned, so that the share view is worth showing.
  */
-export function cellarValueSplit(items: Wine[]) {
-  const split = {
-    cellarValue: 0, cellarBottles: 0,
-    incomingValue: 0, incomingBottles: 0,
-    primeurBottles: 0, primeurValue: 0, primeurCost: 0, primeurPricedValue: 0,
-  };
+export function cellarValueSplit(items: Wine[], session: Session | null): CellarValueSplit {
+  const split: CellarValueSplit = { total: emptyValueParts(), mine: emptyValueParts(), shared: false };
   for (const wine of items) {
     if (wine.quantity <= 0) continue;
-    const value = wineUnitValue(wine) * wine.quantity;
-    if (!isWineAwaitingDelivery(wine)) {
-      split.cellarValue += value;
-      split.cellarBottles += wine.quantity;
-      continue;
-    }
-    split.incomingValue += value;
-    split.incomingBottles += wine.quantity;
-    if (!wine.en_primeur) continue;
-    const price = Number(wine.price || 0);
-    split.primeurBottles += wine.quantity;
-    split.primeurValue += value;
-    if (price > 0) {
-      split.primeurCost += price * wine.quantity;
-      split.primeurPricedValue += value;
-    }
+    const share = currentUserSharePct(wine, session) / 100;
+    if (share < 1) split.shared = true;
+    addValueParts(split.total, wine, 1);
+    if (share > 0) addValueParts(split.mine, wine, share);
   }
   return split;
 }

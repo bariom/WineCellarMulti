@@ -96,7 +96,7 @@ export default function DashboardHero({
                 <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
                 <strong><DashboardCountUp value={cellarStats.totalValue} format={(value) => formatMoney(value, "CHF", locale)} /></strong>
                 <p>
-                  {formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}
+                  {formatBottleCount(cellarStats.myBottles, locale)} {t("bottles").toLowerCase()}
                   {cellarStats.incomingValue > 0 ? ` · ${locale === "it" ? "in arrivo" : "awaiting"} ${formatMoney(cellarStats.incomingValue, "CHF", locale)}` : ""}
                 </p>
               </div>
@@ -109,7 +109,7 @@ export default function DashboardHero({
               </div>
               <div className="hero-kpi">
                 <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("shared")}</i>{t("averageBottleValue")}</span>
-                <strong><DashboardCountUp value={cellarStats.bottles ? cellarStats.totalValue / cellarStats.bottles : 0} format={(value) => formatMoney(value, "CHF", locale)} delay={140} /></strong>
+                <strong><DashboardCountUp value={cellarStats.myBottles ? cellarStats.totalValue / cellarStats.myBottles : 0} format={(value) => formatMoney(value, "CHF", locale)} delay={140} /></strong>
                 <p>{cellarStats.missingValue} {t("missingValue").toLowerCase()}</p>
               </div>
             </>
@@ -184,7 +184,7 @@ export default function DashboardHero({
                 <strong><DashboardCountUp value={cellarStats.totalValue} format={(value) => formatMoney(value, "CHF", locale)} delay={140} /></strong>
                 <div className="hero-kpi-value-trend">
                   <PortfolioValueSparkline points={portfolioValueHistory} label={t("valueEvolution")} />
-                  <p><DashboardCountUp value={cellarStats.bottles} format={(value) => `${formatBottleCount(value, locale)} ${t("bottles").toLowerCase()}`} delay={230} /></p>
+                  <p><DashboardCountUp value={cellarStats.myBottles} format={(value) => `${formatBottleCount(value, locale)} ${t("bottles").toLowerCase()}`} delay={230} /></p>
                 </div>
               </div>
             </>

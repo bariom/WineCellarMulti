@@ -1485,6 +1485,41 @@ def test_personal_dashboard_portfolio_currency_keeps_households_and_histories_se
     assert TestClient(app).get("/api/v1/wines/value-history/portfolio?currency=CHF").status_code == 401
 
 
+def test_portfolio_history_counts_only_the_users_share_of_co_owned_wines():
+    from app.models.wine import WineValueHistory
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Shared en primeur",
+            "quantity": 6,
+            "price": 90,
+            "current_value": 110,
+            "owners": [
+                {"name": "Owner", "email": "owner@example.com", "share_pct": 50},
+                {"name": "Friend", "email": "friend@example.com", "share_pct": 50},
+            ],
+        },
+    )
+    assert created.status_code == 201, created.text
+    with TestingSessionLocal() as db:
+        db.add(
+            WineValueHistory(
+                wine_id=uuid.UUID(created.json()["id"]),
+                value=Decimal("90"),
+                currency="CHF",
+                recorded_at=datetime(2025, 1, 1, tzinfo=UTC),
+            )
+        )
+        db.commit()
+    points = client.get("/api/v1/wines/value-history/portfolio?currency=CHF").json()
+    # Three of the six bottles are the user's, in the past as today.
+    assert Decimal(str(points[0]["value"])) == 270
+    assert Decimal(str(points[-1]["value"])) == 330
+
+
 def create_redeem_code(
     admin_client: TestClient, email: str | None = None, duration_days: int = 30
 ) -> str:

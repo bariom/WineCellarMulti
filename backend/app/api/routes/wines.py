@@ -76,6 +76,7 @@ from app.services.bottle_photo_ai import (
     warm_bottle_photo_worker,
 )
 from app.services.catalog_sync import propose_wine_catalog_entry
+from app.services.cellar_assistant import share_pct
 from app.services.critic_scores import scores_for_display
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.merchants import get_or_create_merchant
@@ -802,13 +803,19 @@ def portfolio_value_history(
         .where(WineValueHistory.wine_id.in_(wines))
         .order_by(WineValueHistory.recorded_at.asc(), WineValueHistory.id.asc())
     )
+    # The portfolio is the user's own: each wine counts for the user's current share,
+    # applied to the whole history so the change of basis shows no artificial drop.
+    owned = {
+        wine.id: Decimal(max(wine.quantity, 0)) * share_pct(wine, context.user) / 100
+        for wine in wines.values()
+    }
     values: dict[UUID, Decimal] = {}
     daily_points: dict[date, dict] = {}
     for row in rows:
         wine = wines[row.wine_id]
         if currency is not None and row.currency != currency.upper():
             continue
-        values[wine.id] = row.value * max(wine.quantity, 0)
+        values[wine.id] = row.value * owned[wine.id]
         # Several wines are often updated by one AI batch. Keeping only the
         # last value of that day turns those technical events into a useful
         # portfolio timeline instead of exhausting the chart with one batch.
@@ -818,7 +825,7 @@ def portfolio_value_history(
         }
     current = sum(
         (
-            Decimal(str(wine.current_value or wine.price or 0)) * max(wine.quantity, 0)
+            Decimal(str(wine.current_value or wine.price or 0)) * owned[wine.id]
             for wine in wines.values()
         ),
         Decimal("0"),

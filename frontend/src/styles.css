@@ -27885,6 +27885,9 @@ body,
 .wine-en-primeur-toggle input { flex: none; width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; border: 0; box-shadow: none; accent-color: var(--accent); }
 .wine-en-primeur-toggle span { margin: 0; color: var(--text); font-size: 0.92rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
 .portfolio-value-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.portfolio-value-split-sections { display: grid; gap: 16px; }
+.portfolio-value-split > h3 { grid-column: 1 / -1; margin: 4px 0 -2px; color: var(--accent); font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; }
+.portfolio-value-split.is-mine { padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); }
 .portfolio-value-split > div { display: grid; gap: 4px; min-width: 0; padding: 13px 14px; border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: var(--radius-card); background: color-mix(in srgb, var(--surface-muted) 70%, transparent); }
 .portfolio-value-split span { color: var(--text-soft); font-size: 0.69rem; font-weight: 800; letter-spacing: 0.07em; line-height: 1.15; text-transform: uppercase; }
 .portfolio-value-split strong { color: var(--financial-text); font-size: 1rem; font-variant-numeric: tabular-nums; line-height: 1.22; }
@@ -27900,3 +27903,4 @@ body,
   .portfolio-value-primeur dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .portfolio-value-primeur dl > div:last-child { grid-column: 1 / -1; }
 }
+.portfolio-value-overall { display: block; margin-top: 4px; color: var(--text-muted); font-size: 0.78rem; font-weight: 650; line-height: 1.3; }

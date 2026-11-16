@@ -6418,7 +6418,7 @@ export function App() {
   }, [selectedWineId]);
 
   const cellarOwnership = ownershipStats(cellarWines, session);
-  const cellarValueParts = cellarValueSplit(cellarWines);
+  const valueSplit = cellarValueSplit(cellarWines, session);
   const parsedValueRefreshDays = Number(valueRefreshDays);
   const valueRefreshDaysNumber = Number.isFinite(parsedValueRefreshDays) ? Math.max(parsedValueRefreshDays, 0) : 0;
   const sharedBottles = Math.max(cellarOwnership.totalBottles - cellarOwnership.myBottles, 0);
@@ -6446,12 +6446,15 @@ export function App() {
   const monitoringCaption = locale === "it" ? "A fine finestra o oltre" : "At or past their window";
   const cellarStats = {
     bottles: cellarOwnership.totalBottles,
-    totalValue: cellarOwnership.totalValue,
+    // The headline value is the user's own: co-owners' shares of a wine are not theirs.
+    totalValue: cellarOwnership.myValue,
+    overallValue: cellarOwnership.totalValue,
     myBottles: cellarOwnership.myBottles,
     myValue: cellarOwnership.myValue,
     sharedBottles,
     sharedValue,
-    ...cellarValueParts,
+    valueSplit,
+    incomingValue: valueSplit.mine.incomingValue,
     drinkNowBottles: readyInCellarBottleCount,
     drinkSoon: drinkSoonWines.length,
     pastWindow: cellarWines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
@@ -6476,14 +6479,16 @@ export function App() {
     }))
     .filter((point) => Number.isFinite(point.timestampMs) && Number.isFinite(point.numericValue))
     .sort((first, second) => first.timestampMs - second.timestampMs);
-  const paidValueWines = cellarWines.filter((wine) => Number(wine.price || 0) > 0 && wine.quantity > 0);
-  const paidBottleCount = paidValueWines.reduce((total, wine) => total + wine.quantity, 0);
+  // Return on the user's own shares, like the headline value.
+  const paidValueWines = cellarWines.filter((wine) => Number(wine.price || 0) > 0 && wine.quantity > 0 && currentUserSharePct(wine, session) > 0);
+  const ownedQuantity = (wine: Wine) => wine.quantity * currentUserSharePct(wine, session) / 100;
+  const paidBottleCount = paidValueWines.reduce((total, wine) => total + ownedQuantity(wine), 0);
   const purchaseValue = paidValueWines.reduce(
-    (total, wine) => total + Number(wine.price || 0) * wine.quantity,
+    (total, wine) => total + Number(wine.price || 0) * ownedQuantity(wine),
     0,
   );
   const currentPaidValue = paidValueWines.reduce(
-    (total, wine) => total + wineUnitValue(wine) * wine.quantity,
+    (total, wine) => total + wineUnitValue(wine) * ownedQuantity(wine),
     0,
   );
   const purchaseValueDelta = purchaseValue > 0 ? currentPaidValue - purchaseValue : null;
@@ -8707,7 +8712,7 @@ export function App() {
       onOpenBuying={() => { if (!preview) openSommelierFeature("buying"); }}
     /></Suspense>;
     return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><DashboardSummaryWidget
-      widget={widget} locale={locale} wines={wines} wishlist={wishlist} featured={keyPositionCandidates}
+      widget={widget} locale={locale} wines={wines} session={session} wishlist={wishlist} featured={keyPositionCandidates}
       canShowPhotos={canAccessWinePhotos} onOpen={wine => { if (!preview) openWineFromDashboard(wine); }} onRegion={region => { if (!preview) openCellarForRegion(region); }}
       onPairing={wine => { if (!preview) openDishPairingForWine(wine); }}
       onNavigate={destination => {
@@ -11792,7 +11797,7 @@ export function App() {
                       <span>{t("totalValue")}</span>
                       <strong>{formatMoney(cellarStats.totalValue, "CHF", locale)}</strong>
                       <span className="cellar-kpi-value-footer">
-                        <small>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</small>
+                        <small>{formatBottleCount(cellarStats.myBottles, locale)} {t("bottles").toLowerCase()}</small>
                         <PortfolioValueSparkline points={portfolioValueHistory} label={t("valueEvolution")} />
                       </span>
                     </span>

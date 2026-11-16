@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { DashboardCarousel } from "../../components/AppPanels";
 import { formatDisplayDate, formatMoney, wineTone } from "../../components/panelSupport";
-import { formatBottleCount, wineUnitValue } from "../../domain/cellar";
+import { formatBottleCount, wineUnitValue, type CellarValueParts, type CellarValueSplit } from "../../domain/cellar";
 import { translate, type TranslationKey } from "../../i18n";
 import type { Locale, QuickWineFilter, Wine } from "../../types";
 
@@ -9,7 +9,7 @@ const TimeSeriesChart = lazy(() => import("../../components/TimeSeriesChart"));
 
 type ValueDashboardProps = {
   locale: Locale;
-  cellarStats: { bottles: number; totalValue: number; missingValue: number; myBottles: number; myValue: number; sharedBottles: number; sharedValue: number; cellarValue: number; cellarBottles: number; incomingValue: number; incomingBottles: number; primeurBottles: number; primeurValue: number; primeurCost: number; primeurPricedValue: number };
+  cellarStats: { bottles: number; totalValue: number; missingValue: number; myBottles: number; myValue: number; sharedBottles: number; sharedValue: number; overallValue: number; valueSplit: CellarValueSplit };
   purchaseValueDelta: number | null;
   purchaseValueDeltaPct: number | null;
   paidBottleCount: number;
@@ -54,8 +54,44 @@ export default function ValueDashboard({
     : null;
   const it = locale === "it";
   const bottlesLabel = (count: number) => `${formatBottleCount(count, locale)} ${t("bottles").toLowerCase()}`;
-  const primeurDelta = cellarStats.primeurCost > 0 ? cellarStats.primeurPricedValue - cellarStats.primeurCost : null;
-  const primeurDeltaPct = primeurDelta !== null ? (primeurDelta / cellarStats.primeurCost) * 100 : null;
+  const { valueSplit } = cellarStats;
+  const signedMoney = (value: number) => `${value >= 0 ? "+" : ""}${formatMoney(value, "CHF", locale)}`;
+  // One availability split: the whole cellar, or the current user's shares of it.
+  const renderValueSplit = (parts: CellarValueParts, label: string, title: string, mine = false) => {
+    const delta = parts.primeurCost > 0 ? parts.primeurPricedValue - parts.primeurCost : null;
+    const deltaPct = delta !== null ? (delta / parts.primeurCost) * 100 : null;
+    return (
+      <div className={`portfolio-value-split${mine ? " is-mine" : ""}`} role="group" aria-label={label}>
+        {title ? <h3>{title}</h3> : null}
+        <div>
+          <span>{it ? "In cantina" : "In the cellar"}</span>
+          <strong>{formatMoney(parts.cellarValue, "CHF", locale)}</strong>
+          <small>{bottlesLabel(parts.cellarBottles)}</small>
+        </div>
+        <div>
+          <span>{it ? "In arrivo" : "Awaiting delivery"}</span>
+          <strong>{formatMoney(parts.incomingValue, "CHF", locale)}</strong>
+          <small>{bottlesLabel(parts.incomingBottles)}</small>
+        </div>
+        {parts.primeurBottles > 0 ? (
+          <div className="portfolio-value-primeur">
+            <span>{it ? "Capitale en primeur in arrivo" : "En primeur capital awaiting delivery"}</span>
+            <dl>
+              <div><dt>{it ? "Pagato" : "Paid"}</dt><dd>{parts.primeurCost > 0 ? formatMoney(parts.primeurCost, "CHF", locale) : "—"}</dd></div>
+              <div><dt>{it ? "Valore attuale" : "Current value"}</dt><dd>{formatMoney(parts.primeurValue, "CHF", locale)}</dd></div>
+              <div>
+                <dt>{it ? "Differenza" : "Difference"}</dt>
+                <dd className={delta !== null && delta < 0 ? "negative" : "positive"}>
+                  {delta === null ? "—" : `${signedMoney(delta)}${deltaPct === null ? "" : ` · ${deltaPct >= 0 ? "+" : ""}${deltaPct.toFixed(1)}%`}`}
+                </dd>
+              </div>
+            </dl>
+            <small>{bottlesLabel(parts.primeurBottles)}</small>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
   return (
     <>
       <DashboardCarousel locale={locale} label={t("valueFocus")} className="value-dashboard-carousel">
@@ -64,8 +100,13 @@ export default function ValueDashboard({
             <div>
               <span>{t("totalValue")}</span>
               <h2>{formatMoney(cellarStats.totalValue, "CHF", locale)}</h2>
+              {cellarStats.overallValue - cellarStats.totalValue >= 0.005 ? (
+                <small className="portfolio-value-overall">
+                  {it ? "Complessivo con i comproprietari" : "Overall, co-owners included"}: {formatMoney(cellarStats.overallValue, "CHF", locale)} · {bottlesLabel(cellarStats.bottles)}
+                </small>
+              ) : null}
             </div>
-            <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
+            <strong>{formatBottleCount(cellarStats.myBottles, locale)}</strong>
           </div>
           <div className="portfolio-value-explorer-summary">
             <div>
@@ -80,34 +121,10 @@ export default function ValueDashboard({
               <strong>{portfolioValueFirst && portfolioValueLast ? `${formatDisplayDate(portfolioValueFirst.recorded_at)} – ${formatDisplayDate(portfolioValueLast.recorded_at)}` : "—"}</strong>
             </div>
           </div>
-          {cellarStats.incomingBottles > 0 ? (
-            <div className="portfolio-value-split" role="group" aria-label={it ? "Valore per disponibilità" : "Value by availability"}>
-              <div>
-                <span>{it ? "In cantina" : "In the cellar"}</span>
-                <strong>{formatMoney(cellarStats.cellarValue, "CHF", locale)}</strong>
-                <small>{bottlesLabel(cellarStats.cellarBottles)}</small>
-              </div>
-              <div>
-                <span>{it ? "In arrivo" : "Awaiting delivery"}</span>
-                <strong>{formatMoney(cellarStats.incomingValue, "CHF", locale)}</strong>
-                <small>{bottlesLabel(cellarStats.incomingBottles)}</small>
-              </div>
-              {cellarStats.primeurBottles > 0 ? (
-                <div className="portfolio-value-primeur">
-                  <span>{it ? "Capitale en primeur in arrivo" : "En primeur capital awaiting delivery"}</span>
-                  <dl>
-                    <div><dt>{it ? "Pagato" : "Paid"}</dt><dd>{cellarStats.primeurCost > 0 ? formatMoney(cellarStats.primeurCost, "CHF", locale) : "—"}</dd></div>
-                    <div><dt>{it ? "Valore attuale" : "Current value"}</dt><dd>{formatMoney(cellarStats.primeurValue, "CHF", locale)}</dd></div>
-                    <div>
-                      <dt>{it ? "Differenza" : "Difference"}</dt>
-                      <dd className={primeurDelta !== null && primeurDelta < 0 ? "negative" : "positive"}>
-                        {primeurDelta === null ? "—" : `${primeurDelta >= 0 ? "+" : ""}${formatMoney(primeurDelta, "CHF", locale)}${primeurDeltaPct === null ? "" : ` · ${primeurDeltaPct >= 0 ? "+" : ""}${primeurDeltaPct.toFixed(1)}%`}`}
-                      </dd>
-                    </div>
-                  </dl>
-                  <small>{bottlesLabel(cellarStats.primeurBottles)}</small>
-                </div>
-              ) : null}
+          {valueSplit.total.incomingBottles > 0 ? (
+            <div className="portfolio-value-split-sections">
+              {renderValueSplit(valueSplit.total, it ? "Valore per disponibilità" : "Value by availability", valueSplit.shared ? (it ? "Totale" : "Total") : "")}
+              {valueSplit.shared ? renderValueSplit(valueSplit.mine, it ? "Le mie quote" : "My shares", it ? "Le mie quote" : "My shares", true) : null}
             </div>
           ) : null}
           {portfolioValuePoints.length >= 2 ? (
@@ -140,7 +157,7 @@ export default function ValueDashboard({
             <div>
               <span>{locale === "it" ? "Minimo / massimo" : "Low / high"}</span>
               <strong>{portfolioValueLow === null || portfolioValueHigh === null ? "—" : `${formatMoney(portfolioValueLow, "CHF", locale)} – ${formatMoney(portfolioValueHigh, "CHF", locale)}`}</strong>
-              <small>{t("averageBottleValue")}: {formatMoney(cellarStats.bottles ? cellarStats.totalValue / cellarStats.bottles : 0, "CHF", locale)}</small>
+              <small>{t("averageBottleValue")}: {formatMoney(cellarStats.myBottles ? cellarStats.totalValue / cellarStats.myBottles : 0, "CHF", locale)}</small>
             </div>
           </div>
         </article>
