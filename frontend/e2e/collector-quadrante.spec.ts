@@ -264,5 +264,11 @@ test("the collection counts only the user's share of co-owned wines", async ({ p
   const numbers = page.getByRole("region", { name: "La collezione in numeri" });
   // 26 bottles in the cellar: 4 Chablis are not the user's and 4 Etna are the friend's half.
   await expect(numbers.locator(".cq-donut-num").first()).toHaveText("18");
+  // The cellar value and the hero count the user's shares too, without the friend's Chablis.
+  const value = page.getByRole("article", { name: "Valore cantina" });
+  await expect(value).toContainText("4/4 vini");
+  // 3 × 175 + 6 × 82 + 5 × 26 + 4 × 41, instead of 1 599 with the friend's bottles.
+  await expect(value).toContainText(/1.?311/);
+  await expect(page.locator(".cellar-home-count")).toHaveText("18 bottiglie · 4 vini");
   expect(await noOverflow(page)).toBe(true);
 });

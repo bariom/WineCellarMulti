@@ -6517,6 +6517,11 @@ export function App() {
   // Value widgets count the user's own share of each wine, like the headline value.
   const ownedShare = (wine: Wine) => currentUserSharePct(wine, session) / 100;
   const ownedPositionValue = (wine: Wine) => wineUnitValue(wine) * wine.quantity * ownedShare(wine);
+  // The home hero and the collector focus show the user's own collection: co-owned wines count for the
+  // user's share of their bottles, and wines without a share are left out.
+  const ownedCellarWines = cellarWines
+    .filter((wine) => ownedShare(wine) > 0)
+    .map((wine) => (ownedShare(wine) >= 1 ? wine : { ...wine, quantity: wine.quantity * ownedShare(wine) }));
   const valueByType = topWineValueGroups(cellarWines, "type", 5, ownedShare);
   const valueByCanonicalType = canonicalWineTypes
     .map((type) => {
@@ -6893,7 +6898,7 @@ export function App() {
   const balancedLeadingTonePct = balancedLeadingTone && balancedCoreBottleCount
     ? Math.round((balancedLeadingTone.bottles / balancedCoreBottleCount) * 100)
     : 0;
-  const cellarHeroBottleCount = cellarWines.reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
+  const cellarHeroBottleCount = ownedCellarWines.reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
   // Hero figures complement each view's own KPI cards instead of repeating them;
   // the collector and insight views keep the plain bottle/wine line.
   const homeHeroStats: CellarHomeHeroStat[] | undefined = dashboardFocus === "balanced" ? [
@@ -6921,11 +6926,6 @@ export function App() {
     .filter((wine) => currentUserSharePct(wine, session) > 0)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
-  // The collector focus shows the user's own collection: co-owned wines count for the
-  // user's share of their bottles, and wines without a share are left out.
-  const ownedCellarWines = cellarWines
-    .filter((wine) => ownedShare(wine) > 0)
-    .map((wine) => (ownedShare(wine) >= 1 ? wine : { ...wine, quantity: wine.quantity * ownedShare(wine) }));
   const keyPositionCandidates = (() => {
     const positionValue = (wine: Wine) => wineUnitValue(wine) * wine.quantity;
     const ownedValue = (wine: Wine) => positionValue(wine) * (currentUserSharePct(wine, session) / 100);
@@ -9741,7 +9741,7 @@ export function App() {
             {searchQuery ? <Suspense fallback={null}><FeatureSuggestions query={searchQuery} locale={locale} available={featureAvailable} onOpen={openFeature} /></Suspense> : null}
           </form>
         ) : null}
-        {authenticated && activeView === "home" && !isRestaurant ? <CellarHomeHero wines={cellarWines} locale={locale} stats={homeHeroStats} /> : null}
+        {authenticated && activeView === "home" && !isRestaurant ? <CellarHomeHero wines={ownedCellarWines} locale={locale} stats={homeHeroStats} /> : null}
         {authenticated && activeView === "home" && !isRestaurant && canAccessCellarAssistant && session?.cellar_ai_assistant_subscribed ? <Suspense fallback={null}><HomeAssistantAsk locale={locale} onAsk={(text) => {
           setAssistantQuestion({ id: Date.now(), text });
           leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant");
@@ -10084,7 +10084,7 @@ export function App() {
                 </details>
               </section>
               {dashboardFocus === "daily" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} home canAccess={canAccessMemories} onActivate={openSubscriptionSettings} onRecord={canWriteWine ? () => setRecordTastingOpen(true) : undefined} /></Suspense> : null}
-              {dashboardFocus === "collector" ? <CellarHomeStats wines={cellarWines} readyCount={readyInCellarWineCount} monitoringCount={monitoringWines.length} locale={locale} onNavigate={(focus, initialIndex = 0) => { setDashboardCarouselInitialIndex(initialIndex); setDashboardFocus(focus); }} /> : null}
+              {dashboardFocus === "collector" ? <CellarHomeStats wines={ownedCellarWines} readyCount={readyInCellarWineCount} monitoringCount={monitoringWines.length} locale={locale} onNavigate={(focus, initialIndex = 0) => { setDashboardCarouselInitialIndex(initialIndex); setDashboardFocus(focus); }} /> : null}
               {aiPackEnhancementHint}
 
               {!isRestaurant && cellarSommelierVisible ? (
