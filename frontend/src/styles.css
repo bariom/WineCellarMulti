@@ -27960,3 +27960,18 @@ body,
 .other-exit-types span { margin: 0; font-size: 0.85rem; font-weight: 750; letter-spacing: 0; text-transform: none; color: inherit; }
 .consume-form .other-exit-types label > span { color: var(--text); }
 .consume-form .other-exit-types label.is-active > span { color: var(--primary-contrast); }
+/* Diary tabs on phones: one row, icon above the label, however many sections there are. */
+@media (max-width: 900px) {
+  .authenticated-app-shell .history-workspace .history-section-tabs,
+  .history-section-tabs {
+    grid-template-columns: none;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+  }
+  .authenticated-app-shell .history-workspace .history-section-tabs button {
+    padding-inline: 2px;
+    font-size: .72rem;
+    hyphens: auto;
+    overflow-wrap: anywhere;
+  }
+}
