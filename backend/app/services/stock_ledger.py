@@ -14,7 +14,15 @@ from app.services.wine_strategy import consume_strategy_allocations
 
 INBOUND_TYPES = {"purchase", "adjustment_in"}
 INBOUND_LEDGER_TYPES = INBOUND_TYPES | {"initial_purchase", "sale_void"}
-OUTBOUND_TYPES = {"adjustment_out", "breakage", "complimentary", "consumption"}
+OUTBOUND_TYPES = {
+    "adjustment_out",
+    "breakage",
+    "complimentary",
+    "consumption",
+    "defective",
+    "returned",
+    "co_owner_withdrawal",
+}
 
 
 def ensure_opening_stock(

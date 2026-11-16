@@ -6,6 +6,7 @@ import LocalizedDateInput from "./LocalizedDateInput";
 import { api } from "../services/api";
 import { formatDisplayDate, formatMoney } from "./panelSupport";
 import { WineLocationPicker } from "./StoragePanels";
+import { GIFT_PURCHASE_PRICE, isGiftPrice } from "../domain/stockExits";
 import "./WineLotsSection.css";
 
 export default function WineLotsSection({ wine, canWrite, saving, locale, onChanged, onRegistered, onBusyChange }: {
@@ -128,7 +129,8 @@ export default function WineLotsSection({ wine, canWrite, saving, locale, onChan
       <legend>{italian ? "Nuovo acquisto" : "New purchase"}</legend>
       <div className="detail-grid consume-grid">
         <label><span>{italian ? "Bottiglie acquistate" : "Bottles purchased"}</span><input form={formId} type="number" min="1" step="1" required value={draft.quantity} onChange={event => setDraft({ ...draft, quantity: event.target.value })} /></label>
-        <label><span>{italian ? `Prezzo per bottiglia (${wine.currency})` : `Price per bottle (${wine.currency})`}</span><input form={formId} type="number" min="0" step="0.01" required value={draft.unit_cost} onChange={event => setDraft({ ...draft, unit_cost: event.target.value })} /></label>
+        <label><span>{italian ? `Prezzo per bottiglia (${wine.currency})` : `Price per bottle (${wine.currency})`}</span><input form={formId} type="number" min="0" step="0.01" required value={draft.unit_cost} disabled={isGiftPrice(draft.unit_cost)} onChange={event => setDraft({ ...draft, unit_cost: event.target.value })} /></label>
+        <span className="wine-gift-toggle"><input type="checkbox" id={`${formId}-gift`} checked={isGiftPrice(draft.unit_cost)} onChange={event => setDraft({ ...draft, unit_cost: event.target.checked ? String(GIFT_PURCHASE_PRICE) : "" })} /><label htmlFor={`${formId}-gift`}>{italian ? "Ricevute in regalo" : "Received as a gift"}</label></span>
         <label><span>{italian ? "Data acquisto" : "Purchase date"}</span><LocalizedDateInput form={formId} required value={draft.acquired_on} onChange={acquired_on => setDraft({ ...draft, acquired_on })} locale={locale} ariaLabel={italian ? "Data acquisto" : "Purchase date"} /></label>
         <label><span>{italian ? "Commerciante" : "Merchant"}</span><input form={formId} value={draft.supplier} onChange={event => setDraft({ ...draft, supplier: event.target.value })} /></label>
       </div>

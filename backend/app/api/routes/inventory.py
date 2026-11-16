@@ -15,6 +15,7 @@ from app.schemas.inventory import (
     StockMovementCreate,
     StockMovementResponse,
 )
+from app.services.co_owner_shares import withdraw_co_owner_share
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.merchants import get_or_create_merchant
 from app.services.stock_ledger import (
@@ -229,6 +230,17 @@ def create_movement(
             storage_bin_id=payload.storage_bin_id,
         )
     else:
+        if payload.movement_type == "co_owner_withdrawal":
+            if payload.quantity > wine.quantity:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT, detail="Not enough bottles in stock"
+                )
+            withdraw_co_owner_share(
+                wine,
+                payload.quantity,
+                email=payload.co_owner_email,
+                name=payload.co_owner_name,
+            )
         movements, _, _ = remove_fifo_stock(
             db,
             wine,

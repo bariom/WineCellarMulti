@@ -1,10 +1,12 @@
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { WineValueConstellation } from "../../components/CellarAnalyticsCharts";
 import { formatDisplayDate, formatMoney, wineTone } from "../../components/panelSupport";
 import { formatBottleCount, formatPercentage, type CellarValueParts, type CellarValueSplit } from "../../domain/cellar";
 import { localizeRegion } from "../../domain/places";
+import { LOSS_EXIT_TYPES } from "../../domain/stockExits";
+import { api } from "../../services/api";
 import { translate, type TranslationKey } from "../../i18n";
-import type { Locale, QuickWineFilter, Wine } from "../../types";
+import type { Locale, QuickWineFilter, StockMovement, Wine } from "../../types";
 
 const TimeSeriesChart = lazy(() => import("../../components/TimeSeriesChart"));
 
@@ -25,6 +27,9 @@ type ValueDashboardProps = {
   topValueWines: Array<{ wine: Wine; unitValue: number; bottles: number }>;
   missingValueWines: Wine[];
   openWineFromDashboard: (wine: Wine) => void;
+  /** The user's share of the value of these bottles of a wine, at today's value. */
+  lossValue: (wineId: string, bottles: number) => number;
+  onOpenExits: () => void;
 };
 
 type Basis = "mine" | "all";
@@ -49,6 +54,8 @@ export default function ValueDashboard({
   topValueWines,
   missingValueWines,
   openWineFromDashboard,
+  lossValue,
+  onOpenExits,
 }: ValueDashboardProps) {
   const t = (key: TranslationKey) => translate(locale, key);
   const it = locale === "it";
@@ -56,6 +63,23 @@ export default function ValueDashboard({
   const [period, setPeriod] = useState<Period>("all");
   const [dimension, setDimension] = useState<Dimension>("type");
   const { valueSplit } = cellarStats;
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  useEffect(() => {
+    let active = true;
+    api<StockMovement[]>("/api/v1/inventory/movements?limit=500")
+      .then((items) => { if (active) setMovements(items); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+  // Losses: bottles broken or faulty in the last twelve months, on the user's share at today's value.
+  const lossesSince = (() => {
+    const date = new Date();
+    date.setFullYear(date.getFullYear() - 1);
+    return date.toISOString().slice(0, 10);
+  })();
+  const losses = movements
+    .filter((movement) => (LOSS_EXIT_TYPES as string[]).includes(movement.movement_type) && movement.occurred_on >= lossesSince)
+    .reduce((sum, movement) => ({ bottles: sum.bottles - movement.quantity_delta, value: sum.value + lossValue(movement.wine_id, -movement.quantity_delta) }), { bottles: 0, value: 0 });
   const parts: CellarValueParts = basis === "mine" || !valueSplit.shared ? valueSplit.mine : valueSplit.total;
   const bottlesLabel = (count: number) => `${formatBottleCount(count, locale)} ${t("bottles").toLowerCase()}`;
   const signedMoney = (value: number) => `${value >= 0 ? "+" : ""}${formatMoney(value, "CHF", locale)}`;
@@ -143,6 +167,13 @@ export default function ValueDashboard({
               ) : null}
             </div>
           </div>
+        ) : null}
+        {losses.bottles > 0 ? (
+          <button type="button" className="value-losses" onClick={onOpenExits}>
+            <span>{it ? "Perdite negli ultimi 12 mesi" : "Losses in the last 12 months"}</span>
+            <strong>−{formatMoney(losses.value, "CHF", locale)}</strong>
+            <small>{bottlesLabel(losses.bottles)} {it ? "rotte o difettose" : "broken or faulty"} <span aria-hidden="true">→</span></small>
+          </button>
         ) : null}
         {valueSplit.shared && cellarStats.sharedBottles > 0 ? (
           <button type="button" className="value-link" onClick={() => applyQuickWineFilter("shared")}>

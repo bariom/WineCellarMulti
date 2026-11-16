@@ -27944,3 +27944,19 @@ body,
   .value-ranking-track { grid-column: 1 / -1; grid-row: 2; }
 }
 .top-value-list-mobile .action-row > span { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.value-losses { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 12px; width: 100%; min-height: 52px; padding: 12px 16px; border: 1px solid color-mix(in srgb, var(--danger) 26%, var(--border)); border-radius: var(--radius-card); background: color-mix(in srgb, var(--danger-surface) 70%, var(--surface)); color: var(--text); font: inherit; text-align: left; box-shadow: none; }
+.value-losses > span { color: var(--danger-text); font-size: 0.69rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
+.value-losses > strong { grid-row: span 2; color: var(--danger-text); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.value-losses > small { color: var(--text-muted); font-size: 0.76rem; font-weight: 650; }
+.wine-gift-toggle { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.wine-gift-toggle input { flex: none; width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; accent-color: var(--accent); box-shadow: none; }
+.wine-gift-toggle label { margin: 0; color: var(--text); font-size: 0.88rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.other-exit-types { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.other-exit-types legend { margin-bottom: 8px; padding: 0; color: var(--text-soft); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
+.other-exit-types label { position: relative; display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); cursor: pointer; }
+.other-exit-types label.is-active { border-color: var(--primary); background: var(--primary); color: var(--primary-contrast); }
+.other-exit-types input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.other-exit-types label:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+.other-exit-types span { margin: 0; font-size: 0.85rem; font-weight: 750; letter-spacing: 0; text-transform: none; color: inherit; }
+.consume-form .other-exit-types label > span { color: var(--text); }
+.consume-form .other-exit-types label.is-active > span { color: var(--primary-contrast); }

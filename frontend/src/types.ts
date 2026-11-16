@@ -260,6 +260,9 @@ export type StockMovementType =
   | "adjustment_out"
   | "breakage"
   | "complimentary"
+  | "defective"
+  | "returned"
+  | "co_owner_withdrawal"
   | "sale"
   | "sale_void";
 
@@ -1655,7 +1658,7 @@ export type WineNewsFeed = {
   has_more: boolean;
 };
 
-export type HistorySection = "tastings" | "moments" | "wines" | "sales";
+export type HistorySection = "tastings" | "moments" | "wines" | "sales" | "exits";
 
 export type QuickWineFilter = "" | "mine" | "shared" | "in_cellar" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data" | "low_stock" | "missing_sale_price";
 

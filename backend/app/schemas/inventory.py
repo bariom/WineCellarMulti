@@ -11,6 +11,9 @@ ManualStockMovementType = Literal[
     "adjustment_out",
     "breakage",
     "complimentary",
+    "defective",
+    "returned",
+    "co_owner_withdrawal",
 ]
 
 
@@ -26,6 +29,9 @@ class StockMovementCreate(BaseModel):
     storage_location_id: UUID | None = None
     storage_bin_id: UUID | None = None
     storage_allocation_id: UUID | None = None
+    # The co-owner taking their bottles away, for a co_owner_withdrawal.
+    co_owner_email: str = Field(default="", max_length=254)
+    co_owner_name: str = Field(default="", max_length=160)
 
     @model_validator(mode="after")
     def validate_purchase(self) -> "StockMovementCreate":

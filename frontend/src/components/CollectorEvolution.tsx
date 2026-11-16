@@ -38,7 +38,7 @@ export default function CollectorEvolution({ wines, locale, now, onOpen, hideHor
     { label: it ? "Aggiunte" : "Added", types: ["purchase", "initial_purchase"], tone: "in" },
     { label: it ? "Bevute" : "Drunk", types: ["consumption"], tone: "drunk" },
     { label: it ? "Vendite nette" : "Net sales", types: ["sale", "sale_void"], tone: "out" },
-    { label: it ? "Altre uscite" : "Other outflows", types: ["breakage", "complimentary", "adjustment_out"], tone: "other" },
+    { label: it ? "Altre uscite" : "Other outflows", types: ["breakage", "complimentary", "adjustment_out", "defective", "returned", "co_owner_withdrawal"], tone: "other" },
   ].map(group => ({ ...group, value: (group.tone === "in" ? 1 : -1) * inPeriod.filter(row => group.types.includes(row.movement_type)).reduce((sum, row) => sum + row.quantity_delta, 0) }));
   const maxMovement = Math.max(1, ...types.map(group => Math.abs(group.value)));
   const year = now.getFullYear();

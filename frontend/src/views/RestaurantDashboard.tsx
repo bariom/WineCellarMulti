@@ -248,6 +248,9 @@ function stockMovementLabel(type: StockMovementType, locale: Locale) {
     adjustment_out: ["Rettifica in uscita", "Outbound adjustment"],
     breakage: ["Rottura", "Breakage"],
     complimentary: ["Omaggio", "Complimentary"],
+    defective: ["Difettosa", "Faulty"],
+    returned: ["Restituita al venditore", "Returned to the seller"],
+    co_owner_withdrawal: ["Ritirata dal comproprietario", "Taken by a co-owner"],
     sale: ["Vendita", "Sale"],
     sale_void: ["Vendita annullata", "Voided sale"],
   };

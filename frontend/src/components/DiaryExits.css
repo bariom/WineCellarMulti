@@ -1,0 +1,24 @@
+.diary-exits { display: grid; gap: 14px; }
+.diary-exits-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.diary-exits-filters button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font-size: 0.85rem; font-weight: 700; box-shadow: none; }
+.diary-exits-filters button b { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.diary-exits-filters button.active { border-color: var(--primary); background: var(--primary); color: var(--primary-contrast); }
+.diary-exits-filters button.active b { color: inherit; }
+.diary-exits-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.diary-exits-list button { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto auto; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 12px 16px; border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; text-align: left; box-shadow: none; }
+.diary-exits-list button:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.diary-exits-date { color: var(--text-muted); font-size: 0.82rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.diary-exits-wine { display: grid; gap: 2px; min-width: 0; }
+.diary-exits-wine strong, .diary-exits-wine small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diary-exits-wine small { color: var(--text-muted); font-size: 0.78rem; }
+.diary-exits-type { padding: 4px 10px; border-radius: 999px; background: var(--surface-subtle); color: var(--text); font-size: 0.75rem; font-weight: 750; white-space: nowrap; }
+.diary-exits-type.is-breakage, .diary-exits-type.is-defective { background: var(--danger-surface); color: var(--danger-text); }
+.diary-exits-type.is-complimentary { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.diary-exits-bottles { font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 640px) {
+  .diary-exits-list button { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "wine bottles" "date type"; gap: 6px 12px; padding: 12px; }
+  .diary-exits-wine { grid-area: wine; }
+  .diary-exits-bottles { grid-area: bottles; text-align: right; }
+  .diary-exits-date { grid-area: date; }
+  .diary-exits-type { grid-area: type; justify-self: end; }
+}

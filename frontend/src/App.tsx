@@ -82,6 +82,7 @@ import "./views/DiaryRefined.css";
 import { installPointerLight } from "./components/pointerLight";
 import { CollectorMaturity } from "./components/CollectorMaturity";
 import { highFetchPriority } from "./utils/fetchPriority";
+import { GIFT_PURCHASE_PRICE, isGiftPrice } from "./domain/stockExits";
 import { localizeRegion, regionKey } from "./domain/places";
 
 /** Whether the active theme's surface is dark; drives `data-theme-tone` for CSS and the wine tint. */
@@ -157,6 +158,7 @@ const AdminUsersWorkspace = lazy(() => import("./components/AdminUsersWorkspace"
 const WishlistOverview = lazy(() => import("./components/WishlistOverview"));
 const WineLotsSection = lazy(() => import("./components/WineLotsSection"));
 const AiSettingsTab = lazy(() => import("./views/settings/AiSettingsTab"));
+const DiaryExits = lazy(() => import("./components/DiaryExits"));
 const ValueDashboard = lazy(() => import("./views/home/ValueDashboard"));
 const DashboardHero = lazy(() => import("./views/home/DashboardHero"));
 const DailySommelierBubble = lazy(() => import("./views/home/DailySommelierBubble"));
@@ -5815,7 +5817,7 @@ export function App() {
   );
   const historyWines = wines.filter((wine) => wine.quantity <= 0);
   // Vendite and Momenti are Diario tabs without a wine list.
-  const historyWithoutList = historySection === "sales" || historySection === "moments";
+  const historyWithoutList = historySection === "sales" || historySection === "moments" || historySection === "exits";
   const isWineCollectionView = activeView === "cellar" || (activeView === "history" && !historyWithoutList);
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
 
@@ -6480,7 +6482,7 @@ export function App() {
     .filter((point) => Number.isFinite(point.timestampMs) && Number.isFinite(point.numericValue))
     .sort((first, second) => first.timestampMs - second.timestampMs);
   // Return on the user's own shares, like the headline value.
-  const paidValueWines = cellarWines.filter((wine) => Number(wine.price || 0) > 0 && wine.quantity > 0 && currentUserSharePct(wine, session) > 0);
+  const paidValueWines = cellarWines.filter((wine) => Number(wine.price || 0) > 0 && !isGiftPrice(wine.price) && wine.quantity > 0 && currentUserSharePct(wine, session) > 0);
   const ownedQuantity = (wine: Wine) => wine.quantity * currentUserSharePct(wine, session) / 100;
   const paidBottleCount = paidValueWines.reduce((total, wine) => total + ownedQuantity(wine), 0);
   const purchaseValue = paidValueWines.reduce(
@@ -10393,6 +10395,11 @@ export function App() {
                     topValueWines={topValueWines.map((wine) => ({ wine, unitValue: wineUnitValue(wine), bottles: wine.quantity * ownedShare(wine) }))}
                     missingValueWines={missingValueWines}
                     openWineFromDashboard={openWineFromDashboard}
+                    lossValue={(wineId, bottles) => {
+                      const lost = wines.find((item) => item.id === wineId);
+                      return lost ? wineUnitValue(lost) * bottles * ownedShare(lost) : 0;
+                    }}
+                    onOpenExits={() => { setActiveView("history"); setHistorySection("exits"); }}
                   />
                 </Suspense>
               ) : null}
@@ -11156,8 +11163,12 @@ export function App() {
                       </label>
                       <label>
                         <span>{t("purchasePrice")}</span>
-                        <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={!canWriteWine} />
-                        <small className="form-hint">{locale === "it" ? "Se il vino è un regalo, inserisci 0.01: la variazione di valore sarà mostrata in CHF, non in percentuale." : "If the wine was a gift, enter 0.01: value change will be shown in currency, not as a percentage."}</small>
+                        <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={!canWriteWine || isGiftPrice(draft.price)} />
+                        <span className="wine-gift-toggle">
+                          <input type="checkbox" id="wine-received-as-gift" checked={isGiftPrice(draft.price)} onChange={(event) => setDraft({ ...draft, price: event.target.checked ? String(GIFT_PURCHASE_PRICE) : "" })} disabled={!canWriteWine} />
+                          <label htmlFor="wine-received-as-gift">{locale === "it" ? "Ricevuta in regalo" : "Received as a gift"}</label>
+                        </span>
+                        <small className="form-hint">{locale === "it" ? "Un regalo non ha costo: resta fuori dal rendimento e la variazione di valore si mostra in CHF." : "A gift has no cost: it stays out of the return, and its value change shows in currency."}</small>
                       </label>
                       <label>
                         <span>{t("currentValue")}</span>
@@ -11940,6 +11951,16 @@ export function App() {
                 <AppIcon name="sales" />
                 {locale === "it" ? "Vendite" : "Sales"}
               </button>
+              {!isRestaurant && !offlineMode ? <button
+                type="button"
+                role="tab"
+                aria-selected={historySection === "exits"}
+                className={historySection === "exits" ? "" : "secondary"}
+                onClick={() => setHistorySection("exits")}
+              >
+                <AppIcon name="export" />
+                {locale === "it" ? "Uscite" : "Exits"}
+              </button> : null}
             </div>
             {historySection === "tastings" && !offlineMode ? <div className="record-tasting-origin diary-origin" role="radiogroup" aria-label={locale === "it" ? "Provenienza della bevuta" : "Tasting origin"}>
               {([["", "Tutte", "All"], ["cellar", "Dalla cantina", "From my cellar"], ["external", "Extra cantina", "Elsewhere"]] as const).map(([value, itLabel, enLabel]) => (
@@ -11953,6 +11974,17 @@ export function App() {
                 <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} home canAccess={canAccessMemories} onActivate={openSubscriptionSettings} onRecord={canWriteWine ? () => setRecordTastingOpen(true) : undefined} /></Suspense>
                 {canAccessMemories ? <Suspense fallback={null}><PolaroidsWidget locale={locale} /></Suspense> : null}
               </div>
+            ) : historySection === "exits" ? (
+              <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+                <DiaryExits
+                  key={`${session?.active_household_id}:${restaurantDashboardVersion}:${wines.length}:${wines.reduce((sum, wine) => sum + wine.quantity, 0)}`}
+                  locale={locale}
+                  onOpenWine={(wineId) => {
+                    const wine = wines.find((item) => item.id === wineId);
+                    if (wine) openWineInView(wine, wine.quantity > 0 ? "cellar" : "history");
+                  }}
+                />
+              </Suspense>
             ) : historySection === "sales" ? (
               <Suspense fallback={<LoadingState label={t("loadingData")} />}>
                 <RestaurantDashboard

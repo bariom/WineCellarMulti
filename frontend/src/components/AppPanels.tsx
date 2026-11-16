@@ -20,6 +20,7 @@ import { WineLocationPicker, WineStorageSection, WineStrategySection } from "./S
 import LocalizedDateInput from "./LocalizedDateInput";
 import { TastingMemoryPhoto, TastingMemoryPhotoInput } from "./TastingMemoryPhoto";
 import { WineSensorySignaturePanel } from "./WineSensorySignaturePanel";
+import OtherExitPanel from "./OtherExitPanel";
 import "./WishlistWineProfile.css";
 import { highFetchPriority } from "../utils/fetchPriority";
 import { localizeRegion, localizeCountry } from "../domain/places";
@@ -1243,11 +1244,12 @@ export function WineDetail({
   const [saleDraft, setSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "", sale_kind: "bottle" });
   const [glassSaleDraft, setGlassSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.glass_price || "", note: "", sale_kind: "glass" });
   const [aiToolsOpen, setAiToolsOpen] = useState(false);
-  const [activeOperation, setActiveOperation] = useState<"consume" | "sale" | "glass" | null>(null);
+  const [activeOperation, setActiveOperation] = useState<"consume" | "sale" | "glass" | "exit" | null>(null);
   const [drinkNotesExpanded, setDrinkNotesExpanded] = useState(false);
   const [originMapOpenRequest, setOriginMapOpenRequest] = useState(0);
   const consumePanelRef = useRef<HTMLDetailsElement>(null);
   const salePanelRef = useRef<HTMLDetailsElement>(null);
+  const exitPanelRef = useRef<HTMLDetailsElement>(null);
   const glassSalePanelRef = useRef<HTMLDetailsElement>(null);
   const wineDetailRef = useRef<HTMLElement>(null);
   const [loadingMoreAudit, setLoadingMoreAudit] = useState(false);
@@ -1328,7 +1330,7 @@ export function WineDetail({
     setActiveOperation(null);
   }
 
-  function revealAction(operation: "consume" | "sale" | "glass", panel: { current: HTMLDetailsElement | null }) {
+  function revealAction(operation: "consume" | "sale" | "glass" | "exit", panel: { current: HTMLDetailsElement | null }) {
     setActiveOperation(operation);
     window.requestAnimationFrame(() => {
       panel.current?.setAttribute("open", "");
@@ -1435,6 +1437,7 @@ export function WineDetail({
             {!restaurantMode ? <button type="button" onClick={() => revealAction("consume", consumePanelRef)}>{locale === "it" ? "Registra bevuta" : "Record tasting"}</button> : null}
             <button type="button" className={restaurantMode ? "" : "secondary"} onClick={() => revealAction("sale", salePanelRef)}>{locale === "it" ? "Registra vendita" : "Record sale"}</button>
             {restaurantMode ? <button type="button" className="secondary" onClick={() => revealAction("glass", glassSalePanelRef)}>{locale === "it" ? "Registra mescita" : "Record glasses"}</button> : null}
+            {!restaurantMode ? <button type="button" className="secondary wine-detail-other-exit" onClick={() => revealAction("exit", exitPanelRef)}>{locale === "it" ? "Altra uscita" : "Other exit"} <span aria-hidden="true">· {locale === "it" ? "regalo, rottura…" : "gift, breakage…"}</span></button> : null}
           </div>
         </section> : null}
         {!restaurantMode ? photoOriginActions : null}
@@ -1852,6 +1855,7 @@ export function WineDetail({
           </form>
         </details>
       ) : null}
+      {!restaurantMode ? <OtherExitPanel key={wine.id} wine={wine} session={session} locale={locale} saving={saving} panelRef={exitPanelRef} hidden={activeOperation !== "exit"} onDone={onLotsChanged} /> : null}
       </section> : null}
 
       <details className="detail-section wine-detail-group wine-detail-group--stock" data-wine-detail-section="05" tabIndex={-1}>
