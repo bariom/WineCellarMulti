@@ -143,8 +143,16 @@ export function cellarValueSplit(items: Wine[], session: Session | null): Cellar
   return split;
 }
 
-export function sumWineValue(items: Wine[]) {
-  return items.reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0);
+/** Fraction of a wine counted in a total: the whole wine by default, or the user's share. */
+export type WineShare = (wine: Wine) => number;
+const wholeWine: WineShare = () => 1;
+
+export function sumWineValue(items: Wine[], share: WineShare = wholeWine) {
+  return items.reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity * share(wine), 0);
+}
+
+export function sumWineBottles(items: Wine[], share: WineShare = wholeWine) {
+  return items.reduce((total, wine) => total + wine.quantity * share(wine), 0);
 }
 
 export function currentUserSharePct(wine: Wine, session: Session | null) {
@@ -205,11 +213,11 @@ export function ownershipStats(items: Wine[], session: Session | null) {
   );
 }
 
-export function topWineValueGroups(items: Wine[], field: "type" | "region", limit = 5) {
+export function topWineValueGroups(items: Wine[], field: "type" | "region", limit = 5, share: WineShare = wholeWine) {
   return uniqueSorted(items.map((wine) => wineGroupValue(wine, field)))
     .map((label) => ({
       label,
-      value: sumWineValue(items.filter((wine) => wineGroupValue(wine, field) === label)),
+      value: sumWineValue(items.filter((wine) => wineGroupValue(wine, field) === label), share),
     }))
     .filter((item) => item.value > 0)
     .sort((first, second) => second.value - first.value)
@@ -240,14 +248,14 @@ export function topWineCountGroups(items: Wine[], field: "type" | "region") {
     .slice(0, 5);
 }
 
-export function topProducerGroups(items: Wine[], limit = 5) {
+export function topProducerGroups(items: Wine[], limit = 5, share: WineShare = wholeWine) {
   return uniqueSorted(items.map((wine) => wine.producer || "Unknown producer"))
     .map((label) => {
       const producerWines = items.filter((wine) => (wine.producer || "Unknown producer") === label);
       return {
         label,
-        value: sumWineValue(producerWines),
-        bottles: producerWines.reduce((total, wine) => total + wine.quantity, 0),
+        value: sumWineValue(producerWines, share),
+        bottles: sumWineBottles(producerWines, share),
       };
     })
     .filter((item) => item.value > 0)

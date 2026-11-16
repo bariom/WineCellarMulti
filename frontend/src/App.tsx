@@ -22,7 +22,7 @@ import type { WineSaleDraft } from "./types";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { initializeTabletLayout, isTabletDevice, saveTabletLayout } from "./domain/tabletLayout";
 import { localizedNotification } from "./domain/notifications";
-import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isMissedDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, cellarValueSplit, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, needsValueRefresh, wineSearchText, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
+import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isMissedDeliveryWine, isToCollectWine, sumWineValue, sumWineBottles, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, cellarValueSplit, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, needsValueRefresh, wineSearchText, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { runWineShelfScan } from "./services/wineShelfScan";
 import type { BatchAiItem, BatchAiRun } from "./components/BatchAiReport";
@@ -6514,18 +6514,21 @@ export function App() {
     notes: offlineMode ? historyTastingEntries.filter((entry) => entry.note.trim().length > 0).length : tastingArchiveOverview?.notes_count || 0,
     latest: offlineMode ? "" : tastingArchiveOverview?.latest_consumed_at || "",
   };
-  const valueByType = topWineValueGroups(cellarWines, "type");
+  // Value widgets count the user's own share of each wine, like the headline value.
+  const ownedShare = (wine: Wine) => currentUserSharePct(wine, session) / 100;
+  const ownedPositionValue = (wine: Wine) => wineUnitValue(wine) * wine.quantity * ownedShare(wine);
+  const valueByType = topWineValueGroups(cellarWines, "type", 5, ownedShare);
   const valueByCanonicalType = canonicalWineTypes
     .map((type) => {
       const typeWines = cellarWines.filter((wine) => normalizeWineType(wine.type) === type);
       return {
         label: type,
-        value: sumWineValue(typeWines),
-        bottles: typeWines.reduce((total, wine) => total + wine.quantity, 0),
+        value: sumWineValue(typeWines, ownedShare),
+        bottles: sumWineBottles(typeWines, ownedShare),
       };
     })
     .filter((item) => item.value > 0);
-  const valueByRegion = topWineValueGroups(cellarWines, "region", 8);
+  const valueByRegion = topWineValueGroups(cellarWines, "region", 8, ownedShare);
   const bottlesByType = topWineBottleGroups(cellarWines, "type");
   const winesByRegion = topWineCountGroups(cellarWines, "region");
   const cellarMissingDataCount = cellarStats.missingValue + cellarStats.missingDrinkWindow + cellarStats.missingGrapes + cellarStats.missingScores + cellarStats.missingCellarPurpose;
@@ -6544,14 +6547,15 @@ export function App() {
   const breakdownWines = breakdownDrilldown
     ? cellarWines.filter((wine) => wineGroupValue(wine, breakdownDrilldown.dimension) === breakdownDrilldown.label)
     : [];
-  const breakdownTotalValue = sumWineValue(breakdownWines);
-  const breakdownBottleCount = breakdownWines.reduce((sum, wine) => sum + wine.quantity, 0);
-  const breakdownTopWines = [...breakdownWines]
-    .sort((first, second) => (wineUnitValue(second) * second.quantity) - (wineUnitValue(first) * first.quantity))
+  const breakdownTotalValue = sumWineValue(breakdownWines, ownedShare);
+  const breakdownBottleCount = sumWineBottles(breakdownWines, ownedShare);
+  const breakdownTopWines = breakdownWines
+    .filter((wine) => ownedShare(wine) > 0)
+    .sort((first, second) => ownedPositionValue(second) - ownedPositionValue(first))
     .slice(0, 5);
-  const breakdownTopProducers = topProducerGroups(breakdownWines).slice(0, 4);
-  const valueByProducer = topProducerGroups(cellarWines, 8);
-  const regionalGapTotalValue = Math.max(sumWineValue(cellarWines), 1);
+  const breakdownTopProducers = topProducerGroups(breakdownWines, 5, ownedShare).slice(0, 4);
+  const valueByProducer = topProducerGroups(cellarWines, 8, ownedShare);
+  const regionalGapTotalValue = Math.max(sumWineValue(cellarWines, ownedShare), 1);
   const regionalGapHasProfileTarget = Boolean(regionalGapProfileTargets[regionalGapProfile]?.length);
   const regionalGapSelectedTargets = regionalGapHasProfileTarget
     ? regionalGapProfileTargets[regionalGapProfile]!
@@ -6559,7 +6563,7 @@ export function App() {
   const regionalGapCoverageTargets = withOtherRegionalTarget(regionalGapSelectedTargets);
   const regionalGapActiveSuggestion = regionalGapAiSuggestions.find((suggestion) => suggestion.profile === regionalGapProfile) || null;
   const regionalGapRows = regionalGapCoverageTargets.map((target) => {
-    const value = sumWineValue(cellarWines.filter((wine) => regionalGapBucket(wine.region, regionalGapCoverageTargets) === target.region));
+    const value = sumWineValue(cellarWines.filter((wine) => regionalGapBucket(wine.region, regionalGapCoverageTargets) === target.region), ownedShare);
     const currentPct = (value / regionalGapTotalValue) * 100;
     const targetValue = (regionalGapTotalValue * target.targetPct) / 100;
     return {
@@ -6913,7 +6917,8 @@ export function App() {
   if (offlineMode) {
     tastingStats.latest = latestConsumedEntries[0]?.consumed_at || "";
   }
-  const topValueWines = [...cellarWines]
+  const topValueWines = cellarWines
+    .filter((wine) => currentUserSharePct(wine, session) > 0)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
   const keyPositionCandidates = (() => {
@@ -8213,10 +8218,10 @@ export function App() {
                     <i className={`wine-dot tone-${wineTone(wine.type)}`} />
                     <span className="chart-drilldown-row-text">
                       <span>{wine.name}</span>
-                      <small>{formatBottleCount(wine.quantity, locale)} {t("bottles").toLowerCase()}</small>
+                      <small>{formatBottleCount(wine.quantity * ownedShare(wine), locale)} {t("bottles").toLowerCase()}</small>
                     </span>
                   </span>
-                  <strong>{formatMoney(wineUnitValue(wine) * wine.quantity, wine.currency, locale)}</strong>
+                  <strong>{formatMoney(ownedPositionValue(wine), wine.currency, locale)}</strong>
                 </button>
               )) : <p className="empty-state">{t("noDrilldownWines")}</p>}
             </div>
@@ -8497,7 +8502,7 @@ export function App() {
                           </span>
                           <span className="top-value-showcase-value">
                             <strong>{formatMoney(wineUnitValue(wine), wine.currency, locale)}</strong>
-                            <small>{formatBottleCount(wine.quantity, locale)} {t("bottles").toLowerCase()} · {formatMoney(wineUnitValue(wine) * wine.quantity, wine.currency, locale)}</small>
+                            <small>{formatBottleCount(wine.quantity * ownedShare(wine), locale)} {t("bottles").toLowerCase()} · {formatMoney(ownedPositionValue(wine), wine.currency, locale)}</small>
                           </span>
                         </button>
                       ))}

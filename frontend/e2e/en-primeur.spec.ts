@@ -43,6 +43,9 @@ test("the value dashboard separates the bottles awaiting delivery and the en pri
   await expect(myCapital.locator("dd").nth(1)).toHaveText(/330/);
   await expect(myCapital.locator("dd").nth(2)).toHaveText(/^\+.*60.*\+22\.2%$/);
   const sections = page.locator(".portfolio-value-split-sections");
+  // The value by type counts the user's shares too: both wines are red, 192 + 330.
+  await expect(page.locator(".wine-value-constellation-card")).toContainText(/522/);
+  await expect(page.locator(".wine-value-constellation-card")).not.toContainText(/852/);
   // The headline value is the user's own (192 + 330); the overall one includes the friend's half.
   const headline = page.locator(".portfolio-value-explorer .card-heading");
   await expect(headline.locator("h2")).toHaveText(/522/);
