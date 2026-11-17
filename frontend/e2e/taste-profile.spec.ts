@@ -162,3 +162,48 @@ test("external tasting enrichment reports profile and catalog outcomes separatel
   await expect(outcome).toContainText("Costo AI: $0.0042");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
+
+test("tastings of wines that cannot be researched can be dismissed", async ({ page }, testInfo) => {
+  await page.route("**/taste-profile-dismiss-test", route => route.fulfill({
+    contentType: "text/html",
+    body: `<html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
+      import RefreshRuntime from '/@react-refresh';
+      RefreshRuntime.injectIntoGlobalHook(window);
+      window.$RefreshReg$ = () => {};
+      window.$RefreshSig$ = () => (type) => type;
+      window.__vite_plugin_react_preamble_installed__ = true;
+      const {default: React} = await import('/node_modules/.vite/deps/react.js');
+      const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
+      const {default: Panel} = await import('/src/components/TasteProfilePanel.tsx');
+      await import('/src/styles.css');
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Panel, {locale:'it', variant:'insight', wines:[]}));
+    </script></body></html>`,
+  }));
+  const egyptian = { id: "tasting-eg", name: "Layali", producer: "SUNRISE Resorts & Cruises", vintage: "", type: "White", region: "", appellation: "" };
+  const other = { id: "tasting-2", name: "Altro vino", producer: "Cantina", vintage: "2020", type: "Red", region: "", appellation: "" };
+  const dismissed: unknown[] = [];
+  await page.route("**/api/v1/taste-profile/me", route => route.fulfill({ json: { profiles: [] } }));
+  await page.route("**/api/v1/taste-profile/me/legacy-tastings", route => route.fulfill({ json: { unassigned_count: 0 } }));
+  await page.route("**/api/v1/taste-profile/me/external-tastings/enrichment-preview", route => route.fulfill({ json: { missing_count: 2, items: [egyptian, other] } }));
+  await page.route("**/api/v1/taste-profile/me/external-tastings/enrichment-dismiss", route => {
+    const body = route.request().postDataJSON() as { ids: string[] };
+    dismissed.push(body);
+    const left = body.ids.length ? [other] : [];
+    return route.fulfill({ json: { missing_count: left.length, items: left } });
+  });
+  await page.goto("/taste-profile-dismiss-test");
+  const card = page.locator(".taste-profile-external-enrichment");
+  await expect(card).toContainText("2 degustazioni senza profilo sensoriale");
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await card.screenshot({ path: testInfo.outputPath(`dismiss-${width}.png`) });
+  }
+  await page.getByRole("button", { name: "Ignora SUNRISE Resorts & Cruises · Layali" }).click();
+  await expect(card).toContainText("1 degustazioni senza profilo sensoriale");
+  await expect(card).not.toContainText("Layali");
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "Non chiedere più" }).click();
+  await expect(card).toHaveCount(0);
+  expect(dismissed).toEqual([{ ids: ["tasting-eg"] }, { ids: [] }]);
+});

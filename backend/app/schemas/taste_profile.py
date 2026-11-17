@@ -135,6 +135,12 @@ class ExternalTastingEnrichmentPreview(BaseModel):
     items: list[ExternalTastingEnrichmentItem] = Field(default_factory=list)
 
 
+class ExternalTastingEnrichmentDismissRequest(BaseModel):
+    """Tastings to stop proposing; an empty list dismisses all of them."""
+
+    ids: list[UUID] = Field(default_factory=list, max_length=500)
+
+
 class ExternalTastingEnrichmentItem(BaseModel):
     id: UUID
     name: str

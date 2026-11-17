@@ -143,6 +143,10 @@ class ExternalWineTasting(Base):
     occasion: Mapped[str] = mapped_column(String(200), default="")
     pairing: Mapped[str] = mapped_column(String(300), default="")
     companions: Mapped[str] = mapped_column(String(300), default="")
+    # Set when the user stops asking for this tasting's sensory profile.
+    sensory_enrichment_dismissed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, index=True
     )

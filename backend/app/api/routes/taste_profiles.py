@@ -49,6 +49,7 @@ from app.schemas.taste_profile import (
     BatchEnrichmentPreview,
     BatchEnrichmentRequest,
     BatchProfileApprovalResponse,
+    ExternalTastingEnrichmentDismissRequest,
     ExternalTastingEnrichmentItem,
     ExternalTastingEnrichmentPreview,
     ExternalTastingEnrichmentResponse,
@@ -209,6 +210,7 @@ def external_tastings_missing_sensory_profiles(
         .where(
             ExternalWineTasting.household_id == context.household.id,
             ExternalWineTasting.created_by_user_id == context.user.id,
+            ExternalWineTasting.sensory_enrichment_dismissed_at.is_(None),
             (ExternalWineTasting.rating > 0)
             | (ExternalWineTasting.enjoyment.in_(("positive", "negative"))),
         )
@@ -468,6 +470,25 @@ def external_tasting_enrichment_preview(
             for tasting in tastings
         ],
     )
+
+
+@router.post(
+    "/me/external-tastings/enrichment-dismiss",
+    response_model=ExternalTastingEnrichmentPreview,
+)
+def dismiss_external_tasting_enrichment(
+    payload: ExternalTastingEnrichmentDismissRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> ExternalTastingEnrichmentPreview:
+    """Stop proposing these tastings for sensory enrichment (all of them when no ids)."""
+    wanted = set(payload.ids)
+    now = datetime.now(UTC)
+    for tasting in external_tastings_missing_sensory_profiles(db, context):
+        if not wanted or tasting.id in wanted:
+            tasting.sensory_enrichment_dismissed_at = now
+    db.commit()
+    return external_tasting_enrichment_preview(db, context)
 
 
 @router.post(

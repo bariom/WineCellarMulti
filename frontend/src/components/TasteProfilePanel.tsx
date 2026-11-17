@@ -205,6 +205,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
   const [externalTastingsMissingProfile, setExternalTastingsMissingProfile] = useState(0);
   const [externalTastingsMissingProfileItems, setExternalTastingsMissingProfileItems] = useState<ExternalTastingEnrichmentPreview["items"]>([]);
   const [enrichingExternalTastings, setEnrichingExternalTastings] = useState(false);
+  const [dismissingExternalTastings, setDismissingExternalTastings] = useState(false);
   const [externalEnrichmentMessage, setExternalEnrichmentMessage] = useState("");
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [categoryView, setCategoryView] = useState<"differences" | "all">("differences");
@@ -364,6 +365,25 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
     }
   }
 
+  /** Stop proposing tastings whose wine cannot be researched: one, or all when no id. */
+  async function dismissExternalTastings(id?: string) {
+    if (!id && !window.confirm(italian
+      ? "Non proporre più queste degustazioni per il profilo sensoriale? Resteranno nel diario e continueranno a contare con il loro voto."
+      : "Stop proposing these tastings for a sensory profile? They stay in the diary and keep counting with their rating.")) return;
+    setDismissingExternalTastings(true);
+    try {
+      const result = await api<ExternalTastingEnrichmentPreview>("/api/v1/taste-profile/me/external-tastings/enrichment-dismiss", {
+        method: "POST",
+        body: JSON.stringify({ ids: id ? [id] : [] }),
+      });
+      setExternalTastingsMissingProfile(result.missing_count);
+      setExternalTastingsMissingProfileItems(result.items);
+      setExternalEnrichmentMessage("");
+    } catch (error) {
+      setExternalEnrichmentMessage(error instanceof Error ? error.message : (italian ? "Operazione non riuscita." : "The operation failed."));
+    } finally { setDismissingExternalTastings(false); }
+  }
+
   async function enrichHistoricalExternalTastings() {
     const message = italian
       ? `Cercare dati verificabili e generare il profilo sensoriale per ${externalTastingsMissingProfile} degustazioni? Saranno usati il modello AI economy e la tua chiave o i tuoi crediti disponibili; al termine vedrai il costo effettivo.`
@@ -414,7 +434,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
       <div><span>{italian ? "Approfondimento personale" : "Personal insight"}</span>{insight ? <h2>{italian ? "Il mio gusto" : "My Taste"}</h2> : <h3>{italian ? "Il mio gusto" : "My Taste"}</h3>}</div>
     </div>
     {unassignedTastings ? <div className="taste-profile-legacy"><div><strong>{italian ? "Degustazioni storiche da attribuire" : "Historical tastings to assign"}</strong><span>{italian ? `${unassignedTastings} degustazioni senza autore non entrano ancora nel tuo profilo.` : `${unassignedTastings} tastings without an author are not yet included in your profile.`}</span></div><button type="button" className="secondary compact" disabled={claimingTastings} onClick={() => void claimLegacyTastings()}>{claimingTastings ? (italian ? "Attribuzione…" : "Assigning…") : italian ? "Attribuisci a me" : "Assign to me"}</button></div> : null}
-    {externalTastingsMissingProfile ? <div className="taste-profile-legacy taste-profile-external-enrichment"><div><strong>{italian ? `Abbiamo trovato ${externalTastingsMissingProfile} degustazioni senza profilo sensoriale` : `We found ${externalTastingsMissingProfile} tastings without a sensory profile`}</strong><span>{italian ? "L’AI cerca prima dati verificabili sul vino, poi genera acidità, corpo, tannini e intensità aromatica per rendere più precisi il tuo gusto e le affinità dei consigli." : "AI first researches verifiable wine data, then generates acidity, body, tannin, and aromatic intensity to refine your taste profile and recommendation affinity."}</span><small>{italian ? "Useremo il modello economy e la tua chiave o i tuoi crediti AI. Il costo effettivo viene mostrato al termine." : "The economy model uses your configured key or AI credits. The final cost is shown afterwards."}</small>{externalTastingsMissingProfileItems.length ? <ul className="taste-profile-external-tasting-list">{externalTastingsMissingProfileItems.map((tasting) => <li key={tasting.id}><strong>{[tasting.producer, tasting.name, tasting.vintage].filter(Boolean).join(" · ")}</strong><small>{[tasting.type, tasting.appellation, tasting.region].filter(Boolean).join(" · ") || (italian ? "Identità da completare con la ricerca AI" : "Identity to complete with AI research")}</small></li>)}</ul> : null}</div><button type="button" className="secondary compact" disabled={enrichingExternalTastings} onClick={() => void enrichHistoricalExternalTastings()}>{enrichingExternalTastings ? (italian ? "Analisi in corso…" : "Analysing…") : italian ? `Completa ${externalTastingsMissingProfile} degustazioni con AI` : `Complete ${externalTastingsMissingProfile} tastings with AI`}</button></div> : null}
+    {externalTastingsMissingProfile ? <div className="taste-profile-legacy taste-profile-external-enrichment"><div><strong>{italian ? `Abbiamo trovato ${externalTastingsMissingProfile} degustazioni senza profilo sensoriale` : `We found ${externalTastingsMissingProfile} tastings without a sensory profile`}</strong><span>{italian ? "L’AI cerca prima dati verificabili sul vino, poi genera acidità, corpo, tannini e intensità aromatica per rendere più precisi il tuo gusto e le affinità dei consigli." : "AI first researches verifiable wine data, then generates acidity, body, tannin, and aromatic intensity to refine your taste profile and recommendation affinity."}</span><small>{italian ? "Useremo il modello economy e la tua chiave o i tuoi crediti AI. Il costo effettivo viene mostrato al termine." : "The economy model uses your configured key or AI credits. The final cost is shown afterwards."}</small>{externalTastingsMissingProfileItems.length ? <ul className="taste-profile-external-tasting-list">{externalTastingsMissingProfileItems.map((tasting) => { const label = [tasting.producer, tasting.name, tasting.vintage].filter(Boolean).join(" · "); return <li key={tasting.id}><div><strong>{label}</strong><small>{[tasting.type, tasting.appellation, tasting.region].filter(Boolean).join(" · ") || (italian ? "Identità da completare con la ricerca AI" : "Identity to complete with AI research")}</small></div><button type="button" className="secondary compact taste-profile-dismiss" disabled={dismissingExternalTastings || enrichingExternalTastings} aria-label={italian ? `Ignora ${label}` : `Ignore ${label}`} title={italian ? "Non proporla più: per questo vino non si trovano dati" : "Stop proposing it: no data can be found for this wine"} onClick={() => void dismissExternalTastings(tasting.id)}>{italian ? "Ignora" : "Ignore"}</button></li>; })}</ul> : null}</div><div className="taste-profile-external-actions"><button type="button" className="secondary compact" disabled={enrichingExternalTastings || dismissingExternalTastings} onClick={() => void enrichHistoricalExternalTastings()}>{enrichingExternalTastings ? (italian ? "Analisi in corso…" : "Analysing…") : italian ? `Completa ${externalTastingsMissingProfile} degustazioni con AI` : `Complete ${externalTastingsMissingProfile} tastings with AI`}</button><button type="button" className="secondary compact taste-profile-dismiss" disabled={enrichingExternalTastings || dismissingExternalTastings} onClick={() => void dismissExternalTastings()}>{italian ? "Non chiedere più" : "Don’t ask again"}</button></div></div> : null}
     {claimMessage ? <p className="taste-profile-claim-message" role="status">{claimMessage}</p> : null}
     {externalEnrichmentMessage ? <p className="taste-profile-claim-message" role="status">{externalEnrichmentMessage}</p> : null}
     {loading ? <p className="empty-state">{italian ? "Caricamento profilo…" : "Loading taste profile…"}</p> : !overall || overall.sample_count === 0 ? <p className="empty-state">{italian ? "Valuta alcuni vini degustati per iniziare a costruire il tuo profilo." : "Rate a few wines you have tasted to start building your profile."}</p> : <>

@@ -27585,7 +27585,10 @@ body,
   }
 }
 .taste-profile-external-tasting-list { display: grid; gap: .35rem; margin: .75rem 0 0; padding: 0; list-style: none; }
-.taste-profile-external-tasting-list li { display: grid; gap: .12rem; padding: .45rem .55rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); }
+.taste-profile-external-tasting-list li { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .45rem .55rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); }
+.taste-profile-external-tasting-list li > div { display: grid; gap: .12rem; min-width: 0; }
+.taste-profile-external-tasting-list li > button { flex: none; }
+.taste-profile-external-actions { display: grid; gap: .4rem; justify-items: stretch; }
 .taste-profile-external-tasting-list strong { font-size: .82rem; }
 .taste-profile-external-tasting-list small { color: var(--muted); line-height: 1.35; }
 
@@ -27975,3 +27978,7 @@ body,
     overflow-wrap: anywhere;
   }
 }
+.taste-profile-external-tasting-list .taste-profile-dismiss { min-height: 32px; padding: 0 10px; font-size: 0.78rem; }
+.taste-profile-external-actions > .taste-profile-dismiss { border-color: transparent; background: transparent; color: var(--text-muted); box-shadow: none; text-decoration: underline; text-underline-offset: 3px; }
+.taste-profile-external-actions > .taste-profile-dismiss:hover:not(:disabled) { color: var(--text); }
+@media (max-width: 720px) { .taste-profile-external-actions { width: 100%; } }
