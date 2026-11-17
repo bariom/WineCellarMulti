@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.perceived import PerceivedTraits
+
 
 class WishlistGrape(BaseModel):
     """One grape of the blend, in the same shape a cellar wine stores."""
@@ -125,6 +127,7 @@ class ExternalWineTastingCreate(BaseModel):
     tasting_occasion: str = Field(default="", max_length=200)
     tasting_pairing: str = Field(default="", max_length=300)
     tasting_companions: str = Field(default="", max_length=300)
+    tasting_perceived: PerceivedTraits = Field(default_factory=dict)
 
 
 class TastingWineMetadata(BaseModel):
@@ -164,6 +167,7 @@ class ExternalWineTastingResponse(BaseModel):
     occasion: str = ""
     pairing: str = ""
     companions: str = ""
+    perceived: dict[str, int] | None = None
 
 
 class StandaloneWineTastingCreate(ExternalWineTastingCreate):

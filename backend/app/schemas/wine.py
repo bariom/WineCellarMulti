@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.perceived import PerceivedTraits
 from app.schemas.storage import StorageAllocationInput, StorageAllocationResponse
 
 
@@ -128,6 +129,7 @@ class WineTastingEntryResponse(BaseModel):
     occasion: str = ""
     pairing: str = ""
     companions: str = ""
+    perceived: dict[str, int] = Field(default_factory=dict)
     source: str = "manual"
     source_text: str = ""
     sommelier_feedback: str = ""
@@ -160,6 +162,7 @@ class TastingArchiveItemResponse(BaseModel):
     occasion: str = ""
     pairing: str = ""
     companions: str = ""
+    perceived: dict[str, int] = Field(default_factory=dict)
     source: str = "manual"
     source_text: str = ""
     sommelier_feedback: str = ""
@@ -220,6 +223,7 @@ class WineConsume(BaseModel):
     tasting_occasion: str = ""
     tasting_pairing: str = ""
     tasting_companions: str = ""
+    tasting_perceived: PerceivedTraits = Field(default_factory=dict)
 
 
 class WineTastingRatingUpdate(BaseModel):
@@ -237,6 +241,7 @@ class WineTastingEntryUpdate(BaseModel):
     tasting_occasion: str = ""
     tasting_pairing: str = ""
     tasting_companions: str = ""
+    tasting_perceived: PerceivedTraits = Field(default_factory=dict)
 
 
 class WineValueHistoryResponse(BaseModel):

@@ -8,6 +8,7 @@ export const emptyConsumeWineDraft = (): ConsumeWineDraft => ({
   tasting_occasion: "",
   tasting_pairing: "",
   tasting_companions: "",
+  tasting_perceived: {},
   storage_allocation_id: "",
 });
 
@@ -21,6 +22,7 @@ export function consumeDraftFromTastingEntry(entry: Wine["tasting_history"][numb
     tasting_occasion: entry.occasion || "",
     tasting_pairing: entry.pairing || "",
     tasting_companions: entry.companions || "",
+    tasting_perceived: { ...(entry.perceived || {}) },
     storage_allocation_id: "",
   };
 }

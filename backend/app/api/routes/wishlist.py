@@ -21,6 +21,7 @@ from app.core.wine_types import normalize_verified_vintage, normalize_wine_type
 from app.db.session import get_db
 from app.models import AiAuditLog, ExternalWineTasting, Wine, WishlistItem, WishlistList
 from app.prompts.library import wine_sensory_metadata_prompt, wine_sensory_profile_prompt
+from app.schemas.perceived import clean_perceived
 from app.schemas.taste_profile import TasteMatchResponse
 from app.schemas.wishlist import (
     ExternalWineTastingCreate,
@@ -934,6 +935,7 @@ def save_external_tasting(
     tasting.occasion = payload.tasting_occasion.strip()
     tasting.pairing = payload.tasting_pairing.strip()
     tasting.companions = payload.tasting_companions.strip()
+    tasting.perceived = clean_perceived(payload.tasting_perceived) or None
     if payload.memory_photo is not None:
         tasting.memory_photo = process_memory_photo(payload.memory_photo)
         tasting.memory_photo_location = extract_photo_location(payload.memory_photo)
@@ -995,6 +997,8 @@ def update_wishlist_tasting(
         if field in payload.model_fields_set:
             value = getattr(payload, field)
             setattr(tasting, target, value.strip() if isinstance(value, str) else value)
+    if "tasting_perceived" in payload.model_fields_set:
+        tasting.perceived = clean_perceived(payload.tasting_perceived) or None
     if payload.memory_photo is not None:
         tasting.memory_photo = process_memory_photo(payload.memory_photo)
         tasting.memory_photo_location = extract_photo_location(payload.memory_photo)

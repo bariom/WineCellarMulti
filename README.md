@@ -194,6 +194,17 @@ wishlist item. Search existing wines and wishlist lists, enter a name manually,
 or photograph the label when label recognition is enabled for your account.
 Review recognized details before saving. Date defaults to today; ratings, notes,
 occasion, pairing and companions are optional.
+**Com'era in bocca? / How did it taste?** offers four optional sliders: body,
+acidity, tannin and sweetness, each on five steps (for example *Molto leggero* to
+*Molto pieno*). A slider never touched records nothing; one already set can be
+cleared with ×. Tannin is not asked for white and sparkling wines. The same
+sliders appear when a tasting is recorded from Wine Detail or a wishlist wine and
+when it is edited from History or Wine Detail; History shows the recorded traits
+under the tasting. They are stored with the tasting (`perceived`, migration
+`0140_tasting_perceived`) and sent as `tasting_perceived`, e.g.
+`{"body": 4, "sweetness": 1}`; an edit that omits the field keeps them. They are
+the first first-hand data to compare with the estimated sensory profiles; for now
+they do not change the taste profile or the matches.
 In **History → Consumed bottles**, use **Scheda vino / Wine details** on a tasting
 to open its saved wine record without leaving History. The action appears only
 when that wine record is available in the current cellar.

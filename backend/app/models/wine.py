@@ -179,6 +179,8 @@ class WineTastingEntry(Base):
     occasion: Mapped[str] = mapped_column(String(200), default="")
     pairing: Mapped[str] = mapped_column(String(300), default="")
     companions: Mapped[str] = mapped_column(String(300), default="")
+    # How the wine felt: body, acidity, tannin, sweetness from 1 to 5, each optional.
+    perceived: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     source: Mapped[str] = mapped_column(String(32), default="manual")
     source_text: Mapped[str] = mapped_column(Text, default="")
     sommelier_feedback: Mapped[str] = mapped_column(Text, default="")

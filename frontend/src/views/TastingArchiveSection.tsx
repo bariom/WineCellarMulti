@@ -1,3 +1,4 @@
+import PerceivedTraitsInput, { perceivedSummary } from "../components/PerceivedTraitsInput";
 import { useEffect, useState } from "react";
 import { TastingMemoryPhoto, TastingMemoryPhotoInput } from "../components/TastingMemoryPhoto";
 import { AppIcon, AppIconName } from "../components/AppIcon";
@@ -33,6 +34,7 @@ type TastingArchiveEntry = {
   occasion: string;
   pairing: string;
   companions: string;
+  perceived?: Partial<Record<"body" | "acidity" | "tannin" | "sweetness", number>>;
   source?: string;
   sommelier_feedback: string;
   sommelier_pairing_score: number | null;
@@ -54,6 +56,7 @@ type ConsumeWineDraft = {
   tasting_occasion: string;
   tasting_pairing: string;
   tasting_companions: string;
+  tasting_perceived?: Partial<Record<"body" | "acidity" | "tannin" | "sweetness", number>>;
 };
 
 type TastingArchiveSectionProps = {
@@ -100,6 +103,7 @@ function consumeDraftFromTastingEntry(entry: TastingArchiveEntry): ConsumeWineDr
     tasting_occasion: entry.occasion || "",
     tasting_pairing: entry.pairing || "",
     tasting_companions: entry.companions || "",
+    tasting_perceived: { ...(entry.perceived || {}) },
   };
 }
 
@@ -173,6 +177,7 @@ function TastingEntryEditor({
   saving,
   t,
   locale,
+  wineType = "",
   displayValue,
   onSave,
   onCancel,
@@ -183,6 +188,7 @@ function TastingEntryEditor({
   saving: boolean;
   t: (key: any) => string;
   locale: "en" | "it";
+  wineType?: string;
   displayValue: TastingArchiveSectionProps["displayValue"];
   onSave: () => Promise<void>;
   onCancel: () => void;
@@ -266,6 +272,7 @@ function TastingEntryEditor({
           />
         </label>
       </div>
+      <PerceivedTraitsInput locale={locale} disabled={saving} wineType={wineType || draft.wine?.type || ""} value={draft.tasting_perceived} onChange={(tasting_perceived) => setDraft((current) => ({ ...current, tasting_perceived }))} />
       <label>
         <span>{t("tastingCompanions")}</span>
         <input
@@ -400,6 +407,7 @@ export default function TastingArchiveSection({
               saving={saving}
               t={t}
               locale={locale}
+              wineType={entry.wine.type}
               displayValue={displayValue}
               onSave={async () => {
                 await onUpdateEntry(entry, editDraft);
@@ -428,6 +436,7 @@ export default function TastingArchiveSection({
                   {entry.companions ? <span>{t("tastingCompanions")}: {entry.companions}</span> : null}
                 </div>
               ) : null}
+              {perceivedSummary(locale, entry.perceived) ? <p className="tasting-archive-perceived">{perceivedSummary(locale, entry.perceived)}</p> : null}
               {entry.sommelier_feedback ? (
                 <details className="tasting-sommelier-feedback">
                   <summary className="tasting-sommelier-feedback-head">

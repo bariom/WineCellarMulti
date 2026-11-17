@@ -143,6 +143,8 @@ class ExternalWineTasting(Base):
     occasion: Mapped[str] = mapped_column(String(200), default="")
     pairing: Mapped[str] = mapped_column(String(300), default="")
     companions: Mapped[str] = mapped_column(String(300), default="")
+    # How the wine felt: body, acidity, tannin, sweetness from 1 to 5, each optional.
+    perceived: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Set when the user stops asking for this tasting's sensory profile.
     sensory_enrichment_dismissed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

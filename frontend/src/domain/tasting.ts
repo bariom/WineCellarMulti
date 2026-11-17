@@ -10,5 +10,6 @@ export function tastingRequest(draft: ConsumeWineDraft) {
     tasting_pairing: draft.tasting_pairing.trim(),
     tasting_companions: draft.tasting_companions.trim(),
     memory_photo: draft.memory_photo,
+    ...(draft.tasting_perceived ? { tasting_perceived: draft.tasting_perceived } : {}),
   };
 }

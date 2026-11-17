@@ -163,6 +163,7 @@ export type Wine = {
     occasion: string;
     pairing: string;
     companions: string;
+    perceived?: PerceivedTraits;
     source?: string;
     source_text?: string;
     sommelier_feedback: string;
@@ -177,6 +178,10 @@ export type Wine = {
   value_history: Array<{ id: string; value: string; currency: string; source: string; recorded_at: string }>;
 };
 
+export type PerceivedTrait = "body" | "acidity" | "tannin" | "sweetness";
+/** How a wine felt, from 1 to 5; a missing trait was not recorded. */
+export type PerceivedTraits = Partial<Record<PerceivedTrait, number>>;
+
 export type ConsumeWineDraft = {
   wine?: TastingWineIdentity;
   memory_photo?: string;
@@ -189,6 +194,7 @@ export type ConsumeWineDraft = {
   tasting_occasion: string;
   tasting_pairing: string;
   tasting_companions: string;
+  tasting_perceived?: PerceivedTraits;
   storage_allocation_id?: string;
 };
 
@@ -569,6 +575,7 @@ export type TastingArchiveApiItem = {
   occasion: string;
   pairing: string;
   companions: string;
+  perceived?: PerceivedTraits;
   source?: string;
   source_text?: string;
   sommelier_feedback: string;
@@ -1717,6 +1724,7 @@ export type TastingArchiveEntry = {
   occasion: string;
   pairing: string;
   companions: string;
+  perceived?: PerceivedTraits;
   source?: string;
   source_text?: string;
   sommelier_feedback: string;

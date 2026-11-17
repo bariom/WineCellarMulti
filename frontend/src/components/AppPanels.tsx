@@ -1,3 +1,4 @@
+import PerceivedTraitsInput from "./PerceivedTraitsInput";
 import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 import { ScrollControls, ScrollHint, useHorizontalScroll } from "./HorizontalScroll";
 import { sourceMatchesMarket, valuationMarketLabel } from "../domain/valuationMarket";
@@ -709,6 +710,7 @@ export function TastingEntryEditor({
   saving,
   t,
   locale,
+  wineType = "",
   onSave,
   onCancel,
   onDelete,
@@ -718,6 +720,7 @@ export function TastingEntryEditor({
   saving: boolean;
   t: (key: TranslationKey) => string;
   locale: Locale;
+  wineType?: string;
   onSave: () => Promise<void>;
   onCancel: () => void;
   onDelete: () => Promise<void>;
@@ -769,6 +772,7 @@ export function TastingEntryEditor({
           />
         </label>
       </div>
+      <PerceivedTraitsInput locale={locale} disabled={saving} wineType={wineType} value={draft.tasting_perceived} onChange={(tasting_perceived) => setDraft((current) => ({ ...current, tasting_perceived }))} />
       <label>
         <span>{t("tastingCompanions")}</span>
         <input
@@ -903,6 +907,7 @@ export function TastingHistorySection({
                   saving={saving}
                   t={t}
                   locale={locale}
+                  wineType={wine.type}
                   onSave={async () => {
                     await onUpdateEntry(wine, entry.id, editDraft);
                     setEditingId(null);
@@ -1812,6 +1817,7 @@ export function WineDetail({
                 />
               </label>
             </div>
+            <PerceivedTraitsInput locale={locale} disabled={saving} wineType={wine.type} value={consumeDraft.tasting_perceived} onChange={(tasting_perceived) => setConsumeDraft({ ...consumeDraft, tasting_perceived })} />
             <label>
               <span>{t("tastingCompanions")}</span>
               <input
@@ -2047,6 +2053,7 @@ export function WishlistDetail({
             <label><span>{t("tastingPairing")}</span><input value={externalTastingDraft.tasting_pairing} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_pairing: event.target.value }))} disabled={saving} /></label>
           </div>
           <TastingMemoryPhotoInput locale={locale} value={externalTastingDraft.memory_photo} disabled={saving} onChange={memory_photo => setExternalTastingDraft(current => ({ ...current, memory_photo }))} onProcessingChange={memory_photo_processing => setExternalTastingDraft(current => ({ ...current, memory_photo_processing }))} />
+          <PerceivedTraitsInput locale={locale} disabled={saving} wineType={item.type} value={externalTastingDraft.tasting_perceived} onChange={(tasting_perceived) => setExternalTastingDraft((current) => ({ ...current, tasting_perceived }))} />
           <label><span>{t("tastingCompanions")}</span><input value={externalTastingDraft.tasting_companions} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_companions: event.target.value }))} disabled={saving} /></label>
           <label><span>{t("tastingNote")}</span><textarea rows={3} value={externalTastingDraft.note} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, note: event.target.value }))} disabled={saving} /></label>
           <div className="form-actions"><button type="submit" disabled={saving || externalTastingDraft.memory_photo_processing}><ButtonBusyContent busy={saving} idleLabel={locale === "it" ? "Salva degustazione" : "Save tasting"} busyLabel={t("saving")} /></button></div>

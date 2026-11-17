@@ -51,6 +51,7 @@ from app.models import (
     WineTastingEntry,
     WineValueHistory,
 )
+from app.schemas.perceived import clean_perceived
 from app.schemas.wine import (
     MemoryPhotoLocationResponse,
     MemoryPhotoLocationUpdate,
@@ -595,6 +596,7 @@ def tasting_archive_entry(entry: WineTastingEntry, wine: Wine) -> TastingArchive
         occasion=entry.occasion,
         pairing=entry.pairing,
         companions=entry.companions,
+        perceived=clean_perceived(entry.perceived),
         source=entry.source,
         source_text=entry.source_text,
         sommelier_feedback=entry.sommelier_feedback,
@@ -633,6 +635,7 @@ def external_tasting_archive_entry(entry: ExternalWineTasting) -> TastingArchive
         occasion=entry.occasion,
         pairing=entry.pairing,
         companions=entry.companions,
+        perceived=clean_perceived(entry.perceived),
         source="external_tasting",
         created_at=entry.created_at,
         tasting_id=entry.id,
@@ -2150,6 +2153,7 @@ def consume_wine_bottle(
                 occasion=payload.tasting_occasion,
                 pairing=payload.tasting_pairing,
                 companions=payload.tasting_companions,
+                perceived=payload.tasting_perceived,
                 created_by_user_id=context.user.id,
                 storage_allocation_id=payload.storage_allocation_id,
                 memory_photo=photo,
@@ -2196,6 +2200,9 @@ def update_wine_tasting_entry(
         "pairing": payload.tasting_pairing.strip(),
         "companions": payload.tasting_companions.strip(),
     }
+    # Older clients do not send the perceived traits: they keep what was recorded.
+    if "tasting_perceived" in payload.model_fields_set:
+        entries[index]["perceived"] = clean_perceived(payload.tasting_perceived)
     wine.tasting_history = normalize_tasting_history(entries)
     tasting = db.scalar(
         select(WineTastingEntry).where(
@@ -2221,6 +2228,8 @@ def update_wine_tasting_entry(
         tasting.occasion = payload.tasting_occasion.strip()
         tasting.pairing = payload.tasting_pairing.strip()
         tasting.companions = payload.tasting_companions.strip()
+        if "tasting_perceived" in payload.model_fields_set:
+            tasting.perceived = clean_perceived(payload.tasting_perceived) or None
         if tasting.created_by_user_id:
             if payload.tasting_rating > 0 or payload.tasting_enjoyment:
                 mark_wine_for_sensory_enrichment(db, wine)

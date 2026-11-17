@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models import Wine, WineTastingEntry
+from app.schemas.perceived import clean_perceived
 from app.services.stock_ledger import remove_fifo_stock
 from app.services.tasting_photos import memory_photo_url
 
@@ -79,6 +80,7 @@ def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
                 "occasion": str(raw_entry.get("occasion") or "").strip(),
                 "pairing": str(raw_entry.get("pairing") or "").strip(),
                 "companions": str(raw_entry.get("companions") or "").strip(),
+                "perceived": clean_perceived(raw_entry.get("perceived")),
                 "source": str(raw_entry.get("source") or "manual").strip()[:32],
                 "source_text": str(raw_entry.get("source_text") or "").strip(),
                 "memory_photo_url": str(raw_entry.get("memory_photo_url") or ""),
@@ -102,6 +104,7 @@ def record_wine_consumption(
     occasion: str = "",
     pairing: str = "",
     companions: str = "",
+    perceived: object = None,
     source: str = "manual",
     source_text: str = "",
     created_by_user_id: UUID | None = None,
@@ -131,6 +134,7 @@ def record_wine_consumption(
         "occasion": occasion.strip(),
         "pairing": pairing.strip(),
         "companions": companions.strip(),
+        "perceived": clean_perceived(perceived),
         "source": source.strip()[:32] or "manual",
         "source_text": source_text.strip(),
         "created_at": created_at.isoformat(),
@@ -154,6 +158,7 @@ def record_wine_consumption(
             occasion=tasting_entry["occasion"],
             pairing=tasting_entry["pairing"],
             companions=tasting_entry["companions"],
+            perceived=tasting_entry["perceived"] or None,
             source=tasting_entry["source"],
             source_text=tasting_entry["source_text"],
             purchase_price_at_consumption=wine.price,
