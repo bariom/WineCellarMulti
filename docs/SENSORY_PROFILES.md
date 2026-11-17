@@ -56,6 +56,22 @@ next batches unless **Riprova anche quelle senza esito** is ticked. Endpoints:
 profiles are not recalculated: generate the missing ones afterwards from
 **Profili sensoriali → Catalogo condiviso completo**.
 
+### Adding the wines of more producers
+
+**Aggiungi i vini di altri produttori**, in the same place, extends the catalog.
+App administrators either name up to 40 producers or give a wine area (Italian and
+French areas are suggested; any area can be typed) and how many producers to look
+for: one AI call then names producers of that area the catalog does not list yet.
+Each producer is one AI call with web search that returns its range, one item per
+wine and never per vintage. A wine is kept only when it cites a page the search
+returned. Wines the catalog already knows are left untouched; new ones become
+pending entries with source `ai_research`, listed by producer in the panel, where
+they are approved or discarded one by one, by producer or all together. Nothing
+reaches the cellars before approval. The same spending cap applies (default 25
+USD). A discarded wine can be proposed again by a later research of its producer.
+Endpoints: `GET/POST /catalog-expansion`, `POST /catalog-expansion/cancel`,
+`/approve` and `/discard`. No migration is needed.
+
 Geographic fields require migration `0121_wine_geography` (`alembic upgrade head`).
 Existing regions and localities are preserved; new fields default to empty strings.
 The ordinary wine editor also exposes area and locality; the latter reuses the
