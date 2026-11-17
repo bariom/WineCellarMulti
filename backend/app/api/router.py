@@ -7,6 +7,7 @@ from app.api.routes import (
     billing,
     bottle_photos,
     catalog,
+    catalog_baselines,
     catalog_completion,
     catalog_expansion,
     catalog_photos,
@@ -72,6 +73,7 @@ api_router.include_router(catalog.router, prefix="/wines", tags=["catalog"])
 api_router.include_router(catalog_photos.router, tags=["catalog"])
 api_router.include_router(catalog_completion.router, tags=["catalog"])
 api_router.include_router(catalog_expansion.router, tags=["catalog"])
+api_router.include_router(catalog_baselines.router, tags=["catalog"])
 api_router.include_router(wines.router, prefix="/wines", tags=["wines"])
 api_router.include_router(coownership.router, tags=["co-ownership"])
 api_router.include_router(wishlist.router, tags=["wishlist"])

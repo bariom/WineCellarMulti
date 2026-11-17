@@ -64,6 +64,8 @@ class SensoryProfileBaseline(Base):
     dimensions: Mapped[dict] = mapped_column(JSON, default=dict)
     confidence: Mapped[float] = mapped_column(Float, default=0.5)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # "editorial", or "ai_research" / "ai_unknown" for the catalog baseline proposals.
+    source: Mapped[str] = mapped_column(String(24), default="editorial", server_default="editorial")
     last_modified_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

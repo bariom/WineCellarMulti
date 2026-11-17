@@ -72,6 +72,34 @@ USD). A discarded wine can be proposed again by a later research of its producer
 Endpoints: `GET/POST /catalog-expansion`, `POST /catalog-expansion/cancel`,
 `/approve` and `/discard`. No migration is needed.
 
+### Taste profiles for the catalog's wines
+
+A wine's profile is blended from the baselines of its appellation, grapes, region
+and type, so it holds for every vintage of a catalog entry. Entries naming an
+appellation or grape without a baseline fall back to the generic profile of their
+wine type. **Profili gustativi per i vini del catalogo**, in the same place, shows
+how many approved entries are profiled from appellation or grapes, from the wine
+type only, or not at all, and lists the appellations and grapes without a baseline,
+most used first. An appellation whose catalog wines differ in type is not listed:
+one baseline cannot describe it, and its grapes are covered instead.
+
+**Proponi i riferimenti con AI** asks the economy model (no web search, about twelve
+items per call, spending cap default 5 USD) for the typical nine intensities of each
+missing item. Answers become inactive baselines with source `ai_research` and
+confidence 0.6, below the editorial ones; they change no profile until an app
+administrator activates them, one by one or all together, or discards them. An item
+the AI does not recognise is remembered (`ai_unknown`, inactive and empty) and not
+asked again; it can be filled by hand in the baseline editor. Migration
+`0139_baseline_source` adds the `source` column.
+
+**Ricalcola i profili stimati** recomputes, without AI, the available profiles that
+were inferred from baselines, using the administrator's own cellar wines or the
+approved catalog entry as metadata. Validated, manual, AI-generated and
+evidence-led profiles are never touched, and a profile is not replaced by a less
+reliable estimate. Run it after activating baselines or completing entries.
+Endpoints: `GET/POST /catalog-baselines`, `POST /catalog-baselines/cancel`,
+`/approve`, `/discard` and `/recalculate`.
+
 Geographic fields require migration `0121_wine_geography` (`alembic upgrade head`).
 Existing regions and localities are preserved; new fields default to empty strings.
 The ordinary wine editor also exposes area and locality; the latter reuses the

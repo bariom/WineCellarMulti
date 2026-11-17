@@ -262,9 +262,15 @@ def review(db: Session, ids: list[uuid.UUID], *, approve: bool, user_id: uuid.UU
 
 
 def _ask(
-    job: CatalogExpansionJob, prompt: Prompt, schema: dict[str, Any], *, feature: str, tools: int
+    job: Any,
+    prompt: Prompt,
+    schema: dict[str, Any],
+    *,
+    feature: str,
+    tools: int,
+    web_search: bool = True,
 ) -> tuple[dict[str, Any], Any, Decimal]:
-    """One AI call with web search on the application's key: answer, response, cost."""
+    """One AI call on the application's key (web search by default): answer, response, cost."""
     from app.api.routes.ai import (
         create_ai_response,
         effective_response_model,
@@ -276,7 +282,7 @@ def _ask(
     from app.services.openai_client import parse_json_response
 
     with SessionLocal() as db:
-        context = _worker_context(db, job)  # type: ignore[arg-type]
+        context = _worker_context(db, job)
         user_settings = get_or_create_user_ai_settings(db, context)
         model = settings.openai_economy_model
         response, provider_source = create_ai_response(
@@ -289,12 +295,12 @@ def _ask(
             system_prompt=prompt.system,
             user_prompt=prompt.user,
             json_schema=schema,
-            web_search=True,
+            web_search=web_search,
             web_search_use_default_location=False,
-            web_search_context_size="low",
+            web_search_context_size="low" if web_search else None,
             reasoning_effort="low",
             max_output_tokens=9000,
-            max_tool_calls=tools,
+            max_tool_calls=tools if web_search else None,
             timeout_seconds=CALL_TIMEOUT_SECONDS,
             app_granted=True,
         )
