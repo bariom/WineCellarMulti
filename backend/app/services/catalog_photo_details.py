@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import math
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -29,6 +29,7 @@ from app.core.wine_types import normalize_wine_type
 from app.db.session import SessionLocal
 from app.models import WineCatalogEntry
 from app.prompts.catalog_photo import catalog_photo_details_prompt
+from app.prompts.library import Prompt
 from app.schemas.catalog_photo import (
     CatalogPhotoAutoReason,
     CatalogPhotoBottle,
@@ -265,9 +266,18 @@ def details_from_answer(
 
 
 def research_group(
-    job: CatalogPhotoJob, bottles: list[CatalogPhotoBottle], *, locale: str
+    job: Any,
+    bottles: list[CatalogPhotoBottle],
+    *,
+    locale: str,
+    feature: str = "catalog_photo_details",
+    build_prompt: Callable[..., Prompt] = catalog_photo_details_prompt,
 ) -> tuple[dict[int, CatalogPhotoDetails], Decimal]:
-    """Research up to WINES_PER_CALL wines in one call, on the application's key."""
+    """Research up to WINES_PER_CALL wines in one call, on the application's key.
+
+    ``job`` carries the administrator's household, user and session; the catalog
+    completion batches (services/catalog_completion.py) research with their own prompt.
+    """
     from app.api.routes.ai import (
         create_ai_response,
         effective_response_model,
@@ -279,7 +289,7 @@ def research_group(
     from app.services.openai_client import parse_json_response
 
     wines = [{"index": index, **research_wines(bottle)} for index, bottle in enumerate(bottles, 1)]
-    prompt = catalog_photo_details_prompt(locale=locale, wines=wines)
+    prompt = build_prompt(locale=locale, wines=wines)
     with SessionLocal() as db:
         context = _worker_context(db, job)
         user_settings = get_or_create_user_ai_settings(db, context)
@@ -315,10 +325,10 @@ def research_group(
             context,
             entity_type="catalog",
             entity_id=context.household.id,
-            feature="catalog_photo_details",
+            feature=feature,
             model=effective_response_model(response, model),
             reasoning_effort=response.reasoning_effort or "",
-            summary=f"Catalog photo research: {found} of {len(bottles)} wines found.",
+            summary=f"Catalog research: {found} of {len(bottles)} wines found.",
             sources=web_search_source_entries(response.web_sources),
             usage=response.usage,
             provider_source=provider_source,

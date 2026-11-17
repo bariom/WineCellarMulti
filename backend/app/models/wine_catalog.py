@@ -34,6 +34,10 @@ class WineCatalogEntry(Base):
         JSON().with_variant(JSONB(), "postgresql"), default=list, server_default="[]"
     )
     enriched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Last batch research of the missing facts, found or not (services/catalog_completion.py).
+    completion_attempted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     is_active: Mapped[bool] = mapped_column(default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(

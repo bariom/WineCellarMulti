@@ -1,0 +1,13 @@
+.admin-catalog-completion-count strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.admin-catalog-completion-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; min-width: 0; }
+.admin-catalog-completion-form label { display: grid; gap: 4px; min-width: 0; font-size: 0.8rem; font-weight: 700; }
+.admin-catalog-completion-form input[type="number"] { width: 9rem; max-width: 100%; }
+.admin-catalog-completion-form .admin-catalog-completion-retry { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.admin-catalog-completion-retry input { flex: none; width: 18px; height: 18px; min-height: 0; margin: 0; accent-color: var(--accent); }
+.admin-catalog-completion-job { display: grid; gap: 8px; min-width: 0; }
+.admin-catalog-completion-job progress { width: 100%; height: 8px; accent-color: var(--accent); }
+@media (max-width: 640px) {
+  .admin-catalog-completion-form label:not(.admin-catalog-completion-retry) { flex: 1 1 8rem; }
+  .admin-catalog-completion-form input[type="number"] { width: 100%; }
+  .admin-catalog-completion-form button { width: 100%; }
+}

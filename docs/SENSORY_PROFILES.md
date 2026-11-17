@@ -40,6 +40,22 @@ inferred metadata. After saving, open **Profili sensoriali**, select **Catalogo
 condiviso completo** and generate the missing profile. Existing validated profiles
 remain protected.
 
+### Completing entries without grapes or country
+
+**Catalogo vini → Cerca e gestisci le schede → Completa le schede senza vitigni o
+paese** researches, in batches, the approved entries that lack grapes or country
+(the JSON seed has neither). App administrators choose how many entries a batch
+covers and a spending cap in USD (default 25); the batch stops before exceeding it.
+Each AI call (economy model with web search, application key) covers up to five
+wines of the same producer. Only empty fields are filled, and only from pages the
+search returned; the sources are stored on the entry. Entries are saved call by
+call, so a stopped batch loses nothing. A wine not found is marked
+(`completion_attempted_at`, migration `0138_catalog_completion`) and skipped by the
+next batches unless **Riprova anche quelle senza esito** is ticked. Endpoints:
+`GET/POST /catalog-completion`, `POST /catalog-completion/cancel`. Existing sensory
+profiles are not recalculated: generate the missing ones afterwards from
+**Profili sensoriali → Catalogo condiviso completo**.
+
 Geographic fields require migration `0121_wine_geography` (`alembic upgrade head`).
 Existing regions and localities are preserved; new fields default to empty strings.
 The ordinary wine editor also exposes area and locality; the latter reuses the

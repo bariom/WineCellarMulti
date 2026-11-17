@@ -1,5 +1,6 @@
 import AdminCatalogMetadataEditor from "../../components/AdminCatalogMetadataEditor";
 import AdminCatalogPhotoEnrichment from "../../components/AdminCatalogPhotoEnrichment";
+import AdminCatalogCompletion from "../../components/AdminCatalogCompletion";
 import AdminCatalogRecovery from "../../components/AdminCatalogRecovery";
 import { translate, type TranslationKey } from "../../i18n";
 import type { CatalogWine, Locale } from "../../types";
@@ -95,6 +96,7 @@ export default function AdminCatalogPanel({
             </div>
           </div>
           <AdminCatalogRecovery locale={locale} disabled={saving || !canWriteWine} onRecovered={onRecovered} />
+          <AdminCatalogCompletion locale={locale} disabled={saving || !canWriteWine} />
           <form className="inline-row-form" onSubmit={(event) => { event.preventDefault(); onSearch(); }}>
             <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Dogaia, 36 lune..." />
             <button type="submit" className="secondary compact" disabled={saving || !query.trim()}>{t("search")}</button>
