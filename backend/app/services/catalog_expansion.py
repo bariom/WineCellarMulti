@@ -324,7 +324,8 @@ def _ask(
             extra_cost_usd=search_cost,
         )
         db.commit()
-        return parsed, response, response.charged_cost_usd + search_cost
+        # charged_cost_usd already includes the web search calls.
+        return parsed, response, response.charged_cost_usd
 
 
 def known_producers(db: Session, area: str, country: str) -> list[str]:

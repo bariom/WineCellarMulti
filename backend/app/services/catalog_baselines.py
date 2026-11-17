@@ -36,6 +36,7 @@ from app.prompts.catalog_baselines import catalog_baselines_prompt
 from app.schemas.catalog_baselines import (
     CatalogBaselineJobStatus,
     CatalogBaselineMissing,
+    CatalogBaselineProfileChange,
     CatalogBaselineProposal,
     CatalogBaselineRecalculation,
     CatalogBaselineStatus,
@@ -64,6 +65,7 @@ MAX_PARALLEL_CALLS = 2
 MAX_CONSECUTIVE_FAILURES = 3
 MAX_MISSING_SHOWN = 30
 MAX_PROPOSALS_SHOWN = 200
+MAX_CHANGES_SHOWN = 100
 # Profiles computed from baselines; AI, manual and evidence-led ones are never refreshed.
 ESTIMATED_SOURCES = {"metadata", "hybrid", *BASELINE_WEIGHTS}
 
@@ -449,9 +451,11 @@ def run(job: CatalogBaselineJob) -> None:
 
 
 def recalculate(
-    db: Session, *, household_id: uuid.UUID, user_id: uuid.UUID
+    db: Session, *, household_id: uuid.UUID, user_id: uuid.UUID, apply: bool
 ) -> CatalogBaselineRecalculation:
     """Recompute the estimated profiles from today's baselines and catalog facts, for free.
+
+    Without `apply` nothing is saved: the result only compares before and after.
 
     Validated, manual, AI and evidence-led profiles stay as they are, and a profile is
     never replaced by a less reliable estimate. Metadata comes from the administrator's
@@ -492,12 +496,36 @@ def recalculate(
             continue
         if dimensions == validated_dimensions(profile.dimensions) and source == profile.source:
             continue
-        profile.dimensions = dimensions
-        profile.source = source
-        profile.confidence = confidence
-        profile.model = ""
-        profile.generated_at = now
-        profile.last_modified_by_user_id = user_id
+        result.changes.append(
+            CatalogBaselineProfileChange(
+                name=identity.name,
+                producer=identity.producer,
+                vintage=identity.vintage,
+                before=validated_dimensions(profile.dimensions),
+                after=dimensions,
+                source_before=profile.source,
+                source_after=source,
+                confidence_before=profile.confidence,
+                confidence_after=confidence,
+            )
+        )
         result.updated += 1
-    db.commit()
+        if apply:
+            profile.dimensions = dimensions
+            profile.source = source
+            profile.confidence = confidence
+            profile.model = ""
+            profile.generated_at = now
+            profile.last_modified_by_user_id = user_id
+    if apply:
+        db.commit()
+    result.changes.sort(
+        key=lambda change: (
+            -sum(abs(value - change.before.get(key, value)) for key, value in change.after.items()),
+            change.producer.lower(),
+            change.name.lower(),
+            change.vintage,
+        )
+    )
+    del result.changes[MAX_CHANGES_SHOWN:]
     return result

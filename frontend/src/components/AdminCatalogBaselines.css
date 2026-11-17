@@ -38,7 +38,23 @@
 .admin-catalog-baselines-proposals dd b { position: absolute; right: 0; width: 1.8rem; text-align: right; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
 .admin-catalog-baselines-recalculate { display: grid; justify-items: start; gap: 8px; min-width: 0; padding-top: 12px; border-top: 1px solid var(--border); }
 .admin-catalog-baselines-recalculate p { margin: 0; }
+.admin-catalog-baselines-preview { display: grid; justify-items: start; gap: 10px; width: 100%; min-width: 0; }
+.admin-catalog-baselines-preview > ul { display: grid; gap: 8px; width: 100%; max-height: 28rem; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.admin-catalog-baselines-preview > ul > li { display: grid; gap: 10px; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.admin-catalog-baselines-preview li > div { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.admin-catalog-baselines-preview small, .admin-catalog-baselines-preview dt { color: var(--text-muted); }
+.admin-catalog-baselines-preview dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 8px 16px; margin: 0; }
+.admin-catalog-baselines-preview dl > div { display: grid; gap: 3px; min-width: 0; }
+.admin-catalog-baselines-preview dt { font-size: 0.74rem; }
+.admin-catalog-baselines-preview dd { position: relative; display: grid; gap: 3px; margin: 0; padding-right: 4.2rem; }
+.admin-catalog-baselines-preview .track { display: block; height: 5px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.admin-catalog-baselines-preview .track span { display: block; height: 100%; border-radius: 999px; }
+.admin-catalog-baselines-preview .before { background: color-mix(in srgb, var(--text-muted) 60%, transparent); }
+.admin-catalog-baselines-preview .after { background: var(--accent); }
+.admin-catalog-baselines-preview dd b { position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 0.78rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 640px) {
+  .admin-catalog-baselines-preview dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+  .admin-catalog-baselines-preview > button { width: 100%; }
   .admin-catalog-baselines-recalculate button { width: 100%; }
   .admin-catalog-baselines-proposals dl { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px; }
 }

@@ -92,13 +92,19 @@ the AI does not recognise is remembered (`ai_unknown`, inactive and empty) and n
 asked again; it can be filled by hand in the baseline editor. Migration
 `0139_baseline_source` adds the `source` column.
 
-**Ricalcola i profili stimati** recomputes, without AI, the available profiles that
-were inferred from baselines, using the administrator's own cellar wines or the
-approved catalog entry as metadata. Validated, manual, AI-generated and
-evidence-led profiles are never touched, and a profile is not replaced by a less
-reliable estimate. Run it after activating baselines or completing entries.
-Endpoints: `GET/POST /catalog-baselines`, `POST /catalog-baselines/cancel`,
-`/approve`, `/discard` and `/recalculate`.
+A call costs a fraction of a cent, so the panel shows costs under 0.10 USD with
+three decimals.
+
+**Confronta prima e dopo** recomputes, without AI and without saving, the available
+profiles that were inferred from baselines, using the administrator's own cellar
+wines or the approved catalog entry as metadata. It lists the profiles that would
+change (the 100 that change most), each with the traits that move, before and
+after, and the confidence. **Aggiorna N profili** then saves them. Validated,
+manual, AI-generated and evidence-led profiles are never touched, and a profile is
+not replaced by a less reliable estimate. Run it after activating baselines or
+completing entries. Endpoints: `GET/POST /catalog-baselines`,
+`POST /catalog-baselines/cancel`, `/approve`, `/discard`,
+`GET /catalog-baselines/recalculation` (comparison) and `POST /recalculate`.
 
 Geographic fields require migration `0121_wine_geography` (`alembic upgrade head`).
 Existing regions and localities are preserved; new fields default to empty strings.

@@ -190,9 +190,20 @@ def test_estimated_profiles_follow_the_baselines_and_the_others_stay(monkeypatch
     add_profile("Ignoto", "2020")
 
     # Nothing better than the wine type is known yet.
-    assert client.post(f"{URL}/recalculate").json() == {"checked": 2, "updated": 0}
+    nothing = {"checked": 2, "updated": 0, "changes": []}
+    assert client.post(f"{URL}/recalculate").json() == nothing
     add_baseline("grape", "nerello mascalese")
-    assert client.post(f"{URL}/recalculate").json() == {"checked": 2, "updated": 1}
+    # The comparison shows before and after without saving anything.
+    for _ in range(2):
+        preview = client.get(f"{URL}/recalculation").json()
+        assert (preview["checked"], preview["updated"]) == (2, 1)
+    (change,) = preview["changes"]
+    assert (change["name"], change["vintage"]) == ("Rovo", "2019")
+    assert change["before"] == TYPE_BASELINES["Red"] and change["after"] == ETNA
+    assert (change["source_before"], change["source_after"]) == ("metadata", "grape")
+    assert change["confidence_after"] > change["confidence_before"] == 0.35
+    applied = client.post(f"{URL}/recalculate").json()
+    assert (applied["updated"], applied["changes"]) == (1, [change])
     with TestingSessionLocal() as db:
         profiles = {
             identity.name + " " + identity.vintage: profile
@@ -207,7 +218,8 @@ def test_estimated_profiles_follow_the_baselines_and_the_others_stay(monkeypatch
     assert profiles["Rovo 2019"].dimensions["minerality"] > 0.5
     for untouched in ("Rovo 2020", "Rovo 2021", "Ignoto 2020"):
         assert profiles[untouched].dimensions == TYPE_BASELINES["Red"]
-    assert client.post(f"{URL}/recalculate").json() == {"checked": 2, "updated": 0}
+    assert client.post(f"{URL}/recalculate").json() == nothing
+    assert client.get(f"{URL}/recalculation").json() == nothing
 
 
 def test_baseline_research_stops_at_the_spending_cap(monkeypatch):
@@ -241,6 +253,7 @@ def test_only_app_administrators_manage_catalog_baselines(monkeypatch):
         db.commit()
     assert client.get(URL).status_code == 403
     assert client.post(URL, json={}).status_code == 403
+    assert client.get(f"{URL}/recalculation").status_code == 403
     for action in ("cancel", "recalculate"):
         assert client.post(f"{URL}/{action}").status_code == 403
     for action in ("approve", "discard"):

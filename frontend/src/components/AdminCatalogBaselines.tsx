@@ -31,10 +31,16 @@ type BaselineStatus = {
   proposals: Proposal[];
   job: BaselineJob | null;
 };
-type Recalculation = { checked: number; updated: number };
+type ProfileChange = { name: string; producer: string; vintage: string; before: Record<string, number>; after: Record<string, number>; source_before: string; source_after: string; confidence_before: number; confidence_after: number };
+type Recalculation = { checked: number; updated: number; changes: ProfileChange[] };
 
 const URL = "/api/v1/catalog-baselines";
-const usd = (value: string | number) => `$${Number(value || 0).toFixed(2)}`;
+// These calls cost a fraction of a cent: two decimals would show a real cost as $0.00.
+const usd = (value: string | number) => {
+  const amount = Number(value || 0);
+  return `$${amount.toFixed(amount > 0 && amount < 0.1 ? 3 : 2)}`;
+};
+const percent = (value: number | undefined) => Math.round((value ?? 0) * 100);
 const DIMENSIONS: [string, string, string][] = [
   ["body", "Corpo", "Body"],
   ["acidity", "Acidità", "Acidity"],
@@ -55,6 +61,7 @@ export default function AdminCatalogBaselines({ locale, disabled }: { locale: Lo
   const [budget, setBudget] = useState("5");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [preview, setPreview] = useState<Recalculation | null>(null);
   const [recalculated, setRecalculated] = useState<Recalculation | null>(null);
   const running = status?.job?.status === "running";
 
@@ -97,13 +104,20 @@ export default function AdminCatalogBaselines({ locale, disabled }: { locale: Lo
       : `Activate ${status.proposals.length} baselines proposed by AI? They contribute to the wines' taste profiles right away.`;
     if (window.confirm(message)) void send(`${URL}/approve`, { ids: status.proposals.map((item) => item.id) });
   }
+  async function compare() {
+    setBusy(true); setError(""); setRecalculated(null);
+    try { setPreview(await api<Recalculation>(`${URL}/recalculation`)); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
+    finally { setBusy(false); }
+  }
   async function recalculate() {
+    if (!preview?.updated) return;
     const message = it
-      ? "Ricalcolare i profili stimati con i riferimenti attivi? È gratuito. I profili convalidati, manuali o generati dall’AI non cambiano."
-      : "Recompute the estimated profiles from the active baselines? It is free. Validated, manual and AI-generated profiles do not change.";
+      ? `Aggiornare ${preview.updated} profili stimati con i riferimenti attivi? È gratuito. I profili convalidati, manuali o generati dall’AI non cambiano.`
+      : `Update ${preview.updated} estimated profiles from the active baselines? It is free. Validated, manual and AI-generated profiles do not change.`;
     if (!window.confirm(message)) return;
     setBusy(true); setError("");
-    try { setRecalculated(await api<Recalculation>(`${URL}/recalculate`, { method: "POST" })); }
+    try { setRecalculated(await api<Recalculation>(`${URL}/recalculate`, { method: "POST" })); setPreview(null); }
     catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
     finally { setBusy(false); }
   }
@@ -171,14 +185,37 @@ export default function AdminCatalogBaselines({ locale, disabled }: { locale: Lo
           </div>
         </div>
         <dl>{DIMENSIONS.map(([key, italian, english]) => {
-          const value = Math.round((item.dimensions[key] ?? 0) * 100);
+          const value = percent(item.dimensions[key]);
           return <div key={key}><dt>{it ? italian : english}</dt><dd><span style={{ width: `${value}%` }} /><b>{value}</b></dd></div>;
         })}</dl>
       </li>)}</ul>
     </div> : null}
     <div className="admin-catalog-baselines-recalculate">
-      <p>{it ? "Dopo aver attivato nuovi riferimenti o completato le schede, aggiorna i profili stimati già esistenti." : "After activating baselines or completing entries, refresh the estimated profiles that already exist."}</p>
-      <button type="button" className="secondary" disabled={disabled || busy || running} onClick={() => void recalculate()}>{it ? "Ricalcola i profili stimati" : "Recompute estimated profiles"}</button>
+      <p>{it ? "Dopo aver attivato nuovi riferimenti o completato le schede, confronta i profili stimati già esistenti con quelli ricalcolati, poi aggiornali." : "After activating baselines or completing entries, compare the existing estimated profiles with the recomputed ones, then update them."}</p>
+      <button type="button" className="secondary" disabled={disabled || busy || running} onClick={() => void compare()}>{it ? "Confronta prima e dopo" : "Compare before and after"}</button>
+      {preview ? <div className="admin-catalog-baselines-preview" role="group" aria-label={it ? "Confronto dei profili" : "Profile comparison"}>
+        <p><strong>{preview.updated}</strong> {it ? `profili cambierebbero su ${preview.checked} stimati.` : `profiles would change out of ${preview.checked} estimated.`}
+          {preview.updated > preview.changes.length ? (it ? ` Qui i ${preview.changes.length} che cambiano di più.` : ` Showing the ${preview.changes.length} that change most.`) : ""}</p>
+        {preview.changes.length ? <ul>{preview.changes.map((change) => {
+          const moved = DIMENSIONS.filter(([key]) => percent(change.before[key]) !== percent(change.after[key]));
+          return <li key={`${change.producer}|${change.name}|${change.vintage}`}>
+            <div><strong>{change.name} {change.vintage}</strong><small>{change.producer} · {it ? "affidabilità" : "confidence"} {percent(change.confidence_before)} → {percent(change.confidence_after)}</small></div>
+            <dl>{moved.map(([key, italian, english]) => {
+              const before = percent(change.before[key]);
+              const after = percent(change.after[key]);
+              return <div key={key}>
+                <dt>{it ? italian : english}</dt>
+                <dd>
+                  <span className="track"><span className="before" style={{ width: `${before}%` }} /></span>
+                  <span className="track"><span className="after" style={{ width: `${after}%` }} /></span>
+                  <b>{before} → {after}</b>
+                </dd>
+              </div>;
+            })}</dl>
+          </li>;
+        })}</ul> : null}
+        {preview.updated ? <button type="button" className="secondary" disabled={disabled || busy || running} onClick={() => void recalculate()}>{it ? `Aggiorna ${preview.updated} profili` : `Update ${preview.updated} profiles`}</button> : null}
+      </div> : null}
       {recalculated ? <p role="status">{it
         ? `${recalculated.updated} profili aggiornati su ${recalculated.checked} stimati.`
         : `${recalculated.updated} profiles updated out of ${recalculated.checked} estimated.`}</p> : null}

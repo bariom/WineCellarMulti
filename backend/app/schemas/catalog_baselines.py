@@ -67,6 +67,22 @@ class CatalogBaselineReview(BaseModel):
     ids: list[UUID] = Field(min_length=1, max_length=500)
 
 
+class CatalogBaselineProfileChange(BaseModel):
+    """One estimated profile before and after the recalculation."""
+
+    name: str
+    producer: str
+    vintage: str
+    before: dict[str, float]
+    after: dict[str, float]
+    source_before: str
+    source_after: str
+    confidence_before: float
+    confidence_after: float
+
+
 class CatalogBaselineRecalculation(BaseModel):
     checked: int = 0
     updated: int = 0
+    # The profiles that change most, for the comparison shown before applying.
+    changes: list[CatalogBaselineProfileChange] = Field(default_factory=list)

@@ -335,7 +335,8 @@ def research_group(
             extra_cost_usd=search_cost,
         )
         db.commit()
-        return details, response.charged_cost_usd + search_cost
+        # charged_cost_usd already includes the web search calls.
+        return details, response.charged_cost_usd
 
 
 def start_details(job: CatalogPhotoJob, positions: list[int], *, locale: str) -> None:

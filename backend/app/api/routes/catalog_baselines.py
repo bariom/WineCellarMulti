@@ -77,6 +77,17 @@ def discard_catalog_baselines(
     return catalog_baselines.baseline_status(db)
 
 
+@router.get("/recalculation", response_model=CatalogBaselineRecalculation)
+def preview_estimated_profiles(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> CatalogBaselineRecalculation:
+    """Compare the estimated profiles before and after a recalculation, saving nothing."""
+    return catalog_baselines.recalculate(
+        db, household_id=context.household.id, user_id=context.user.id, apply=False
+    )
+
+
 @router.post("/recalculate", response_model=CatalogBaselineRecalculation)
 def recalculate_estimated_profiles(
     db: Session = Depends(get_db),
@@ -84,5 +95,5 @@ def recalculate_estimated_profiles(
 ) -> CatalogBaselineRecalculation:
     """Recompute, without AI, the estimated profiles from the active baselines."""
     return catalog_baselines.recalculate(
-        db, household_id=context.household.id, user_id=context.user.id
+        db, household_id=context.household.id, user_id=context.user.id, apply=True
     )
