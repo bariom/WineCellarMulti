@@ -1206,6 +1206,8 @@ export function App() {
     other: WINE_TONE_PAGE_SIZE,
   });
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 1099);
+  // Unfolded foldables and upright tablets: the detail docks beside the list instead of covering it.
+  const [isSplitViewport, setIsSplitViewport] = useState(() => window.innerWidth >= 700 && window.innerWidth <= 1099);
   const [tabletDevice] = useState(isTabletDevice);
   const [tabletDesktopMode, setTabletDesktopMode] = useState(initializeTabletLayout);
   const chooseTabletLayout = (desktop: boolean) => {
@@ -2740,13 +2742,20 @@ export function App() {
     const syncViewport = () => {
       const mobile = mediaQuery.matches;
       setIsMobileViewport(mobile);
+      setIsSplitViewport(mobile && splitQuery.matches);
       if (mobile) {
         setAuthModalOpen(false);
       }
     };
+    // Opening or closing a foldable crosses 700px without crossing 1099px.
+    const splitQuery = window.matchMedia("(min-width: 700px)");
     syncViewport();
     mediaQuery.addEventListener("change", syncViewport);
-    return () => mediaQuery.removeEventListener("change", syncViewport);
+    splitQuery.addEventListener("change", syncViewport);
+    return () => {
+      mediaQuery.removeEventListener("change", syncViewport);
+      splitQuery.removeEventListener("change", syncViewport);
+    };
   }, []);
 
   useEffect(() => {
@@ -12408,7 +12417,7 @@ export function App() {
                 </Suspense>
                 {usingPagedTastingArchive && tastingArchiveTotalCount > TASTING_ARCHIVE_PAGE_SIZE ? renderTastingPager("bottom") : null}
                 {isMobileViewport && selectedVisibleWine && !wineFormOpen && !wineDetailExpanded ? (
-                  <div className="mobile-inline-detail" role="dialog" aria-modal="true" aria-label={selectedVisibleWine.name} onClick={closeMobileWineDetail}>
+                  <div className="mobile-inline-detail" role="dialog" aria-modal={!isSplitViewport} aria-label={selectedVisibleWine.name} onClick={closeMobileWineDetail}>
                     <div className="mobile-detail-sheet" onClick={(event) => event.stopPropagation()}>
                       <div className="mobile-detail-sheet-head">
                         <div>
@@ -12630,7 +12639,7 @@ export function App() {
                   </div>
                 </article>
                 {selectedWineId === wine.id && !wineFormOpen ? (
-                  <div className="mobile-inline-detail" role="dialog" aria-modal="true" aria-label={wine.name} onClick={closeMobileWineDetail}>
+                  <div className="mobile-inline-detail" role="dialog" aria-modal={!isSplitViewport} aria-label={wine.name} onClick={closeMobileWineDetail}>
                     <div className="mobile-detail-sheet" onClick={(event) => event.stopPropagation()}>
                       <div className="mobile-detail-sheet-head">
                         <div>
@@ -12764,7 +12773,7 @@ export function App() {
                   </div>
                 </article>
                 {selectedWishlistId === item.id && !wishlistFormOpen ? (
-                  <div className="mobile-inline-detail" role="dialog" aria-modal="true" aria-label={item.name} onClick={() => setSelectedWishlistId(null)}>
+                  <div className="mobile-inline-detail" role="dialog" aria-modal={!isSplitViewport} aria-label={item.name} onClick={() => setSelectedWishlistId(null)}>
                     <div className="mobile-detail-sheet" onClick={(event) => event.stopPropagation()}>
                       <div className="mobile-detail-sheet-head">
                         <div>

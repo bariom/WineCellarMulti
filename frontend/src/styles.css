@@ -27982,3 +27982,12 @@ body,
 .taste-profile-external-actions > .taste-profile-dismiss { border-color: transparent; background: transparent; color: var(--text-muted); box-shadow: none; text-decoration: underline; text-underline-offset: 3px; }
 .taste-profile-external-actions > .taste-profile-dismiss:hover:not(:disabled) { color: var(--text); }
 @media (max-width: 720px) { .taste-profile-external-actions { width: 100%; } }
+
+/* Split view for unfolded foldables and tablets held upright (700-1099px):
+   the wine detail docks on the right half instead of covering the list. */
+@media (min-width: 700px) and (max-width: 1099px) {
+  .app-shell:has(.mobile-inline-detail) { --split-detail-width: 50vw; margin-right: var(--split-detail-width); }
+  .app-shell:has(.mobile-inline-detail) .mobile-bottom-navigation { right: var(--split-detail-width); }
+  .app-shell .mobile-inline-detail { inset: 0 0 0 auto; width: var(--split-detail-width); max-width: var(--split-detail-width); border-left: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent)); box-shadow: -18px 0 40px color-mix(in srgb, var(--collector-depth) 16%, transparent); }
+  .app-shell .mobile-inline-detail .mobile-detail-sheet { width: 100%; max-width: 100%; }
+}

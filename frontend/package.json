@@ -44,6 +44,7 @@
     "test:e2e:data-import": "playwright test e2e/data-import.spec.ts e2e/spreadsheet-import.spec.ts e2e/spreadsheet-movements.spec.ts",
     "test:e2e:taste-profile-layout": "playwright test e2e/taste-profile-layout.spec.ts",
     "test:e2e:wine-detail": "playwright test e2e/wine-detail.spec.ts",
+    "test:e2e:foldable": "playwright test e2e/foldable-split.spec.ts",
     "test:e2e:update": "playwright test e2e/wine-detail.spec.ts --update-snapshots",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "preview:pwa": "vite preview --host 127.0.0.1 --port 4174"
