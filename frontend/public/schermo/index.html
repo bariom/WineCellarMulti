@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Vinaris: misure dello schermo</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px 16px 40px; background: #14100d; color: #f1e9dc; font: 16px/1.45 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; color: #d9b36a; }
+  p { margin: 0 0 14px; color: #b9ad9b; font-size: 14px; }
+  ol { padding-left: 20px; margin: 0 0 16px; color: #d8cebf; font-size: 14px; }
+  .now { border: 1px solid #5c4a2a; border-radius: 14px; padding: 14px; margin-bottom: 14px; background: #1c1612; }
+  .now strong { display: block; font-size: 30px; color: #f3d590; font-variant-numeric: tabular-nums; }
+  .now span { font-size: 13px; color: #b9ad9b; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 10px 0 0; font-size: 13px; }
+  dt { color: #9c917f; } dd { margin: 0; word-break: break-word; }
+  button { width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid #d9b36a; background: #d9b36a; color: #1c1408; font: 600 16px system-ui, sans-serif; margin-bottom: 10px; }
+  button.secondary { background: transparent; color: #d9b36a; }
+  textarea { width: 100%; min-height: 200px; border-radius: 12px; border: 1px solid #3d3324; background: #0e0b09; color: #d8cebf; font: 12px/1.5 ui-monospace, monospace; padding: 10px; }
+  #copied { min-height: 20px; color: #9fd0a0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Misure dello schermo</h1>
+  <p>Serve a progettare Vinaris per i telefoni pieghevoli. Non raccoglie e non invia niente: i dati restano su questa pagina.</p>
+  <ol>
+    <li>Con il telefono chiuso (schermo esterno) premi «Registra questa posizione».</li>
+    <li>Aprilo del tutto e premi di nuovo.</li>
+    <li>Piegalo a metà appoggiato sul tavolo e premi di nuovo.</li>
+    <li>Se vuoi, ripeti ruotandolo. Poi premi «Copia tutto» e incolla il testo nella chat.</li>
+  </ol>
+  <div class="now">
+    <strong id="size">–</strong>
+    <span>larghezza × altezza che vede l'app, in questo momento</span>
+    <dl id="facts"></dl>
+  </div>
+  <button type="button" id="record">Registra questa posizione</button>
+  <button type="button" id="copy" class="secondary">Copia tutto</button>
+  <p id="copied" role="status"></p>
+  <textarea id="log" readonly aria-label="Posizioni registrate"></textarea>
+</main>
+<script>
+(function () {
+  var records = [];
+  function media(query) { try { return window.matchMedia(query).matches; } catch (error) { return false; } }
+  function posture() {
+    if (navigator.devicePosture && navigator.devicePosture.type) return navigator.devicePosture.type;
+    if (media("(device-posture: folded)")) return "folded";
+    if (media("(device-posture: continuous)")) return "continuous";
+    return "non disponibile";
+  }
+  function segments() {
+    var list = (window.viewport && window.viewport.segments) || (window.visualViewport && window.visualViewport.segments);
+    if (!list) return "non disponibile";
+    if (!list.length) return "nessuno";
+    return Array.prototype.map.call(list, function (s) {
+      return Math.round(s.width) + "x" + Math.round(s.height) + " @" + Math.round(s.left) + "," + Math.round(s.top);
+    }).join(" | ");
+  }
+  function read() {
+    var display = ["standalone", "fullscreen", "minimal-ui", "browser"].filter(function (mode) { return media("(display-mode: " + mode + ")"); })[0] || "?";
+    return {
+      "finestra": window.innerWidth + " x " + window.innerHeight,
+      "schermo": screen.width + " x " + screen.height,
+      "densita": String(window.devicePixelRatio),
+      "orientamento": (screen.orientation && screen.orientation.type) || (media("(orientation: portrait)") ? "portrait" : "landscape"),
+      "postura": posture(),
+      "segmenti": segments(),
+      "segmenti affiancati": media("(horizontal-viewport-segments: 2)") ? "si" : "no",
+      "segmenti sovrapposti": media("(vertical-viewport-segments: 2)") ? "si" : "no",
+      "puntatore": media("(pointer: coarse)") ? "tocco" : "preciso",
+      "modalita": display
+    };
+  }
+  function show() {
+    var facts = read();
+    document.getElementById("size").textContent = facts["finestra"];
+    var list = document.getElementById("facts");
+    list.textContent = "";
+    Object.keys(facts).slice(1).forEach(function (key) {
+      var dt = document.createElement("dt"); dt.textContent = key;
+      var dd = document.createElement("dd"); dd.textContent = facts[key];
+      list.appendChild(dt); list.appendChild(dd);
+    });
+  }
+  function text() {
+    return records.map(function (facts, index) {
+      return "Posizione " + (index + 1) + "\n" + Object.keys(facts).map(function (key) { return "  " + key + ": " + facts[key]; }).join("\n");
+    }).join("\n\n") + "\n\nBrowser: " + navigator.userAgent;
+  }
+  document.getElementById("record").addEventListener("click", function () {
+    records.push(read());
+    document.getElementById("log").value = text();
+    document.getElementById("copied").textContent = "Posizione " + records.length + " registrata.";
+  });
+  document.getElementById("copy").addEventListener("click", function () {
+    var area = document.getElementById("log");
+    if (!records.length) { records.push(read()); area.value = text(); }
+    var done = function () { document.getElementById("copied").textContent = "Copiato: incollalo nella chat."; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(area.value).then(done, function () { area.select(); });
+    else { area.select(); document.execCommand("copy"); done(); }
+  });
+  ["resize", "orientationchange"].forEach(function (name) { window.addEventListener(name, show); });
+  if (navigator.devicePosture && navigator.devicePosture.addEventListener) navigator.devicePosture.addEventListener("change", show);
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", show);
+  show();
+})();
+</script>
+</body>
+</html>
