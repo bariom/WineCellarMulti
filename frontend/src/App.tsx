@@ -11328,7 +11328,7 @@ export function App() {
                     <small>{selectedWine ? `${wineEditorStrategySummary?.wineId === selectedWine.id ? wineEditorStrategySummary.allocated : "–"} / ${selectedWine.quantity}` : "0 / 0"}</small>
                   </button>
                   <div className={`wine-editor-section-body ${openWineEditorSections.strategy ? "is-visible" : "is-preloaded"}`}>
-                    {openWineEditorSections.strategy && editingId && selectedWine ? (
+                    {editingId && selectedWine ? (
                       <WineStrategySection
                         wine={selectedWine}
                         locale={locale}

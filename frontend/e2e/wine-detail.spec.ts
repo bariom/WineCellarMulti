@@ -131,6 +131,14 @@ test("wine quick actions are visible at the start of the detail on phones and de
   await expect(detail.getByLabel("Data in formato giorno, mese, anno", { exact: true })).toBeVisible();
 });
 
+test("the cellar purposes load with the wine detail, so the counter is right while closed", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openWineDetail(page, [{ id: "strategy-e2e-1", wine_id: wine.id, stock_lot_id: null, purpose: "maturation", quantity: 1, horizon_year: null, note: "" }]);
+  const section = page.locator(".wine-detail:visible .wine-strategy-section").first();
+  await expect(section).not.toHaveAttribute("open", "");
+  await expect(section.locator("summary small")).toHaveText(`1 / ${wine.quantity}`);
+});
+
 test("tasting score offers half points when recording a bottle", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openWineDetail(page);
