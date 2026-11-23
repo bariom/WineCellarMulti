@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { appActionSvgIcon } from "../../components/actionIcons";
 import { ButtonBusyContent, LoadingState } from "../../components/AppUi";
 import { translate, type TranslationKey } from "../../i18n";
+import { FullBackupDownload, FullBackupRestore } from "./FullBackup";
 import type { ExportSelection, ImportMode, ImportPreview, ImportResult, ImportSelection, Locale, Session } from "../../types";
 
 const SpreadsheetImportWizard = lazy(() => import("./SpreadsheetImportWizard"));
@@ -29,6 +30,8 @@ type DataSettingsTabProps = {
   exportJson: () => void;
   emptyCellar: () => void;
   reloadAfterImport: () => Promise<unknown>;
+  /** Everything a complete restore can change: wines, wishlist, members, tags, audit. */
+  reloadAfterRestore: () => Promise<unknown>;
   clearImport: () => void;
 };
 
@@ -56,6 +59,7 @@ export default function DataSettingsTab({
   exportJson,
   emptyCellar,
   reloadAfterImport,
+  reloadAfterRestore,
   clearImport,
 }: DataSettingsTabProps) {
   const t = (key: TranslationKey) => translate(locale, key);
@@ -65,12 +69,31 @@ export default function DataSettingsTab({
     event.target.value = "";
     if (file) setSpreadsheetFile(file);
   };
+  // A complete-backup ZIP has its own restore, with a summary before anything is written.
+  const [backupZip, setBackupZip] = useState<File | null>(null);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const backupBusy = downloadBusy || restoreBusy;
+  const emptyCellarRef = useRef<HTMLDivElement>(null);
+  const showEmptyCellar = useCallback(() => {
+    const target = emptyCellarRef.current;
+    if (!target) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+    target.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+  }, []);
   // The CellarTracker or backup file being imported, so the sources can close around it.
   const [pickedFile, setPickedFile] = useState<{ name: string; source: "cellartracker" | "vinaris" } | null>(null);
   const pickFile = (source: "cellartracker" | "vinaris", handler: (event: ChangeEvent<HTMLInputElement>) => void) =>
     (event: ChangeEvent<HTMLInputElement>) => {
-      const name = event.target.files?.[0]?.name;
-      if (name) setPickedFile({ name, source });
+      const file = event.target.files?.[0];
+      if (source === "vinaris" && file && (/\.zip$/i.test(file.name) || /zip/i.test(file.type))) {
+        event.target.value = "";
+        clearImport();
+        setBackupZip(file);
+        return;
+      }
+      if (file?.name) setPickedFile({ name: file.name, source });
       handler(event);
     };
   const fileImportOpen = Boolean(pickedFile && (saving || importPreview || importResult));
@@ -82,7 +105,7 @@ export default function DataSettingsTab({
     clearImport();
     setPickedFile(null);
   };
-  const importOpen = spreadsheetFile ? "spreadsheet" : fileImportOpen ? "file" : "";
+  const importOpen = spreadsheetFile ? "spreadsheet" : backupZip ? "backup" : fileImportOpen ? "file" : "";
   const currentImportRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const current = currentImportRef.current;
@@ -96,6 +119,7 @@ export default function DataSettingsTab({
   }, [importOpen]);
   return (
     <>
+      <FullBackupDownload locale={locale} disabled={saving || restoreBusy} onBusyChange={setDownloadBusy} />
       <section className="settings-card data-import-card" aria-labelledby="data-import-title">
         <div className="settings-card-heading">
           <div>
@@ -110,21 +134,21 @@ export default function DataSettingsTab({
             <span className="data-import-source-tag">{locale === "it" ? "Vieni da CellarTracker?" : "Coming from CellarTracker?"}</span>
             <h4 id="cellartracker-import-title">{locale === "it" ? "Importa da CellarTracker" : "Import from CellarTracker"}</h4>
             <p>{locale === "it" ? "Esporta la tua collezione “My Cellar” da CellarTracker in formato CSV e carica qui il file." : "Export your “My Cellar” collection from CellarTracker as a CSV file and upload it here."}</p>
-            <label><span>{locale === "it" ? "Carica CSV CellarTracker" : "Upload CellarTracker CSV"}</span><input type="file" accept="text/csv,.csv" onChange={pickFile("cellartracker", importCellarTrackerFile)} disabled={saving} /></label>
+            <label><span>{locale === "it" ? "Carica CSV CellarTracker" : "Upload CellarTracker CSV"}</span><input type="file" accept="text/csv,.csv" onChange={pickFile("cellartracker", importCellarTrackerFile)} disabled={saving || backupBusy} /></label>
           </section>
           <section className="data-import-source data-import-source--spreadsheet" aria-labelledby="spreadsheet-import-title">
             <span className="data-import-source-tag">{locale === "it" ? "Tieni la cantina in Excel?" : "Keep your cellar in a spreadsheet?"}</span>
             <h4 id="spreadsheet-import-title">{locale === "it" ? "Importa da Excel" : "Import from Excel"}</h4>
             <p>{locale === "it" ? "Carica il tuo file così com’è: Vinaris riconosce fogli e colonne e ti chiede conferma prima di importare." : "Upload your file as it is: Vinaris recognises sheets and columns and asks you to confirm before importing."}</p>
             <small>{locale === "it" ? "Excel (.xlsx, .xls), LibreOffice (.ods) o CSV, fino a 5 MB." : "Excel (.xlsx, .xls), LibreOffice (.ods) or CSV, up to 5 MB."}</small>
-            <label><span>{locale === "it" ? "Carica file Excel" : "Upload spreadsheet"}</span><input type="file" accept=".xlsx,.xlsm,.xls,.ods,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.oasis.opendocument.spreadsheet,text/csv" onChange={chooseSpreadsheet} disabled={saving} /></label>
+            <label><span>{locale === "it" ? "Carica file Excel" : "Upload spreadsheet"}</span><input type="file" accept=".xlsx,.xlsm,.xls,.ods,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.oasis.opendocument.spreadsheet,text/csv" onChange={chooseSpreadsheet} disabled={saving || backupBusy} /></label>
           </section>
           <section className="data-import-source" aria-labelledby="vinaris-import-title">
             <span className="data-import-source-tag">{locale === "it" ? "Hai un backup Vinaris?" : "Have a Vinaris backup?"}</span>
             <h4 id="vinaris-import-title">{locale === "it" ? "Ripristina un backup" : "Restore a backup"}</h4>
-            <p>{locale === "it" ? "Carica un file JSON esportato da Vinaris o un backup precedente compatibile." : "Upload a JSON file exported from Vinaris or a compatible older backup."}</p>
-            <small>{t("exportHistoryIncluded")}</small>
-            <label><span>{locale === "it" ? "Carica backup JSON Vinaris" : "Upload Vinaris JSON backup"}</span><input type="file" accept="application/json,.json" onChange={pickFile("vinaris", importLegacyFile)} disabled={saving} /></label>
+            <p>{locale === "it" ? "Carica il backup completo (ZIP) o un file JSON esportato da Vinaris: vedrai cosa contiene prima di confermare." : "Upload the complete backup (ZIP) or a JSON file exported from Vinaris: you see what it contains before confirming."}</p>
+            <small>{locale === "it" ? "Il backup completo si ripristina in una cantina vuota." : "A complete backup is restored into an empty cellar."}</small>
+            <label><span>{locale === "it" ? "Carica backup Vinaris (ZIP o JSON)" : "Upload Vinaris backup (ZIP or JSON)"}</span><input type="file" accept=".zip,application/zip,application/x-zip-compressed,application/json,.json" onChange={pickFile("vinaris", importLegacyFile)} disabled={saving || backupBusy} /></label>
           </section>
         </div>
         )}
@@ -141,8 +165,19 @@ export default function DataSettingsTab({
             />
           </Suspense>
         ) : null}
-        {/* The CellarTracker / backup controls would only confuse while the Excel wizard is open. */}
-        {spreadsheetFile ? null : (
+        {backupZip ? (
+          <FullBackupRestore
+            key={`${backupZip.name}-${backupZip.lastModified}-${backupZip.size}`}
+            locale={locale}
+            file={backupZip}
+            onClose={() => setBackupZip(null)}
+            onRestored={reloadAfterRestore}
+            onBusyChange={setRestoreBusy}
+            showEmptyCellar={showEmptyCellar}
+          />
+        ) : null}
+        {/* The CellarTracker / backup controls would only confuse while the Excel wizard or a ZIP restore is open. */}
+        {spreadsheetFile || backupZip ? null : (
           <div className={fileImportOpen ? "spreadsheet-wizard data-import-file" : "data-import-file"} aria-labelledby={fileImportOpen ? "data-import-file-title" : undefined} role={fileImportOpen ? "region" : undefined}>
         {fileImportOpen && pickedFile ? (
           <header className="spreadsheet-wizard-header">
@@ -261,6 +296,12 @@ export default function DataSettingsTab({
           </div>
         )}
         </div>
+        <details className="data-json-export">
+          <summary>
+            <span>{locale === "it" ? "Esportazione JSON personalizzata" : "Custom JSON export"}</span>
+            <small>{locale === "it" ? "Solo i blocchi che scegli, senza foto e documenti" : "Only the blocks you choose, without photos and documents"}</small>
+          </summary>
+          <div className="data-json-export-body">
         <div className="token-box">
           <strong>{t("exportData")}</strong>
           <span>{t("exportFullCellarHelp")}</span>
@@ -280,15 +321,17 @@ export default function DataSettingsTab({
           ))}
         </div>
         <div className="inline-form">
-          <button type="button" className="secondary" disabled={saving || !hasSelectedExportBlock} onClick={exportJson}>
+          <button type="button" className="secondary" disabled={saving || backupBusy || !hasSelectedExportBlock} onClick={exportJson}>
             <span className="action-icon" aria-hidden="true">{appActionSvgIcon("export")}</span>
             <span className="action-label">{t("exportJson")}</span>
           </button>
         </div>
-        <div className="error-banner">
+          </div>
+        </details>
+        <div ref={emptyCellarRef} id="data-empty-cellar" className="error-banner">
           <strong>{t("emptyCellar")}</strong>
           <span>{t("emptyCellarWarning")}</span>
-          <button type="button" className="danger compact" disabled={saving} onClick={emptyCellar}>
+          <button type="button" className="danger compact" disabled={saving || backupBusy} onClick={emptyCellar}>
             <span className="action-icon" aria-hidden="true">{appActionSvgIcon("delete")}</span>
             <span className="action-label">{t("emptyCellar")}</span>
           </button>

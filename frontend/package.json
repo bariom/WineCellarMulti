@@ -42,6 +42,7 @@
     "test:e2e:purchase-import": "playwright test e2e/purchase-import.spec.ts e2e/purchase-documents.spec.ts",
     "test:e2e:admin-catalog": "playwright test e2e/admin-catalog-metadata.spec.ts e2e/admin-catalog-photo.spec.ts e2e/admin-catalog-completion.spec.ts e2e/admin-catalog-expansion.spec.ts e2e/admin-catalog-baselines.spec.ts",
     "test:e2e:data-import": "playwright test e2e/data-import.spec.ts e2e/spreadsheet-import.spec.ts e2e/spreadsheet-movements.spec.ts",
+    "test:e2e:full-backup": "playwright test e2e/full-backup.spec.ts",
     "test:e2e:taste-profile-layout": "playwright test e2e/taste-profile-layout.spec.ts",
     "test:e2e:wine-detail": "playwright test e2e/wine-detail.spec.ts",
     "test:e2e:foldable": "playwright test e2e/foldable-split.spec.ts",

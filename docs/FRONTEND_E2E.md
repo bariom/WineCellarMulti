@@ -94,6 +94,7 @@ light/dark themes and desktop in the private-cellar theme.
 | Scope | Command from `frontend/` |
 | --- | --- |
 | Receipt/invoice purchase review, IT/EN, 360/390/430 px and desktop, existing-wine matching, editable prices/quantities, total reconciliation, retry, pending delivery and duplicate prevention | `npm run test:e2e:purchase-import` |
+| Settings > Data complete backup: ZIP download, custom JSON export kept in its disclosure, ZIP preview with labelled counts, non-empty cellar guidance (no automatic emptying), restore result, 409/413 messages, private-cellar theme, 360/390/430/1440 px without overflow (screenshots for review only, no baseline) | `npm run test:e2e:full-backup` |
 | Archived wines, missing wine color and tasting distinction | `npm run test:e2e:history-archive` |
 | Tablet desktop-layout preference, iPad emulation without touch points, persistence, phone exclusion, Windows touch laptop header alignment at 1366/1920 px and visible insights menu at 800–1024 px | `npm run test:e2e:tablet-layout` |
 | Foldable phones and upright tablets (700–1099 px): wine detail docked beside the list at the measured Galaxy Z Fold inner size 752×782, switching wine with one tap, and the same wine kept open when the phone is closed to 360×802 and reopened | `npm run test:e2e:foldable` |

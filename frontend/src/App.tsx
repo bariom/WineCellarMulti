@@ -13181,6 +13181,11 @@ export function App() {
                     exportJson={exportJson}
                     emptyCellar={emptyCellar}
                     reloadAfterImport={() => Promise.all([loadWines(), loadWishlist(), loadWishlistLists(), loadTags()])}
+                    reloadAfterRestore={() => {
+                      setSelectedWineId(null);
+                      setSelectedWishlistId(null);
+                      return Promise.all([loadWines(), loadWishlist(), loadWishlistLists(), loadHouseholdData(), loadTags(), loadAiAudit(session?.membership_role)]);
+                    }}
                     clearImport={() => { setImportPreview(null); setImportPayload(null); setCellarTrackerCsvText(""); setImportFileName(""); setImportResult(null); }}
                   />
                 </Suspense>

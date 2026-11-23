@@ -39,6 +39,11 @@ migration or rewrite production data in a route handler. Alembic revision IDs
 must be 32 characters or fewer: production `alembic_version.version_num` is
 `varchar(32)`.
 
+A new table holding a cellar's or a user's data must be declared in
+backend/app/services/backup_registry.py: in BACKUP_TABLES (the user's complete
+backup) or in EXCLUDED_TABLES with the reason. tests/test_full_backup.py fails
+otherwise. A new file stored on disk for a cellar needs its place in the backup ZIP.
+
 Preserve API schemas and frontend type contracts together. A backend
 response change normally requires review of frontend/src/types.ts and the
 affected UI.

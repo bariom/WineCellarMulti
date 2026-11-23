@@ -48,13 +48,15 @@ for (const locale of ["it", "en"] as const) {
         expect(box.height).toBeGreaterThanOrEqual(44);
       }
       if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`data-import-${locale}-${width}.png`) });
-      if (width === 390 && it) await expect(card.getByRole("group", { name: "Origine dei dati", exact: true })).toHaveScreenshot("data-import-sources-compact.png", { animations: "disabled" });
+      if (width === 390 && it) await expect(card.getByRole("group", { name: "Origine dei dati", exact: true })).toHaveScreenshot("data-import-sources-compact.png", { animations: "disabled", mask: [page.locator(".back-to-top-button")] });
     }
     const mode = card.getByLabel(it ? "Come importare i dati" : "How to import your data", { exact: true });
     await expect(mode).toHaveValue("skip_duplicates");
     await mode.selectOption("replace_all");
     await expect(card.getByText(it ? "Attenzione: elimina tutti i vini e la wishlist della cantina attiva prima di importare il file." : "Warning: deletes all wines and the wishlist in the active cellar before importing the file.", { exact: true })).toBeVisible();
     await mode.selectOption("skip_duplicates");
+    // Chosen on a phone, where the complete backup card sits above the import: the import must come into view.
+    await page.setViewportSize({ width: 390, height: 844 });
     await card.getByLabel(it ? "Carica CSV CellarTracker" : "Upload CellarTracker CSV", { exact: true }).setInputFiles({ name: "my-cellar.csv", mimeType: "text/csv", buffer: Buffer.from("Wine,Vintage,Quantity\nBarolo,2020,3") });
     await expect(card.getByText("CellarTracker My Cellar CSV", { exact: true })).toBeVisible();
     await expect(card.getByText(/: my-cellar.csv$/)).toBeVisible();
@@ -66,7 +68,6 @@ for (const locale of ["it", "en"] as const) {
     const current = card.getByRole("region", { name: it ? "Importa da CellarTracker" : "Import from CellarTracker", exact: true });
     await expect(sources).toHaveCount(0);
     await expect(current.getByText("my-cellar.csv", { exact: true })).toBeVisible();
-    await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     const top = (await current.boundingBox())!.y;
     expect(top).toBeGreaterThanOrEqual(0);
@@ -78,7 +79,7 @@ for (const locale of ["it", "en"] as const) {
     await expect(confirm).toBeDisabled();
     // A Vinaris backup replaces the previous choice, so confirmation uses its own endpoint.
     const payload = { wines: [], wishlist: [] };
-    await card.getByLabel(it ? "Carica backup JSON Vinaris" : "Upload Vinaris JSON backup", { exact: true }).setInputFiles({ name: "vinaris-backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(payload)) });
+    await card.getByLabel(it ? "Carica backup Vinaris (ZIP o JSON)" : "Upload Vinaris backup (ZIP or JSON)", { exact: true }).setInputFiles({ name: "vinaris-backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(payload)) });
     await expect(card.getByText("Vinaris export v2", { exact: true })).toBeVisible();
     await expect(card.getByText(/: vinaris-backup.json$/)).toBeVisible();
     await expect(card.getByText("CellarTracker My Cellar CSV", { exact: true })).toHaveCount(0);

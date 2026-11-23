@@ -536,6 +536,25 @@ export type ImportResult = {
   sales_updated: number;
 };
 
+/** POST /backup/preview: what a complete-backup ZIP contains, read before restoring it. */
+export type FullBackupPreview = {
+  schema: string;
+  exported_at: string;
+  household_name: string;
+  counts: Record<string, number>;
+  file_count: number;
+  target_empty: boolean;
+  warnings: string[];
+};
+
+/** POST /backup/restore: records written and skipped per table. */
+export type FullBackupRestoreResult = {
+  restored: Record<string, number>;
+  skipped: Record<string, number>;
+  file_count: number;
+  warnings: string[];
+};
+
 export type WineShareOffer = {
   id: string;
   wine_id: string;

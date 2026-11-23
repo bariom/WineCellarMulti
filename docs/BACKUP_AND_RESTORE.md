@@ -192,3 +192,42 @@ Almeno una volta al trimestre, su una macchina non di produzione:
 4. aprire fotografie normali e di libreria;
 5. verificare export, wishlist e storico degustazioni;
 6. documentare data, bundle verificato, durata e risultato.
+
+## Backup completo di una cantina (per l'utente)
+
+I backup notturni proteggono il server. Ogni utente con ruolo owner o admin può
+anche scaricare da Impostazioni → Dati un backup completo della propria cantina,
+da conservare per conto proprio e da ripristinare anche su un account nuovo.
+
+Il file è uno ZIP in formato `vinaris.backup.v3`:
+
+- `manifest.json`: data di esportazione, revisione Alembic, impostazioni della
+  cantina, conteggi per tabella ed elenco dei file;
+- `data.json`: tutte le righe delle tabelle elencate in `BACKUP_TABLES`
+  (`backend/app/services/backup_registry.py`), con tutte le colonne;
+- `files/wine-photos/<wine_id>/{thumbnail,detail}.png`: le foto delle bottiglie;
+- `files/purchase-documents/<purchase_import_id>`: i documenti d'acquisto originali;
+- `files/binary/<tabella>/<colonna>/<id>`: le foto ricordo delle bevute.
+
+Contiene vini, lotti e movimenti di magazzino, vendite, luoghi e scomparti,
+obiettivi in cantina, bevute (con tratti percepiti, foto ricordo e commenti del
+sommelier), bevute di vini non in cantina, lista dei desideri, commercianti,
+acquisti importati con i documenti, comproprietà, impostazioni della cantina e,
+dell'utente che esporta, tag, voti personali e profilo gustativo.
+
+Non contiene, per scelta: account, membri e inviti, sessioni e passkey,
+abbonamento e crediti AI, la chiave OpenAI personale, notifiche e registri
+tecnici. L'elenco completo con il motivo di ogni esclusione è
+`EXCLUDED_TABLES` nello stesso file. Nei partecipanti di una comproprietà i
+token d'invito vengono azzerati: i link inviati prima del backup smettono di
+funzionare.
+
+Il ripristino (`POST /api/v1/backup/restore`, con anteprima in
+`POST /api/v1/backup/preview`) richiede una cantina vuota: crea nuovi ID,
+ricollega ogni riferimento e riscrive foto e documenti. I vecchi backup JSON
+(`winecellarmulti.export.v2`) restano importabili come prima.
+
+Il test `backend/tests/test_full_backup.py` fallisce quando una nuova tabella
+con dati di una cantina o di un utente non è né in `BACKUP_TABLES` né in
+`EXCLUDED_TABLES`: ogni nuova funzione deve dichiarare se i suoi dati vanno nel
+backup.

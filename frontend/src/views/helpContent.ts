@@ -108,7 +108,9 @@ export const helpGuideContentV2: Record<Locale, HelpGuide> = {
         title: "10. Import, export, and move data safely",
         body: "Vinaris supports structured export and import so each cellar can be backed up or restored with intent.",
         bullets: [
-          "Use Settings > Data to export the active cellar and choose which blocks to include.",
+          "For a real backup use Settings > Data > Complete backup: one ZIP file with wines, tastings, bottle photos, purchase documents, goals and taste profile. API keys, account and subscription are not included.",
+          "To restore it, upload the ZIP under Restore a backup: Vinaris shows what the file contains before anything is written. The cellar must be empty first.",
+          "The custom JSON export is still available when you only need some blocks.",
           "Vinaris JSON import is meant for Vinaris exports and can restore more than wines alone depending on the selected blocks.",
           "Be careful when importing shared data such as members, invites, and ownership because those blocks can grant access to other accounts.",
           "Offline backup loading appears when you are without network, or after a failed login caused by missing connectivity, so you can still browse a cellar snapshot in read-only mode.",
@@ -216,7 +218,9 @@ export const helpGuideContentV2: Record<Locale, HelpGuide> = {
         title: "10. Importa, esporta e sposta i dati con criterio",
         body: "Vinaris supporta export e import strutturati così ogni cantina può essere salvata o ripristinata in modo intenzionale.",
         bullets: [
-          "Usa Impostazioni > Data per esportare la cantina attiva e scegliere quali blocchi includere.",
+          "Per un vero backup usa Impostazioni > Dati > Backup completo: un unico file ZIP con vini, bevute, foto delle bottiglie, documenti d'acquisto, obiettivi e profilo gustativo. Chiavi API, account e abbonamento non sono inclusi.",
+          "Per ripristinarlo carica lo ZIP in Ripristina un backup: Vinaris mostra cosa contiene il file prima di scrivere qualsiasi cosa. La cantina deve prima essere vuota.",
+          "L'esportazione JSON personalizzata resta disponibile quando ti servono solo alcuni blocchi.",
           "L'import JSON Vinaris è pensato per gli export Vinaris e può ripristinare più elementi dei soli vini, a seconda dei blocchi selezionati.",
           "Fai attenzione ai dati condivisi come membri, inviti e proprietà perché quei blocchi possono dare accesso anche ad altri account.",
           "Il backup offline compare quando sei senza rete, oppure dopo un login fallito per assenza di connessione, così puoi comunque consultare uno snapshot in sola lettura.",
