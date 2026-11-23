@@ -2,6 +2,10 @@ import { expect, test } from "@playwright/test";
 import { snapshotChrome, wine, session, memberships, mockApi } from "./fixtures/app";
 import { featuredValue } from "../src/domain/featuredValue";
 
+// A cellar drunk to the last bottle still opens on its dashboards (a cellar with no wine at all
+// opens on the welcome instead, see first-run.spec.ts): their empty states must stay honest.
+const drunkOut = [{ ...wine, quantity: 0, status: "Consumed" }];
+
 for (const width of [1024, 1280, 1366, 1440, 1600, 1920]) {
   test(`desktop cellar editorial composition ${width}`, async ({ page }, testInfo) => {
     await page.clock.setFixedTime(new Date("2026-09-22T12:00:00Z"));
@@ -73,7 +77,7 @@ test("desktop cellar Riserva and navigation preserve existing actions", async ({
 for (const theme of ["atelier", "cave-privee"]) {
   test(`desktop cellar empty English and theme ${theme}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", theme_preference: theme, locale: "en" });
+    await mockApi(page, [], false, memberships, drunkOut, { ...session, dashboard_focus: "collector", theme_preference: theme, locale: "en" });
     await page.goto("/?classic");
     await expect(page.locator(".cellar-home-hero")).toContainText("0 bottles");
     await expect(page.locator(".cellar-home-stats")).not.toContainText("NaN");
@@ -329,7 +333,7 @@ test("monitoring summary exposes closing and past-window wines in its detail", a
 
 test("collector premium empty Home supports English without fabricated figures", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
-  await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", locale: "en" });
+  await mockApi(page, [], false, memberships, drunkOut, { ...session, dashboard_focus: "collector", locale: "en" });
   await page.goto("/?classic");
   await expect(page.getByRole("region", { name: "My cellar", exact: true })).toContainText("0 bottles · 0 wines");
   await expect(page.getByRole("article", { name: "Cellar value" }).locator("strong")).toHaveText("—");
@@ -1045,7 +1049,7 @@ for (const width of [390, 1440]) {
 }
 
 test("collector empty state has no misleading percentages", async ({ page }) => {
-  await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", locale: "en" });
+  await mockApi(page, [], false, memberships, drunkOut, { ...session, dashboard_focus: "collector", locale: "en" });
   await page.goto("/?classic");
   const overview = page.getByRole("region", { name: "Collector overview" });
   await expect(overview.locator(".collector-glance-numbers")).toContainText("Bottles0");

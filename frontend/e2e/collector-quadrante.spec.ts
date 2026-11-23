@@ -4,6 +4,10 @@ import { memberships, mockApi, session, wine } from "./fixtures/app";
 // Fixed "today" (2026) so maturity lanes are deterministic.
 const FIXED_NOW = new Date("2026-09-22T12:00:00Z");
 
+// A cellar drunk to the last bottle still opens on its dashboards (a cellar with no wine at all
+// opens on the welcome instead, see first-run.spec.ts): their empty states must stay honest.
+const drunkOut = [{ ...wine, quantity: 0, status: "Consumed" }];
+
 const history = (entries: Array<[string, string]>) => entries.map(([recorded_at, value]) => ({ recorded_at, value, currency: wine.currency, source: "ai" }));
 const make = (id: string, name: string, quantity: number, price: string, value: string, window: [number | null, number | null], peak: [number | null, number | null] = [null, null], extra: Record<string, unknown> = {}) => ({
   ...wine, id, name, producer: "Cantina Test", region: "Piemonte", type: "Red", vintage: "2018", quantity, price, current_value: value,
@@ -237,7 +241,7 @@ test("quadrante glass illustration is as large as a bottle photo when a wine has
 test("quadrante empty cellar shows honest empty states", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
-  await open(page, []);
+  await open(page, drunkOut);
   await expect(page.locator(".cq")).toBeVisible();
   await expect(page.getByText("Nessun vino in primo piano")).toBeVisible();
   await expect(page.getByText("Nessuna bottiglia presente in cantina.")).toBeVisible();

@@ -758,7 +758,8 @@ test("wine color widget uses the semantic wine palette", async ({ page }, testIn
 });
 
 test("personal dashboard complete catalogue handles an empty cellar in English", async ({ page }) => {
-  await mockApi(page, [], false, memberships, [], { ...session, locale: 'en', dashboard_focus: 'personal', personal_dashboard_widgets: personalDashboardCatalogue.map(({ id }) => ({ id, width: 'full' })) });
+  // Drunk to the last bottle: a cellar with no wine at all opens on the welcome (first-run.spec.ts).
+  await mockApi(page, [], false, memberships, [{ ...wine, quantity: 0, status: "Consumed" }], { ...session, locale: 'en', dashboard_focus: 'personal', personal_dashboard_widgets: personalDashboardCatalogue.map(({ id }) => ({ id, width: 'full' })) });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await expect(page.locator('[data-widget-id]')).toHaveCount(personalDashboardCatalogue.length);
