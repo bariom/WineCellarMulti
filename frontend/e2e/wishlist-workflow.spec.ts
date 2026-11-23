@@ -97,3 +97,27 @@ test("wishlist tasting records experience without purchasing stock", async ({ pa
   expect(writes[0].path).toBe("/api/v1/wishlist/wish-1/tastings");
   expect(writes[0].body.tasting_occasion).toBe("Cena con amici");
 });
+
+test.describe("on a touch phone", () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  test("tapping a slider after typing the occasion leaves the text field, so the keyboard does not come back", async ({ page }) => {
+    await openWishlist(page, 390);
+    await page.locator(".wishlist-row").getByRole("heading", { name: /Barolo da scoprire/ }).click();
+    const detail = page.getByRole("dialog", { name: "Barolo da scoprire" });
+    await detail.getByRole("button", { name: "Ho assaggiato", exact: true }).click();
+    const occasion = detail.getByLabel("Occasione", { exact: true });
+    await occasion.fill("Cena con amici");
+    await expect(occasion).toBeFocused();
+    const traits = detail.getByRole("group", { name: /Com’era in bocca/ });
+    for (const name of ["Corpo", "Acidità"]) {
+      const slider = traits.getByRole("slider", { name });
+      await slider.scrollIntoViewIfNeeded();
+      await slider.tap();
+      // The text field keeps the focus otherwise, and the phone scrolls back to it with the keyboard.
+      await expect(slider).toBeFocused();
+      await expect(occasion).not.toBeFocused();
+      await expect(slider).not.toHaveAttribute("aria-valuetext", "Non indicato");
+    }
+  });
+});

@@ -78,9 +78,14 @@ export default function PerceivedTraitsInput({ locale, value, wineType = "", dis
           style={{ "--fill": level ? `${(level - 1) * 25}%` : "0%" } as CSSProperties}
           aria-labelledby={`perceived-${scale.trait}`}
           aria-valuetext={level ? words[level - 1] : (it ? "Non indicato" : "Not set")}
+          // Phones do not move the focus to a slider on touch: a text field typed in
+          // before keeps it, and every update scrolls back to it with the keyboard.
+          onPointerDown={(event) => event.currentTarget.focus({ preventScroll: true })}
           onChange={(event) => set(scale.trait, Number(event.currentTarget.value))}
           // A tap on the middle of an empty bar changes no value: it still records it.
+          // Touch screens send no click to a slider, so the lifted finger counts too.
           onClick={(event) => { if (!level) set(scale.trait, Number(event.currentTarget.value)); }}
+          onPointerUp={(event) => { if (!level) set(scale.trait, Number(event.currentTarget.value)); }}
         />
         <div className="perceived-trait-ends" aria-hidden="true"><span>{words[0]}</span><span>{words[4]}</span></div>
       </div>;
