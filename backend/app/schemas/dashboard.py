@@ -49,7 +49,8 @@ class DashboardWidgetPreference(BaseModel):
         "purposes",
         "today",
     ]
-    width: Literal["half", "full"] = "full"
+    # Bento sizes on a 12-column grid: 4, 6, 8 or 12 columns.
+    width: Literal["third", "half", "two_thirds", "full"] = "full"
 
     group_by: Literal["region", "producer", "type"] | None = None
 

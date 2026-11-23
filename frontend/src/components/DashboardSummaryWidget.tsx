@@ -9,6 +9,7 @@ import { featuredCaption, type FeaturedWine } from "./FeaturedWineDetails";
 import { personalDashboardCatalogue } from "./personalDashboardCatalogue";
 import { groupSummary, historyChange, recordedValue, sumBottles, topSummary, useDashboardResource, validWindow, type SummarySlice } from "./dashboardSummaryData";
 import { SummaryBars, SummaryMosaic, SummaryRadar, SummaryRing } from "./DashboardSummaryCharts";
+import { DashboardCountUp } from "./DashboardCountUp";
 import "./DashboardSummaryWidget.css";
 
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
@@ -91,7 +92,7 @@ export default function DashboardSummaryWidget({ widget, locale, wines, session 
   switch (id) {
     case "overview":
       destination = "collector";
-      content = <div className="summary-numbers">{[[sumBottles(stock), it ? "bottiglie" : "bottles"], [stock.length, it ? "etichette" : "labels"], [new Set(stock.map(wine => wine.producer.trim().toLocaleLowerCase()).filter(Boolean)).size, it ? "produttori" : "producers"]].map(([value, label]) => <div key={String(label)}><strong>{count(Number(value))}</strong><span>{label}</span></div>)}</div>;
+      content = <div className="summary-numbers">{[[sumBottles(stock), it ? "bottiglie" : "bottles"], [stock.length, it ? "etichette" : "labels"], [new Set(stock.map(wine => wine.producer.trim().toLocaleLowerCase()).filter(Boolean)).size, it ? "produttori" : "producers"]].map(([value, label], index) => <div key={String(label)}><strong><DashboardCountUp value={Number(value)} format={count} delay={index * 90} /></strong><span>{label}</span></div>)}</div>;
       note = it ? "Intera cantina, incluse le quote condivise." : "Whole cellar, including shared holdings.";
       break;
     case "collection_value": {
@@ -181,7 +182,7 @@ export default function DashboardSummaryWidget({ widget, locale, wines, session 
     case "past_window": {
       destination = "readiness";
       const urgent = available.filter(wine => validWindow(wine) && wine.drink_to! <= year).sort((a, b) => a.drink_to! - b.drink_to!);
-      content = <><div className="summary-value"><strong>{count(sumBottles(urgent))}</strong><span>{it ? "bottiglie da verificare" : "bottles to review"}</span></div>{gallery(urgent, wine => <b>{wine.drink_to! < year ? (it ? "Finestra superata" : "Past window") : (it ? "In chiusura" : "Closing")} · {wine.drink_to}</b>)}</>;
+      content = <><div className="summary-value"><strong><DashboardCountUp value={sumBottles(urgent)} format={count} /></strong><span>{it ? "bottiglie da verificare" : "bottles to review"}</span></div>{gallery(urgent, wine => <b>{wine.drink_to! < year ? (it ? "Finestra superata" : "Past window") : (it ? "In chiusura" : "Closing")} · {wine.drink_to}</b>)}</>;
       break;
     }
     case "next_peak": {
@@ -254,7 +255,7 @@ export default function DashboardSummaryWidget({ widget, locale, wines, session 
     case "to_collect": {
       destination = "cellar_to_collect";
       const items = stock.filter(isToCollectWine);
-      content = <><div className="summary-value"><strong>{count(sumBottles(items))}</strong><span>{it ? "bottiglie da ritirare" : "bottles awaiting collection"}</span></div>{gallery(items, wine => wine.merchant || `${count(wine.quantity)} ${it ? "bottiglie" : "bottles"}`)}</>;
+      content = <><div className="summary-value"><strong><DashboardCountUp value={sumBottles(items)} format={count} /></strong><span>{it ? "bottiglie da ritirare" : "bottles awaiting collection"}</span></div>{gallery(items, wine => wine.merchant || `${count(wine.quantity)} ${it ? "bottiglie" : "bottles"}`)}</>;
       break;
     }
     case "storage": {

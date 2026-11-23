@@ -1,0 +1,143 @@
+/*
+ * My dashboard, contemporary edition: a bento grid of tiles in four sizes, one
+ * surface per tile, headline numbers, handles that show up when needed and a
+ * little life (staggered entrance, responsive tiles, numbers that count up).
+ * Everything is scoped to .personal-dashboard: the other dashboards keep their look.
+ */
+
+/* ---- Grid: 12 columns, four sizes ---------------------------------------- */
+.personal-dashboard .personal-widget-grid {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+.personal-dashboard .personal-widget { grid-column: span 6; }
+.personal-dashboard .personal-widget-third { grid-column: span 4; }
+.personal-dashboard .personal-widget-two_thirds { grid-column: span 8; }
+.personal-dashboard .personal-widget-full { grid-column: 1 / -1; }
+
+/* Tablets and unfolded phones: thirds pair up, everything else takes the row. */
+@media (max-width: 1000px) {
+  .personal-dashboard .personal-widget-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .personal-dashboard :is(.personal-widget, .personal-widget-half, .personal-widget-two_thirds, .personal-widget-full) { grid-column: 1 / -1; }
+  .personal-dashboard .personal-widget-third { grid-column: span 1; }
+}
+@media (max-width: 600px) {
+  .personal-dashboard .personal-widget-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .personal-dashboard .personal-widget-third { grid-column: 1 / -1; }
+}
+
+/* ---- One surface per tile ------------------------------------------------- */
+.personal-dashboard .dashboard-summary {
+  --tile-rule: color-mix(in srgb, var(--border) 72%, transparent);
+  position: relative;
+  gap: 16px;
+  padding: 22px 24px 18px;
+  border: 1px solid var(--tile-rule);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--collector-depth, #192c20) 6%, transparent);
+  transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
+}
+/* A thin gold light along the top edge, the only ornament left. */
+.personal-dashboard .dashboard-summary::before {
+  content: ""; position: absolute; inset: 0 22px auto; height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 55%, transparent), transparent);
+  opacity: .7; pointer-events: none;
+}
+@media (hover: hover) {
+  .personal-dashboard .personal-widget:hover .dashboard-summary {
+    border-color: color-mix(in srgb, var(--accent) 38%, var(--tile-rule));
+    box-shadow: 0 14px 34px -18px color-mix(in srgb, var(--collector-depth, #192c20) 38%, transparent);
+    transform: translateY(-2px);
+  }
+}
+
+/* Heading: a small accent label and a confident title. */
+.personal-dashboard .dashboard-summary > header p {
+  margin: 0 0 4px; color: var(--accent); font-size: .66rem; font-weight: 700; letter-spacing: .14em;
+}
+.personal-dashboard .dashboard-summary > header h3 {
+  font-size: clamp(1.2rem, 2.6cqi + .6rem, 1.6rem); letter-spacing: -.015em;
+}
+/* Content starts under the title instead of floating in the middle of the tile. */
+.personal-dashboard .dashboard-summary .summary-body { align-content: start; }
+
+.personal-dashboard .dashboard-summary > footer { border-top-color: var(--tile-rule); padding-top: 8px; }
+.personal-dashboard .dashboard-summary .summary-explore { padding: 6px 0; font-size: .86rem; font-weight: 650; }
+.personal-dashboard .summary-explore > span { transition: transform .2s ease; }
+.personal-dashboard .summary-explore:hover > span { transform: translate(2px, -2px); }
+
+/* ---- Headline numbers ------------------------------------------------------ */
+.personal-dashboard .summary-value > strong,
+.personal-dashboard .summary-numbers strong {
+  font-family: var(--font-ui, inherit); font-weight: 650; letter-spacing: -.035em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.personal-dashboard .summary-value > strong { font-size: clamp(2.2rem, 9cqi, 3.4rem); color: var(--text); }
+.personal-dashboard .summary-value > span { font-size: .8rem; }
+.personal-dashboard .summary-numbers { padding-block: 6px 2px; gap: 10px; }
+.personal-dashboard .summary-numbers > div { gap: 6px; padding-left: 12px; border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+.personal-dashboard .summary-numbers strong { font-size: clamp(1.8rem, 9cqi, 3.2rem); }
+.personal-dashboard .summary-numbers span { font-size: .74rem; letter-spacing: .02em; }
+
+/* Bottles: no halo, a quiet lift on hover. */
+.personal-dashboard .dashboard-summary .summary-bottle { background: none; transition: background-color .2s ease, transform .2s ease; }
+.personal-dashboard .dashboard-summary .summary-bottle:hover { background-color: color-mix(in srgb, var(--accent) 7%, transparent); transform: translateY(-2px); }
+.personal-dashboard .dashboard-summary .summary-bottles-single .summary-bottle { grid-template-columns: 64px minmax(0, 1fr); align-items: center; }
+.personal-dashboard .summary-bottles-single .key-position-bottle-visual { width: 56px; height: 120px; }
+
+/* ---- Your cellar today: rows on the tile, not cards in a card -------------- */
+.personal-dashboard .today-in-cellar-cards { gap: 0; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.personal-dashboard .today-in-cellar-card {
+  padding: 14px 16px; border: 0; border-radius: 0; background: none; box-shadow: none;
+  border-left: 1px solid var(--tile-rule, var(--border));
+  transition: background-color .2s ease;
+}
+.personal-dashboard .today-in-cellar-card:first-child { border-left: 0; padding-left: 0; }
+.personal-dashboard .today-in-cellar-card::before { display: none; }
+.personal-dashboard .today-in-cellar-bottle { background: none; }
+@media (hover: hover) {
+  .personal-dashboard .today-in-cellar-card:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+}
+@media (max-width: 720px) {
+  .personal-dashboard .today-in-cellar-card,
+  .personal-dashboard .today-in-cellar-card:first-child {
+    padding: 14px; border: 1px solid var(--tile-rule, var(--border)); border-radius: 16px;
+    background: color-mix(in srgb, var(--surface-muted) 30%, var(--surface));
+  }
+}
+
+/* ---- Handles appear when they are useful ----------------------------------- */
+.personal-dashboard .personal-widget-direct-handle {
+  top: 14px; right: 14px; border: 0; background: transparent; box-shadow: none;
+  color: var(--text-muted); opacity: .35; transition: opacity .2s ease, background-color .2s ease;
+}
+.personal-dashboard .personal-widget:hover .personal-widget-direct-handle,
+.personal-dashboard .personal-widget-direct-handle:focus-visible,
+.personal-dashboard .personal-widget.is-dragging .personal-widget-direct-handle {
+  opacity: 1; background: color-mix(in srgb, var(--surface-muted) 70%, transparent);
+}
+@media (hover: none) {
+  .personal-dashboard .personal-widget-direct-handle { opacity: .55; }
+}
+
+/* ---- A little life ---------------------------------------------------------- */
+@keyframes personal-widget-in {
+  from { opacity: 0; transform: translateY(10px) scale(.99); }
+  to { opacity: 1; transform: none; }
+}
+.personal-dashboard .personal-widget {
+  animation: personal-widget-in .5s cubic-bezier(.2, .7, .2, 1) both;
+  animation-delay: calc(min(var(--widget-index, 0), 8) * 60ms);
+}
+.personal-dashboard .personal-widget.is-drop-target { outline-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .personal-dashboard .personal-widget { animation: none; }
+  .personal-dashboard :is(.dashboard-summary, .summary-bottle, .summary-explore > span, .today-in-cellar-card) { transition: none; }
+  .personal-dashboard .personal-widget:hover .dashboard-summary,
+  .personal-dashboard .dashboard-summary .summary-bottle:hover { transform: none; }
+}
+
+/* A tile of numbers alone sits them in the middle when a taller neighbour stretches it. */
+.personal-dashboard .dashboard-summary .summary-body:has(> .summary-numbers:only-child) { align-content: center; }

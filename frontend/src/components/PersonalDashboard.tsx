@@ -2,11 +2,12 @@ import { DashboardSummaryData } from "./dashboardSummaryData";
 import { WidgetPickerCard } from "./WidgetPickerCard";
 import { AppIcon } from "./AppIcon";
 import { ApiError } from "../services/api";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useWidgetDrag } from "./useWidgetDrag";
-import type { Locale, PersonalDashboardWidget, PersonalDashboardWidgetId } from "../types";
+import type { Locale, PersonalDashboardWidget, PersonalDashboardWidgetId, PersonalDashboardWidgetWidth } from "../types";
 import "./PersonalDashboard.css";
+import "./PersonalDashboardBento.css";
 import { personalDashboardCatalogue as catalogue, normalizeDashboardLayout } from "./personalDashboardCatalogue";
 
 const initialLayout: PersonalDashboardWidget[] = [
@@ -110,14 +111,14 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDemo = false, i
         const selected = draft.some(item => item.id === widget.id);
         return <WidgetPickerCard key={widget.id} title={title} description={description} selected={selected} it={it} onSelect={() => setDraft(selected ? draft.filter(item => item.id !== widget.id) : [...draft, { id: widget.id, width: "full" }])} renderPreview={() => renderWidget(draft.find(item => item.id === widget.id) ?? { id: widget.id, width: "half" }, true)} />;
       })}</div>
-      <p>{it ? "Trascina i widget dalla maniglia oppure usa Su e Giù. La larghezza si applica su desktop; sul telefono ogni widget occupa una riga." : "Drag widgets by their handle or use Up and Down. Width applies on desktop; on phones each widget takes a row."}</p>
+      <p>{it ? "Trascina i widget dalla maniglia oppure usa Su e Giù. La larghezza si applica su desktop: un terzo, metà, due terzi o la riga intera. Sul telefono ogni widget occupa una riga." : "Drag widgets by their handle or use Up and Down. Width applies on desktop: a third, half, two thirds or the whole row. On phones each widget takes a row."}</p>
       <div className="personal-dashboard-actions"><button type="button" onClick={() => void save()}>{saving ? (it ? "Salvataggio…" : "Saving…") : (it ? "Salva dashboard" : "Save dashboard")}</button><button type="button" className="secondary" onClick={() => { setEditing(false); setError(""); }}>{it ? "Annulla" : "Cancel"}</button></div>
     </fieldset>}
     {layout.length === 0 && <p className="empty-state">{it ? "La tua dashboard è vuota. Seleziona Personalizza per aggiungere i primi widget." : "Your dashboard is empty. Choose Customize to add your first widgets."}</p>}
     <p className="sr-only" aria-live="polite" aria-atomic="true">{drag ? (it ? `Trascinamento di ${titleFor(drag.id)}. Premi Esc per annullare.` : `Dragging ${titleFor(drag.id)}. Press Escape to cancel.`) : reorderNotice}</p>
     <div ref={gridRef} className="personal-widget-grid">{layout.map((widget, index) => {
       const title = catalogue.find(item => item.id === widget.id)?.[locale][0] ?? widget.id;
-      return <section key={widget.id} data-widget-id={widget.id} className={`personal-widget personal-widget-${widget.width}${drag?.id === widget.id ? " is-dragging" : ""}${drag?.over === widget.id && drag.id !== widget.id ? " is-drop-target" : ""}`} aria-label={title}>
+      return <section key={widget.id} data-widget-id={widget.id} style={{ "--widget-index": index } as CSSProperties} className={`personal-widget personal-widget-${widget.width}${drag?.id === widget.id ? " is-dragging" : ""}${drag?.over === widget.id && drag.id !== widget.id ? " is-drop-target" : ""}`} aria-label={title}>
         {!editing && !readOnly && <button type="button" className="secondary personal-widget-direct-handle" disabled={saving} aria-label={`${it ? "Trascina per riordinare" : "Drag to reorder"}: ${title}`} title={it ? "Trascina o usa le frecce Su/Giù; il nuovo ordine viene salvato automaticamente" : "Drag or use the Up/Down arrows; the new order is saved automatically"} {...handleProps(widget.id)} onKeyDown={event => {
           if ((event.key === "ArrowUp" || event.key === "ArrowDown") && !drag) { event.preventDefault(); const target = layout[index + (event.key === "ArrowUp" ? -1 : 1)]; if (target) void quickReorder(widget.id, target.id); }
         }}><span aria-hidden="true">⠿</span></button>}
@@ -126,7 +127,7 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDemo = false, i
             if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); if (!drag) move(index, event.key === "ArrowUp" ? -1 : 1); }
           }}><span aria-hidden="true">⠿</span></button><strong>{index + 1}. {title}</strong></div>
           <div><button type="button" className="secondary" disabled={saving || index === 0} aria-label={`${it ? "Sposta su" : "Move up"}: ${title}`} onClick={() => move(index, -1)}>↑ {it ? "Su" : "Up"}</button><button type="button" className="secondary" disabled={saving || index === draft.length - 1} aria-label={`${it ? "Sposta giù" : "Move down"}: ${title}`} onClick={() => move(index, 1)}>↓ {it ? "Giù" : "Down"}</button>
-            <label><span className="sr-only">{it ? "Larghezza" : "Width"}: {title}</span><select aria-label={`${it ? "Larghezza" : "Width"}: ${title}`} disabled={saving} value={widget.width} onChange={event => setDraft(draft.map(item => item.id === widget.id ? { ...item, width: event.target.value as "half" | "full" } : item))}><option value="full">{it ? "Intera riga" : "Full row"}</option><option value="half">{it ? "Mezza riga" : "Half row"}</option></select></label>
+            <label><span className="sr-only">{it ? "Larghezza" : "Width"}: {title}</span><select aria-label={`${it ? "Larghezza" : "Width"}: ${title}`} disabled={saving} value={widget.width} onChange={event => setDraft(draft.map(item => item.id === widget.id ? { ...item, width: event.target.value as PersonalDashboardWidgetWidth } : item))}><option value="full">{it ? "Intera riga" : "Full row"}</option><option value="two_thirds">{it ? "Due terzi" : "Two thirds"}</option><option value="half">{it ? "Mezza riga" : "Half row"}</option><option value="third">{it ? "Un terzo" : "One third"}</option></select></label>
             {widget.id === "value_distribution" && <label><span className="sr-only">{it ? "Raggruppa valore" : "Group value"}</span><select aria-label={it ? "Raggruppa valore" : "Group value"} value={widget.group_by ?? "region"} onChange={event => setDraft(draft.map(item => item.id === widget.id ? { ...item, group_by: event.target.value as "region" | "producer" | "type" } : item))}><option value="region">{it ? "Regione" : "Region"}</option><option value="producer">{it ? "Produttore" : "Producer"}</option><option value="type">{it ? "Tipologia" : "Style"}</option></select></label>}
             <button type="button" className="secondary" disabled={saving} aria-label={`${it ? "Rimuovi" : "Remove"}: ${title}`} onClick={() => setDraft(draft.filter(item => item.id !== widget.id))}>{it ? "Rimuovi" : "Remove"}</button></div>
         </div>}

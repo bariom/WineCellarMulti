@@ -1288,7 +1288,9 @@ export type PersonalDashboardWidgetId = "overview" | "ready" | "regions" | "matu
   | "collection_value" | "availability" | "composition"
   | "purchase_value" | "value_changes" | "value_distribution" | "styles" | "vintages" | "grapes" | "producers" | "formats"
   | "next_peak" | "taste_origins" | "best_tastings" | "recent_tastings" | "memories" | "polaroids" | "tasting_rhythm" | "storage" | "wishlist" | "purposes" | "today";
-export type PersonalDashboardWidget = { id: PersonalDashboardWidgetId; width: "half" | "full"; group_by?: "region" | "producer" | "type" | null };
+/** Bento sizes on desktop: a third, half, two thirds or the whole row of a 12-column grid. */
+export type PersonalDashboardWidgetWidth = "third" | "half" | "two_thirds" | "full";
+export type PersonalDashboardWidget = { id: PersonalDashboardWidgetId; width: PersonalDashboardWidgetWidth; group_by?: "region" | "producer" | "type" | null };
 export type PrimaryDashboardFocus = "collector" | "daily" | "balanced" | "personal";
 
 export type DashboardFocus =

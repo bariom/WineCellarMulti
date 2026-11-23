@@ -1389,7 +1389,8 @@ def test_personal_dashboard_is_private_persistent_and_validated():
     second = TestClient(app)
     assert register(first).status_code == 201
     assert register(second, "other-dashboard@example.com").status_code == 201
-    layout = [{"id": "regions", "width": "full"}, {"id": "ready", "width": "half"}, {"id": "value_distribution", "width": "half", "group_by": "producer"}]
+    # Every bento size: a third, half, two thirds and the whole row.
+    layout = [{"id": "regions", "width": "full"}, {"id": "ready", "width": "half"}, {"id": "value_distribution", "width": "half", "group_by": "producer"}, {"id": "to_collect", "width": "third"}, {"id": "today", "width": "two_thirds"}]
     response = first.patch("/api/v1/auth/preferences", json={
         "personal_dashboard_widgets": layout, "dashboard_focus": "personal",
     })
