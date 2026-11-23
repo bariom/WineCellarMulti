@@ -163,6 +163,7 @@ const ValueDashboard = lazy(() => import("./views/home/ValueDashboard"));
 const DashboardHero = lazy(() => import("./views/home/DashboardHero"));
 const DailySommelierBubble = lazy(() => import("./views/home/DailySommelierBubble"));
 const TodayInCellar = lazy(() => import("./views/home/TodayInCellar"));
+const EmptyCellarWelcome = lazy(() => import("./views/home/EmptyCellarWelcome"));
 const ProfileSettingsTab = lazy(() => import("./views/settings/ProfileSettingsTab"));
 const SharingSettingsTab = lazy(() => import("./views/settings/SharingSettingsTab"));
 const DataSettingsTab = lazy(() => import("./views/settings/DataSettingsTab"));
@@ -990,6 +991,8 @@ export function App() {
     // Only a change of user or plan is reported, never every render.
   }, [analyticsUserId, analyticsPlan]);
   const [wines, setWines] = useState<Wine[]>([]);
+  // Whether the first wine list has arrived: an empty cellar is only known after it.
+  const [winesLoaded, setWinesLoaded] = useState(false);
   const [merchants, setMerchants] = useState<Array<{ id: string; name: string }>>([]);
   const wineMerchantOptionsId = useId();
   const [portfolioValueHistory, setPortfolioValueHistory] = useState<Array<{ recorded_at: string; value: string }>>([]);
@@ -1413,6 +1416,11 @@ export function App() {
     return navigator.language.toLowerCase().startsWith("it") ? "it" : "en";
   });
   const demoCtaLabel = locale === "it" ? "Esplora la cantina demo" : "Explore the demo cellar";
+  // The page language for screen readers, and for the cookie banner that lives outside the app.
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.documentElement.setAttribute("data-app-lang", locale);
+  }, [locale]);
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
   const visibleError = formatUserErrorMessage(error, locale);
@@ -1951,6 +1959,7 @@ export function App() {
   async function loadWines() {
     const nextWines = await api<Wine[]>("/api/v1/wines");
     setWines(nextWines);
+    setWinesLoaded(true);
     setSelectedWineId((currentId) => (currentId && nextWines.some((wine) => wine.id === currentId) ? currentId : null));
   }
 
@@ -5732,7 +5741,7 @@ export function App() {
         {authMode !== "reset-password" ? (
           <label>
             <span>{t("email")}</span>
-            <input id={authMode === "login" ? "auth-login-email" : undefined} type="email" inputMode="email" autoComplete="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} placeholder="nome@esempio.com" required />
+            <input id={authMode === "login" ? "auth-login-email" : undefined} type="email" inputMode="email" autoComplete="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} placeholder={locale === "it" ? "nome@esempio.com" : "name@example.com"} required />
           </label>
         ) : null}
         {authMode === "register" ? (
@@ -6531,6 +6540,8 @@ export function App() {
   const ownedPositionValue = (wine: Wine) => wineUnitValue(wine) * wine.quantity * ownedShare(wine);
   // The home hero and the collector focus show the user's own collection: co-owned wines count for the
   // user's share of their bottles, and wines without a share are left out.
+  // A new cellar shows one way to add the first wine instead of dashboards full of zeros.
+  const showEmptyCellarWelcome = activeView === "home" && !isRestaurant && !offlineMode && winesLoaded && wines.length === 0;
   const ownedCellarWines = cellarWines
     .filter((wine) => ownedShare(wine) > 0)
     .map((wine) => (ownedShare(wine) >= 1 ? wine : { ...wine, quantity: wine.quantity * ownedShare(wine) }));
@@ -9976,7 +9987,18 @@ export function App() {
               />
             </Suspense>
           ) : null}
-          {activeView === "home" && !isRestaurant ? (
+          {showEmptyCellarWelcome ? (
+            <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
+              <EmptyCellarWelcome
+                locale={locale}
+                canWrite={canWriteWine}
+                onAddWine={chooseAddWine}
+                onImport={() => { setActiveView("settings"); setSettingsTab("data"); loadSettingsTabData("data"); }}
+                onOpenHelp={() => openHelp()}
+              />
+            </Suspense>
+          ) : null}
+          {activeView === "home" && !isRestaurant && !showEmptyCellarWelcome ? (
             <section className={`home-dashboard home-dashboard-editorial${dashboardFocus !== "collector" ? " home-dashboard-secondary" : ""}`}>
               <section className="dashboard-focus-navigation" aria-label={t("primaryDashboardFocus")}>
                 <div className="dashboard-focus-lead">
@@ -12367,9 +12389,9 @@ export function App() {
             {loading || tastingArchiveLoading ? <LoadingState label={t("loadingData")} variant="list" /> : null}
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? (
               <EmptyState
-                title={t("noWineMatch")}
+                title={activeCollectionFilterChips.length ? t("noWineMatch") : (locale === "it" ? "La tua cantina è ancora vuota" : "Your cellar is still empty")}
                 icon="cellar"
-                helpSlug="cellar-filters"
+                helpSlug={activeCollectionFilterChips.length ? "cellar-filters" : undefined}
                 actions={activeCollectionFilterChips.length
                   ? <button type="button" onClick={() => clearFilters("cellar")}>{t("clearFilters")}</button>
                   : canWriteWine ? <button type="button" onClick={chooseAddWine}>{t("addWine")}</button> : null}

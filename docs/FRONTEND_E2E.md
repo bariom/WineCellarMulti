@@ -98,6 +98,7 @@ light/dark themes and desktop in the private-cellar theme.
 | Archived wines, missing wine color and tasting distinction | `npm run test:e2e:history-archive` |
 | Tablet desktop-layout preference, iPad emulation without touch points, persistence, phone exclusion, Windows touch laptop header alignment at 1366/1920 px and visible insights menu at 800–1024 px | `npm run test:e2e:tablet-layout` |
 | Foldable phones and upright tablets (700–1099 px): wine detail docked beside the list at the measured Galaxy Z Fold inner size 752×782, switching wine with one tap, and the same wine kept open when the phone is closed to 360×802 and reopened | `npm run test:e2e:foldable` |
+| First minutes of a newcomer: welcome instead of zero-filled dashboards on an empty cellar (IT/EN, 390/1440), import and add entry points, empty cellar list wording, cookie banner in the page language and sign-up form kept above it | `npm run test:e2e:first-run` |
 | Open a saved wine directly from tasting history | `npm run test:e2e:tasting-wine-detail` |
 | Installed PWA manifest orientation and smartphone landscape navigation | `npm run test:e2e:pwa-landscape` |
 | Wine Pulse desktop width, IT/EN reading tools, responsive layout, pagination and errors | `npm run test:e2e:wine-pulse` |

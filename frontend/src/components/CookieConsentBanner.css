@@ -108,3 +108,8 @@
     flex: 1 1 120px;
   }
 }
+
+/* While the banner waits for an answer, a dialog such as sign-up stops above it,
+   so no field hides under the banner (the dialog scrolls instead). */
+:root .auth-modal-overlay { padding-bottom: max(clamp(14px, 3vw, 30px), var(--cookie-banner-space, 0px)); }
+:root .auth-modal-card { max-height: min(900px, calc(100dvh - clamp(14px, 3vw, 30px) - max(clamp(14px, 3vw, 30px), var(--cookie-banner-space, 0px)))); }

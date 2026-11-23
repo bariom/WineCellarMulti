@@ -16,7 +16,7 @@ async function openPublicPage(page: Page) {
 test("consent mode starts denied and marketing consent grants ads storage", async ({ page }) => {
   await openPublicPage(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto("/?lang=it");
 
   const banner = page.getByRole("dialog", { name: "Le tue preferenze cookie" });
   await expect(banner).toBeVisible();
@@ -68,7 +68,7 @@ test("usage statistics consent grants analytics storage and is kept", async ({ p
     }
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto("/?lang=it");
 
   const banner = page.getByRole("dialog", { name: "Le tue preferenze cookie" });
   await expect(banner).toBeVisible();
