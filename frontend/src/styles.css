@@ -28070,3 +28070,19 @@ body,
 @media (max-width: 480px) {
   .spreadsheet-summary.full-backup-counts > div { padding: 10px; }
 }
+
+/* Demo: the way from the read-only cellar to one's own, gold on the dark header. */
+.session-pill .demo-create-cellar {
+  min-height: 38px; padding: 7px 16px; border: 0; border-radius: 999px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 88%, #fff), var(--accent));
+  color: #1c1408; font-size: .8rem; font-weight: 750; white-space: nowrap;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.session-pill .demo-create-cellar:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.demo-session-pill > .demo-create-cellar { grid-column: 1 / -1; grid-row: 1; }
+@media (max-width: 420px) {
+  .session-pill .demo-create-cellar { padding: 6px 12px; font-size: .74rem; }
+}
+@media (max-width: 520px) {
+  .session-pill .demo-create-cellar .demo-create-free { display: none; }
+}

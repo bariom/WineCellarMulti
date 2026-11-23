@@ -69,3 +69,32 @@ test("the cookie banner speaks English on the English page and leaves the sign-u
   // Without the banner the form takes its usual height again.
   await expect.poll(async () => (await card.boundingBox())!.height).toBeGreaterThan(cardBox.height);
 });
+
+for (const [width, height] of [[390, 844], [1440, 900]] as const) {
+  test(`the demo leads to a cellar of one's own, in the visitor's language (${width})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height });
+    await mockApi(page, [], false, memberships, [wine], { ...session, is_demo: true, locale: "en", membership_role: null, active_household_name: "Vinaris Demo · Collector Cellar" });
+    await page.goto("/");
+    await page.evaluate(() => {
+      const original = window.fetch;
+      window.fetch = async (input, init) => {
+        if (String(input).endsWith("/auth/logout")) (window as any).loggedOut = true;
+        return original(input, init);
+      };
+    });
+    const create = page.getByRole("button", { name: "Create your own cellar, it's free", exact: true });
+    await expect(create).toBeVisible();
+    await expect(page.getByText("Demo · read-only", { exact: true })).toHaveCount(0);
+    const box = (await create.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    expect(box.height).toBeGreaterThanOrEqual(36);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`demo-create-${width}.png`) });
+    await create.click();
+    await expect.poll(() => page.evaluate(() => (window as any).loggedOut === true)).toBe(true);
+    // Sign-up opens, still in English.
+    await expect(page.getByRole("heading", { name: "Create account" }).or(page.getByText("Create account", { exact: true })).first()).toBeVisible();
+    await expect(page.getByPlaceholder("name@example.com")).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`demo-signup-${width}.png`) });
+  });
+}

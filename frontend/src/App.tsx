@@ -2187,6 +2187,18 @@ export function App() {
     });
   }
 
+  /** From the read-only demo to a cellar of one's own: leave the demo, open sign-up, keep the language. */
+  async function createCellarFromDemo() {
+    const keepLocale = locale;
+    try {
+      await logout();
+    } catch {
+      // The demo session expires on its own; sign-up still opens.
+    }
+    setLocale(keepLocale);
+    openAuthPanel("register");
+  }
+
   async function submitContactSupport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -9351,7 +9363,8 @@ export function App() {
               </label>
             ) : null}
             {!session?.is_demo && !eventGuest ? <span>{session?.membership_role}</span> : null}
-            {session?.is_demo ? <span className="status-pill">{locale === "it" ? "Demo · sola lettura" : "Demo · read-only"}</span> : null}
+            {session?.is_demo && eventReturn ? <span className="status-pill">{locale === "it" ? "Demo · sola lettura" : "Demo · read-only"}</span> : null}
+            {session?.is_demo && !eventReturn ? <button type="button" className="compact demo-create-cellar" title={locale === "it" ? "La demo è in sola lettura: crea la tua cantina per aggiungere i tuoi vini" : "The demo is read-only: create your own cellar to add your wines"} onClick={() => void createCellarFromDemo()} aria-label={locale === "it" ? "Crea la tua cantina, è gratis" : "Create your own cellar, it's free"}>{locale === "it" ? "Crea la tua cantina" : "Create your cellar"}<span className="demo-create-free">{locale === "it" ? ", è gratis" : ", it's free"}</span></button> : null}
             {eventReturn && !isMobileViewport ? <button type="button" className="compact event-keep-button" onClick={() => void returnToEvent()}>{locale === "it" ? "Torna alla serata" : "Back to tonight"}</button> : null}
             {offlineMode ? <span>{t("offlineMode")}: {offlineFileName}</span> : null}
             {!offlineMode && !session?.is_demo && !eventGuest ? <div className="notification-wrap">
