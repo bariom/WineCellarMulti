@@ -86,6 +86,11 @@ def _t(it: str, en: str) -> str:
     return it if _LOCALE.get() == "it" else en
 
 
+def message(it: str, en: str) -> str:
+    """A message in the restoring user's language."""
+    return _t(it, en)
+
+
 def _bad_backup(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
@@ -304,7 +309,7 @@ def _coerce(table_name: str, column: Column, value: Any) -> Any:
     return value
 
 
-def _target_is_empty(db: Session, household_id: UUID) -> bool:
+def target_is_empty(db: Session, household_id: UUID) -> bool:
     for model in (Wine, WishlistItem, WineSale):
         found = db.scalar(select(model.id).where(model.household_id == household_id).limit(1))
         if found is not None:
@@ -345,10 +350,25 @@ def _free_tier_problem(context: CurrentContext, parsed: ParsedBackup) -> str | N
     return None
 
 
+def _photo_counts(parsed: ParsedBackup) -> dict[str, int]:
+    """Photos and documents as a person counts them: a bottle photo is one photo even
+    though the backup holds it in two sizes."""
+    files = parsed.file_members
+    return {
+        "bottle_photos": len(
+            {name.split("/")[2] for name in files if name.startswith("files/wine-photos/")}
+        ),
+        "memory_photos": sum(
+            1 for name in files if name.startswith("files/binary/") and "/memory_photo/" in name
+        ),
+        "documents": sum(1 for name in files if name.startswith("files/purchase-documents/")),
+    }
+
+
 def preview(db: Session, context: CurrentContext, parsed: ParsedBackup) -> dict[str, Any]:
     household = parsed.manifest.get("household")
     household = household if isinstance(household, dict) else {}
-    target_empty = _target_is_empty(db, context.household.id)
+    target_empty = target_is_empty(db, context.household.id)
     warnings = list(parsed.warnings)
     if not target_empty:
         warnings.append(
@@ -366,6 +386,7 @@ def preview(db: Session, context: CurrentContext, parsed: ParsedBackup) -> dict[
         "household_name": str(household.get("name") or ""),
         "counts": {spec.name: len(parsed.tables[spec.name]) for spec in BACKUP_TABLES},
         "file_count": len(parsed.file_members),
+        "photo_counts": _photo_counts(parsed),
         "target_empty": target_empty,
         "warnings": warnings,
     }
@@ -781,7 +802,7 @@ def restore(db: Session, context: CurrentContext, parsed: ParsedBackup) -> dict[
     """Restore the backup into the active cellar, which must be empty. Commits."""
     # Two restores into the same cellar at once would both find it empty.
     db.scalar(select(Household.id).where(Household.id == context.household.id).with_for_update())
-    if not _target_is_empty(db, context.household.id):
+    if not target_is_empty(db, context.household.id):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=_t(

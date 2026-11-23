@@ -17,10 +17,45 @@ const previewCounts = {
   wine_stock_movements: 5,
 };
 
-/** Mocks the three backup endpoints on top of the shared API fixtures; calls land in sessionStorage. */
+const previewBody = (counts: Record<string, number>, targetEmpty: boolean) => ({
+  schema: "vinaris.backup.v3",
+  exported_at: "2026-11-20T18:30:00Z",
+  household_name: "Cantina E2E",
+  counts,
+  file_count: 112,
+  photo_counts: { bottle_photos: 50, memory_photos: 7, documents: 5 },
+  target_empty: targetEmpty,
+  warnings: ["2 foto non erano leggibili e non sono nel backup."],
+  upload_token: "tok-1",
+});
+
+/** Mocks the backup endpoints on top of the shared API fixtures; calls land in sessionStorage. */
 async function setup(page: Page, { locale = "it", theme = "light" }: Options = {}) {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await mockApi(page, [], false, memberships, [wine], { ...session, locale, theme_preference: theme });
+  // Preview and restore upload through XMLHttpRequest (for the progress bar): page.route answers them.
+  await page.route("**/api/v1/backup/{preview,restore}", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    const body = request.postDataBuffer()?.toString("latin1") ?? "";
+    const file = body.match(/name="file"; filename="([^"]+)"/)?.[1] ?? null;
+    const token = body.match(/name="upload_token"\r\n\r\n([^\r]+)/)?.[1] ?? null;
+    const state = await page.evaluate(({ path, file, token }) => {
+      const calls = JSON.parse(sessionStorage.getItem("backup-calls") || "[]");
+      calls.push({ path, method: "POST", file, token });
+      sessionStorage.setItem("backup-calls", JSON.stringify(calls));
+      return {
+        status: Number(sessionStorage.getItem(`backup-status:${path}`) || 200),
+        tokenGone: sessionStorage.getItem("backup-token-gone") === "1",
+        targetFull: sessionStorage.getItem("backup-target-full") === "1",
+      };
+    }, { path, file, token });
+    if (state.status === 413) return route.fulfill({ status: 413, contentType: "text/html", body: "<html><head><title>413 Request Entity Too Large</title></head></html>" });
+    if (state.status === 409) return route.fulfill({ status: 409, json: { detail: "La cantina non è vuota: svuotala prima di ripristinare." } });
+    if (path.endsWith("/preview")) return route.fulfill({ json: previewBody(previewCounts, !state.targetFull) });
+    if (token && state.tokenGone) return route.fulfill({ status: 410, json: { detail: "Il backup caricato non è più disponibile: sceglilo di nuovo." } });
+    return route.fulfill({ json: { restored: previewCounts, skipped: { wine_value_history: 1 }, file_count: 112, warnings: [] } });
+  });
   await page.addInitScript((counts) => {
     const original = window.fetch;
     window.fetch = async (input, init) => {
@@ -31,7 +66,7 @@ async function setup(page: Page, { locale = "it", theme = "light" }: Options = {
       if (init?.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
       const file = init?.body instanceof FormData ? init.body.get("file") : null;
       const calls = JSON.parse(sessionStorage.getItem("backup-calls") || "[]");
-      calls.push({ path: url.pathname, method: init?.method || "GET", file: file instanceof File ? file.name : null });
+      calls.push({ path: url.pathname, method: init?.method || "GET", file: file instanceof File ? file.name : null, token: null });
       sessionStorage.setItem("backup-calls", JSON.stringify(calls));
       const status = Number(sessionStorage.getItem(`backup-status:${url.pathname}`) || 200);
       if (status === 413) return new Response("<html><head><title>413 Request Entity Too Large</title></head></html>", { status: 413, headers: { "Content-Type": "text/html" } });
@@ -44,16 +79,8 @@ async function setup(page: Page, { locale = "it", theme = "light" }: Options = {
           "Content-Disposition": 'attachment; filename="vinaris-backup-cantina-e2e-2026-11-23.zip"',
         } });
       }
-      if (url.pathname.endsWith("/preview")) return Response.json({
-        schema: "vinaris-backup/1",
-        exported_at: "2026-11-20T18:30:00Z",
-        household_name: "Cantina E2E",
-        counts,
-        file_count: 57,
-        target_empty: sessionStorage.getItem("backup-target-full") !== "1",
-        warnings: ["2 foto non erano leggibili e non sono nel backup."],
-      });
-      return Response.json({ restored: counts, skipped: { wine_value_history: 1 }, file_count: 57, warnings: [] });
+      if (url.pathname.endsWith("/target")) return Response.json({ target_empty: sessionStorage.getItem("backup-target-full") !== "1" });
+      return Response.json({ unexpected: counts }, { status: 500 });
     };
   }, previewCounts);
   await page.goto("/");
@@ -61,7 +88,7 @@ async function setup(page: Page, { locale = "it", theme = "light" }: Options = {
   await page.getByRole("tab", { name: locale === "it" ? "Dati" : "Data", exact: true }).click();
 }
 
-const calls = (page: Page) => page.evaluate(() => JSON.parse(sessionStorage.getItem("backup-calls") || "[]") as Array<{ path: string; method: string; file: string | null }>);
+const calls = (page: Page) => page.evaluate(() => JSON.parse(sessionStorage.getItem("backup-calls") || "[]") as Array<{ path: string; method: string; file: string | null; token: string | null }>);
 const noHorizontalOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 const zip = { name: "vinaris-backup-cantina-e2e-2026-11-20.zip", mimeType: "application/zip", buffer: Buffer.from([0x50, 0x4b, 0x05, 0x06, ...new Array(18).fill(0)]) };
 
@@ -85,7 +112,7 @@ test("the complete backup downloads as a ZIP and the JSON export stays available
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("vinaris-backup-cantina-e2e-2026-11-23.zip");
   await expect(card.getByText(/^Backup scaricato: vinaris-backup-cantina-e2e-2026-11-23\.zip/)).toBeVisible();
-  expect(await calls(page)).toEqual([{ path: "/api/v1/backup/export", method: "GET", file: null }]);
+  expect(await calls(page)).toEqual([{ path: "/api/v1/backup/export", method: "GET", file: null, token: null }]);
   await card.scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("full-backup-download-1440.png") });
 });
@@ -113,10 +140,17 @@ for (const locale of ["it", "en"] as const) {
     await expect(restore.getByText(it ? "20 novembre 2026" : "20 November 2026", { exact: false })).toBeVisible();
     const summary = restore.getByLabel(it ? "Contenuto del backup" : "Backup contents", { exact: true });
     for (const [label, value] of it
-      ? [["Vini", "42"], ["Bevute e degustazioni", "118"], ["Foto e documenti", "57"], ["Documenti d'acquisto", "12"], ["Altri dati", "25"]]
-      : [["Wines", "42"], ["Tastings", "118"], ["Photos and documents", "57"], ["Purchase documents", "12"], ["Other records", "25"]]) {
+      ? [["Vini", "42"], ["Bevute e degustazioni", "118"], ["Foto delle bottiglie", "50"], ["Foto ricordo", "7"], ["Documenti d'acquisto", "12"], ["Altri dati", "25"]]
+      : [["Wines", "42"], ["Tastings", "118"], ["Bottle photos", "50"], ["Memory photos", "7"], ["Purchase documents", "12"], ["Other records", "25"]]) {
       await expect(summary.locator("div").filter({ has: page.getByText(label, { exact: true }) }).locator("dd")).toHaveText(value);
     }
+    // A bottle photo counts once, though the backup holds it in two sizes.
+    await expect(summary.getByText(it ? "Foto e documenti" : "Photos and documents", { exact: true })).toHaveCount(0);
+    const others = restore.locator(".full-backup-other");
+    await others.getByText(it ? "Cosa sono gli altri dati" : "What the other records are", { exact: true }).click();
+    await expect(others.locator("dl > div").first()).toContainText(it ? "Storico dei valori" : "Value history");
+    await expect(others.locator("dl > div").first()).toContainText("20");
+    await expect(others.locator("dl > div").nth(1)).toContainText(it ? "Movimenti di magazzino" : "Stock movements");
     // Tables with nothing in them are left out of the summary.
     await expect(summary.getByText(it ? "Vendite" : "Sales", { exact: true })).toHaveCount(0);
     await expect(restore.getByText("2 foto non erano leggibili e non sono nel backup.", { exact: true })).toBeVisible();
@@ -141,7 +175,11 @@ for (const locale of ["it", "en"] as const) {
     await restore.getByRole("button", { name: it ? "Ripristina backup" : "Restore backup", exact: true }).click();
     await expect(restore.getByText(it ? "Ripristino completato: la cantina è tornata com'era nel backup." : "Restore complete: the cellar is back as it was in the backup.", { exact: true })).toBeVisible();
     await expect(restore.getByText(it ? "1 elemento del file non è stato ripristinato." : "1 record in the file was not restored.", { exact: true })).toBeVisible();
-    expect((await calls(page)).map((call) => call.path)).toEqual(["/api/v1/backup/preview", "/api/v1/backup/restore"]);
+    expect((await calls(page)).map((call) => [call.path, call.file, call.token])).toEqual([
+      ["/api/v1/backup/preview", zip.name, null],
+      // The file uploaded for the summary is reused: a slow connection sends it once.
+      ["/api/v1/backup/restore", null, "tok-1"],
+    ]);
     await page.setViewportSize({ width: 390, height: 844 });
     await restore.scrollIntoViewIfNeeded();
     expect(await noHorizontalOverflow(page)).toBe(true);
@@ -173,7 +211,8 @@ test("a cellar that is not empty must be emptied first, then checked again", asy
   await page.evaluate(() => sessionStorage.removeItem("backup-target-full"));
   await restore.getByRole("button", { name: "Controlla di nuovo", exact: true }).click();
   await expect(confirm).toBeEnabled();
-  expect((await calls(page)).map((call) => call.path)).toEqual(["/api/v1/backup/preview", "/api/v1/backup/preview"]);
+  expect((await calls(page)).map((call) => call.path)).toEqual(["/api/v1/backup/preview", "/api/v1/backup/target"]);
+  await expect(restore.getByText("Prima svuota la cantina", { exact: true })).toHaveCount(0);
 });
 
 test("a restore refused because the cellar filled up meanwhile asks to empty it again", async ({ page }) => {
@@ -222,4 +261,19 @@ test("the complete backup reads well in the private-cellar theme on a phone", as
   await restore.scrollIntoViewIfNeeded();
   expect(await noHorizontalOverflow(page)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("full-backup-private-cellar-preview-390.png") });
+});
+
+test("when the kept upload has expired, the restore sends the file again", async ({ page }) => {
+  await setup(page);
+  await page.evaluate(() => sessionStorage.setItem("backup-token-gone", "1"));
+  const importCard = page.getByRole("region", { name: "Importa la tua cantina", exact: true });
+  await importCard.getByLabel("Carica backup Vinaris (ZIP o JSON)", { exact: true }).setInputFiles(zip);
+  const restore = importCard.getByRole("region", { name: "Ripristina il backup completo", exact: true });
+  await restore.getByRole("button", { name: "Ripristina backup", exact: true }).click();
+  await expect(restore.getByText("Ripristino completato: la cantina è tornata com'era nel backup.", { exact: true })).toBeVisible();
+  expect((await calls(page)).map((call) => [call.path, call.file, call.token])).toEqual([
+    ["/api/v1/backup/preview", zip.name, null],
+    ["/api/v1/backup/restore", null, "tok-1"],
+    ["/api/v1/backup/restore", zip.name, null],
+  ]);
 });

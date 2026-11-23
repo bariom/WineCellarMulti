@@ -543,8 +543,12 @@ export type FullBackupPreview = {
   household_name: string;
   counts: Record<string, number>;
   file_count: number;
+  /** Bottle photos (one per wine, though saved in two sizes), memory photos, documents. */
+  photo_counts?: { bottle_photos: number; memory_photos: number; documents: number };
   target_empty: boolean;
   warnings: string[];
+  /** Restores this upload without sending the file again, for 30 minutes. */
+  upload_token?: string;
 };
 
 /** POST /backup/restore: records written and skipped per table. */

@@ -45,7 +45,10 @@ from app.schemas.household import (
 from app.services.ambassador import is_ambassador
 from app.services.email import send_email
 from app.services.free_tier import ensure_free_tier_cellar_capacity
-from app.services.notifications import create_user_notification
+from app.services.notifications import (
+    create_user_notification,
+    remove_household_notifications,
+)
 
 router = APIRouter(prefix="/household")
 
@@ -338,6 +341,9 @@ def delete_active_household(
                 detail="Unable to reassign active cellar for one or more members",
             )
         user_session.active_household_id = fallback_household_id
+
+    # Reminders about this cellar would otherwise outlive it for every member.
+    remove_household_notifications(db, context.household.id)
 
     wine_ids = list(db.scalars(select(Wine.id).where(Wine.household_id == context.household.id)))
     if wine_ids:

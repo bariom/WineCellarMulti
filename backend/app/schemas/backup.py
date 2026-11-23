@@ -10,8 +10,12 @@ class BackupPreviewResponse(BaseModel):
     household_name: str
     counts: dict[str, int]
     file_count: int
+    # Bottle photos (each saved in two sizes), memory photos and purchase documents.
+    photo_counts: dict[str, int] = Field(default_factory=dict)
     target_empty: bool
     warnings: list[str]
+    # Restores this upload without sending it again; valid for 30 minutes.
+    upload_token: str = ""
 
 
 class BackupRestoreResponse(BaseModel):

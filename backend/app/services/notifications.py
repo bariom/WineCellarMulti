@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import math
 from datetime import UTC, date, datetime, timedelta
+from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext
-from app.models import User, UserNotification, UserNotificationDismissal, Wine, WineTastingEntry
+from app.models import (
+    Membership,
+    User,
+    UserNotification,
+    UserNotificationDismissal,
+    Wine,
+    WineTastingEntry,
+)
 
 # Bottles drunk in this window without stars get a gentle "how was it?" reminder:
 # from yesterday, so the evening is over, back to a week, while it is still fresh.
@@ -270,8 +278,61 @@ def _notification_copy(locale: str, key: str, **values: object) -> tuple[str, st
     raise ValueError(f"Unsupported notification copy key: {key}")
 
 
+SMART_PREFIX = "smart:"
+
+
+def _smart_household(fingerprint: str) -> str | None:
+    """The cellar a smart notification is about: smart:<household id>:<kind>:..."""
+    parts = fingerprint.split(":", 2)
+    if len(parts) < 3 or parts[0] != "smart":
+        return None
+    try:
+        return str(UUID(parts[1]))
+    except ValueError:
+        # smart:entitlement:... belongs to the account, not to a cellar.
+        return None
+
+
+def remove_household_notifications(db: Session, household_id: UUID) -> int:
+    """Delete every member's smart notifications about a cellar, e.g. when it is deleted."""
+    pattern = f"{SMART_PREFIX}{household_id}:%"
+    removed = db.execute(
+        delete(UserNotification).where(UserNotification.fingerprint.like(pattern))
+    ).rowcount
+    db.execute(
+        delete(UserNotificationDismissal).where(UserNotificationDismissal.fingerprint.like(pattern))
+    )
+    return int(removed or 0)
+
+
+def remove_foreign_household_notifications(db: Session, user_id: UUID) -> int:
+    """Delete the user's smart notifications about cellars they no longer belong to:
+    a cellar deleted or left keeps reminding nobody."""
+    member_of = {
+        str(household_id)
+        for household_id in db.scalars(
+            select(Membership.household_id).where(Membership.user_id == user_id)
+        )
+    }
+    stale = [
+        notification_id
+        for notification_id, fingerprint in db.execute(
+            select(UserNotification.id, UserNotification.fingerprint).where(
+                UserNotification.user_id == user_id,
+                UserNotification.fingerprint.like(f"{SMART_PREFIX}%"),
+            )
+        )
+        if (household := _smart_household(fingerprint)) is not None and household not in member_of
+    ]
+    if stale:
+        db.execute(delete(UserNotification).where(UserNotification.id.in_(stale)))
+    return len(stale)
+
+
 def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
-    created = 0
+    """Create the smart notifications due for the active cellar. Returns how many rows
+    changed (created or removed), so the caller knows whether to commit."""
+    created = remove_foreign_household_notifications(db, context.user.id)
     locale = context.user.locale or "it"
     today = now_utc().date()
     current_year = today.year

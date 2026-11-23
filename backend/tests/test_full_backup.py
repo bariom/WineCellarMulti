@@ -22,7 +22,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.main import app
 from app.models import PurchaseDocumentWine, PurchaseImport, Wine, WineStockLot
-from app.services import backup_restore
+from app.services import backup_restore, backup_uploads
 from app.services.backup_registry import BACKUP_TABLES, EXCLUDED_TABLES, SCHEMA
 
 EXPORT = "/api/v1/backup/export"
@@ -479,9 +479,16 @@ def test_a_backup_of_another_cellar_restores_into_a_new_account(storage):
     members = zipfile.ZipFile(io.BytesIO(content)).namelist()
     assert body["file_count"] == len([name for name in members if name.startswith("files/")])
     assert body["file_count"] == 5
+    # One bottle photo (two sizes), two memory photos, one document.
+    assert body["photo_counts"] == {"bottle_photos": 1, "memory_photos": 2, "documents": 1}
     assert body["target_empty"] is True
+    token = body["upload_token"]
+    # The token belongs to whoever uploaded the file.
+    stolen = source.post(RESTORE, data={"upload_token": token})
+    assert stolen.status_code == 410
 
-    restored = upload(target, RESTORE, content)
+    # The restore uses the file kept at preview time: it is not uploaded twice.
+    restored = target.post(RESTORE, data={"upload_token": token})
     assert restored.status_code == 200, restored.text
     assert restored.json()["file_count"] == 5
     _, after, _ = open_backup(target.get(EXPORT))
@@ -504,3 +511,33 @@ def test_only_cellar_admins_can_restore(storage):
     client = TestClient(app)
     assert upload(client, RESTORE, b"x").status_code == 401
     assert upload(client, PREVIEW, b"x").status_code == 401
+
+
+def test_a_kept_upload_is_used_once_and_expires(storage, monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    fill_cellar(client)
+    content = client.get(EXPORT).content
+    empty_cellar(client)
+    token = upload(client, PREVIEW, content).json()["upload_token"]
+    assert client.post(RESTORE, data={"upload_token": "not-a-token"}).status_code == 410
+    restored = client.post(RESTORE, data={"upload_token": token})
+    assert restored.status_code == 200, restored.text
+    # Gone once restored.
+    assert client.post(RESTORE, data={"upload_token": token}).status_code == 410
+
+    empty_cellar(client)
+    token = upload(client, PREVIEW, content).json()["upload_token"]
+    monkeypatch.setattr(backup_uploads, "TTL_SECONDS", -1)
+    expired = client.post(RESTORE, data={"upload_token": token})
+    assert expired.status_code == 410
+    assert "sceglilo di nuovo" in expired.json()["detail"]
+
+
+def test_the_target_check_tells_whether_the_cellar_is_empty(storage):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.get("/api/v1/backup/target").json() == {"target_empty": True}
+    fill_cellar(client)
+    assert client.get("/api/v1/backup/target").json() == {"target_empty": False}
+    assert TestClient(app).get("/api/v1/backup/target").status_code == 401
