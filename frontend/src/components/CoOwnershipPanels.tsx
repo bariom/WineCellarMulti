@@ -406,7 +406,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
 
   return (
     <details ref={panelRef} className="wine-form share-panel collapsible-panel coownership-panel">
-      <summary>{locale === "it" ? "Accordi di comproprietà" : "Co-ownership agreements"}</summary>
+      <summary>{agreements.length ? (locale === "it" ? "Accordi di comproprietà" : "Co-ownership agreements") : (locale === "it" ? "Avvia una comproprietà" : "Start a co-ownership")}</summary>
       {agreements.map((agreement) => (
         <div className="coownership-agreement-card" key={agreement.id}>
           {agreementDocument(agreement, locale)}
@@ -435,8 +435,8 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
         </div>
       ))}
       {canWrite && !blockingAgreement ? (
-        <details className="coownership-create-version no-print">
-          <summary>{locale === "it" ? "Crea una nuova versione" : "Create a new version"}</summary>
+        <details className="coownership-create-version no-print" open={!agreements.length}>
+          <summary>{agreements.length ? (locale === "it" ? "Crea una nuova versione" : "Create a new version") : (locale === "it" ? "Nuovo accordo" : "New agreement")}</summary>
           <form className="wine-form" onSubmit={submit}>
           <p className="coownership-form-help">{locale === "it" ? "Definisci quote, custodia e regole condivise per questa posizione." : "Define the shares, custody, and shared rules for this position."}</p>
           <label><span>{locale === "it" ? "Tipo di comproprietà" : "Ownership type"}</span><select value={ownershipMode} onChange={(event) => setOwnershipMode(event.target.value as "undivided" | "allocated")}><option value="undivided">{locale === "it" ? "Quota indivisa sul lotto" : "Undivided lot share"}</option><option value="allocated">{locale === "it" ? "Bottiglie assegnate" : "Allocated bottles"}</option></select></label>

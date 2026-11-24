@@ -28086,3 +28086,10 @@ body,
 @media (max-width: 520px) {
   .session-pill .demo-create-cellar .demo-create-free { display: none; }
 }
+
+/* Wine detail 01: who owns the wine, with a way to the co-ownership part of 06. */
+/* A span inside a detail value reads as a label elsewhere; here it is the value itself. */
+:root .detail-field .detail-ownership-value { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: none; }
+:root .detail-field .detail-ownership-value > span { min-width: 0; color: inherit; font: inherit; letter-spacing: inherit; text-transform: none; }
+.detail-field .detail-ownership-manage { min-height: 32px; padding: 0 12px; font-size: .78rem; }
+.coownership-workspace:focus { outline: none; }

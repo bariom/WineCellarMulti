@@ -75,3 +75,39 @@ test("a wine with only this cellar's share shows the rest as other owners", asyn
   await expect(people.nth(1)).toContainText("40%");
   await chart.screenshot({ path: testInfo.outputPath("ownership-partial.png") });
 });
+
+// Ownership is visible in 01 and leads to the co-ownership part of 06, also for a wine nobody shares yet.
+for (const width of [390, 1440]) {
+  test(`section 01 says who owns the wine and Manage leads to co-ownership (${width})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    const solo = { ...wine, id: "wine-solo", name: "Brunello solo mio", owners: [], owner_share_pct: "100.00" };
+    await mockApi(page, [], false, memberships, [shared, solo], { ...session, locale: "it" });
+    await page.goto("/");
+    await page.getByRole("button", { name: /^Cantina/ }).first().click();
+
+    await page.locator(`[data-wine-row-id="${solo.id}"] article`).click();
+    const overview = page.locator("[data-wine-detail-section='01']:visible");
+    await overview.locator(":scope > summary").click();
+    const field = overview.locator(".detail-field").filter({ hasText: "Proprietà" });
+    await expect(field).toContainText("Solo tua");
+    await field.getByRole("button", { name: "Gestisci" }).click();
+    const workspace = page.locator(".coownership-workspace:visible");
+    await expect(workspace).toBeInViewport();
+    await expect(workspace).toContainText("Questo vino è solo tuo");
+    await workspace.locator(".coownership-panel > summary").filter({ hasText: "Avvia una comproprietà" }).click();
+    await expect(workspace.getByRole("button", { name: "Crea e invia accordo" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`solo-${width}.png`) });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: /^Cantina/ }).first().click();
+    await page.locator(`[data-wine-row-id="${shared.id}"] article`).click();
+    const sharedOverview = page.locator("[data-wine-detail-section='01']:visible");
+    await sharedOverview.locator(":scope > summary").click();
+    const sharedField = sharedOverview.locator(".detail-field").filter({ hasText: "Proprietà" });
+    await expect(sharedField).toContainText("Condivisa · tua quota 50%");
+    await sharedOverview.screenshot({ path: testInfo.outputPath(`field-${width}.png`) });
+    await sharedField.getByRole("button", { name: "Gestisci" }).click();
+    await expect(page.locator(".ownership-chart:visible")).toBeInViewport();
+  });
+}

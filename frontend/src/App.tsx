@@ -3718,7 +3718,8 @@ export function App() {
 
   async function loadCoOwnershipAgreements(wineId: string) {
     const next = await api<CoOwnershipAgreement[]>(`/api/v1/co-ownership-agreements/wines/${wineId}`);
-    setCoOwnershipAgreements(next);
+    // The panel now renders for every editable wine: anything but a list means no agreements.
+    setCoOwnershipAgreements(Array.isArray(next) ? next : []);
   }
 
   async function createCoOwnershipAgreement(wine: Wine, payload: Record<string, unknown>) {
@@ -9016,16 +9017,18 @@ export function App() {
 
   function renderCoOwnershipSection(wine: Wine) {
     const owners = ownershipRows(wine);
-    if (!owners.length && !coOwnershipAgreements.length) return null;
+    // Anyone who can edit the wine can start sharing it, even when nobody shares it yet.
+    const canStart = canWriteWine && !offlineMode && !isRestaurant;
+    if (!owners.length && !coOwnershipAgreements.length && !canStart) return null;
     return (
-      <section className="coownership-workspace">
+      <section className="coownership-workspace" tabIndex={-1}>
         <header className="coownership-workspace-header">
           <h3>{locale === "it" ? "Multiproprietà" : "Co-ownership"}</h3>
         </header>
         <div className="coownership-summary">
           {owners.length ? (
             <OwnershipShareChart wine={wine} locale={locale} userEmail={session?.user_email} />
-          ) : <p className="empty-state">{locale === "it" ? "Nessuna quota di multiproprietà configurata." : "No co-ownership shares are configured."}</p>}
+          ) : <p className="empty-state">{locale === "it" ? "Questo vino è solo tuo. Per condividerlo, apri «Avvia una comproprietà»: indichi partecipanti e quote, e Vinaris invia l'invito a ciascuno." : "This wine is yours alone. To share it, open “Start a co-ownership”: set the participants and their shares, and Vinaris sends each of them an invitation."}</p>}
         </div>
         {renderSharePanel(wine)}
         <Suspense fallback={<LoadingState label={t("loadingData")} />}>

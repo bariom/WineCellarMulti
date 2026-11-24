@@ -12,7 +12,7 @@ import { displayValue, reasoningEffortTranslationKey } from "../i18n";
 import type { TranslationKey } from "../i18n";
 import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TasteMatch, TasteMatchBatchResponse, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WinePhotoSuggestion, WineSalesHistory, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
 import type { WineSaleDraft } from "../types";
-import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } from "../domain/cellar";
+import { currentUserSharePct, formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } from "../domain/cellar";
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
 import { api } from "../services/api";
 import { tasteTraitLabel } from "../domain/tasteStrength";
@@ -1223,6 +1223,18 @@ export function WineDetail({
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
+  /** Open 06 Notes and history and bring its co-ownership part into view (the 01 "Manage" link). */
+  function openCoOwnership(from: HTMLElement) {
+    const detail = from.closest(".wine-detail") || document;
+    const history = detail.querySelector<HTMLDetailsElement>('[data-wine-detail-section="06"]');
+    if (history) history.open = true;
+    window.requestAnimationFrame(() => {
+      const target = detail.querySelector<HTMLElement>(".coownership-workspace") || history;
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      target?.focus({ preventScroll: true });
+    });
+  }
+
   const drinkStart = wine.drink_from || Number(wine.vintage) || new Date().getFullYear();
   const drinkEnd = wine.drink_to || drinkStart;
   const peakStart = wine.drink_peak_from || drinkStart;
@@ -1619,10 +1631,14 @@ export function WineDetail({
         ) : null}
       </div>
 
+      {/* Taste and character sit above the numbered sections, so 01-07 stay together as one list. */}
+      {!restaurantMode ? <TasteNote wineId={wine.id} locale={locale} /> : null}
+      <WineSensorySignaturePanel key={wine.id} wineId={wine.id} locale={locale} />
+
       <details className="detail-overview-block wine-detail-view-section" data-wine-detail-section="01" tabIndex={-1}>
         <summary className="wine-detail-structured-summary">
           <div><span>01</span><strong>{locale === "it" ? "Identit\u00e0 e disponibilit\u00e0" : "Identity and availability"}</strong></div>
-          <small>{locale === "it" ? "Formato, tipologia, acquisto e giacenza" : "Format, type, purchase and stock"}</small>
+          <small>{restaurantMode ? (locale === "it" ? "Formato, tipologia, acquisto e giacenza" : "Format, type, purchase and stock") : (locale === "it" ? "Formato, tipologia, giacenza e proprietà" : "Format, type, stock and ownership")}</small>
         </summary>
         {restaurantMode && canWrite ? <div className="restaurant-commercial-actions">
           {wine.commercial_status === "active" ? <button type="button" className="secondary compact" disabled={saving} onClick={() => void onUpdateCommercialStatus("clearing_out")}>{locale === "it" ? "Non riordinare più" : "Stop reordering"}</button> : null}
@@ -1639,15 +1655,22 @@ export function WineDetail({
           {restaurantMode && wine.open_bottle_ml > 0 ? <DetailField label={locale === "it" ? "Bottiglia aperta" : "Open bottle"} value={`${(wine.open_bottle_ml / 100).toLocaleString(locale)} dl`} emptyLabel={t("notSpecified")} /> : null}
           <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
           {wine.en_primeur ? <DetailField label={locale === "it" ? "Acquisto" : "Purchase"} value="En primeur" emptyLabel={t("notSpecified")} /> : null}
+          {!restaurantMode ? <DetailField
+            label={locale === "it" ? "Proprietà" : "Ownership"}
+            value={<span className="detail-ownership-value">
+              <span>{hasSharedOwnership(wine)
+                ? (locale === "it" ? `Condivisa · tua quota ${formatPercentage(currentUserSharePct(wine, session), locale)}` : `Shared · your share ${formatPercentage(currentUserSharePct(wine, session), locale)}`)
+                : (locale === "it" ? "Solo tua" : "Yours alone")}</span>
+              {coOwnershipSection ? <button type="button" className="secondary compact detail-ownership-manage" onClick={(event) => openCoOwnership(event.currentTarget)}>{locale === "it" ? "Gestisci" : "Manage"}</button> : null}
+            </span>}
+            emptyLabel={t("notSpecified")}
+          /> : null}
         </div>
         {wine.wine_zone || wine.vineyard_locality ? <div className="detail-grid detail-facts-grid" role="group" aria-label={locale === "it" ? "Dettagli geografici" : "Geographic details"}>
           {wine.wine_zone ? <DetailField label={locale === "it" ? "Zona vitivinicola" : "Wine-growing area"} value={wine.wine_zone} emptyLabel={t("notSpecified")} /> : null}
           {wine.vineyard_locality ? <DetailField label={locale === "it" ? "Località / Comune" : "Locality / Municipality"} value={wine.vineyard_locality} emptyLabel={t("notSpecified")} /> : null}
         </div> : null}
       </details>
-
-      {!restaurantMode ? <TasteNote wineId={wine.id} locale={locale} /> : null}
-      <WineSensorySignaturePanel key={wine.id} wineId={wine.id} locale={locale} />
 
       <details className="detail-market-block wine-detail-view-section" data-wine-detail-section="02" tabIndex={-1}>
         <summary className="wine-detail-structured-summary">

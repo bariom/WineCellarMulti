@@ -713,3 +713,22 @@ test("AI audit keeps a wine's history beyond the cellar's latest 30 calls, 10 at
   expect(requests).toContain("?entity_type=wine&entity_id=wine-e2e-1&limit=10");
   expect(requests).toContain("?entity_type=wine&entity_id=wine-e2e-1&limit=10&offset=10");
 });
+
+// The numbered sections 01-07 read as one list: taste and character sit above them, never between.
+for (const [width, height] of [[390, 844], [1440, 900]] as const) {
+  test(`taste note comes before the numbered sections (${width})`, async ({ page }) => {
+    await mockApi(page, [], false, memberships, [wine]);
+    await page.setViewportSize({ width, height });
+    await page.goto("/");
+    await page.getByRole("button", { name: /^Cantina/ }).first().click();
+    await page.locator(`[data-wine-row-id="${wine.id}"] article`).click();
+    const note = page.locator(".taste-note:visible");
+    await expect(note).toBeVisible();
+    const top = async (selector: string) => (await page.locator(selector).filter({ visible: true }).first().boundingBox())!.y;
+    const noteTop = await top(".taste-note");
+    const first = await top("[data-wine-detail-section='01']");
+    const second = await top("[data-wine-detail-section='02']");
+    expect(noteTop).toBeLessThan(first);
+    expect(first).toBeLessThan(second);
+  });
+}
