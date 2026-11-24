@@ -9,7 +9,7 @@ export type StoryFeatureId = "scan" | "sommelier" | "shelf" | "taste" | "memorie
 export type LandingStory = {
   hero: { eyebrow: string; titleLines: [string, string, string]; title: string; lead: string };
   phone: {
-    label: string; demo: string; title: string; summary: string; perBottle: string; bottles: (count: number) => string;
+    label: string; demo: string; open: string; title: string; summary: string; perBottle: string; bottles: (count: number) => string;
     rows: Array<{ name: string; vintage: string; producer: string; count: number; value: string; tone: string; years: [string, string, string]; peak: [number, number]; today: number; phase: string; phaseTone: "wait" | "ideal" | "soon" }>;
   };
   pillars: { eyebrow: string; title: string; items: Array<{ title: string; body: string; chip: string }> };
@@ -49,7 +49,7 @@ export const landingStory: Record<Locale, LandingStory> = {
       lead: "Vinaris è la cantina digitale per chi colleziona qualche centinaio di bottiglie: ognuna con la sua finestra di beva, il suo valore e la sua storia. Dal computer o dal telefono, senza installare nulla.",
     },
     phone: {
-      label: "Esempio dell’elenco della cantina in Vinaris su telefono", demo: "Cantina di esempio",
+      label: "Esempio dell’elenco della cantina in Vinaris su telefono", demo: "Cantina di esempio", open: "Apri la cantina demo",
       title: "La cantina", summary: "48 vini · 212 bottiglie · CHF 18’430", perBottle: "CHF / bt",
       bottles: (count) => `${count} ${count === 1 ? "bottiglia" : "bottiglie"}`,
       rows: [
@@ -173,7 +173,7 @@ export const landingStory: Record<Locale, LandingStory> = {
       lead: "Vinaris is the digital cellar for the collector with a few hundred bottles: each one with its drinking window, its value and its story. On your computer or phone, with nothing to install.",
     },
     phone: {
-      label: "Example of the Vinaris cellar list on a phone", demo: "Example cellar",
+      label: "Example of the Vinaris cellar list on a phone", demo: "Example cellar", open: "Open the demo cellar",
       title: "The cellar", summary: "48 wines · 212 bottles · CHF 18,430", perBottle: "CHF / btl",
       bottles: (count) => `${count} ${count === 1 ? "bottle" : "bottles"}`,
       rows: [

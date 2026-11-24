@@ -27,9 +27,9 @@ function Glass({ tone }: { tone: string }) {
 }
 
 /** Illustrative phone showing the cellar list as it looks in the app. */
-export function HeroPhone({ story }: { story: LandingStory }) {
+export function HeroPhone({ story, onOpen, disabled = false }: { story: LandingStory; onOpen?: () => void; disabled?: boolean }) {
   const { phone } = story;
-  return <div className="story-phone" role="img" aria-label={phone.label}>
+  const screen = <div className="story-phone" role="img" aria-label={phone.label}>
     <div className="story-phone-screen">
       <div className="story-phone-head"><small>VINARIS <em className="story-phone-demo">{phone.demo}</em></small><strong>{phone.title}</strong><span>{phone.summary}</span></div>
       <div className="story-phone-list">
@@ -46,6 +46,15 @@ export function HeroPhone({ story }: { story: LandingStory }) {
         </div>)}
       </div>
     </div>
+  </div>;
+  if (!onOpen) return screen;
+  // The sample cellar is also the way in: a click anywhere on the phone opens the demo; the
+  // button carries it for the keyboard (its click bubbles up to the same handler).
+  return <div className="story-phone-wrap" onClick={disabled ? undefined : onOpen}>
+    {screen}
+    <button type="button" className="story-phone-open" disabled={disabled}>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7.5-4.5z" /></svg>{phone.open}
+    </button>
   </div>;
 }
 

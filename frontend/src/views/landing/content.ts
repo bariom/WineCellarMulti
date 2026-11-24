@@ -26,7 +26,7 @@ export type LandingCopy = {
     steps: Array<{ title: string; body: string }>;
     preview: string; name: string; welcome: string; ready: string; memories: string; memory: string; caption: string;
   };
-  header: { login: string; register: string; menu: string; close: string; language: string; tagline: string };
+  header: { login: string; register: string; demo: string; menu: string; close: string; language: string; tagline: string };
   hero: {
     eyebrow: string;
     title: string;
@@ -229,7 +229,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       ready: "Da bere adesso", memories: "Ultime degustazioni", memory: "Una cena, un vino, una bella storia.",
       caption: "Vini pronti, panoramica e ricordi: uno dei tanti modi di comporre la tua dashboard.",
     },
-    header: { login: "Accedi", register: "Registrati gratis", menu: "Apri menu", close: "Chiudi menu", language: "Lingua", tagline: "Cantina digitale per collezionisti" },
+    header: { login: "Accedi", register: "Registrati gratis", demo: "Prova la demo", menu: "Apri menu", close: "Chiudi menu", language: "Lingua", tagline: "Cantina digitale per collezionisti" },
     hero: {
       eyebrow: "L’app per i vini che possiedi",
       title: "La tua cantina digitale. Ogni bottiglia, al momento giusto.",
@@ -449,7 +449,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       ready: "Drink now", memories: "Latest tastings", memory: "A dinner, a wine, a story to remember.",
       caption: "Ready wines, an overview and memories: one of many ways to arrange your dashboard.",
     },
-    header: { login: "Log in", register: "Sign up free", menu: "Open menu", close: "Close menu", language: "Language", tagline: "Digital cellar for collectors" },
+    header: { login: "Log in", register: "Sign up free", demo: "Try the demo", menu: "Open menu", close: "Close menu", language: "Language", tagline: "Digital cellar for collectors" },
     hero: {
       eyebrow: "The app for the wines you own",
       title: "Your digital wine cellar. Every bottle, at the right time.",

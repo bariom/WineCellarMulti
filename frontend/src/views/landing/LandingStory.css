@@ -252,3 +252,19 @@
 }
 
 .story-restaurant-contact { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 6px 0 0; color: var(--story-muted); font-size: .9rem; }
+
+/* The demo is the first thing a curious visitor tries: a play sign, and the sample phone opens it too. */
+.marketing-play-mark { width: 13px; height: 13px; flex: none; fill: currentColor; }
+.marketing-site .marketing-header-demo { gap: 7px; }
+.marketing-site .marketing-header-demo .marketing-play-mark { color: var(--story-gold, #b8954a); }
+.marketing-site .story-hero .marketing-button.marketing-demo-cta { gap: 9px; border-color: rgba(226, 200, 134, .75); color: #fff; background: rgba(226, 200, 134, .12); backdrop-filter: blur(6px); }
+.marketing-site .story-hero .marketing-button.marketing-demo-cta:hover { background: rgba(226, 200, 134, .22); }
+.marketing-site .story-hero .marketing-demo-cta .marketing-play-mark { width: 22px; height: 22px; padding: 5px 4px 5px 6px; border-radius: 50%; color: var(--story-deep, #10241d); background: #e2c886; }
+.story-phone-wrap { position: relative; justify-self: center; max-width: 100%; margin-bottom: 16px; cursor: pointer; }
+.story-phone-wrap .story-phone { transition: transform .25s ease, box-shadow .25s ease; }
+.story-phone-wrap:hover .story-phone { transform: translateY(-4px); box-shadow: 0 48px 90px -30px rgba(0, 0, 0, .7); }
+.story-phone-open { position: absolute; bottom: -21px; left: 50%; display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 18px; transform: translateX(-50%); border: 0; border-radius: 999px; color: var(--story-deep, #10241d); background: #e2c886; box-shadow: 0 12px 28px -10px rgba(0, 0, 0, .55); font: 600 .86rem/1 var(--font-ui); white-space: nowrap; cursor: pointer; }
+.story-phone-open svg { width: 12px; height: 12px; fill: currentColor; }
+.story-phone-open:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.story-phone-open:disabled { cursor: wait; opacity: .75; }
+@media (prefers-reduced-motion: reduce) { .story-phone-wrap .story-phone { transition: none; } .story-phone-wrap:hover .story-phone { transform: none; } }

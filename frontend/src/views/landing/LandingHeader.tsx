@@ -9,10 +9,17 @@ type LandingHeaderProps = {
   onLocaleChange: (locale: Locale) => void;
   onLogin: () => void;
   onRegister: () => void;
+  onDemo: () => void;
+  demoLoading?: boolean;
   onOpenNews: () => void;
 };
 
-export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, onRegister, onOpenNews }: LandingHeaderProps) {
+/** A small play sign: the demo is something to try, not a page to read. */
+export function PlayMark() {
+  return <svg className="marketing-play-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7.5-4.5z" /></svg>;
+}
+
+export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, onRegister, onDemo, demoLoading = false, onOpenNews }: LandingHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [showMobileLogin, setShowMobileLogin] = useState(false);
@@ -98,6 +105,7 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
             </select>
           </label>
           <button type="button" className="marketing-button text marketing-menu-login" onClick={() => { setMenuOpen(false); onLogin(); }}>{copy.header.login}</button>
+          <button type="button" className="marketing-button secondary compact marketing-header-demo" onClick={() => { setMenuOpen(false); onDemo(); }} disabled={demoLoading}><PlayMark />{copy.header.demo}</button>
           <button type="button" className="marketing-button primary compact" onClick={() => { setMenuOpen(false); onRegister(); }}>{copy.header.register}</button>
         </div>
       </div>

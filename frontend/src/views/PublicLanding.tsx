@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Locale } from "../types";
 import { api } from "../services/api";
-import LandingHeader from "./landing/LandingHeader";
+import LandingHeader, { PlayMark } from "./landing/LandingHeader";
 import NewsPanel from "./landing/NewsPanel";
 import { landingCopy } from "./landing/content";
 import { HeroPhone, StoryBeyond, StoryEssentials, StoryPillars } from "./landing/LandingStory";
@@ -134,6 +134,8 @@ export default function PublicLanding({
         onLocaleChange={onLocaleChange}
         onLogin={onLogin}
         onRegister={onRegister}
+        onDemo={onDemo}
+        demoLoading={demoLoading}
         onOpenNews={() => openNews(true, true)}
       />
 
@@ -145,7 +147,7 @@ export default function PublicLanding({
             <p className="marketing-hero-lead">{story.hero.lead}</p>
             <div className="marketing-actions">
               <button type="button" className="marketing-button primary" onClick={onRegister} aria-describedby="hero-free-note">{copy.hero.primary}<span aria-hidden="true"> →</span></button>
-              <button type="button" className="marketing-button secondary" onClick={onDemo} disabled={demoLoading} aria-describedby="demo-note">{demoLoading ? openingLabel : copy.hero.demo}</button>
+              <button type="button" className="marketing-button secondary marketing-demo-cta" onClick={onDemo} disabled={demoLoading} aria-describedby="demo-note"><PlayMark />{demoLoading ? openingLabel : copy.hero.demo}</button>
             </div>
             <p id="demo-note" className="marketing-demo-note">{copy.hero.demoNote}</p>
             <div className="marketing-hero-proof">
@@ -155,7 +157,7 @@ export default function PublicLanding({
               {usage ? <span>{usage.line[locale]}</span> : null}
             </div>
           </div>
-          <HeroPhone story={story} />
+          <HeroPhone story={story} onOpen={onDemo} disabled={demoLoading} />
         </section>
 
         <StoryPillars story={story} />

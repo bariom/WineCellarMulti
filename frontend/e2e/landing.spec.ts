@@ -247,3 +247,39 @@ for (const locale of ["it", "en"] as const) {
     });
   }
 }
+
+// A visitor from a launch page wants to try before signing up: the demo is reachable from the
+// header, the hero and the sample phone, in both languages and at phone and desktop widths.
+for (const [locale, width, height] of [["it", 390, 844], ["en", 1440, 900]] as const) {
+  test(`${locale}: the demo is one tap away from the header, the hero and the sample phone (${width})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height });
+    let demoRequests = 0;
+    await page.route("**/api/v1/auth/demo?**", async route => {
+      demoRequests += 1;
+      await route.fulfill({ status: 503, json: { detail: "Demo temporarily unavailable" } });
+    });
+    await page.goto(`/?lang=${locale}`);
+    const hero = page.locator(".story-hero");
+    const heroDemo = hero.getByRole("button", { name: locale === "it" ? "Esplora la demo" : "Explore the demo" });
+    await expect(heroDemo).toBeInViewport();
+    await page.screenshot({ path: testInfo.outputPath(`demo-entry-${locale}-${width}.png`) });
+
+    // Header: on a phone it lives in the menu, next to sign-up.
+    if (width < 1161) await page.locator(".marketing-menu-toggle").click();
+    const headerDemo = page.locator(".marketing-header").getByRole("button", { name: locale === "it" ? "Prova la demo" : "Try the demo" });
+    await expect(headerDemo).toBeVisible();
+    await headerDemo.click();
+    await expect.poll(() => demoRequests).toBe(1);
+    await expect(heroDemo).toBeEnabled();
+
+    // The sample phone opens the demo too, from its button and from the phone itself.
+    const phoneOpen = hero.getByRole("button", { name: locale === "it" ? "Apri la cantina demo" : "Open the demo cellar" });
+    await phoneOpen.scrollIntoViewIfNeeded();
+    await phoneOpen.click();
+    await expect.poll(() => demoRequests).toBe(2);
+    await expect(phoneOpen).toBeEnabled();
+    await hero.locator(".story-phone").click({ position: { x: 120, y: 60 } });
+    await expect.poll(() => demoRequests).toBe(3);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+}
