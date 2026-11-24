@@ -60,6 +60,14 @@
   .wine-pulse-edition { grid-template-columns: minmax(0, 1fr); }
   .wine-pulse-index nav { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
 }
+/* Tablets and an open foldable (about 600-1024px): two cards side by side leave ~300px of text and
+   headlines wrap after a few words. One story per row, source mark beside the text, reads better. */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .wine-pulse-view .wine-pulse-feed { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .wine-pulse-view .wine-pulse-story:not(.wine-pulse-story--featured) { grid-template-columns: 42px minmax(0, 1fr); column-gap: 18px; }
+  .wine-pulse-view .wine-pulse-story--with-image:not(.wine-pulse-story--featured) { grid-template-columns: 42px minmax(0, 1fr) minmax(150px, .34fr); }
+  .wine-pulse-view .wine-pulse-story--featured { grid-template-columns: minmax(0, 1.55fr) minmax(0, .45fr); }
+}
 @media (max-width: 600px) {
   .wine-pulse-view .wine-pulse-hero { grid-template-columns: minmax(0, 1fr); }
   .wine-pulse-view .wine-pulse-edition-mark { grid-column: 1; grid-row: auto; }

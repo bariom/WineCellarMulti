@@ -123,3 +123,24 @@ test("Wine Pulse retries feed and pagination errors and discards stale paginatio
   await expect(pulse.getByRole("article")).toHaveCount(5);
   await expect(pulse.getByRole("button", { name: "Carica altre storie" })).toHaveCount(0);
 });
+
+// An open foldable or a tablet: one story per row, so headlines are not wrapped after a few words.
+test("Wine Pulse gives each story the full width on an open foldable and a tablet", async ({ page }, testInfo) => {
+  const pulse = await openPulse(page, "it");
+  await expect(pulse.getByRole("article")).toHaveCount(4);
+  for (const [width, height] of [[752, 782], [900, 1100], [1024, 768]] as const) {
+    await page.setViewportSize({ width, height });
+    const stories = pulse.getByRole("article");
+    const boxes = await stories.evaluateAll(items => items.map(item => {
+      const box = item.getBoundingClientRect();
+      return { x: box.x, width: box.width, headline: item.querySelector("h2")!.getBoundingClientRect().width };
+    }));
+    const feed = (await pulse.locator(".wine-pulse-feed").boundingBox())!;
+    for (const box of boxes) {
+      expect(Math.abs(box.width - feed.width)).toBeLessThan(2);
+      expect(box.headline).toBeGreaterThan(width === 752 ? 480 : 560);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`pulse-${width}.png`), fullPage: true });
+  }
+});
