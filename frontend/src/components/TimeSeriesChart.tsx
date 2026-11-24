@@ -120,7 +120,7 @@ export default function TimeSeriesChart({
     // Use actual observation dates and remove labels that render identically.
     // This keeps same-day measurements and narrow mobile charts readable.
     const tickCount = Math.min(timestamps.length, chartHost.clientWidth < 420 ? 4 : 6);
-    const xAxisSplits = Array.from({ length: tickCount }, (_, index) => {
+    const candidateSplits = Array.from({ length: tickCount }, (_, index) => {
       const pointIndex = tickCount === 1 ? 0 : Math.round((index * (timestamps.length - 1)) / (tickCount - 1));
       return timestamps[pointIndex];
     }).filter((timestamp, index, all) => {
@@ -128,7 +128,24 @@ export default function TimeSeriesChart({
       const label = dateFormat.format(new Date(timestamp * 1000));
       return !all.slice(0, index).some((previous) => dateFormat.format(new Date(previous * 1000)) === label);
     });
-    const valueFormat = new Intl.NumberFormat(dateLocale, { maximumFractionDigits: 0 });
+    // Dates a day or two apart at the end of a long range would print on top of each other:
+    // keep labels at least ~56px apart, preferring the latest date over the one before it.
+    const span = timestamps.length > 1 ? timestamps[timestamps.length - 1] - timestamps[0] : 0;
+    const minGap = span * (56 / Math.max(chartHost.clientWidth - 70, 120));
+    const xAxisSplits = candidateSplits.reduce<number[]>((kept, timestamp, index) => {
+      const previous = kept[kept.length - 1];
+      if (previous === undefined || timestamp - previous >= minGap) return [...kept, timestamp];
+      if (index === candidateSplits.length - 1 && kept.length > 1) return [...kept.slice(0, -1), timestamp];
+      return kept;
+    }, []);
+    // Whole francs hide small moves (39.40 and 39.60 both read "40"): the axis shows cents
+    // whenever its ticks are less than a franc apart, and values keep their cents.
+    const valueSpan = values.length ? Math.max(...values) - Math.min(...values) : 0;
+    const hasCents = values.some((value) => Math.round(value * 100) % 100 !== 0);
+    const narrowAxis = valueSpan < 10;
+    const wholeFormat = new Intl.NumberFormat(dateLocale, { maximumFractionDigits: 0 });
+    const centFormat = new Intl.NumberFormat(dateLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const pointFormat = new Intl.NumberFormat(dateLocale, { minimumFractionDigits: hasCents ? 2 : 0, maximumFractionDigits: 2 });
     const splinePath = uPlot.paths.spline?.();
     const data: uPlot.AlignedData = chartSecondaryPoints.length
       ? [timestamps, values, secondaryValues]
@@ -151,7 +168,8 @@ export default function TimeSeriesChart({
     const options: uPlot.Options = {
       width: Math.floor(chartHost.clientWidth) || 520,
       height: chartHeight,
-      padding: [12, compact ? 30 : 8, 2, 4],
+      // Room on the right for the last date label, which is centred on the last point.
+      padding: [12, compact ? 30 : 22, 2, 4],
       scales: { x: { time: true }, y: { auto: true } },
       axes: [
         {
@@ -168,11 +186,15 @@ export default function TimeSeriesChart({
           side: 3,
           stroke: textColor,
           font: "600 10px system-ui, -apple-system, sans-serif",
-          size: 52,
+          size: narrowAxis ? 66 : 52,
           gap: 7,
           grid: { stroke: borderColor, width: 1 },
           ticks: { stroke: borderColor, width: 1, size: 4 },
-          values: (_chart, ticks) => ticks.map((value) => `${currency} ${valueFormat.format(value)}`.trim()),
+          values: (_chart, ticks) => {
+            const step = ticks.length > 1 ? Math.abs(ticks[1] - ticks[0]) : 1;
+            const format = step < 1 ? centFormat : wholeFormat;
+            return ticks.map((value) => `${currency} ${format.format(value)}`.trim());
+          },
         },
       ],
       series: [
@@ -184,7 +206,7 @@ export default function TimeSeriesChart({
           width: 2.5,
           paths: compact ? uPlot.paths.linear!() : splinePath,
           points: { show: false },
-          value: (_chart, value) => value === null || value === undefined ? "—" : `${currency} ${valueFormat.format(Number(value))}`.trim(),
+          value: (_chart, value) => value === null || value === undefined ? "—" : `${currency} ${pointFormat.format(Number(value))}`.trim(),
         },
         ...(chartSecondaryPoints.length ? [{
           label: secondaryLabel || (locale === "it" ? "Media mobile" : "Moving average"),
@@ -192,7 +214,7 @@ export default function TimeSeriesChart({
           width: 1.5,
           dash: [8, 6],
           points: { show: false },
-          value: (_chart: uPlot, value: number) => `${currency} ${valueFormat.format(value)}`.trim(),
+          value: (_chart: uPlot, value: number) => `${currency} ${pointFormat.format(value)}`.trim(),
         }] : []),
       ],
       legend: { show: false },
@@ -211,11 +233,11 @@ export default function TimeSeriesChart({
               ? `${locale === "it" ? "Settimana del" : "Week of"} ${formattedDate}`
               : formattedDate;
             tooltipPrimaryLabel.textContent = primaryLabel || (compact ? ariaLabel : locale === "it" ? "Ricavi" : "Revenue");
-            tooltipPrimaryValue.textContent = `${currency} ${valueFormat.format(values[index])}`.trim();
+            tooltipPrimaryValue.textContent = `${currency} ${pointFormat.format(values[index])}`.trim();
             if (chartSecondaryPoints.length) {
               tooltipSecondaryLabel.textContent = secondaryLabel || (locale === "it" ? "Media mobile" : "Moving average");
               const secondaryValue = secondaryValues[index];
-              tooltipSecondaryValue.textContent = secondaryValue === null ? "—" : `${currency} ${valueFormat.format(secondaryValue)}`.trim();
+              tooltipSecondaryValue.textContent = secondaryValue === null ? "—" : `${currency} ${pointFormat.format(secondaryValue)}`.trim();
             }
             const left = chart.valToPos(timestamps[index], "x");
             const top = chart.valToPos(Math.max(values[index], secondaryValues[index] ?? values[index]), "y");

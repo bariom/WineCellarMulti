@@ -202,6 +202,9 @@ export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: Tr
   const hasAiEstimate = visibleEntries.some((entry) => entry.source === "ai");
   const hasManualCorrection = visibleEntries.some((entry) => entry.source === "manual");
   const hasPurchasePrice = visibleEntries.some((entry) => entry.source === "purchase");
+  // Cents are shown as soon as a record has them: 39.40 and 39.60 must not both read "39".
+  const hasCents = entries.some((entry) => Math.round(entry.numericValue * 100) % 100 !== 0);
+  const amount = (value: number) => value.toLocaleString(numberLocale(locale), { minimumFractionDigits: hasCents ? 2 : 0, maximumFractionDigits: hasCents ? 2 : 0 });
 
   return (
     <div className="value-history-card">
@@ -211,7 +214,7 @@ export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: Tr
           <span>{visibleEntries.length < entries.length ? `${visibleEntries.length} / ${entries.length}` : entries.length} {t("records")}</span>
         </div>
         <strong className={deltaPositive ? "value-history-delta positive" : "value-history-delta negative"}>
-          {deltaPositive ? "+" : ""}{deltaValue.toFixed(0)} ({deltaPositive ? "+" : ""}{deltaPercent.toFixed(1)}%)
+          {deltaPositive ? "+" : ""}{amount(deltaValue)} ({deltaPositive ? "+" : ""}{deltaPercent.toFixed(1)}%)
         </strong>
       </div>
       {entries.length > 2 ? (
@@ -298,10 +301,10 @@ export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: Tr
         </div>
       ) : null}
       <div className="value-history-meta">
-        <span>{formatDisplayDate(first.recorded_at)}: {first.currency} {first.numericValue.toFixed(0)}</span>
-        <strong>{last.currency} {last.numericValue.toFixed(0)}</strong>
+        <span>{formatDisplayDate(first.recorded_at)}: {first.currency} {amount(first.numericValue)}</span>
+        <strong>{last.currency} {amount(last.numericValue)}</strong>
         <span>{formatDisplayDate(last.recorded_at)} - {sourceLabels[last.source] || last.source}</span>
-        <small>{first.currency} {minValue.toFixed(0)} - {first.currency} {maxValue.toFixed(0)}</small>
+        <small>{first.currency} {amount(minValue)} - {first.currency} {amount(maxValue)}</small>
       </div>
     </div>
   );

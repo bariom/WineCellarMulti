@@ -409,6 +409,42 @@ test("wine value history can zoom and navigate recent records", async ({ page },
   await card.screenshot({ path: testInfo.outputPath("value-history-navigation-390.png"), animations: "disabled" });
 });
 
+// Values a few cents apart must not read as the same whole franc, and the change keeps its cents.
+test("value history keeps cents when a wine moves by a few centimes", async ({ page }, testInfo) => {
+  await mockApi(page, [], false, memberships, [wine]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    const original = window.fetch;
+    window.fetch = async (input, init) => {
+      const response = await original(input, init);
+      if (String(input).endsWith("/wines") || String(input).endsWith("/wines/wine-e2e-1")) {
+        const body = await response.json();
+        const valueHistory = [
+          ["2026-07-23T12:00:00Z", "39.10"], ["2026-08-21T12:00:00Z", "39.60"], ["2026-09-20T12:00:00Z", "39.60"],
+          ["2026-10-14T12:00:00Z", "39.45"], ["2026-11-15T12:00:00Z", "39.45"], ["2026-11-16T12:00:00Z", "39.45"],
+        ].map(([recorded_at, value], index) => ({ id: `cent-${index}`, recorded_at, value, currency: "CHF", source: "ai" }));
+        const enrich = (item: object) => ({ ...item, value_history: valueHistory });
+        return new Response(JSON.stringify(Array.isArray(body) ? body.map(enrich) : enrich(body)), { headers: { "Content-Type": "application/json" } });
+      }
+      return response;
+    };
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: /^Cantina/ }).first().click();
+  await page.locator('[data-wine-row-id="wine-e2e-1"] article').click();
+  const detail = page.locator(".wine-detail:visible").first();
+  await detail.locator("summary").filter({ hasText: "Prezzi e valore" }).click();
+  const card = detail.locator(".value-history-card");
+  await card.scrollIntoViewIfNeeded();
+  await expect(card.locator(".value-history-delta")).toContainText(/^\+0[.,]35 /);
+  // The tooltip names the exact value of a point.
+  const chart = card.locator(".time-series-chart");
+  await chart.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(card.locator(".time-series-tooltip")).toContainText(/CHF 39[.,]45/);
+  await card.screenshot({ path: testInfo.outputPath("value-history-cents-390.png"), animations: "disabled" });
+});
+
 test("wine sensory signature shows intensity and missing values across viewports", async ({ page }, testInfo) => {
   await page.addInitScript(() => sessionStorage.setItem("vinaris-test-sensory", JSON.stringify({
     identity_id: "sensory-test", generation_status: "available", source: "metadata", confidence: 0.65, validated: false,
