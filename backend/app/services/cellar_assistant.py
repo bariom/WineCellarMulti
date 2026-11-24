@@ -74,10 +74,20 @@ def assistant_tools() -> list[dict[str, Any]]:
             "search_wines",
             "Find wines in the cellar. Text matches name, producer, appellation, region, grapes, "
             "tags and notes. Returns bottles, status, location, drinking window and phase, "
-            "value, purchase price, personal rating and notes; for shared positions (wines "
-            "co-owned with other people) also the user's share and bottles.",
+            "value, purchase price, personal rating, tags, en primeur and notes; for shared "
+            "positions (wines co-owned with other people) also the user's share and bottles.",
             {
                 "text": _nullable("string"),
+                "tag": _nullable(
+                    "string",
+                    description="Only wines carrying this tag, such as 'da bere' (ignores case)",
+                ),
+                "en_primeur": _nullable(
+                    "boolean",
+                    description="true: only wines bought en primeur (futures); these are often "
+                    "still ordered or shipped, so use status any unless the user asks for bottles "
+                    "already in the cellar",
+                ),
                 "wine_type": _nullable("string", enum=[*WINE_TYPES, None]),
                 "region": _nullable("string"),
                 "producer": _nullable("string"),
@@ -393,6 +403,8 @@ class CellarAssistantTools:
             "personal_rating": wine.rating or None,
             "merchant": wine.merchant,
             "order_date": wine.order_date.isoformat() if wine.order_date else None,
+            "tags": list(wine.tags or []),
+            "en_primeur": True if wine.en_primeur else None,
             "notes": (wine.notes or "")[:300],
         }
         if is_shared(wine, self.context.user):
@@ -434,6 +446,13 @@ class CellarAssistantTools:
                 grapes,
                 " ".join(wine.tags or []),
                 wine.notes,
+            ):
+                continue
+            tag = str(args.get("tag") or "").strip().strip("\"'«»“”").casefold()
+            if tag and not any(tag == str(item).strip().casefold() for item in (wine.tags or [])):
+                continue
+            if args.get("en_primeur") is not None and bool(wine.en_primeur) != bool(
+                args["en_primeur"]
             ):
                 continue
             if not _matches(
@@ -854,9 +873,25 @@ _BUDGET = re.compile(
 )
 
 
+# "Mostra i vini con tag 'da bere'" lists wines; it does not ask what to open with a dish.
+_LISTING_REQUEST = re.compile(
+    r"^(?:mi\s+)?(?:mostra|mostrami|fammi\s+vedere|elenca|elencami|trova|trovami|cerca|"
+    r"visualizza|show|list|find|display)\b",
+    re.IGNORECASE,
+)
+_NOT_A_DISH = re.compile(
+    r"^(?:il\s+|la\s+|lo\s+|l'|i\s+|gli\s+|le\s+|the\s+)?(?:tag|etichett\w*|label\w*|flag|"
+    r"stato|status|annat\w*|vintage|prezz\w*|price|valor\w*|value|en\s+primeur|quot\w*|"
+    r"share\w*|bottigli\w*|bottles?)\b",
+    re.IGNORECASE,
+)
+
+
 def pairing_question(text: str) -> tuple[str, Decimal | None] | None:
     """The dish (and any budget) of a question asking which wine to open with a food."""
     cleaned = " ".join(text.strip().split()).rstrip("?!. ")
+    if _LISTING_REQUEST.search(cleaned):
+        return None
     budget: Decimal | None = None
     budget_match = _BUDGET.search(cleaned)
     if budget_match:
@@ -866,7 +901,7 @@ def pairing_question(text: str) -> tuple[str, Decimal | None] | None:
     if match is None:
         return None
     dish = match.group("dish").strip(" ,.?!")
-    if len(dish) < 3:
+    if len(dish) < 3 or _NOT_A_DISH.search(dish):
         return None
     return dish[:240], budget if budget and budget > 0 else None
 

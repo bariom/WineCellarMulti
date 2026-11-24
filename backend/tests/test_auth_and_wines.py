@@ -6199,6 +6199,56 @@ def sommelier_pairing(barolo, calls):
     return fake_create_response
 
 
+def test_cellar_assistant_lists_wines_by_tag_and_en_primeur():
+    from types import SimpleNamespace
+
+    from app.services.cellar_assistant import CellarAssistantTools, pairing_question
+
+    # Listing requests are not pairings: "con tag ..." names a tag, not a dish.
+    for question in (
+        'Mostra i vini con Tag "en primeur"',
+        'Mostra vini con Tag "da bere"',
+        "mostrami i vini en primeur",
+        "vini con tag da bere",
+        "Show the wines with tag to drink",
+    ):
+        assert pairing_question(question) is None, question
+    assert pairing_question("Che cosa apro con una raclette di formaggio?") == ("una raclette di formaggio", None)
+    assert pairing_question("vino per il pesce al forno") == ("il pesce al forno", None)
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with TestingSessionLocal() as db:
+        owner = db.query(User).filter(User.email == "owner@example.com").one()
+        household = db.query(Household).filter(Household.name == "Main Cellar").one()
+        for name, status, tags, en_primeur in (
+            ("Barolo", "Delivered", ["Da bere", "regalo"], False),
+            ("Pauillac 2024", "Ordered", [], True),
+            ("Margaux 2023", "Delivered", ["da bere"], True),
+            ("Chianti", "Delivered", [], False),
+        ):
+            db.add(Wine(household_id=household.id, created_by_user_id=owner.id, name=name, producer="Producer",
+                        vintage="2020", quantity=3, status=status, tags=tags, en_primeur=en_primeur))
+        db.commit()
+        tools = CellarAssistantTools(db, SimpleNamespace(household=household, user=owner),
+                                     can_see=lambda _wine: True, today=date(2026, 11, 24))
+        base = {
+            "text": None, "tag": None, "en_primeur": None, "wine_type": None, "region": None, "producer": None,
+            "grape": None, "vintage_from": None, "vintage_to": None, "status": "any", "drink_phase": None,
+            "location": None, "ownership": "any", "max_value": None, "include_finished": False,
+        }
+        # The tag matches whole and ignoring case and quotes, not as part of another word.
+        tagged = tools.invoke("search_wines", json.dumps({**base, "tag": '"DA BERE"'}))
+        assert sorted(row["name"] for row in tagged["wines"]) == ["Barolo", "Margaux 2023"]
+        assert {"Da bere", "regalo"} <= set(next(row for row in tagged["wines"] if row["name"] == "Barolo")["tags"])
+        # En primeur includes the bottles still ordered.
+        primeur = tools.invoke("search_wines", json.dumps({**base, "en_primeur": True}))
+        assert sorted(row["name"] for row in primeur["wines"]) == ["Margaux 2023", "Pauillac 2024"]
+        assert all(row["en_primeur"] is True for row in primeur["wines"])
+        both = tools.invoke("search_wines", json.dumps({**base, "tag": "da bere", "en_primeur": True}))
+        assert [row["name"] for row in both["wines"]] == ["Margaux 2023"]
+
+
 def test_cellar_assistant_answers_a_pairing_question_with_one_quick_sommelier_call(monkeypatch):
     from app.api.routes import ai as ai_routes
 
