@@ -1,0 +1,137 @@
+/* Ownership shares of a shared wine: theme tokens only, so it follows every Vinaris theme. */
+.ownership-chart {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-raised, var(--surface));
+}
+
+.ownership-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  min-width: 0;
+}
+
+.ownership-chart-head strong {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  font-weight: 500;
+}
+
+.ownership-chart-head span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.ownership-chart-bar {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  animation: ownership-chart-grow 0.7s ease-out both;
+}
+
+.ownership-chart-bar i {
+  min-width: 4px;
+  background: var(--owner-tone);
+}
+
+.ownership-chart-bar i.is-rest,
+.ownership-chart-people li.is-rest .ownership-chart-avatar {
+  background: repeating-linear-gradient(135deg, var(--surface-muted) 0 5px, var(--border) 5px 7px);
+}
+
+:root .ownership-chart .ownership-chart-people {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ownership-chart-people li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Raised above the wine-detail span rules, which make every span a block. */
+:root .ownership-chart .ownership-chart-avatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--owner-tone);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ownership-chart-people li.is-rest .ownership-chart-avatar {
+  color: var(--text-muted);
+}
+
+.ownership-chart-name {
+  display: grid;
+  min-width: 0;
+}
+
+.ownership-chart-name span {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ownership-chart-name small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ownership-chart-people em {
+  color: var(--text);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.ownership-chart-people li.is-rest .ownership-chart-name span,
+.ownership-chart-people li.is-rest em {
+  color: var(--text-muted);
+}
+
+@keyframes ownership-chart-grow {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ownership-chart-bar { animation: none; }
+}
+
+.ownership-chart-avatar svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

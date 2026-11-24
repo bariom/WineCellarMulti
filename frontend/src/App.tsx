@@ -11,6 +11,7 @@ import "./components/BottlePhotoCapture.css";
 import { AiActivity } from "./components/AiActivity";
 import { WishlistVintageField, WineStatusBadge, StarRating, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, wineProgressName, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput } from "./components/AppUi";
 import type { WishlistAiFeature } from "./components/AppPanels";
+import OwnershipShareChart from "./components/OwnershipShareChart";
 import { DrinkWindowMini, auditMarketSources, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, CompareWinesModal, MarketValueModal, UserStatsModal, ownershipRows, hasSharedOwnership, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, ContactSupportPanel, DashboardCarousel, TasteHearts } from "./components/AppPanels";
 import { appActionSvgIcon, wishlistActionSvgIcon } from "./components/actionIcons";
 import { formatDisplayDate, formatAiBudget, formatMoney, readableLegacyAiText, wineTone, wineTypeForTone, grapesSvgIcon } from "./components/panelSupport";
@@ -9023,14 +9024,7 @@ export function App() {
         </header>
         <div className="coownership-summary">
           {owners.length ? (
-            <div className="ownership-list">
-              {owners.map((owner, index) => (
-                <div className="ownership-row" key={`${owner.email || owner.name}-${index}`}>
-                  <span>{owner.name}{owner.email ? ` - ${owner.email}` : ""}</span>
-                  <strong>{Number(owner.share_pct).toLocaleString(locale, { maximumFractionDigits: 6 })}%</strong>
-                </div>
-              ))}
-            </div>
+            <OwnershipShareChart wine={wine} locale={locale} userEmail={session?.user_email} />
           ) : <p className="empty-state">{locale === "it" ? "Nessuna quota di multiproprietà configurata." : "No co-ownership shares are configured."}</p>}
         </div>
         {renderSharePanel(wine)}
