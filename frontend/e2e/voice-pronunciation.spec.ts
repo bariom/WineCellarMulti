@@ -43,6 +43,40 @@ test("French names outside the cellar are respelled too, and Italian ones are le
   expect(spoken).toBe("Per la wishlist: Sciatò Lafìt Rotsciìld 2019 di Poiàc e Domèn de la Romané-Contì. Il Barolo di Giacomo Conterno resta in cantina, la Clò non c'entra.");
 });
 
+test("dictation puts back \"en primeur\" however the recogniser wrote it", async ({ page }) => {
+  await page.goto("/");
+  const heard = [
+    "Quali sono i miei vini Primer?",
+    "quali sono i miei vini Marvel",
+    "Quali sono i miei vini Un Prime?",
+    "ho comprato sei bottiglie an primer",
+    "mostrami gli acquisti amprimer",
+    "quali vini ho preso en primeur",
+    // Not about en primeur: left as dictated.
+    "ho bevuto un Premier Cru con le prime bottiglie di Marvel",
+    "this is a prime example",
+  ];
+  const result = await page.evaluate(async (heard) => {
+    const dictation = await import("/src/utils/dictation.ts");
+    return {
+      corrected: heard.map((text) => dictation.correctDictation(text)),
+      // A later alternative that heard it right wins over the first.
+      best: dictation.bestDictation(["vini Marvin", "vini en primeur"]),
+    };
+  }, heard);
+  expect(result.corrected).toEqual([
+    "Quali sono i miei vini en primeur?",
+    "quali sono i miei vini en primeur",
+    "Quali sono i miei vini en primeur?",
+    "ho comprato sei bottiglie en primeur",
+    "mostrami gli acquisti en primeur",
+    "quali vini ho preso en primeur",
+    "ho bevuto un Premier Cru con le prime bottiglie di Marvel",
+    "this is a prime example",
+  ]);
+  expect(result.best).toBe("vini en primeur");
+});
+
 test("a long answer is read in pieces of whole sentences", async ({ page }) => {
   await page.goto("/");
   const chunks = await page.evaluate(async () => {

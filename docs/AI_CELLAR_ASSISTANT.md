@@ -91,6 +91,10 @@ the answer stored, in `assistant_feedback` (migration `0125`), and the app says 
 them in Settings → Operatività → Assistente AI, the 👎 first, to improve the prompt on real questions.
 The thanks shows for a few seconds; the pressed thumb stays.
 
+Dictation listens in the app's language, so the French "en primeur" comes back as "Primer",
+"Un Prime" or "Marvel": `frontend/src/utils/dictation.ts` puts it back before the text is shown or
+sent, and prefers a recogniser alternative that heard it right. Add other misheard wine terms there.
+
 On a keyboard, Enter sends the message and Shift+Enter breaks the line; touch keyboards keep Enter
 for a new line. Each answer shows its cost; the model that answered is named for app administrators
 only. A wine link omits the producer when it only repeats the wine's name. A share of a co-owned

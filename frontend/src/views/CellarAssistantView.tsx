@@ -17,6 +17,7 @@ import "./CellarAssistantMobile.css";
 import { AssistantAnswer } from "../components/AssistantAnswer";
 import { AiActivity } from "../components/AiActivity";
 import { primeSpeech, speak, speechSupported, stopSpeaking } from "../utils/speech";
+import { bestDictation } from "../utils/dictation";
 import { localizeRegion } from "../domain/places";
 
 const READ_ALOUD_KEY = "vinaris.assistant.read-aloud";
@@ -516,7 +517,9 @@ export default function CellarAssistantView({
       let interimTranscript = "";
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index];
-        const transcript = result[0]?.transcript || "";
+        // Wine terms the recogniser mishears ("en primeur") are put back as said.
+        const alternatives = Array.from({ length: result.length }, (_, position) => result[position]?.transcript || "");
+        const transcript = bestDictation(alternatives);
         if (result.isFinal) finalTranscriptRef.current += `${transcript} `;
         else interimTranscript += transcript;
       }
