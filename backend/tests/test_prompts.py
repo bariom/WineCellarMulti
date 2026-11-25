@@ -321,7 +321,7 @@ def test_market_value_prompts_keep_currency_and_context_constraints():
 
 
 def test_value_market_instructions_are_explicit_and_currency_independent():
-    from app.api.routes.ai import value_currency_instruction
+    from app.services.ai_context import value_currency_instruction
     from app.services.openai_client import response_body
 
     for country, name in (

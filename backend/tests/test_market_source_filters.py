@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from app.api.routes.ai import (
+from app.services.ai_context import (
     local_market_source_price,
     median_retail_source_price,
     normalize_market_sources,

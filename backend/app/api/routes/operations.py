@@ -26,9 +26,7 @@ from app.api.routes.ai import (
     get_or_create_user_ai_settings,
     model_pricing_usd_per_million_tokens,
     record_ai_audit,
-    web_search_source_entries,
     web_search_tool_cost_usd,
-    wine_lookup_context,
 )
 from app.api.routes.wines import PHOTO_SIZES, copy_wine_photo, wine_photo_path
 from app.core.config import settings
@@ -59,6 +57,10 @@ from app.models import (
     WishlistItem,
 )
 from app.prompts import wine_vineyard_location_prompt
+from app.services.ai_context import (
+    web_search_source_entries,
+    wine_lookup_context,
+)
 from app.services.openai_client import parse_json_response
 from app.services.openai_costs import organization_cost_summary, unavailable_summary
 from app.services.openai_pricing import official_standard_pricing

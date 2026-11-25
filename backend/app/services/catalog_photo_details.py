@@ -283,9 +283,9 @@ def research_group(
         effective_response_model,
         get_or_create_user_ai_settings,
         record_ai_audit,
-        web_search_source_entries,
         web_search_tool_cost_usd,
     )
+    from app.services.ai_context import web_search_source_entries
     from app.services.openai_client import parse_json_response
 
     wines = [{"index": index, **research_wines(bottle)} for index, bottle in enumerate(bottles, 1)]

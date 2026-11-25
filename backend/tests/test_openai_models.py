@@ -13,20 +13,22 @@ import pytest
 
 from app.api.routes.ai import (
     available_model_options,
+    estimate_cost_usd,
+    normalize_user_ai_models,
+    pricing_for_model,
+    reservation_pricing_model,
+    web_search_tool_cost_usd,
+)
+from app.services.ai_context import (
     clean_buying_recommendations,
     clean_pairing_response,
     clean_recommendation_vintage,
     compare_wine_context,
-    estimate_cost_usd,
     is_disallowed_buying_source,
-    normalize_user_ai_models,
     pairing_wine_context,
     pairing_wine_is_in_ideal_window,
-    pricing_for_model,
-    reservation_pricing_model,
     select_pairing_candidates,
     taste_affinity_from_score,
-    web_search_tool_cost_usd,
     wine_market_context,
     wishlist_advice_context,
     wishlist_market_context,

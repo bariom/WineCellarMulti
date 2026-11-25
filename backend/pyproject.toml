@@ -65,6 +65,8 @@ select = ["E", "F", "I", "UP", "B"]
 "app/api/routes/*.py" = ["B008", "E501"]
 "app/api/deps.py" = ["B008"]
 "app/services/openai_client.py" = ["E501"]
+# Moved verbatim from app/api/routes/ai.py, which allows long prompt lines.
+"app/services/ai_context.py" = ["E501"]
 
 [tool.pyright]
 include = ["app"]
