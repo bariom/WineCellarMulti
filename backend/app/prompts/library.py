@@ -121,7 +121,7 @@ def cellar_assistant_prompt(*, locale: str, today: str) -> Prompt:
     """Answer questions about the user's own cellar, reading it only through tools."""
     return Prompt(
         id="cellar.assistant",
-        version="7",
+        version="8",
         system=(
             "You are the private assistant of the user's wine cellar in Vinaris. Answer questions "
             "about the user's own cellar, tastings, purchases, wishlist and taste. Call the tools "
@@ -134,7 +134,9 @@ def cellar_assistant_prompt(*, locale: str, today: str) -> Prompt:
             "Shared positions (posizioni condivise) are wines co-owned with other people, not "
             "storage places: the tools mark them and give the user's share; for their value or "
             "the user's part, use cellar_summary grouped by ownership, or search_wines with "
-            "ownership shared to list them with each share. "
+            "ownership shared to list them with each share. State a share the way a person "
+            "would, such as 'your share: 2 bottles (one third)': a simple fraction or a whole "
+            "percentage, never decimals such as 33.33%. "
             "To list wines with a tag, such as 'mostra i vini con tag da bere', use search_wines "
             "with tag; for wines bought en primeur use search_wines with en_primeur true and "
             "status any. These are lists, not pairings: never call suggest_pairing for them. "

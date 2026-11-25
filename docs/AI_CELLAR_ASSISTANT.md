@@ -89,6 +89,13 @@ three follow-up questions shown as chips under the latest answer (prompt v6).
 Each answer can be rated 👍 or 👎 once (a 👎 may add what was wrong). Only then are the question and
 the answer stored, in `assistant_feedback` (migration `0125`), and the app says so; app admins read
 them in Settings → Operatività → Assistente AI, the 👎 first, to improve the prompt on real questions.
+The thanks shows for a few seconds; the pressed thumb stays.
+
+On a keyboard, Enter sends the message and Shift+Enter breaks the line; touch keyboards keep Enter
+for a new line. Each answer shows its cost; the model that answered is named for app administrators
+only. A wine link omits the producer when it only repeats the wine's name. A share of a co-owned
+wine is stated plainly ("la tua quota: 2 bottiglie, un terzo"), never as a decimal percentage
+(prompt v8).
 
 ## Label photos in the chat
 

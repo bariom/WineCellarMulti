@@ -182,6 +182,16 @@ export function pronounceForItalianVoice(text: string, frenchNames: string[]) {
   for (const name of names) {
     spoken = spoken.replace(new RegExp(`(?<![\\p{L}])${escape(name)}(?![\\p{L}])`, "giu"), (found) => frenchNameForItalian(found));
   }
+  // A name that opens with Château, Domaine or Clos is French to its end, also for a wine
+  // that is not in the cellar: the capitalised words that follow, with their particles.
+  spoken = spoken.replace(
+    /(?<![\p{L}])(?:Ch[aâ]teaux?|Domaines?|Clos)(?:\s+(?:(?:de|du|des|la|le|les)\s+|[dl]['’])*\p{Lu}[\p{L}'’-]*){1,4}/gu,
+    (found) => frenchNameForItalian(found),
+  );
   // Label words that are French on their own, when written with a capital (Château, Domaine…).
-  return spoken.replace(/(?<![\p{L}])(Ch[aâ]teau(x)?|Domaine|Clos|C[oô]tes?|Grand Cru|Premier Cru|Saint-[\p{L}-]+|Haut-[\p{L}-]+|Cuv[ée]e)(?![\p{L}])/gu, (found) => frenchNameForItalian(found));
+  spoken = spoken.replace(/(?<![\p{L}])(Ch[aâ]teau(x)?|Domaine|Clos|C[oô]tes?|Grand Cru|Premier Cru|Saint-[\p{L}-]+|Haut-[\p{L}-]+|Cuv[ée]e)(?![\p{L}])/gu, (found) => frenchNameForItalian(found));
+  // French appellations an Italian voice would spell out, wherever they are named.
+  return spoken.replace(FRENCH_APPELLATIONS, (found) => frenchNameForItalian(found));
 }
+
+const FRENCH_APPELLATIONS = /(?<![\p{L}])(Pauillac|Margaux|Pomerol|M[ée]doc|Pessac-L[ée]ognan|Sauternes|Barsac|Sancerre|Pouilly-Fum[ée]|Pouilly-Fuiss[ée]|Vouvray|Meursault|(?:Puligny-|Chassagne-)?Montrachet|Gevrey-Chambertin|Chambertin|Vosne-Roman[ée]e|Chambolle-Musigny|Nuits-Saint-Georges|Beaune|Pommard|Volnay|Chablis|Ch[aâ]teauneuf-du-Pape|Gigondas|Vacqueyras|C[oô]te-R[oô]tie|Condrieu|Cornas|Crozes-Hermitage|Hermitage|Bourgogne|Beaujolais|Cr[ée]mant)(?![\p{L}])/gu;

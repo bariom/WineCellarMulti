@@ -31,6 +31,30 @@ test("French wine names are respelled the way an Italian voice should say them",
   });
 });
 
+test("French names outside the cellar are respelled too, and Italian ones are left alone", async ({ page }) => {
+  await page.goto("/");
+  const spoken = await page.evaluate(async () => {
+    const pronunciation = await import("/src/utils/pronunciation.ts");
+    return pronunciation.pronounceForItalianVoice(
+      "Per la wishlist: Château Lafite Rothschild 2019 di Pauillac e Domaine de la Romanée-Conti. Il Barolo di Giacomo Conterno resta in cantina, la Clos non c'entra.",
+      [],
+    );
+  });
+  expect(spoken).toBe("Per la wishlist: Sciatò Lafìt Rotsciìld 2019 di Poiàc e Domèn de la Romané-Contì. Il Barolo di Giacomo Conterno resta in cantina, la Clò non c'entra.");
+});
+
+test("a long answer is read in pieces of whole sentences", async ({ page }) => {
+  await page.goto("/");
+  const chunks = await page.evaluate(async () => {
+    const speech = await import("/src/utils/speech.ts");
+    const sentence = "Hai sei bottiglie di Barolo 2016 al picco, valutate 33.5 franchi l'una.";
+    return { short: speech.speechChunks("Sì. Ne hai due."), long: speech.speechChunks(Array(6).fill(sentence).join(" ")), sentence };
+  });
+  // Short answers stay one reading; long ones break only between sentences.
+  expect(chunks.short).toEqual(["Sì. Ne hai due."]);
+  expect(chunks.long).toEqual(Array(2).fill(Array(3).fill(chunks.sentence).join(" ")));
+});
+
 const bordeaux = { ...wine, id: "wine-pontet", name: "Château Pontet-Canet", producer: "Château Pontet-Canet", vintage: "2025", region: "Bordeaux", appellation: "Pauillac", vineyard_country: "Francia" };
 
 async function readAnswerWith(page: Page, voiceName: string) {

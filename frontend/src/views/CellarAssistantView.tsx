@@ -42,6 +42,17 @@ type ConversationTurn = {
   shown?: string;
 };
 
+/** Compare names as people read them: without case, accents or punctuation. */
+function plainName(value: string) {
+  return value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** Vintage and producer under a wine link; the producer only when it adds to the name. */
+function wineLinkDetail(wine: AssistantWineLink) {
+  const producer = plainName(wine.producer) === plainName(wine.name) ? "" : wine.producer;
+  return [wine.vintage, producer].filter(Boolean).join(" · ");
+}
+
 /** A small JPEG of the photo, light enough to keep with the conversation. */
 async function thumbnailOf(file: File) {
   try {
@@ -146,6 +157,8 @@ type CellarAssistantViewProps = {
   conversationKey?: string;
   /** Labels can be photographed and recognised for this user. */
   canRecognize?: boolean;
+  /** Name the AI model beside the cost: for app administrators. */
+  showModel?: boolean;
 };
 
 export default function CellarAssistantView({
@@ -161,6 +174,7 @@ export default function CellarAssistantView({
   onOpenWine,
   conversationKey,
   canRecognize = false,
+  showModel = false,
 }: CellarAssistantViewProps) {
   const [text, setText] = useState("");
   // One card per operation of the last message, each confirmed on its own.
@@ -294,6 +308,9 @@ export default function CellarAssistantView({
       : "0";
     return `${isItalian ? "Costo" : "Cost"}: $${formatted}`;
   };
+  const modelCostLabel = (model: string, cost: number | string) => (
+    showModel && model ? `${model} · ${requestCostLabel(cost)}` : requestCostLabel(cost)
+  );
 
   useEffect(() => () => {
     recognitionRef.current?.abort();
@@ -643,6 +660,12 @@ export default function CellarAssistantView({
   // The answer whose thumb down is asking what went wrong.
   const [critiqueIndex, setCritiqueIndex] = useState<number | null>(null);
   const [critique, setCritique] = useState("");
+  // The answer just rated: its thanks shows briefly, the pressed thumb stays.
+  const [thankedIndex, setThankedIndex] = useState<number | null>(null);
+  const thanksTimeoutRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (thanksTimeoutRef.current !== null) window.clearTimeout(thanksTimeoutRef.current);
+  }, []);
 
   /** Rate one answer: with the question asked and the answer given, to improve them. */
   async function rate(index: number, rating: "up" | "down", comment = "") {
@@ -651,6 +674,9 @@ export default function CellarAssistantView({
     setConversation((current) => current.map((item, position) => (position === index ? { ...item, rating } : item)));
     setCritiqueIndex(null);
     setCritique("");
+    setThankedIndex(index);
+    if (thanksTimeoutRef.current !== null) window.clearTimeout(thanksTimeoutRef.current);
+    thanksTimeoutRef.current = window.setTimeout(() => setThankedIndex(null), 6000);
     try {
       await api("/api/v1/ai/cellar-assistant/feedback", {
         method: "POST",
@@ -680,7 +706,7 @@ export default function CellarAssistantView({
       {
         role: "assistant",
         content: answer.answer,
-        meta: `${answer.model} · ${requestCostLabel(answer.estimated_cost_usd)}`,
+        meta: modelCostLabel(answer.model, answer.estimated_cost_usd),
         ...(answer.wines?.length ? { wines: answer.wines } : {}),
         ...(answer.follow_ups?.length ? { followUps: answer.follow_ups } : {}),
         model: answer.model,
@@ -970,7 +996,7 @@ export default function CellarAssistantView({
             {turn.wines?.length && onOpenWine ? <div className="cellar-assistant-wine-links" aria-label={isItalian ? "Vini citati" : "Wines mentioned"}>
               {turn.wines.map((wine) => <button key={wine.id} type="button" className="secondary compact" onClick={() => onOpenWine(wine.id)}>
                 <AppIcon name="bottle" variant="navigation" />
-                <span><strong>{wine.name}</strong>{wine.vintage || wine.producer ? <small>{[wine.vintage, wine.producer].filter(Boolean).join(" · ")}</small> : null}</span>
+                <span><strong>{wine.name}</strong>{wineLinkDetail(wine) ? <small>{wineLinkDetail(wine)}</small> : null}</span>
               </button>)}
             </div> : null}
             {turn.followUps?.length && index === conversation.length - 1 && !pendingQuestion ? <div className="cellar-assistant-follow-ups" aria-label={isItalian ? "Puoi chiedere anche" : "You could also ask"}>
@@ -998,7 +1024,7 @@ export default function CellarAssistantView({
                 <button type="submit" className="compact">{isItalian ? "Invia" : "Send"}</button>
               </div>
             </form> : null}
-            {turn.rating ? <small className="cellar-assistant-rated" role="status">{isItalian ? "Grazie: domanda e risposta sono state salvate per migliorare l'assistente." : "Thank you: question and answer were saved to improve the assistant."}</small> : null}
+            {turn.rating && thankedIndex === index ? <small className="cellar-assistant-rated" role="status">{isItalian ? "Grazie: domanda e risposta sono state salvate per migliorare l'assistente." : "Thank you: question and answer were saved to improve the assistant."}</small> : null}
           </li>)}
           {pendingQuestion ? <>
             <li className="is-user" ref={latestQuestionRef}><p>{pendingQuestion}</p></li>
@@ -1039,6 +1065,14 @@ export default function CellarAssistantView({
             id="cellar-assistant-command"
             value={text}
             onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              // Enter sends, as in a chat; Shift+Enter breaks the line. Touch keyboards
+              // keep Enter for a new line and send with the button.
+              if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+              if (window.matchMedia("(pointer: coarse)").matches) return;
+              event.preventDefault();
+              void send(text);
+            }}
             maxLength={2000}
             rows={5}
             disabled={disabled || busy}
@@ -1132,7 +1166,7 @@ export default function CellarAssistantView({
         <article key={result.command_id} ref={index === 0 ? resultRef : undefined} className={`cellar-assistant-result status-${result.status}`} aria-live="polite" tabIndex={-1}>
           <header>
             <AppIcon name={result.status === "executed" ? "status-delivered" : "glass-sparkle"} variant={result.status === "executed" ? "status" : "ai"} />
-            <div><strong>{result.message}</strong>{result.model ? <small>{result.model} · {requestCostLabel(result.estimated_cost_usd)}</small> : null}</div>
+            <div><strong>{result.message}</strong>{result.model ? <small>{modelCostLabel(result.model, result.estimated_cost_usd)}</small> : null}</div>
           </header>
           {result.tasting ? (
             <dl>

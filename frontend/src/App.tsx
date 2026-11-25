@@ -1117,10 +1117,13 @@ export function App() {
   const [assistantVoiceStart, setAssistantVoiceStart] = useState<number | null>(null);
   // A pairing the assistant got from the Sommelier AI, opened in the pairing view.
   const [pairingFromAssistant, setPairingFromAssistant] = useState(false);
-  // The voice reads the French names of this cellar as an Italian speaker would say them.
+  // The voice reads the French names of this cellar and wishlist as an Italian speaker would say them.
   useEffect(() => {
-    setFrenchNames(wines.filter(isFrenchWine).flatMap((wine) => [wine.name, wine.producer, wine.appellation]));
-  }, [wines]);
+    setFrenchNames([
+      ...wines.filter(isFrenchWine),
+      ...wishlist.filter((item) => isFrenchWine({ vineyard_country: item.country, region: item.region, appellation: item.appellation })),
+    ].flatMap((wine) => [wine.name, wine.producer, wine.appellation]));
+  }, [wines, wishlist]);
   // Where a pairing visit starts when it comes from the Sommelier AI page.
   const [pairingStartPlace, setPairingStartPlace] = useState<"choose" | "home" | "restaurant">("choose");
   const [pairingRestaurantFlow, setPairingRestaurantFlow] = useState<"choose" | "scan" | "without-list">("choose");
@@ -10587,6 +10590,7 @@ export function App() {
               locale={locale}
               disabled={!canGenerateAi || !canWriteWine}
               canRecognize={canRecognizeBottlePhoto}
+              showModel={Boolean(session?.is_app_admin)}
               onPreparePurchase={prepareAssistantPurchaseDraft}
               onOpenWishlist={() => setActiveView("wishlist")}
               initialQuestion={assistantQuestion}

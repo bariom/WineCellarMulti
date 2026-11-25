@@ -95,7 +95,61 @@ test("each answer can be rated once, and a thumb down asks what was wrong", asyn
     expect.objectContaining({ rating: "up", question: "Quanti Nebbiolo ho?", model: "test-model", tools_used: ["search_wines"] }),
     expect.objectContaining({ rating: "down", question: "Quali sono al picco?", answer: "Al picco c'è solo questo vino.", comment: "Ne ho due al picco" }),
   ]);
+
+  // The thanks is a brief confirmation; the pressed thumb is what stays.
+  await expect(conversation.getByRole("status")).toHaveCount(0);
+  await expect(answers.nth(0).getByRole("button", { name: "Risposta utile" })).toHaveAttribute("aria-pressed", "true");
+  await expect(answers.nth(1).getByRole("button", { name: "Risposta da migliorare" })).toHaveAttribute("aria-pressed", "true");
 });
+
+for (const admin of [false, true]) {
+  test(`Enter sends the question, and the answer stays free of repeated or technical detail (${admin ? "app admin" : "user"})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockApi(page, [], true, memberships, [wine], { ...session, is_app_admin: admin, cellar_ai_assistant_available: true, cellar_ai_assistant_subscribed: true });
+    await page.addInitScript((wine) => {
+      const previous = window.fetch;
+      window.fetch = async (input, init) => {
+        const path = new URL(String(input instanceof Request ? input.url : input), location.href).pathname;
+        if (path === "/api/v1/ai/cellar-assistant/ask") {
+          const asked = JSON.parse(sessionStorage.getItem("asked") || "[]");
+          sessionStorage.setItem("asked", JSON.stringify([...asked, JSON.parse(String(init?.body)).question]));
+          return Response.json({
+            answer: "Hai un vino en primeur.",
+            // The estate gives the wine its name: same words, written with other accents.
+            wines: [{ id: wine.id, name: "Château Pontet-Canet", producer: "Chateau Pontet Canet", vintage: "2025" }],
+            follow_ups: [], tools_used: ["search_wines"], model: "test-model", reasoning_effort: "", estimated_cost_usd: "0.0002",
+          });
+        }
+        return previous(input, init);
+      };
+    }, wine);
+    await page.goto("/");
+    await openSommelierFeature(page, /^Chiedi alla tua cantina/);
+    const field = page.getByLabel("Chiedi o racconta", { exact: true });
+
+    // Shift+Enter breaks the line and sends nothing.
+    await field.fill("Quali sono i miei vini");
+    await field.press("Shift+Enter");
+    await field.pressSequentially("en primeur?");
+    await expect(field).toHaveValue("Quali sono i miei vini\nen primeur?");
+    expect(await page.evaluate(() => sessionStorage.getItem("asked"))).toBeNull();
+
+    await field.press("Enter");
+    const conversation = page.getByRole("region", { name: "Conversazione con l'assistente" });
+    await expect(conversation).toContainText("Hai un vino en primeur.");
+    expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("asked") || "[]"))).toEqual(["Quali sono i miei vini\nen primeur?"]);
+
+    // The link names the wine once: the producer adds nothing here.
+    const link = conversation.locator(".cellar-assistant-wine-links").getByRole("button");
+    await expect(link).toHaveText("Château Pontet-Canet2025");
+
+    // Everyone sees the cost; only app administrators also see which model answered.
+    const footer = conversation.locator("li.is-assistant .cellar-assistant-turn-footer small");
+    await expect(footer).toHaveText(admin ? "test-model · Costo: $0.0002" : "Costo: $0.0002");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`assistant-refined-${admin ? "admin" : "user"}.png`) });
+  });
+}
 
 // A real 16×24 PNG, so the conversation can draw its thumbnail.
 const labelPhoto = {

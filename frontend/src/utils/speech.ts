@@ -40,8 +40,26 @@ function voiceFor(locale: Locale) {
   return voices.reduce<SpeechSynthesisVoice | null>((best, voice) => (!best || voiceQuality(voice) > voiceQuality(best) ? voice : best), null);
 }
 
+// Ends the reading in progress for its caller, once, however it ends.
+let finishReading: (() => void) | null = null;
+
 export function stopSpeaking() {
   if (speechSupported()) window.speechSynthesis.cancel();
+  finishReading?.();
+}
+
+/**
+ * The text in pieces of whole sentences, each short enough to be read through:
+ * Chrome cuts off a single long reading with its online voices after some seconds.
+ */
+export function speechChunks(text: string, limit = 220) {
+  const chunks: string[] = [];
+  for (const sentence of text.split(/(?<=[.!?…])\s+/).filter(Boolean)) {
+    const last = chunks[chunks.length - 1];
+    if (last !== undefined && last.length + 1 + sentence.length <= limit) chunks[chunks.length - 1] = `${last} ${sentence}`;
+    else chunks.push(sentence);
+  }
+  return chunks;
 }
 
 // French names of this cellar, respelled for an Italian voice so they are not read letter by letter.
@@ -62,13 +80,25 @@ export function textForVoice(text: string, locale: Locale, voice: Pick<SpeechSyn
 export function speak(text: string, locale: Locale, onEnd?: () => void) {
   if (!speechSupported()) return false;
   const voice = voiceFor(locale);
-  const utterance = new window.SpeechSynthesisUtterance(textForVoice(text, locale, voice));
-  utterance.lang = locale === "it" ? "it-IT" : "en-US";
-  if (voice) utterance.voice = voice;
-  utterance.onend = () => onEnd?.();
-  utterance.onerror = () => onEnd?.();
+  const chunks = speechChunks(textForVoice(text, locale, voice));
   window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utterance);
+  finishReading?.();
+  const finish = () => {
+    if (finishReading !== finish) return;
+    finishReading = null;
+    onEnd?.();
+  };
+  finishReading = finish;
+  // Queued together, so the browser reads them as one answer with no gap to fill.
+  chunks.forEach((chunk, index) => {
+    const utterance = new window.SpeechSynthesisUtterance(chunk);
+    utterance.lang = locale === "it" ? "it-IT" : "en-US";
+    if (voice) utterance.voice = voice;
+    if (index === chunks.length - 1) utterance.onend = finish;
+    utterance.onerror = finish;
+    window.speechSynthesis.speak(utterance);
+  });
+  if (!chunks.length) finish();
   return true;
 }
 
