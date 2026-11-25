@@ -51,7 +51,7 @@ Do not run full suites by default. Inspect `git diff`, classify as frontend-only
 
 **Billing/AI cost model:** AI calls go through personal OpenAI key or the app-managed key (Vinaris AI Pack / subscription, Stripe webhooks). Credit reservation/deduction logic lives in `services/ai_credits.py` and pricing in `openai_pricing.py`; model routing is documented in `docs/OPENAI_MODELS.md`.
 
-**Migrations:** Alembic in `backend/alembic/versions/`, numbered `0NNN_name.py` (latest ≈ `0121`). Append-only: never edit an applied migration. Revision IDs must be ≤ 32 characters (production `version_num` is `varchar(32)`). Never rewrite data in a route handler.
+**Migrations:** Alembic in `backend/alembic/versions/`, numbered `0NNN_name.py`; a new one takes the number after the highest existing file. Append-only: never edit an applied migration. Revision IDs must be ≤ 32 characters (production `version_num` is `varchar(32)`). Never rewrite data in a route handler.
 
 **Frontend** (`frontend/src/`): `App.tsx` is the shell; `views/` (screens), `components/`, `domain/`, `services/` (API client), `utils/`, `help/`, `legal/`, `i18n.ts` (Italian/English — every user-visible string needs both). `types.ts` mirrors backend schemas: change a response shape and review `types.ts` plus affected UI together. `MonitorApp.tsx`/`monitor.css` is a separate Vinaris Monitor build (`build:monitor`). Heavy features (tasting, scanner, assistant, Wine Pulse) are lazy-loaded chunks; keep shared deps out of manual chunk groups.
 
