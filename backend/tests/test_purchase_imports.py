@@ -967,7 +967,7 @@ def test_confirmation_validates_untrusted_values(changes):
 def test_prompt_language_and_constraints():
     for locale, language in [("it", "Italian"), ("en", "English")]:
         prompt = purchase_import_prompt(locale=locale)
-        assert prompt.id == "purchase_import" and prompt.version == "1.3.0"
+        assert prompt.id == "purchase_import" and prompt.version == "1.4.0"
         for phrase in [
             language,
             "untrusted",
@@ -1104,7 +1104,7 @@ def test_document_prompt_preserves_untrusted_data_and_payment_constraints():
 @pytest.mark.parametrize("locale,language", [("it", "Italian"), ("en", "English")])
 def test_purchase_prompt_separates_geographic_suffix_without_truncating_names(locale, language):
     prompt = purchase_import_prompt(locale=locale)
-    assert prompt.id == "purchase_import" and prompt.version == "1.3.0"
+    assert prompt.id == "purchase_import" and prompt.version == "1.4.0"
     assert language in prompt.system
     for rule in [
         "Le C des Carmes Haut-Brion, Pessac-Léognan",
@@ -1455,3 +1455,104 @@ def test_free_tier_pending_purchase_counts_ordered_wines_against_the_label_limit
     response = test.post(f"/imports/purchases/{record['id']}/confirm", json=payload)
     assert response.status_code == 409, response.text
     assert len(list(db.scalars(select(Wine)))) == 1
+
+
+def ai_preview(client, monkeypatch, **row):
+    test, _, _, _, calls = client
+    data = extracted()
+    data["rows"][0].update(row)
+
+    def respond(*args, **kwargs):
+        calls.append(kwargs)
+        return OpenAIResponse(text=json.dumps(data), usage=TokenUsage(), model="test"), "user_key"
+
+    monkeypatch.setattr(ai, "create_ai_response", respond)
+    return preview(test)
+
+
+def test_provider_schema_requires_canonical_wine_type_without_default():
+    schema = routes.extraction_schema()["schema"]
+    row = schema["$defs"]["ExtractedPurchaseRow"]
+    assert "wine_type" in row["required"]
+    assert "default" not in row["properties"]["wine_type"]
+    assert set(row["properties"]["wine_type"]["enum"]) == {
+        "",
+        "Red",
+        "White",
+        "Rose",
+        "Sparkling",
+        "Sweet",
+        "Fortified",
+        "Other",
+    }
+    prompt = purchase_import_prompt(locale="it")
+    assert prompt.version == "1.4.0" and "wine_type" in prompt.system
+
+
+@pytest.mark.parametrize(
+    "proposed,expected", [("Red", "Red"), ("rosso", "Red"), ("spumante", "Sparkling"), ("", "")]
+)
+def test_preview_proposes_ai_wine_type_for_a_new_wine(client, monkeypatch, proposed, expected):
+    result = ai_preview(client, monkeypatch, name="Nuovo vino", wine_type=proposed)
+    assert result["extraction"]["rows"][0]["wine_type"] == expected
+
+
+def test_cached_drafts_without_wine_type_still_validate():
+    draft = extracted()
+    assert PurchaseExtraction.model_validate(draft).rows[0].wine_type == ""
+
+
+def test_catalog_colour_takes_precedence_over_ai(client, monkeypatch):
+    _, db, _, _, _ = client
+    db.add(WineCatalogEntry(name="Chablis", producer="Producer", type="White", is_active=True))
+    db.commit()
+    result = ai_preview(client, monkeypatch, name="Chablis", wine_type="Red")
+    assert result["extraction"]["rows"][0]["wine_type"] == "White"
+
+
+def test_cellar_colour_takes_precedence_over_ai(client, monkeypatch):
+    # The setup cellar already records this Barolo as red.
+    result = ai_preview(client, monkeypatch, wine_type="White")
+    assert result["extraction"]["rows"][0]["wine_type"] == "Red"
+    assert result["matches"][0][0]["wine_type"] == "Red"
+
+
+def test_ambiguous_catalog_colour_keeps_ai_proposal(client, monkeypatch):
+    _, db, _, _, _ = client
+    db.add_all(
+        [
+            WineCatalogEntry(name="Langhe", producer="A", type="Red", is_active=True),
+            WineCatalogEntry(name="Langhe", producer="B", type="White", is_active=True),
+        ]
+    )
+    db.commit()
+    result = ai_preview(client, monkeypatch, name="Langhe", producer="", wine_type="")
+    assert result["extraction"]["rows"][0]["wine_type"] == ""
+
+
+def test_confirmed_wine_type_is_saved_and_never_overwrites_existing(client):
+    test, db, _, wine, _ = client
+    result = preview(test)
+    data = confirmation()
+    data["rows"][0].update(name="Nuovo vino", wine_type="White")
+    response = test.post(f"/imports/purchases/{result['id']}/confirm", json=data)
+    assert response.status_code == 200, response.text
+    assert db.get(Wine, UUID(response.json()["wine_ids"][0])).type == "White"
+
+    wine.format = "0.75L"
+    db.commit()
+    data = confirmation(reference="second")
+    data["rows"][0].update(existing_wine_id=str(wine.id), wine_type="White")
+    other = test.post(
+        "/imports/purchases/preview",
+        files={"document": ("other.png", image() + b"x", "image/png")},
+    )
+    response = test.post(f"/imports/purchases/{other.json()['id']}/confirm", json=data)
+    assert response.status_code == 200, response.text
+    assert wine.type == "Red"
+
+
+def test_confirmation_rejects_unknown_wine_type_by_leaving_it_blank():
+    data = confirmation()
+    data["rows"][0]["wine_type"] = "Orange-ish"
+    assert PurchaseConfirmation.model_validate(data).rows[0].wine_type == ""

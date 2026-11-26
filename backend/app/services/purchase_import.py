@@ -27,6 +27,7 @@ from app.schemas.purchase_import import (
     PurchaseConfirmation,
     PurchaseExtraction,
     PurchaseResult,
+    canonical_purchase_wine_type,
 )
 from app.services.catalog_sync import inherit_catalog_metadata, propose_wine_catalog_entry
 from app.services.free_tier import ensure_free_tier_label_capacity
@@ -172,6 +173,44 @@ def fill_purchase_producers_from_catalog(db: Session, extraction: PurchaseExtrac
             row.producer = next(iter(producers.values()))
 
 
+def fill_purchase_types_from_catalog(db: Session, extraction: PurchaseExtraction) -> None:
+    """Prefer an approved catalog colour over the AI proposal when identities agree."""
+    names = {normalize_catalog_text(row.name) for row in extraction.rows if row.name.strip()}
+    if not names:
+        return
+    entries = db.execute(
+        select(
+            WineCatalogEntry.name,
+            WineCatalogEntry.producer,
+            WineCatalogEntry.type,
+            WineCatalogAlias.normalized_alias,
+        )
+        .outerjoin(WineCatalogAlias, WineCatalogAlias.catalog_entry_id == WineCatalogEntry.id)
+        .where(
+            WineCatalogEntry.is_active.is_(True),
+            or_(
+                func.lower(func.trim(WineCatalogEntry.name)).in_(names),
+                WineCatalogAlias.normalized_alias.in_(names),
+            ),
+        )
+    )
+    candidates: dict[str, set[tuple[str, str]]] = {name: set() for name in names}
+    for name, producer, wine_type, alias in entries:
+        for key in {normalize_catalog_text(name), alias} & names:
+            candidates[key].add(
+                (normalize_catalog_text(producer), canonical_purchase_wine_type(wine_type))
+            )
+    for row in extraction.rows:
+        producer = normalize_catalog_text(row.producer)
+        types = {
+            wine_type
+            for entry_producer, wine_type in candidates.get(normalize_catalog_text(row.name), ())
+            if not producer or entry_producer == producer
+        }
+        if len(types) == 1 and "" not in types:
+            row.wine_type = types.pop()  # type: ignore[assignment]
+
+
 @dataclass(frozen=True)
 class PurchaseDocument:
     images: list[tuple[str, bytes]]
@@ -299,6 +338,9 @@ def apply_purchase(
                 raise HTTPException(
                     422, "Selected wine must have the same currency and bottle format"
                 )
+            # Reviewed colour fills a gap only; never overwrite a curated record.
+            if row.wine_type and not wine.type.strip():
+                wine.type = row.wine_type
         if received or wine is None:
             ensure_free_tier_label_capacity(db, context, wine=wine)
         if wine is None:
@@ -310,6 +352,7 @@ def apply_purchase(
                 vintage=row.vintage,
                 format=row.format,
                 currency=payload.currency,
+                type=row.wine_type,
                 price=row.unit_price,
                 quantity=0 if received else row.quantity,
                 status="Ordered",

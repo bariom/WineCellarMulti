@@ -7,10 +7,14 @@ import PurchasePhotoSuggestions from "./PurchasePhotoSuggestions";
 import PurchaseDocuments from "./PurchaseDocuments";
 import "./PurchaseImportDialog.css";
 import LocalizedDateInput from "./LocalizedDateInput";
+import { canonicalWineTypes } from "../domain/wineTypes";
 
 const PurchasePdfPreview = lazy(() => import("./PurchasePdfPreview"));
 
-type ReviewRow = { name: string; producer: string; vintage: string; format: string; quantity: string; unit_price: string; existing_wine_id: string; photo_library_id: string; source: number };
+const wineTypeLabelsIt: Record<string, string> = { Red: "Rosso", White: "Bianco", Rose: "Rosato", Sparkling: "Spumante", Sweet: "Dolce", Fortified: "Fortificato", Other: "Altro" };
+const wineTypeLabelsEn: Record<string, string> = { Red: "Red", White: "White", Rose: "Rosé", Sparkling: "Sparkling", Sweet: "Sweet", Fortified: "Fortified", Other: "Other" };
+
+type ReviewRow = { name: string; producer: string; vintage: string; format: string; wine_type: string; quantity: string; unit_price: string; existing_wine_id: string; photo_library_id: string; source: number };
 
 export default function PurchaseImportDialog({ locale, canAnalyze, included, isAdmin, onActivate, onAnalyzed, onClose, onImported }: {
   locale: Locale; canAnalyze: boolean; included: boolean; isAdmin: boolean; onActivate: () => void; onAnalyzed: () => Promise<void>; onClose: () => void; onImported: () => Promise<void>;
@@ -86,7 +90,7 @@ export default function PurchaseImportDialog({ locale, canAnalyze, included, isA
       const p = next.extraction;
       setSupplier(p.supplier); setReference(p.reference); setDate(p.order_date || ""); setCurrency(p.currency || "");
       setTotal(p.document_total === null ? "" : String(p.document_total)); setAdditional(p.additional_costs === null ? "" : String(p.additional_costs));
-      setRows(p.rows.map((row, source) => ({ name: row.name, producer: row.producer, vintage: row.vintage, format: row.format || "750ml",
+      setRows(p.rows.map((row, source) => ({ name: row.name, producer: row.producer, vintage: row.vintage, format: row.format || "750ml", wine_type: row.wine_type || "",
         quantity: row.quantity === null ? "" : String(row.quantity), unit_price: row.unit_price === null ? "" : String(row.unit_price), existing_wine_id: "", photo_library_id: "", source })));
     } catch (exc) { failure(exc); } finally {
       setBusy(false);
@@ -162,19 +166,20 @@ export default function PurchaseImportDialog({ locale, canAnalyze, included, isA
               <label>{it ? "Produttore" : "Producer"}<input maxLength={200} value={row.producer} onChange={e => update(index, { producer: e.target.value, existing_wine_id: "" })} /></label>
               <label>{it ? "Annata" : "Vintage"}<input maxLength={16} placeholder={it ? "Non indicata" : "Not specified"} value={row.vintage} onChange={e => update(index, { vintage: e.target.value, existing_wine_id: "" })} /></label>
               <label>{it ? "Formato" : "Bottle format"}<input maxLength={80} placeholder="750ml" value={row.format} onChange={e => update(index, { format: e.target.value, existing_wine_id: "" })} /></label>
+              <label>{it ? "Colore" : "Colour"}<select aria-label={it ? "Colore" : "Colour"} value={row.wine_type} onChange={e => update(index, { wine_type: e.target.value })}><option value="">{it ? "Non indicato" : "Not specified"}</option>{canonicalWineTypes.map(type => <option key={type} value={type}>{(it ? wineTypeLabelsIt : wineTypeLabelsEn)[type]}</option>)}</select></label>
               <label>{it ? "Bottiglie" : "Bottles"}<input type="number" min="1" max="10000" step="1" required value={row.quantity} onChange={e => update(index, { quantity: e.target.value })} /></label>
               <label>{it ? "Prezzo a bottiglia" : "Price per bottle"}<input type="number" min="0" max="99999999" step="0.01" required value={row.unit_price} onChange={e => update(index, { unit_price: e.target.value })} /></label>
             </div>
             {(preview.matches[row.source] || []).length ? <label>{it ? "Scheda in cantina" : "Cellar record"}<select aria-label={it ? "Scheda in cantina" : "Cellar record"} value={row.existing_wine_id} onChange={e => {
               const match = preview.matches[row.source].find(w => w.id === e.target.value);
-              update(index, { existing_wine_id: e.target.value, ...(match ? { name: match.name, producer: match.producer, vintage: match.vintage, format: match.format } : {}) });
+              update(index, { existing_wine_id: e.target.value, ...(match ? { name: match.name, producer: match.producer, vintage: match.vintage, format: match.format, ...(match.wine_type ? { wine_type: match.wine_type } : {}) } : {}) });
             }}><option value="">{it ? "Crea una nuova scheda" : "Create a new record"}</option>{preview.matches[row.source].map(w => <option key={w.id} value={w.id} disabled={w.currency !== currency}>{w.producer} {w.name} {w.vintage} · {w.format} · {w.currency}</option>)}</select><small>{it ? "Possibile corrispondenza: verifica prima di creare una nuova scheda." : "Possible match: check before creating a new record."}</small></label> : null}
             {(preview.matches[row.source] || []).find(match => match.id === row.existing_wine_id)?.has_photo
               ? <p className="purchase-photo-preserved">{it ? "La fotografia della scheda esistente verrà mantenuta." : "The existing record’s photo will be kept."}</p>
               : <PurchasePhotoSuggestions key={`${preview.id}-${row.source}`} name={row.name} producer={row.producer} locale={locale} selected={row.photo_library_id} onSelect={photo_library_id => update(index, { photo_library_id })} />}
             <div className="purchase-import-row-footer"><span>{it ? "Totale riga" : "Line total"}: {formatMoney(Number(row.unit_price || 0) * Number(row.quantity || 0))} {currency}{preview.extraction.rows[row.source]?.line_total != null ? ` · ${it ? "documento" : "document"}: ${formatMoney(Number(preview.extraction.rows[row.source].line_total))}` : ""}</span><button type="button" className="secondary" onClick={() => { setRows(current => current.filter((_, i) => i !== index)); setReviewed(false); }}>{it ? "Rimuovi vino" : "Remove wine"}</button></div>
           </fieldset>)}
-          <button type="button" className="secondary" disabled={busy || rows.length >= 60} onClick={() => { setRows(current => [...current, { name: "", producer: "", vintage: "", format: "750ml", quantity: "", unit_price: "", existing_wine_id: "", photo_library_id: "", source: -current.length - 1 }]); setReviewed(false); }}>{it ? "Aggiungi riga" : "Add row"}</button>
+          <button type="button" className="secondary" disabled={busy || rows.length >= 60} onClick={() => { setRows(current => [...current, { name: "", producer: "", vintage: "", format: "750ml", wine_type: "", quantity: "", unit_price: "", existing_wine_id: "", photo_library_id: "", source: -current.length - 1 }]); setReviewed(false); }}>{it ? "Aggiungi riga" : "Add row"}</button>
           <fieldset disabled={busy}><legend>{it ? "Controllo importi" : "Check amounts"}</legend><div className="purchase-import-fields"><label>{it ? "Altri importi (spedizione, imposte, sconti)" : "Other amounts (shipping, taxes, discounts)"}<input type="number" step="0.01" value={additional} onChange={e => setAdditional(e.target.value)} /><small>{it ? "Sconti negativi. Non contare due volte imposte già incluse." : "Use negative discounts. Do not count included tax twice."}</small></label><label>{it ? "Totale documento" : "Document total"}<input type="number" min="0" step="0.01" value={total} onChange={e => setTotal(e.target.value)} /></label></div><p className="purchase-import-total">{it ? "Totale verificato" : "Reviewed total"} <strong>{formatMoney(sum)} {currency}</strong></p>
           {difference ? <label className="purchase-import-check purchase-import-warnings"><input type="checkbox" checked={acceptDifference} required onChange={e => setAcceptDifference(e.target.checked)} /><span>{it ? "Il totale non coincide con il documento. Ho verificato e accetto la differenza." : "The total differs from the document. I have checked and accept the difference."}</span></label> : null}
           </fieldset>

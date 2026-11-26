@@ -2059,7 +2059,7 @@ export type GuidedSensoryProposal = {
 export type PurchaseImportRow = {
   name: string; producer: string; vintage: string; format: string;
   quantity: number | null; unit_price: string | number | null;
-  line_total: string | number | null; warnings: string[];
+  line_total: string | number | null; wine_type?: string; warnings: string[];
 };
 export type PurchaseImportPreview = {
   id: string; status: string; estimated_cost_usd: string | number;
@@ -2068,7 +2068,7 @@ export type PurchaseImportPreview = {
     document_total: string | number | null; additional_costs: string | number | null;
     rows: PurchaseImportRow[]; warnings: string[];
   };
-  matches: Array<Array<{ id: string; name: string; producer: string; vintage: string; format: string; currency: string; has_photo?: boolean }>>;
+  matches: Array<Array<{ id: string; name: string; producer: string; vintage: string; format: string; currency: string; wine_type?: string; has_photo?: boolean }>>;
 };
 export type PendingPurchase = { id: string; supplier: string; reference: string; expected_delivery: string | null; bottles: number };
 export type PurchasePhotoSuggestion = { id: string; thumbnail_url: string };

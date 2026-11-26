@@ -6,7 +6,7 @@ from app.prompts.library import Prompt, language_instruction
 def purchase_import_prompt(*, locale: str, document_text: str = "") -> Prompt:
     return Prompt(
         id="purchase_import",
-        version="1.3.0",
+        version="1.4.0",
         system=(
             "Extract a wine purchase from the receipt or invoice provided as attached file "
             "or extracted document_text. "
@@ -43,8 +43,16 @@ def purchase_import_prompt(*, locale: str, document_text: str = "") -> Prompt:
             "When the suffix is ambiguous, keep it and warn for human review. "
             "Do not infer a producer from a place or appellation; leave producer empty "
             "unless supported by the document. Never correct wine spelling from memory. "
-            "Do not browse or enrich with external guesses. If unreadable or not a wine "
-            "purchase return rows=[] and explain in warnings. Maximum 60 wine rows; "
+            "wine_type is the wine's colour/style: Red, White, Rose, Sparkling, Sweet, "
+            "Fortified or Other. Use it when the document states it (e.g. rosso, bianco, "
+            "rosé, spumante, Brut) or when the wine name or appellation unambiguously "
+            "implies it (e.g. Barolo or Brunello di Montalcino -> Red, Chablis -> White, "
+            "Champagne or Franciacorta -> Sparkling, Sauternes -> Sweet, Porto -> Fortified). "
+            "If the colour depends on a cuvee you cannot verify (e.g. a Bordeaux, Langhe or "
+            "IGT that may be red or white), leave wine_type empty: the user reviews it. "
+            "Do not browse; apart from wine_type, do not enrich with external guesses. "
+            "If unreadable or not a wine purchase return rows=[] and explain in warnings. "
+            "Maximum 60 wine rows; "
             "if more exist return rows=[] and warn rather than silently truncating."
         ),
         user=(

@@ -4,7 +4,16 @@ from decimal import Decimal
 from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
+
+from app.core.wine_types import CANONICAL_WINE_TYPES, normalize_wine_type
 
 Money = Annotated[Decimal, Field(ge=0, le=99999999, decimal_places=2)]
 Currency = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]
@@ -15,6 +24,15 @@ _BOTTLE_VOLUME = re.compile(
     r"(?P<unit>ml|cl|litres?|liters?|litri|litro|l)(?:\s*\)|\s*\])?(?!\w)",
     re.IGNORECASE,
 )
+
+
+PurchaseWineType = Literal["", "Red", "White", "Rose", "Sparkling", "Sweet", "Fortified", "Other"]
+
+
+def canonical_purchase_wine_type(value: object) -> str:
+    """Keep only canonical colours; anything unrecognised stays for the reviewer to choose."""
+    normalized = normalize_wine_type(value if isinstance(value, str) else "")
+    return normalized if normalized in CANONICAL_WINE_TYPES else ""
 
 
 # Invoices rarely state the bottle size when it is the standard one.
@@ -49,7 +67,14 @@ class ExtractedPurchaseRow(BaseModel):
     quantity: int | None = Field(ge=1, le=10000)
     unit_price: Money | None
     line_total: Money | None
+    # Defaulted so drafts saved before colour extraction still validate.
+    wine_type: PurchaseWineType = ""
     warnings: list[str] = Field(max_length=10)
+
+    @field_validator("wine_type", mode="before")
+    @classmethod
+    def canonical_wine_type(cls, value: object) -> str:
+        return canonical_purchase_wine_type(value)
 
     @model_validator(mode="after")
     def separate_format_from_name(self) -> Self:
@@ -78,6 +103,7 @@ class PurchaseRow(BaseModel):
     format: str = Field(default=DEFAULT_BOTTLE_FORMAT, max_length=80)
     quantity: int = Field(ge=1, le=10000, strict=True)
     unit_price: Money
+    wine_type: PurchaseWineType = ""
     existing_wine_id: UUID | None = None
     photo_library_id: UUID | None = None
 
@@ -88,6 +114,11 @@ class PurchaseRow(BaseModel):
         if not self.name:
             raise ValueError("Wine name must contain more than a bottle format")
         return self
+
+    @field_validator("wine_type", mode="before")
+    @classmethod
+    def canonical_wine_type(cls, value: object) -> str:
+        return canonical_purchase_wine_type(value)
 
 
 class PurchaseConfirmation(BaseModel):
@@ -122,6 +153,7 @@ class PurchaseMatch(BaseModel):
     vintage: str
     format: str
     currency: str
+    wine_type: str = ""
     has_photo: bool = False
 
 

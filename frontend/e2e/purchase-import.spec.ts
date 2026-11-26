@@ -28,8 +28,8 @@ async function openPurchase(page: Page, locale: "it" | "en" = "it", empty = fals
         sessionStorage.setItem("receipt-upload", JSON.stringify({ locale: data.get("locale"), file: (data.get("document") as File).name }));
         return Response.json({ id: "purchase-1", status: received || pending ? "received" : "draft", estimated_cost_usd: access === "included" ? "0" : "0.021", extraction: {
           supplier: "Enoteca delle Colline", reference: "INV-42", order_date: "2026-10-09", currency: "CHF", document_total: "126.00", additional_costs: "0",
-          rows: empty ? [] : [{ name: wine.name, producer: wine.producer, vintage: wine.vintage, format: sessionStorage.getItem("receipt-blank-format") ? "" : "0.75L", quantity: 3, unit_price: "42.00", line_total: "126.00", warnings: ["Verifica il formato della bottiglia."] }], warnings: empty ? ["Nessun vino leggibile"] : [],
-        }, matches: empty ? [] : [[{ id: wine.id, name: wine.name, producer: wine.producer, vintage: wine.vintage, format: wine.format, currency: wine.currency, has_photo: !!sessionStorage.getItem("receipt-existing-photo") }]] });
+          rows: empty ? [] : [{ name: wine.name, producer: wine.producer, vintage: wine.vintage, format: sessionStorage.getItem("receipt-blank-format") ? "" : "0.75L", quantity: 3, unit_price: "42.00", line_total: "126.00", wine_type: sessionStorage.getItem("receipt-no-type") ? "" : "Red", warnings: ["Verifica il formato della bottiglia."] }], warnings: empty ? ["Nessun vino leggibile"] : [],
+        }, matches: empty ? [] : [[{ id: wine.id, name: wine.name, producer: wine.producer, vintage: wine.vintage, format: wine.format, currency: wine.currency, wine_type: "White", has_photo: !!sessionStorage.getItem("receipt-existing-photo") }]] });
       }
       if (url.pathname.endsWith("/confirm")) {
         const payload = JSON.parse(String(init?.body));
@@ -120,6 +120,44 @@ test.describe("receipt on touch screens", () => {
     await page.screenshot({ path: testInfo.outputPath("receipt-review-collapsed-390.png") });
     expect(errors).toEqual([]);
   });
+});
+
+test("purchase review proposes the wine colour, keeps it editable and fits compact screens", async ({ page }, testInfo) => {
+  const dialog = await openPurchase(page, "it");
+  await dialog.locator('input[type="file"]').first().setInputFiles(await receipt(page));
+  await dialog.getByRole("button", { name: "Analizza acquisto", exact: true }).click();
+  const colour = dialog.getByLabel("Colore", { exact: true });
+  await expect(colour).toHaveValue("Red");
+  await expect(colour.locator("option:checked")).toHaveText("Rosso");
+  for (const width of [360, 390, 430]) {
+    await page.setViewportSize({ width, height: width === 360 ? 800 : width === 430 ? 932 : 844 });
+    await colour.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+    const field = (await colour.boundingBox())!;
+    const row = (await dialog.locator(".purchase-import-row").first().boundingBox())!;
+    expect(field.x).toBeGreaterThanOrEqual(row.x);
+    expect(field.x + field.width).toBeLessThanOrEqual(row.x + row.width);
+    expect(field.height).toBeGreaterThanOrEqual(44);
+    await page.screenshot({ path: testInfo.outputPath(`purchase-colour-${width}.png`) });
+  }
+  await colour.selectOption("Sparkling");
+  // Choosing an existing record adopts the colour it already has.
+  await dialog.getByLabel("Scheda in cantina", { exact: true }).selectOption(wine.id);
+  await expect(colour).toHaveValue("White");
+  await colour.selectOption("Rose");
+  await dialog.getByLabel("Ho verificato vini, annate, bottiglie, prezzi e stato della consegna.").check();
+  await dialog.getByRole("button", { name: "Conferma acquisto in cantina", exact: true }).click();
+  await expect(dialog.getByText("Acquisto aggiunto alla cantina", { exact: true })).toBeVisible();
+  const calls = await page.evaluate(() => JSON.parse(sessionStorage.getItem("receipt-confirmations") || "[]"));
+  expect(calls[0].rows[0].wine_type).toBe("Rose");
+});
+
+test("purchase review leaves an unknown colour blank for the reviewer", async ({ page }) => {
+  const dialog = await openPurchase(page, "en");
+  await page.evaluate(() => sessionStorage.setItem("receipt-no-type", "true"));
+  await dialog.locator('input[type="file"]').first().setInputFiles(await receipt(page));
+  await dialog.getByRole("button", { name: "Analyze purchase", exact: true }).click();
+  await expect(dialog.getByLabel("Colour", { exact: true })).toHaveValue("");
 });
 
 for (const locale of ["it", "en"] as const) {

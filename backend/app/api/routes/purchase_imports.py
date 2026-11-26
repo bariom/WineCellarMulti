@@ -23,6 +23,7 @@ from app.schemas.purchase_import import (
     PurchasePhotoSuggestion,
     PurchasePreview,
     PurchaseResult,
+    canonical_purchase_wine_type,
 )
 from app.services.ai_credits import ai_credit_balance
 from app.services.free_tier import is_free_tier
@@ -32,6 +33,7 @@ from app.services.purchase_import import (
     MAX_DOCUMENT_BYTES,
     apply_purchase,
     fill_purchase_producers_from_catalog,
+    fill_purchase_types_from_catalog,
     purchase_document,
     purchase_photo_suggestions,
     scoped_purchase,
@@ -56,6 +58,10 @@ def extraction_schema() -> dict:
                         value for value in child["anyOf"] if value.get("type") == "number"
                     )
                     child["anyOf"] = [number, {"type": "null"}]
+            # Defaults keep old drafts valid; strict provider schemas require every field.
+            for child in node.get("properties", {}).values():
+                if isinstance(child, dict):
+                    child.pop("default", None)
             if node.get("type") == "object":
                 node["additionalProperties"] = False
                 node["required"] = list(node.get("properties", {}))
@@ -75,10 +81,21 @@ def preview(
     extraction = PurchaseExtraction.model_validate(record.draft)
     separate_purchase_origins_from_catalog(db, extraction, locale=locale)
     fill_purchase_producers_from_catalog(db, extraction)
+    fill_purchase_types_from_catalog(db, extraction)
     wines = list(db.scalars(select(Wine).where(Wine.household_id == context.household.id)))
 
     def key(value):
         return " ".join(value.casefold().split())
+
+    # A colour already recorded for the same wine in this cellar beats the AI proposal.
+    for row in extraction.rows:
+        types = {
+            canonical_purchase_wine_type(w.type)
+            for w in wines
+            if key(w.name) == key(row.name) and key(w.producer) == key(row.producer)
+        } - {""}
+        if len(types) == 1:
+            row.wine_type = types.pop()  # type: ignore[assignment]
 
     matches = [
         [
@@ -89,6 +106,7 @@ def preview(
                 vintage=w.vintage,
                 format=w.format,
                 currency=w.currency,
+                wine_type=canonical_purchase_wine_type(w.type),
                 has_photo=bool(w.photo_version),
             )
             for w in wines
